@@ -1,8 +1,8 @@
 /**
  * StratCol Onboarding Control Tower Workflow — SOP-Aligned (6-Stage)
  *
- * Stage 1: Quote & Review       — Account Manager data entry → ITC → AI quote → Manager decision loop
- * Stage 2: Mandate Collection    — Signed quote → Facility app → Mandate collection (7-day retry, max 8)
+ * Stage 1: Lead Capture & ITC    — Account Manager data entry → ITC check
+ * Stage 2: Facility & Quote       — Facility app → mandate mapping → AI quote → Manager review → signed quote → Mandate collection (7-day retry, max 8)
  * Stage 3: Procurement & AI     — Parallel: Procurement risk + AI multi-agent analysis + Reporter Agent
  * Stage 4: Risk Review           — Risk Manager final review (no auto-approve bypass)
  * Stage 5: Contract              — Account Manager review/edit AI contract → Send contract + ABSA form
@@ -116,8 +116,8 @@ export const controlTowerWorkflow = inngest.createFunction(
 		);
 
 		// ================================================================
-		// STAGE 1: Quote & Review
-		// Account Manager data entry → ITC check → AI Quote → Manager decision loop
+		// STAGE 1: Lead Capture & ITC
+		// Account Manager data entry → ITC check
 		// ================================================================
 
 		await step.run("stage-1-start", () =>
@@ -154,106 +154,10 @@ export const controlTowerWorkflow = inngest.createFunction(
 			return itcResult;
 		});
 
-		// Step 1.2: AI Generate Quotation
-		const quotationResult = await step.run("ai-generate-quote", async () => {
-			await guardKillSwitch(workflowId, "ai-generate-quote");
-
-			const result = await generateQuote(applicantId, workflowId);
-
-			if (!(result.success && result.quote)) {
-				await createWorkflowNotification({
-					workflowId,
-					applicantId,
-					type: "error",
-					title: "Quote Generation Failed",
-					message: result.error || "Failed to generate quotation",
-					actionable: true,
-				});
-				return {
-					success: false as const,
-					quote: null as Quote | null,
-					error: result.error,
-					isOverlimit: false,
-				};
-			}
-
-			const isOverlimit = result.quote.amount > OVERLIMIT_THRESHOLD;
-
-			await logWorkflowEvent({
-				workflowId,
-				eventType: "quote_generated",
-				payload: {
-					quoteId: result.quote.quoteId,
-					amount: result.quote.amount,
-					isOverlimit,
-				},
-			});
-
-			return {
-				success: true as const,
-				quote: result.quote,
-				isOverlimit,
-				error: null as string | null,
-			};
-		});
-
-		if (!quotationResult.success) {
-			return {
-				status: "failed",
-				stage: 1,
-				reason: quotationResult.error || "Quote generation failed",
-			};
-		}
-
-		const { quote, isOverlimit } = quotationResult;
-
-		// Step 1.3: Manager Quote Review (decision loop)
-		await step.run("notify-manager-quote", async () => {
-			const title = isOverlimit
-				? "OVERLIMIT: Quote Requires Special Approval"
-				: "Quote Ready for Approval";
-
-			await createWorkflowNotification({
-				workflowId,
-				applicantId,
-				type: isOverlimit ? "warning" : "awaiting",
-				title,
-				message: `Quote for R${((quote?.amount || 0) / 100).toFixed(2)} ready for review. You can adjust, request updates, or approve.`,
-				actionable: true,
-			});
-
-			await sendInternalAlertEmail({
-				title,
-				message: `Quote generated for review. Amount: R${((quote?.amount || 0) / 100).toFixed(2)}`,
-				workflowId,
-				applicantId,
-				type: isOverlimit ? "warning" : "info",
-				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}?tab=reviews`,
-			});
-		});
-
-		await step.run("stage-1-awaiting-approval", () =>
-			updateWorkflowStatus(workflowId, "awaiting_human", 1)
-		);
-
-		// Wait for manager approval (they can also request-update or adjust before approving)
-		const quoteApproval = await step.waitForEvent("wait-quote-approval", {
-			event: "quote/approved",
-			timeout: WORKFLOW_TIMEOUT,
-			match: "data.workflowId",
-		});
-
-		if (!quoteApproval) {
-			await step.run("quote-timeout", () =>
-				updateWorkflowStatus(workflowId, "timeout", 1)
-			);
-			return { status: "timeout", stage: 1, reason: "Quote approval timeout" };
-		}
-
 		// ================================================================
-		// STAGE 2: Mandate Collection
-		// Send quote for signing → Wait for signed quote → Send facility app
-		// → Mandate collection with 7-day retry loop (max 8)
+		// STAGE 2: Facility & Quote
+		// Send facility application → Determine mandate → AI quote → Manager review
+		// → Send quote for signing → Mandate collection with 7-day retry loop (max 8)
 		// ================================================================
 
 		await step.run("stage-2-start", async () => {
@@ -261,49 +165,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 			return updateWorkflowStatus(workflowId, "processing", 2);
 		});
 
-		// Step 2.1: Send quote for client signature
-		await step.run("send-quote-to-applicant", async () => {
-			await guardKillSwitch(workflowId, "send-quote-to-applicant");
-
-			const db = getDatabaseClient();
-			if (!db) throw new Error("Database connection failed");
-
-			const [applicant] = await db
-				.select()
-				.from(applicants)
-				.where(eq(applicants.id, applicantId));
-
-			if (!applicant) throw new Error(`Applicant ${applicantId} not found`);
-
-			const { token } = await createFormInstance({
-				applicantId,
-				workflowId,
-				formType: "SIGNED_QUOTATION" as FormType,
-			});
-
-			await sendApplicantFormLinksEmail({
-				email: applicant.email,
-				contactName: applicant.contactName,
-				links: [{ formType: "SIGNED_QUOTATION", url: `${getBaseUrl()}/forms/${token}` }],
-			});
-		});
-
-		await step.run("stage-2-awaiting-signature", () =>
-			updateWorkflowStatus(workflowId, "awaiting_human", 2)
-		);
-
-		// Wait for quote signature
-		const quoteSigned = await step.waitForEvent("wait-quote-signed", {
-			event: "quote/signed",
-			timeout: WORKFLOW_TIMEOUT,
-			match: "data.workflowId",
-		});
-
-		if (!quoteSigned) {
-			return { status: "timeout", stage: 2, reason: "Quote signature timeout" };
-		}
-
-		// Step 2.2: Send Facility Application (after signed quote — SOP requirement)
+		// Step 2.1: Send Facility Application
 		await step.run("send-facility-application", async () => {
 			await guardKillSwitch(workflowId, "send-facility-application");
 
@@ -341,6 +203,10 @@ export const controlTowerWorkflow = inngest.createFunction(
 			});
 		});
 
+		await step.run("stage-2-awaiting-facility-application", () =>
+			updateWorkflowStatus(workflowId, "awaiting_human", 2)
+		);
+
 		// Wait for facility application submission
 		const facilitySubmission = await step.waitForEvent("wait-facility-app", {
 			event: "form/facility.submitted",
@@ -352,7 +218,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 			return { status: "timeout", stage: 2, reason: "Facility application timeout" };
 		}
 
-		// Step 2.3: Determine mandate type and required documents
+		// Step 2.2: Determine mandate type and required documents
 		const mandateInfo = await step.run("determine-mandate", async () => {
 			await guardKillSwitch(workflowId, "determine-mandate");
 
@@ -414,7 +280,145 @@ export const controlTowerWorkflow = inngest.createFunction(
 			};
 		});
 
-		// Step 2.4: Request commercial mandate documents with 7-day retry loop (max 8)
+		// Step 2.3: AI Generate Quotation (after facility application)
+		const quotationResult = await step.run("ai-generate-quote", async () => {
+			await guardKillSwitch(workflowId, "ai-generate-quote");
+
+			const result = await generateQuote(applicantId, workflowId);
+
+			if (!(result.success && result.quote)) {
+				await createWorkflowNotification({
+					workflowId,
+					applicantId,
+					type: "error",
+					title: "Quote Generation Failed",
+					message: result.error || "Failed to generate quotation",
+					actionable: true,
+				});
+				return {
+					success: false as const,
+					quote: null as Quote | null,
+					error: result.error,
+					isOverlimit: false,
+				};
+			}
+
+			const isOverlimit = result.quote.amount > OVERLIMIT_THRESHOLD;
+
+			await logWorkflowEvent({
+				workflowId,
+				eventType: "quote_generated",
+				payload: {
+					quoteId: result.quote.quoteId,
+					amount: result.quote.amount,
+					isOverlimit,
+				},
+			});
+
+			return {
+				success: true as const,
+				quote: result.quote,
+				isOverlimit,
+				error: null as string | null,
+			};
+		});
+
+		if (!quotationResult.success) {
+			return {
+				status: "failed",
+				stage: 2,
+				reason: quotationResult.error || "Quote generation failed",
+			};
+		}
+
+		const { quote, isOverlimit } = quotationResult;
+
+		// Step 2.4: Manager Quote Review (decision loop)
+		await step.run("notify-manager-quote", async () => {
+			const title = isOverlimit
+				? "OVERLIMIT: Quote Requires Special Approval"
+				: "Quote Ready for Approval";
+
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: isOverlimit ? "warning" : "awaiting",
+				title,
+				message: `Quote for R${((quote?.amount || 0) / 100).toFixed(2)} ready for review. You can adjust, request updates, or approve.`,
+				actionable: true,
+			});
+
+			await sendInternalAlertEmail({
+				title,
+				message: `Quote generated for review. Amount: R${((quote?.amount || 0) / 100).toFixed(2)}`,
+				workflowId,
+				applicantId,
+				type: isOverlimit ? "warning" : "info",
+				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}?tab=reviews`,
+			});
+		});
+
+		await step.run("stage-2-awaiting-quote-approval", () =>
+			updateWorkflowStatus(workflowId, "awaiting_human", 2)
+		);
+
+		// Wait for manager approval (they can also request-update or adjust before approving)
+		const quoteApproval = await step.waitForEvent("wait-quote-approval", {
+			event: "quote/approved",
+			timeout: WORKFLOW_TIMEOUT,
+			match: "data.workflowId",
+		});
+
+		if (!quoteApproval) {
+			await step.run("quote-timeout", () =>
+				updateWorkflowStatus(workflowId, "timeout", 2)
+			);
+			return { status: "timeout", stage: 2, reason: "Quote approval timeout" };
+		}
+
+		// Step 2.5: Send quote for client signature
+		await step.run("send-quote-to-applicant", async () => {
+			await guardKillSwitch(workflowId, "send-quote-to-applicant");
+
+			const db = getDatabaseClient();
+			if (!db) throw new Error("Database connection failed");
+
+			const [applicant] = await db
+				.select()
+				.from(applicants)
+				.where(eq(applicants.id, applicantId));
+
+			if (!applicant) throw new Error(`Applicant ${applicantId} not found`);
+
+			const { token } = await createFormInstance({
+				applicantId,
+				workflowId,
+				formType: "SIGNED_QUOTATION" as FormType,
+			});
+
+			await sendApplicantFormLinksEmail({
+				email: applicant.email,
+				contactName: applicant.contactName,
+				links: [{ formType: "SIGNED_QUOTATION", url: `${getBaseUrl()}/forms/${token}` }],
+			});
+		});
+
+		await step.run("stage-2-awaiting-quote-signature", () =>
+			updateWorkflowStatus(workflowId, "awaiting_human", 2)
+		);
+
+		// Wait for quote signature
+		const quoteSigned = await step.waitForEvent("wait-quote-signed", {
+			event: "quote/signed",
+			timeout: WORKFLOW_TIMEOUT,
+			match: "data.workflowId",
+		});
+
+		if (!quoteSigned) {
+			return { status: "timeout", stage: 2, reason: "Quote signature timeout" };
+		}
+
+		// Step 2.6: Request commercial mandate documents with 7-day retry loop (max 8)
 		await step.run("send-mandate-request", async () => {
 			await guardKillSwitch(workflowId, "send-mandate-request");
 

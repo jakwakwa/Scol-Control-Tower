@@ -2,8 +2,8 @@
  * SOP Workflow E2E Tests
  *
  * Tests the SOP-aligned 6-stage onboarding flow:
- * Stage 1: Quote & Review
- * Stage 2: Mandate Collection
+ * Stage 1: Lead Capture
+ * Stage 2: Facility & Quote
  * Stage 3: Procurement & AI
  * Stage 4: Risk Review
  * Stage 5: Contract
@@ -12,7 +12,7 @@
  * These tests use the dashboard UI and API mocks where external integrations
  * are stubbed (ProcureCheck is sandbox, Risk/Sanctions agents are mock).
  */
-import { test, expect } from "../../fixtures";
+import { expect, test } from "../../fixtures";
 import { DashboardPage } from "../../pages/dashboard.page";
 
 test.describe("SOP Workflow — Stage Names & UI", () => {
@@ -22,8 +22,8 @@ test.describe("SOP Workflow — Stage Names & UI", () => {
 
 		// Verify SOP-aligned stage names in the pipeline view
 		const pipelineContent = await authenticatedPage.textContent("body");
-		expect(pipelineContent).toContain("Quote & Review");
-		expect(pipelineContent).toContain("Mandate Collection");
+		expect(pipelineContent).toContain("Lead Capture");
+		expect(pipelineContent).toContain("Facility & Quote");
 		expect(pipelineContent).toContain("Procurement & AI");
 		expect(pipelineContent).toContain("Risk Review");
 		expect(pipelineContent).toContain("Contract");
@@ -37,8 +37,8 @@ test.describe("SOP Workflow — Stage Names & UI", () => {
 		const bodyText = await authenticatedPage.textContent("body");
 		// At least one SOP stage name should be present in the UI
 		const hasStageNames =
-			bodyText?.includes("Quote & Review") ||
-			bodyText?.includes("Mandate Collection") ||
+			bodyText?.includes("Lead Capture") ||
+			bodyText?.includes("Facility & Quote") ||
 			bodyText?.includes("Procurement & AI") ||
 			bodyText?.includes("Risk Review") ||
 			bodyText?.includes("Final Approval");
@@ -46,7 +46,7 @@ test.describe("SOP Workflow — Stage Names & UI", () => {
 	});
 });
 
-test.describe("SOP Workflow — Stage 1: Quote & Review", () => {
+test.describe("SOP Workflow — Stage 1: Lead Capture", () => {
 	test("can navigate to new applicant form", async ({ authenticatedPage }) => {
 		await authenticatedPage.goto("/dashboard/applicants/new");
 		await expect(authenticatedPage).toHaveURL(/.*applicants\/new/);
@@ -56,14 +56,18 @@ test.describe("SOP Workflow — Stage 1: Quote & Review", () => {
 		await expect(companyNameField).toBeVisible();
 	});
 
-	test("applicant detail page has Reviews tab for quote", async ({ authenticatedPage }) => {
+	test("applicant detail page has Reviews tab for quote", async ({
+		authenticatedPage,
+	}) => {
 		// Navigate to an applicant if one exists
 		await authenticatedPage.goto("/dashboard/applicants");
 
 		// Match only numeric applicant links, excluding /new or other sub-paths
-		const applicantLinks = authenticatedPage.locator('a[href^="/dashboard/applicants/"]').filter({
-			hasNotText: /new/i,
-		});
+		const applicantLinks = authenticatedPage
+			.locator('a[href^="/dashboard/applicants/"]')
+			.filter({
+				hasNotText: /new/i,
+			});
 		const count = await applicantLinks.count();
 
 		if (count > 0) {
@@ -128,7 +132,9 @@ test.describe("SOP Workflow — API Endpoints", () => {
 		}
 	});
 
-	test("onboarding approve GET returns approval status", async ({ authenticatedPage }) => {
+	test("onboarding approve GET returns approval status", async ({
+		authenticatedPage,
+	}) => {
 		// First get a workflow to test with
 		const workflowsResponse = await authenticatedPage.request.get("/api/workflows");
 
@@ -170,13 +176,17 @@ test.describe("SOP Workflow — API Endpoints", () => {
 });
 
 test.describe("SOP Workflow — Stage 6: Two-Factor Final Approval UI", () => {
-	test("applicant detail page has stage 6 related content", async ({ authenticatedPage }) => {
+	test("applicant detail page has stage 6 related content", async ({
+		authenticatedPage,
+	}) => {
 		await authenticatedPage.goto("/dashboard/applicants");
 
 		// Match only numeric applicant links, excluding /new or other sub-paths
-		const applicantLinks = authenticatedPage.locator('a[href^="/dashboard/applicants/"]').filter({
-			hasNotText: /new/i,
-		});
+		const applicantLinks = authenticatedPage
+			.locator('a[href^="/dashboard/applicants/"]')
+			.filter({
+				hasNotText: /new/i,
+			});
 		const count = await applicantLinks.count();
 
 		if (count > 0) {

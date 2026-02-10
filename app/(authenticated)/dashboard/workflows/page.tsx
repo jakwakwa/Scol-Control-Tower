@@ -1,27 +1,29 @@
-import Link from "next/link";
 import {
-	RiFlowChart,
-	RiFilterLine,
 	RiDownloadLine,
+	RiFilterLine,
+	RiFlowChart,
 	RiUserAddLine,
 } from "@remixicon/react";
+import { desc, eq } from "drizzle-orm";
+import Link from "next/link";
+import { getDatabaseClient } from "@/app/utils";
 import {
+	DashboardGrid,
 	DashboardLayout,
 	DashboardSection,
-	DashboardGrid,
+	STAGE_NAMES,
 	StatsCard,
 	WorkflowTable,
 } from "@/components/dashboard";
+import type { WorkflowRow } from "@/components/dashboard/workflow-table";
 import { Button } from "@/components/ui/button";
-import { getDatabaseClient } from "@/app/utils";
-import { workflows, applicants, quotes } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { applicants, quotes, workflows } from "@/db/schema";
 // Type import needed for WorkflowTable props
 // ensuring we match the expected shape
 
 export default async function WorkflowsPage() {
 	const db = getDatabaseClient();
-	let allWorkflows: any[] = [];
+	let allWorkflows: WorkflowRow[] = [];
 	/** V2 Workflow 6-Stage Stats */
 	let stageStats = {
 		entry_quote: 0,
@@ -40,9 +42,11 @@ export default async function WorkflowsPage() {
 					id: workflows.id,
 					applicantId: workflows.applicantId,
 					stage: workflows.stage,
+					stageName: workflows.stageName,
 					status: workflows.status,
 					startedAt: workflows.startedAt,
 					metadata: workflows.metadata,
+					currentAgent: workflows.currentAgent,
 					clientName: applicants.companyName,
 				})
 				.from(workflows)
@@ -60,6 +64,7 @@ export default async function WorkflowsPage() {
 
 			allWorkflows = workflowRows.map(w => ({
 				...w,
+				stageName: w.stageName || STAGE_NAMES[w.stage] || "Unknown",
 				// Parse metadata if it exists, otherwise use empty object
 				payload: w.metadata ? JSON.parse(w.metadata) : {},
 				hasQuote: quotesByWorkflow.has(w.id),
@@ -104,25 +109,25 @@ export default async function WorkflowsPage() {
 			{/* Stage distribution - V2 6-stage workflow */}
 			<DashboardGrid columns={6} className="mb-8">
 				<StatsCard
-					title="Entry & Quote"
+					title="Lead Capture"
 					value={stageStats.entry_quote}
 					icon={RiFlowChart}
 					iconColor="blue"
 				/>
 				<StatsCard
-					title="Quote Signing"
+					title="Facility & Quote"
 					value={stageStats.quote_signing}
 					icon={RiFlowChart}
 					iconColor="blue"
 				/>
 				<StatsCard
-					title="Mandate"
+					title="Procurement & AI"
 					value={stageStats.mandate_processing}
 					icon={RiFlowChart}
 					iconColor="purple"
 				/>
 				<StatsCard
-					title="AI Analysis"
+					title="Risk Review"
 					value={stageStats.ai_analysis}
 					icon={RiFlowChart}
 					iconColor="amber"
@@ -134,7 +139,7 @@ export default async function WorkflowsPage() {
 					iconColor="red"
 				/>
 				<StatsCard
-					title="Completion"
+					title="Final Approval"
 					value={stageStats.completion}
 					icon={RiFlowChart}
 					iconColor="green"
