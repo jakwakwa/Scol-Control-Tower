@@ -32,7 +32,7 @@
 	"terminal.integrated.fontFamily": "\"MesloLGS NF\", Meslo, mono",
 	"workbench.preferredHighContrastColorTheme": "Vira Ocean High Contrast",
 	"viraTheme.contrastedTabs": true,
-	"workbench.preferredDarkColorTheme": "Shades of Purple",
+	"workbench.preferredDarkColorTheme": "Bearded Theme Black & Gold Soft",
 	"workbench.colorTheme": "Vira Carbon High Contrast",
 	"workbench.preferredLightColorTheme": "Vira Palenight High Contrast",
 	"workbench.preferredHighContrastLightColorTheme": "Vira Palenight High Contrast",
@@ -90,5 +90,6 @@
 	"terminal.integrated.suggest.cdPath": "relative",
 	"terminal.integrated.tabs.defaultColor": "terminal.ansiGreen",
 	"terminal.integrated.tabStopWidth": 2,
-	"terminal.integrated.drawBoldTextInBrightColors": true
+	"terminal.integrated.drawBoldTextInBrightColors": true,
+	"viraTheme.accent": "Acid Lime"
 }
