@@ -1,6 +1,9 @@
 ---
-title: "Testing & CI/CD"
-description: "How to run E2E tests and configure CI/CD for StratCol Control Tower"
+title: "E2E Testing Guide"
+description: "Set up and run end-to-end tests with Playwright for the Control Tower."
+icon: "mask"
+mode: "wide"
+sidebarTitle: "E2E Testing"
 ---
 
 ## E2E Testing with Playwright
@@ -39,8 +42,39 @@ bun run test:e2e --project="dashboard tests"
 
 Run in UI mode for debugging:
 
-```bash
-bun run test:e2e:ui
+### Test Environment
+
+The `.env.test` file configures the test environment:
+
+- **DATABASE_URL**: Local SQLite file for isolated tests
+- **E2E_TEST_MODE**: Enables auth bypass
+- **CLERK_BYPASS_AUTH**: Skips real Clerk authentication
+
+### Playwright Config
+
+Key settings in `playwright.config.ts`:
+
+| Setting     | Value                   |
+| ----------- | ----------------------- |
+| Base URL    | `http://localhost:3000` |
+| Browser     | Chromium (default)      |
+| Retries     | 2 on CI, 0 locally      |
+| Screenshots | On failure              |
+| Traces      | On first retry          |
+
+## Writing Tests
+
+### Using Fixtures
+
+```typescript
+import { test, expect } from "../../fixtures";
+import { DashboardPage } from "../../pages/dashboard.page";
+
+test("should load dashboard", async ({ authenticatedPage }) => {
+  const dashboardPage = new DashboardPage(authenticatedPage);
+  await dashboardPage.goto();
+  await expect(authenticatedPage).toHaveURL(/.*dashboard/);
+});
 ```
 
 ### Authentication Logic
@@ -64,6 +98,23 @@ To make the tests work in CI, you **must** configure the following secrets in yo
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Your Clerk Publishable Key |
 | `E2E_CLERK_USER_USERNAME` | The email of the Clerk test user |
 | `E2E_CLERK_USER_PASSWORD` | The password of the Clerk test user |
+<Steps>
+  <Step title="Reset the test database">
+    ```bash
+    bun run test:db:reset
+    ```
+  </Step>
+  <Step title="Run tests in UI mode">
+    ```bash
+    bun run test:e2e:ui
+    ```
+
+    This opens an interactive interface where you can select and debug tests.
+  </Step>
+  <Step title="View test report">
+    After running tests, open `playwright-report/index.html` for detailed results.
+  </Step>
+</Steps>
 
 ### Workflow Configuration
 
@@ -74,3 +125,23 @@ The workflow is defined in `.github/workflows/e2e-tests.yml`. It:
 3.  Installs Playwright browsers.
 4.  Resets the test database.
 5.  Runs `bun run test:e2e` with the secrets injected as environment variables.
+| Suite                          | Description                         |
+| ------------------------------ | ----------------------------------- |
+| `auth/login.spec.ts`           | Protected routes, public access     |
+| `dashboard/navigation.spec.ts` | Dashboard load, sidebar, navigation |
+
+## Troubleshooting
+
+### Tests fail with auth errors
+
+Ensure `.env.test` has `E2E_TEST_MODE=true` and the middleware bypass is configured.
+
+### Database state issues
+
+Run `bun run test:db:reset` to get a fresh database with seed data.
+
+### Browser not installed
+
+```bash
+bunx playwright install chromium
+```
