@@ -1,11 +1,11 @@
 ---
 title: "Quote generation"
-description: "How AI quotes are generated, reviewed, and signed in onboarding."
+description: "How AI quotes are generated, reviewed, and approved or declined during onboarding."
 ---
 
 ## Overview
 
-Quotes are generated automatically by Gemini AI when an applicant reaches Stage 2 of the onboarding workflow. The quote is stored as a draft and requires staff approval before the client can sign it. Once the client signs, the workflow continues to contract signing.
+Quotes are generated automatically by Gemini AI when an applicant reaches Stage 2 of the onboarding workflow. The quote is stored as a draft and requires staff approval before the client can respond. The client can then **approve or decline** the quote, and the workflow continues or terminates accordingly.
 
 ## Staff workflow
 
@@ -22,13 +22,26 @@ What happens next:
 
 - Quote status becomes `pending_approval`.
 - The client receives a **Signed Quotation** form link by email.
-- The workflow pauses in Stage 2 waiting for client signature.
+- The workflow pauses in Stage 2 waiting for the client's response.
 
 ## Client workflow
 
 1. Client opens the **Signed Quotation** form link.
-2. Client submits the required acceptance fields and signature.
-3. Quote status becomes `approved` and the workflow advances.
+2. Client reviews the quotation summary (amount, base fee, adjusted fee, rationale).
+3. Client completes the required acceptance fields.
+4. Client chooses to **Approve** or **Decline** the quotation.
+
+### Approve
+
+- Quote status becomes `approved`.
+- The workflow advances to the next step.
+
+### Decline
+
+- The client must provide a reason for declining.
+- The decline is recorded in `applicantDecisionOutcome` and `applicantDeclineReason` on the workflow.
+- The applicant receives a confirmation email.
+- The workflow terminates with status "Applicant declined quotation".
 
 ## Quote fields and units
 
@@ -41,8 +54,8 @@ What happens next:
 ## Status lifecycle
 
 - `draft` → AI generated, waiting for staff review.
-- `pending_approval` → staff approved, waiting for client signature.
-- `approved` → client signed, workflow continues.
+- `pending_approval` → staff approved, waiting for client response.
+- `approved` → client approved the quote, workflow continues.
 - `rejected` → reserved for manual rejection flows.
 
 ## Workflow pause and timeouts
@@ -50,15 +63,31 @@ What happens next:
 Stage 2 waits for two events:
 
 1. Staff approval (`quote/approved`)
-2. Client signature (`quote/signed`)
+2. Client response (`quote/responded`)
 
 Each wait has a 30-day timeout. If a timeout occurs, the workflow status is set to `timeout` and a notification is created.
+
+## Sales evaluation gate
+
+Before a quote is generated, the system runs an automated **sales evaluation** on the facility application data. If issues are detected, the workflow pauses for pre-risk approval before quote generation proceeds. See [Workflows → Sales evaluation](/user-guides/workflows#sales-evaluation-stage-2) for details.
+
+## Quotation summary on the form
+
+When a client opens the Signed Quotation form, they see a summary card with:
+
+- **Amount** in Rands
+- **Base fee** as a percentage
+- **Adjusted fee** as a percentage (if applicable)
+- **Rationale** from the AI
+
+This summary is fetched from `GET /api/forms/[token]/quote`.
 
 ## Notifications and email delivery
 
 - Staff see workflow notifications when a quote is ready for review.
 - Client receives the form links via email when the quote is approved.
 - If `RESEND_API_KEY` is not configured, links are logged to the server console.
+- Decline notifications are sent via `sendApplicantStatusEmail`.
 
 ## AI configuration and fallback
 
@@ -71,3 +100,4 @@ Each wait has a 30-day timeout. If a timeout occurs, the workflow status is set 
 - **No Review Quote action**: The applicant is not in Stage 2 or no quote exists.
 - **No quote generated**: Verify the workflow is running and AI config is set.
 - **Client did not receive email**: Configure `RESEND_API_KEY` or use server logs for links.
+- **Quote shows as pending after client response**: Check the `quote/responded` event was emitted and the decision was recorded.

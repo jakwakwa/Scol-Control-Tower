@@ -114,6 +114,18 @@ export type Events = {
 		};
 	};
 
+	/** Applicant explicitly responded to quote (approve/decline) */
+	"quote/responded": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			quoteId: number;
+			decision: "APPROVED" | "DECLINED";
+			reason?: string;
+			respondedAt: string;
+		};
+	};
+
 	/** Applicant feedback received on quote */
 	"quote/feedback.received": {
 		data: {
@@ -201,6 +213,37 @@ export type Events = {
 				annualTurnover?: number;
 			};
 			submittedAt: string;
+		};
+	};
+
+	/** Sales evaluation started after facility application submission */
+	"sales/evaluation.started": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			startedAt: string;
+		};
+	};
+
+	/** Sales evaluation found issues requiring pre-risk path */
+	"sales/evaluation.issues_found": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			issues: string[];
+			flaggedBy: "account_manager" | "ai" | "system";
+			requiresPreRiskEvaluation: boolean;
+			detectedAt: string;
+		};
+	};
+
+	/** Sales evaluation approved and ready to continue */
+	"sales/evaluation.approved": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			approvedBy: string;
+			approvedAt: string;
 		};
 	};
 
@@ -307,6 +350,35 @@ export type Events = {
 				decidedBy: string; // Risk Manager email/ID
 				reason?: string;
 				conditions?: string[];
+				timestamp: string;
+			};
+		};
+	};
+
+	/** Pre-risk approval decision before quote is sent */
+	"risk/pre-approval.decided": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			decision: {
+				outcome: "APPROVED" | "REJECTED";
+				decidedBy: string;
+				reason?: string;
+				requiresPreRiskEvaluation?: boolean;
+				timestamp: string;
+			};
+		};
+	};
+
+	/** Optional pre-risk evaluation decision */
+	"risk/pre-evaluation.decided": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			decision: {
+				outcome: "APPROVED" | "REJECTED";
+				decidedBy: string;
+				reason?: string;
 				timestamp: string;
 			};
 		};
@@ -835,6 +907,18 @@ export type Events = {
 		};
 	};
 
+	/** Generic applicant decision response on a decision-enabled form */
+	"form/decision.responded": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			formType: "SIGNED_QUOTATION" | "STRATCOL_CONTRACT" | "CALL_CENTRE_APPLICATION";
+			decision: "APPROVED" | "DECLINED";
+			reason?: string;
+			respondedAt: string;
+		};
+	};
+
 	/** Procurement docs completeness verified */
 	"procurement/docs.complete": {
 		data: {
@@ -842,6 +926,25 @@ export type Events = {
 			applicantId: number;
 			documentsVerified: string[];
 			completedAt: string;
+		};
+	};
+
+	// ================================================================
+	// AI Feedback & Retraining Events
+	// ================================================================
+
+	/** Human decision diverged from AI recommendation — signal for retraining */
+	"ai/feedback.divergence_detected": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			feedbackLogId: number;
+			divergenceType: "false_positive" | "false_negative" | "severity_mismatch";
+			divergenceWeight: number;
+			overrideCategory: string;
+			overrideSubcategory?: string;
+			aiOutcome: string;
+			humanOutcome: string;
 		};
 	};
 };

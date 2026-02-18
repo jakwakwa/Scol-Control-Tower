@@ -83,6 +83,50 @@ Required categories:
 - **Professional**: accounting officer letter
 - **Industry**: applicable licences or regulatory certificates
 
+## Decision-enabled forms
+
+Some forms support an **approve/decline** decision after submission. These forms let the applicant (or client) explicitly accept or reject a step in the onboarding workflow.
+
+### Which forms support decisions
+
+| Form type | Decision labels |
+| :--- | :--- |
+| Signed Quotation | Approve quotation / Decline quotation |
+| StratCol Contract | Approve contract / Decline contract |
+| Call Centre Application | Approve call centre application / Decline call centre application |
+
+### How it works
+
+1. The applicant completes and submits the form fields.
+2. After submission, **Approve** and **Decline** buttons appear.
+3. Declining requires a reason (free text).
+4. The decision is recorded via `POST /api/forms/[token]/decision`.
+5. Once responded, the form shows a confirmation message and cannot be changed.
+
+### Already-submitted forms
+
+If a form was previously submitted but no decision was recorded, the applicant sees the approve/decline buttons without the form fields. This handles the case where the form data was submitted in one session and the decision is made in another.
+
+### Status tracking
+
+Form instances track decision status with these fields:
+
+- **decisionStatus**: `pending` or `responded`
+- **decisionOutcome**: `approved` or `declined`
+- **decisionReason**: free text (populated on decline)
+- **decisionAt**: timestamp of the response
+
+### Workflow impact
+
+When a client declines a decision-enabled form:
+
+- The workflow receives a termination event.
+- The applicant receives a confirmation email.
+- The decline reason is stored on the workflow record.
+- The workflow terminates with the appropriate reason.
+
+See [Workflows → Applicant approve/decline flow](/user-guides/workflows#applicant-approvedecline-flow) for how decisions affect workflow progression.
+
 ## Signature capture
 
 When a signature is required:

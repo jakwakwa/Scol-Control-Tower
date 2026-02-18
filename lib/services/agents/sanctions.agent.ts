@@ -1,5 +1,5 @@
 /**
- * Sanctions Agent - Mock Implementation (Phase 1)
+ * Sanctions Agent
  *
  * This agent performs sanctions and compliance checking including:
  * - UN Sanctions list checking
@@ -7,11 +7,71 @@
  * - Adverse media scanning
  * - Regulatory watch list verification
  *
- * NOTE: This is a mock implementation for Phase 1.
- * Real implementation will integrate with actual sanctions databases.
+ * Integration: OpenSanctions yente (self-hosted) with mock fallback.
+ * When YENTE_API_URL is configured, calls the live /match endpoint.
+ * Falls back to deterministic mock results when not configured or on error.
  */
 
 import { z } from "zod";
+
+// ============================================
+// OpenSanctions yente Configuration
+// ============================================
+
+const YENTE_CONFIG = {
+	apiUrl: process.env.YENTE_API_URL,
+	threshold: parseFloat(process.env.YENTE_MATCH_THRESHOLD || "0.7"),
+	dataset: process.env.YENTE_DATASET || "default",
+};
+
+function isYenteConfigured(): boolean {
+	return !!YENTE_CONFIG.apiUrl;
+}
+
+// ============================================
+// Yente API Response Types
+// ============================================
+
+interface YenteMatchResult {
+	id: string;
+	caption: string;
+	schema: string;
+	properties: Record<string, string[]>;
+	datasets: string[];
+	referents: string[];
+	target: boolean;
+	first_seen: string;
+	last_seen: string;
+	last_change: string;
+	score: number;
+	features: Record<string, number>;
+	match: boolean;
+}
+
+interface YenteQueryResponse {
+	status: number;
+	results: YenteMatchResult[];
+	total: { value: number; relation: string };
+	query: Record<string, unknown>;
+}
+
+interface YenteMatchResponse {
+	responses: Record<string, YenteQueryResponse>;
+}
+
+const UN_SANCTIONS_DATASETS = ["un_sc_sanctions", "un_sc_consolidated"];
+
+const PEP_DATASETS_PREFIXES = ["pep", "za_fic", "everypolitician", "wd_peps"];
+
+const HIGH_RISK_COUNTRIES = ["KP", "IR", "SY", "CU", "RU"];
+
+const DATASET_FRIENDLY_NAMES: Record<string, string> = {
+	us_ofac_sdn: "OFAC SDN List",
+	un_sc_sanctions: "UN Security Council Consolidated List",
+	eu_fsf: "EU Consolidated List",
+	gb_hmt_sanctions: "UK Sanctions List",
+	za_fic_sanctions: "FIC Targeted Financial Sanctions",
+};
 
 // ============================================
 // Types & Schemas
@@ -43,7 +103,9 @@ export const SanctionsCheckResultSchema = z.object({
 		isPEP: z.boolean().describe("Whether person is a PEP"),
 		pepDetails: z
 			.object({
-				category: z.enum(["DOMESTIC", "FOREIGN", "INTERNATIONAL_ORG", "FAMILY_CLOSE_ASSOCIATE"]).optional(),
+				category: z
+					.enum(["DOMESTIC", "FOREIGN", "INTERNATIONAL_ORG", "FAMILY_CLOSE_ASSOCIATE"])
+					.optional(),
 				position: z.string().optional(),
 				country: z.string().optional(),
 				riskLevel: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
@@ -114,7 +176,13 @@ export const SanctionsCheckResultSchema = z.object({
 		passed: z.boolean().describe("Whether screening passed (no blockers)"),
 		requiresEDD: z.boolean().describe("Whether Enhanced Due Diligence is required"),
 		recommendation: z
-			.enum(["PROCEED", "PROCEED_WITH_MONITORING", "EDD_REQUIRED", "BLOCK", "MANUAL_REVIEW"])
+			.enum([
+				"PROCEED",
+				"PROCEED_WITH_MONITORING",
+				"EDD_REQUIRED",
+				"BLOCK",
+				"MANUAL_REVIEW",
+			])
 			.describe("Recommended action"),
 		reasoning: z.string().describe("Detailed reasoning"),
 		reviewRequired: z.boolean().describe("Whether human review is required"),
@@ -146,40 +214,276 @@ export interface SanctionsCheckInput {
 }
 
 // ============================================
-// Sanctions Agent Implementation (Mock)
+// Sanctions Agent Implementation
 // ============================================
 
 /**
- * Perform sanctions and compliance checks
- *
- * NOTE: This is a mock implementation for Phase 1.
+ * Perform sanctions and compliance checks.
+ * Uses OpenSanctions yente when configured, falls back to mock.
  */
 export async function performSanctionsCheck(
 	input: SanctionsCheckInput
 ): Promise<SanctionsCheckResult> {
-	console.log(
-		`[SanctionsAgent] Checking ${input.entityName} for workflow ${input.workflowId}`
-	);
+	if (isYenteConfigured()) {
+		try {
+			const result = await performYenteSanctionsCheck(input);
+			return result;
+		} catch (err) {
+			console.error("[SanctionsAgent] yente API failed, falling back to mock:", err);
+		}
+	}
 
-	// Simulate API delay
-	await new Promise(resolve => setTimeout(resolve, 800));
-
-	// Generate mock results
 	const mockResult = generateMockSanctionsResult(input);
 
-	console.log(
-		`[SanctionsAgent] Check complete - Risk level: ${mockResult.overall.riskLevel}, Passed: ${mockResult.overall.passed}`
+	return mockResult;
+}
+
+// ============================================
+// OpenSanctions yente Integration
+// ============================================
+
+/**
+ * Build yente match queries for the entity and its directors.
+ */
+function buildYenteQueries(
+	input: SanctionsCheckInput
+): Record<string, Record<string, unknown>> {
+	const queries: Record<string, Record<string, unknown>> = {};
+
+	const entitySchema = input.entityType === "INDIVIDUAL" ? "Person" : "Company";
+
+	const entityProps: Record<string, string[]> = {
+		name: [input.entityName],
+	};
+	if (input.countryCode) {
+		entityProps[entitySchema === "Person" ? "nationality" : "jurisdiction"] = [
+			input.countryCode,
+		];
+	}
+	if (input.registrationNumber && entitySchema === "Company") {
+		entityProps.registrationNumber = [input.registrationNumber];
+	}
+
+	queries["primary"] = {
+		schema: entitySchema,
+		properties: entityProps,
+	};
+
+	if (input.directors) {
+		for (let i = 0; i < input.directors.length; i++) {
+			const d = input.directors[i];
+			const dirProps: Record<string, string[]> = {
+				name: [d.name],
+			};
+			if (d.nationality) {
+				dirProps.nationality = [d.nationality];
+			}
+			if (d.idNumber) {
+				dirProps.idNumber = [d.idNumber];
+			}
+			queries[`director_${i}`] = {
+				schema: "Person",
+				properties: dirProps,
+			};
+		}
+	}
+
+	return queries;
+}
+
+function scoreToMatchType(score: number): "EXACT" | "PARTIAL" | "FUZZY" {
+	if (score >= 0.9) return "EXACT";
+	if (score >= 0.7) return "PARTIAL";
+	return "FUZZY";
+}
+
+function datasetToFriendlyName(dataset: string): string {
+	return DATASET_FRIENDLY_NAMES[dataset] || dataset;
+}
+
+function isUnSanctionsDataset(dataset: string): boolean {
+	return UN_SANCTIONS_DATASETS.some(d => dataset.includes(d));
+}
+
+function isPepDataset(dataset: string): boolean {
+	return PEP_DATASETS_PREFIXES.some(prefix => dataset.startsWith(prefix));
+}
+
+/**
+ * Call the yente /match endpoint and map results to SanctionsCheckResult.
+ */
+async function performYenteSanctionsCheck(
+	input: SanctionsCheckInput
+): Promise<SanctionsCheckResult> {
+	const queries = buildYenteQueries(input);
+	const url = `${YENTE_CONFIG.apiUrl}/match/${YENTE_CONFIG.dataset}?threshold=${YENTE_CONFIG.threshold}`;
+
+	const response = await fetch(url, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ queries }),
+	});
+
+	if (!response.ok) {
+		const text = await response.text();
+		throw new Error(`yente API returned ${response.status}: ${text}`);
+	}
+
+	const data = (await response.json()) as YenteMatchResponse;
+
+	return mapYenteResponseToResult(input, data);
+}
+
+/**
+ * Map yente batch match response to our SanctionsCheckResult schema.
+ */
+function mapYenteResponseToResult(
+	input: SanctionsCheckInput,
+	data: YenteMatchResponse
+): SanctionsCheckResult {
+	const now = new Date();
+	const checkId = `SCK-${input.workflowId}-${Date.now()}`;
+
+	const allMatches: YenteMatchResult[] = [];
+	for (const queryResponse of Object.values(data.responses)) {
+		if (queryResponse.results) {
+			allMatches.push(...queryResponse.results.filter(r => r.match));
+		}
+	}
+
+	const allDatasets = new Set<string>();
+	for (const m of allMatches) {
+		for (const ds of m.datasets) {
+			allDatasets.add(ds);
+		}
+	}
+
+	// UN Sanctions
+	const unMatches = allMatches.filter(m => m.datasets.some(isUnSanctionsDataset));
+	const unSanctionsMatchFound = unMatches.length > 0;
+
+	// PEP Screening
+	const pepMatches = allMatches.filter(m => m.datasets.some(isPepDataset));
+	const isPEP = pepMatches.length > 0;
+
+	// Watchlist (all non-UN, non-PEP matches)
+	const watchListMatches = allMatches.filter(
+		m => !(m.datasets.some(isUnSanctionsDataset) || m.datasets.some(isPepDataset))
 	);
 
-	return mockResult;
+	const isHighRiskCountry = HIGH_RISK_COUNTRIES.includes(input.countryCode);
+
+	// Overall risk assessment
+	let riskLevel: "CLEAR" | "LOW" | "MEDIUM" | "HIGH" | "BLOCKED";
+	let passed = true;
+	let requiresEDD = false;
+	let recommendation:
+		| "PROCEED"
+		| "PROCEED_WITH_MONITORING"
+		| "EDD_REQUIRED"
+		| "BLOCK"
+		| "MANUAL_REVIEW";
+
+	if (unSanctionsMatchFound) {
+		riskLevel = "BLOCKED";
+		passed = false;
+		recommendation = "BLOCK";
+	} else if (isHighRiskCountry && allMatches.length > 0) {
+		riskLevel = "HIGH";
+		requiresEDD = true;
+		recommendation = "EDD_REQUIRED";
+	} else if (isPEP) {
+		riskLevel = "MEDIUM";
+		requiresEDD = true;
+		recommendation = "PROCEED_WITH_MONITORING";
+	} else if (watchListMatches.length > 0) {
+		riskLevel = "LOW";
+		recommendation = "MANUAL_REVIEW";
+	} else {
+		riskLevel = "CLEAR";
+		recommendation = "PROCEED";
+	}
+
+	const hasAnyMatch = allMatches.length > 0;
+
+	return {
+		unSanctions: {
+			checked: true,
+			matchFound: unSanctionsMatchFound,
+			matchDetails: unMatches.map(m => ({
+				listName: m.datasets.map(datasetToFriendlyName).join(", "),
+				matchType: scoreToMatchType(m.score),
+				matchedName: m.caption,
+				confidence: Math.round(m.score * 100),
+				sanctionType: m.properties.topics?.[0],
+				sanctionDate: m.last_change?.split("T")[0],
+			})),
+			lastChecked: now.toISOString(),
+		},
+
+		pepScreening: {
+			checked: true,
+			isPEP,
+			pepDetails:
+				isPEP && pepMatches[0]
+					? {
+							category: "DOMESTIC" as const,
+							position: pepMatches[0].properties.position?.[0] || pepMatches[0].caption,
+							country: pepMatches[0].properties.country?.[0] || input.countryCode,
+							riskLevel:
+								pepMatches[0].score >= 0.9 ? ("HIGH" as const) : ("MEDIUM" as const),
+						}
+					: undefined,
+			familyAssociates: [],
+		},
+
+		adverseMedia: {
+			checked: false,
+			alertsFound: 0,
+			alerts: [],
+		},
+
+		watchLists: {
+			checked: true,
+			listsChecked: Array.from(allDatasets).map(datasetToFriendlyName),
+			matchesFound: watchListMatches.length,
+			matches: watchListMatches.map(m => ({
+				listName: m.datasets.map(datasetToFriendlyName).join(", "),
+				matchedEntity: m.caption,
+				matchConfidence: Math.round(m.score * 100),
+				reason: m.match ? "Confirmed match" : "Possible match - review recommended",
+			})),
+		},
+
+		overall: {
+			riskLevel,
+			passed,
+			requiresEDD,
+			recommendation,
+			reasoning: generateSanctionsReasoning(
+				riskLevel,
+				unSanctionsMatchFound,
+				isPEP,
+				false,
+				watchListMatches.length > 0,
+				isHighRiskCountry
+			),
+			reviewRequired: hasAnyMatch,
+		},
+
+		metadata: {
+			checkId,
+			checkedAt: now.toISOString(),
+			expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+			dataSource: `OpenSanctions yente (${YENTE_CONFIG.dataset})`,
+		},
+	};
 }
 
 /**
  * Generate mock sanctions check results
  */
-function generateMockSanctionsResult(
-	input: SanctionsCheckInput
-): SanctionsCheckResult {
+function generateMockSanctionsResult(input: SanctionsCheckInput): SanctionsCheckResult {
 	const seed = simpleHash(input.entityName + input.applicantId);
 	const now = new Date();
 	const checkId = `SCK-${input.workflowId}-${Date.now()}`;
@@ -188,9 +492,7 @@ function generateMockSanctionsResult(
 	// Only ~5% of checks should flag anything
 	const isClear = seed % 20 !== 0;
 
-	// High-risk country check
-	const highRiskCountries = ["KP", "IR", "SY", "CU", "RU"];
-	const isHighRiskCountry = highRiskCountries.includes(input.countryCode);
+	const isHighRiskCountry = HIGH_RISK_COUNTRIES.includes(input.countryCode);
 
 	// Generate results based on clear/not clear
 	const unSanctionsMatch = !isClear && seed % 5 === 0;
@@ -202,7 +504,12 @@ function generateMockSanctionsResult(
 	let riskLevel: "CLEAR" | "LOW" | "MEDIUM" | "HIGH" | "BLOCKED";
 	let passed = true;
 	let requiresEDD = false;
-	let recommendation: "PROCEED" | "PROCEED_WITH_MONITORING" | "EDD_REQUIRED" | "BLOCK" | "MANUAL_REVIEW";
+	let recommendation:
+		| "PROCEED"
+		| "PROCEED_WITH_MONITORING"
+		| "EDD_REQUIRED"
+		| "BLOCK"
+		| "MANUAL_REVIEW";
 
 	if (unSanctionsMatch) {
 		riskLevel = "BLOCKED";
@@ -258,15 +565,16 @@ function generateMockSanctionsResult(
 						riskLevel: "MEDIUM" as const,
 					}
 				: undefined,
-			familyAssociates: isPEP && seed % 2 === 0
-				? [
-						{
-							name: "Associate Name",
-							relationship: "Business Partner",
-							isPEP: true,
-						},
-					]
-				: [],
+			familyAssociates:
+				isPEP && seed % 2 === 0
+					? [
+							{
+								name: "Associate Name",
+								relationship: "Business Partner",
+								isPEP: true,
+							},
+						]
+					: [],
 		},
 
 		adverseMedia: {
@@ -277,9 +585,9 @@ function generateMockSanctionsResult(
 						{
 							source: "Financial Times",
 							headline: `${input.entityName} mentioned in regulatory investigation`,
-							date: new Date(
-								now.getTime() - (seed % 365) * 24 * 60 * 60 * 1000
-							).toISOString().split("T")[0],
+							date: new Date(now.getTime() - (seed % 365) * 24 * 60 * 60 * 1000)
+								.toISOString()
+								.split("T")[0],
 							severity: "LOW" as const,
 							category: "REGULATORY_VIOLATION" as const,
 							url: "https://example.com/news/article",
@@ -329,9 +637,7 @@ function generateMockSanctionsResult(
 		metadata: {
 			checkId,
 			checkedAt: now.toISOString(),
-			expiresAt: new Date(
-				now.getTime() + 30 * 24 * 60 * 60 * 1000
-			).toISOString(), // 30 days
+			expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
 			dataSource: "Mock Sanctions Database v1.0",
 		},
 	};
@@ -438,10 +744,6 @@ export interface BatchSanctionsResult {
 export async function performBatchSanctionsCheck(
 	input: BatchSanctionsInput
 ): Promise<BatchSanctionsResult> {
-	console.log(
-		`[SanctionsAgent] Batch screening ${input.entities.length} entities for workflow ${input.workflowId}`
-	);
-
 	const results = await Promise.all(
 		input.entities.map(async (entity, index) => ({
 			entityName: entity.name,
@@ -490,8 +792,5 @@ export function canAutoApprove(result: SanctionsCheckResult): boolean {
  * Check if sanctions result blocks proceeding
  */
 export function isBlocked(result: SanctionsCheckResult): boolean {
-	return (
-		result.overall.riskLevel === "BLOCKED" ||
-		result.unSanctions.matchFound
-	);
+	return result.overall.riskLevel === "BLOCKED" || result.unSanctions.matchFound;
 }

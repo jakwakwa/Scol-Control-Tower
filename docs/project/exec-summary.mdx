@@ -10,8 +10,9 @@ The system has recently transitioned from a Zapier-dependent architecture to a d
 ## Key Features
 
 - **Zero-Middleware Architecture**: Direct ingestion of webhooks from Google Apps Script, removing Zapier entirely to reduce latency and costs.
-- **Event-Driven Workflows**: Complex business logic (onboarding, verification, signing) is orchestrated via Inngest, with clear domain events like `onboarding/lead.created` and `contract/signed`.
+- **Event-Driven Workflows**: Complex business logic (onboarding, verification, signing, risk review) is orchestrated via Inngest, with clear domain events like `onboarding/lead.created`, `quote/responded`, and `form/decision.responded`.
 - **Deterministic Verification**: Replaces probabilistic AI voting with a strict, hierarchical veto system using a local blocklist (`mock_blacklist.json`).
+- **AI Feedback Pipeline**: Every human override creates a structured feedback log (category, subcategory, divergence type) that feeds the AI retraining pipeline.
 - **Direct Applicant Capture**: Secure HTTP endpoints (`/api/webhooks/lead-capture`) handle form submissions directly.
 - **Real-time Dashboard**: A comprehensive UI built with Shadcn/UI for monitoring agents, applicants, and workflow statuses.
 

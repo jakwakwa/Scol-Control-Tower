@@ -113,3 +113,41 @@ export async function sendApplicantFormLinksEmail(params: {
 		return { success: false, error: String(error) };
 	}
 }
+
+export async function sendApplicantStatusEmail(params: {
+	email: string;
+	subject: string;
+	heading: string;
+	message: string;
+}): Promise<EmailResult> {
+	if (!resend) {
+		console.warn("[EmailService] Resend not configured. Status email not sent.");
+		return { success: false, error: "Resend not configured" };
+	}
+
+	try {
+		const html = `
+			<div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
+				<h2 style="margin: 0 0 12px;">${params.heading}</h2>
+				<p style="margin: 0;">${params.message}</p>
+			</div>
+		`;
+
+		const { data, error } = await resend.emails.send({
+			from: fromEmail,
+			to: params.email,
+			subject: params.subject,
+			html,
+		});
+
+		if (error) {
+			console.error("[EmailService] Failed to send applicant status email:", error);
+			return { success: false, error: error.message };
+		}
+
+		return { success: true, messageId: data?.id || "unknown" };
+	} catch (error) {
+		console.error("[EmailService] Exception sending applicant status email:", error);
+		return { success: false, error: String(error) };
+	}
+}

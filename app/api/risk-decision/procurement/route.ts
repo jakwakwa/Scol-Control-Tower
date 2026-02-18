@@ -5,6 +5,8 @@
  * procurement check results. Sends 'risk/procurement.completed' event
  * to resume the V2 workflow.
  *
+ * V2: Captures structured override data for AI retraining pipeline.
+ *
  * CRITICAL: When procurement is DENIED, this triggers the kill switch
  * to immediately halt all parallel processes.
  *
@@ -12,13 +14,15 @@
  * Body: { workflowId, applicantId, procureCheckResult, decision }
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { inngest } from "@/inngest/client";
-import { getDatabaseClient } from "@/app/utils";
-import { workflows, workflowEvents } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { auth } from "@clerk/nextjs/server";
+import { eq } from "drizzle-orm";
+import { type NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { getDatabaseClient } from "@/app/utils";
+import { workflowEvents, workflows } from "@/db/schema";
+import { inngest } from "@/inngest/client";
+import { OVERRIDE_CATEGORIES } from "@/lib/constants/override-taxonomy";
+import { recordFeedbackLog } from "@/lib/services/divergence.service";
 import { executeKillSwitch } from "@/lib/services/kill-switch.service";
 
 // ============================================
@@ -36,11 +40,12 @@ const ProcurementDecisionSchema = z.object({
 	}),
 	decision: z.object({
 		outcome: z.enum(["CLEARED", "DENIED"]),
-		reason: z.string().optional(),
+		/** Structured override category — maps to AI failure taxonomy */
+		overrideCategory: z.enum(OVERRIDE_CATEGORIES),
+		overrideSubcategory: z.string().optional(),
+		overrideDetails: z.string().max(500).optional(),
 	}),
 });
-
-type ProcurementDecisionInput = z.infer<typeof ProcurementDecisionSchema>;
 
 // ============================================
 // POST Handler
@@ -71,13 +76,8 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const { workflowId, applicantId, procureCheckResult, decision } = validationResult.data;
-
-		console.log(`[ProcurementDecision] Processing decision for workflow ${workflowId}:`, {
-			outcome: decision.outcome,
-			decidedBy: userId,
-			riskScore: procureCheckResult.riskScore,
-		});
+		const { workflowId, applicantId, procureCheckResult, decision } =
+			validationResult.data;
 
 		// Verify workflow exists
 		const db = getDatabaseClient();
@@ -98,13 +98,15 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Log the decision event to the database
+		// Log the decision event to the database (legacy event log)
 		await db.insert(workflowEvents).values({
 			workflowId,
 			eventType: "procurement_decision",
 			payload: JSON.stringify({
 				decision: decision.outcome,
-				reason: decision.reason,
+				overrideCategory: decision.overrideCategory,
+				overrideSubcategory: decision.overrideSubcategory,
+				overrideDetails: decision.overrideDetails,
 				riskScore: procureCheckResult.riskScore,
 				anomalies: procureCheckResult.anomalies,
 				fromStage: workflow.stage,
@@ -113,20 +115,39 @@ export async function POST(request: NextRequest) {
 			actorType: "user",
 		});
 
+		// Record structured feedback log for AI retraining pipeline
+		const feedbackResult = await recordFeedbackLog({
+			workflowId,
+			applicantId,
+			humanOutcome: decision.outcome === "CLEARED" ? "APPROVED" : "REJECTED",
+			overrideCategory: decision.overrideCategory,
+			overrideSubcategory: decision.overrideSubcategory,
+			overrideDetails: decision.overrideDetails,
+			decidedBy: userId,
+		});
+
+		if (!feedbackResult.success) {
+			console.warn(
+				"[ProcurementDecision] Failed to record feedback log:",
+				feedbackResult.error
+			);
+		}
+
 		// CRITICAL: If procurement is DENIED, trigger kill switch
 		if (decision.outcome === "DENIED") {
-			console.log(`[ProcurementDecision] DENIED - Executing kill switch for workflow ${workflowId}`);
-			
 			const killSwitchResult = await executeKillSwitch({
 				workflowId,
 				applicantId,
 				reason: "PROCUREMENT_DENIED",
 				decidedBy: userId,
-				notes: decision.reason || "Procurement check denied by Risk Manager",
+				notes: decision.overrideDetails || "Procurement check denied by Risk Manager",
 			});
 
 			if (!killSwitchResult.success) {
-				console.error("[ProcurementDecision] Kill switch execution failed:", killSwitchResult.error);
+				console.error(
+					"[ProcurementDecision] Kill switch execution failed:",
+					killSwitchResult.error
+				);
 			}
 		}
 
@@ -145,13 +166,13 @@ export async function POST(request: NextRequest) {
 				decision: {
 					outcome: decision.outcome,
 					decidedBy: userId,
-					reason: decision.reason,
+					overrideCategory: decision.overrideCategory,
+					overrideSubcategory: decision.overrideSubcategory,
+					overrideDetails: decision.overrideDetails,
 					timestamp: new Date().toISOString(),
 				},
 			},
 		});
-
-		console.log(`[ProcurementDecision] Event sent to Inngest for workflow ${workflowId}`);
 
 		// Return success response
 		return NextResponse.json({
