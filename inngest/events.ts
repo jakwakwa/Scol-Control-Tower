@@ -844,4 +844,23 @@ export type Events = {
 			completedAt: string;
 		};
 	};
+
+	// ================================================================
+	// AI Feedback & Retraining Events
+	// ================================================================
+
+	/** Human decision diverged from AI recommendation — signal for retraining */
+	"ai/feedback.divergence_detected": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			feedbackLogId: number;
+			divergenceType: "false_positive" | "false_negative" | "severity_mismatch";
+			divergenceWeight: number;
+			overrideCategory: string;
+			overrideSubcategory?: string;
+			aiOutcome: string;
+			humanOutcome: string;
+		};
+	};
 };
