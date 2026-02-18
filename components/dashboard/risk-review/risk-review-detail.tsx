@@ -22,6 +22,7 @@ import {
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
 	Dialog,
 	DialogContent,
@@ -76,12 +77,14 @@ const OVERRIDE_CATEGORIES: {
 // Types
 // ============================================
 
+import type { OverrideData } from "./risk-review-queue";
+
 interface RiskReviewDetailProps {
 	item: RiskReviewItem | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onApprove: (id: number, reason?: string) => Promise<void>;
-	onReject: (id: number, reason: string) => Promise<void>;
+	onApprove: (id: number, overrideData: OverrideData) => Promise<void>;
+	onReject: (id: number, overrideData: OverrideData) => Promise<void>;
 }
 
 interface TimelineEvent {
@@ -364,6 +367,7 @@ export function RiskReviewDetail({
 
 	/**
 	 * Handle approve action — intercept if overriding AI recommendation
+	 * Uses AI_ALIGNED category as default since detail view doesn't have the full dialog
 	 */
 	const handleApprove = async () => {
 		if (!item) return;
@@ -375,7 +379,10 @@ export function RiskReviewDetail({
 		setIsSubmitting(true);
 		setActionType("approve");
 		try {
-			await onApprove(item.id, `Approved via ${reviewType} review`);
+			await onApprove(item.id, {
+				overrideCategory: "AI_ALIGNED",
+				overrideDetails: `Approved via ${reviewType} review`,
+			});
 			onOpenChange(false);
 		} finally {
 			setIsSubmitting(false);
@@ -385,6 +392,8 @@ export function RiskReviewDetail({
 
 	/**
 	 * Handle reject action — intercept if overriding AI recommendation
+	 * Defaults to OTHER category from detail view
+	 * Full structured rejection should go through the RiskDecisionDialog
 	 */
 	const handleReject = async () => {
 		if (!item) return;
@@ -396,7 +405,10 @@ export function RiskReviewDetail({
 		setIsSubmitting(true);
 		setActionType("reject");
 		try {
-			await onReject(item.id, `Rejected via ${reviewType} review`);
+			await onReject(item.id, {
+				overrideCategory: "OTHER",
+				overrideDetails: `Rejected via ${reviewType} review`,
+			});
 			onOpenChange(false);
 		} finally {
 			setIsSubmitting(false);
