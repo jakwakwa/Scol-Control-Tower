@@ -22,12 +22,12 @@ export function RoleTabs() {
 
 				<div className="max-w-4xl mx-auto">
 					<Tabs defaultValue="sales" className="w-full">
-						<div className="flex justify-center mb-12">
-							<TabsList className="bg-muted border border-border p-1">
+						<div>
+							<TabsList className="bg-black/10 rounded-xl mx-auto w-full border border-border p-0">
 								<TabsTrigger
 									value="sales"
 									className="px-8 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg transition-all">
-									For Relationship Managers
+									Account Executives
 								</TabsTrigger>
 								<TabsTrigger
 									value="risk"
@@ -70,9 +70,6 @@ export function RoleTabs() {
 													</li>
 												))}
 											</ul>
-											<Button className="mt-4 bg-primary text-primary-foreground hover:bg-primary/90">
-												Start Closing <ArrowRight className="ml-2 w-4 h-4" />
-											</Button>
 										</div>
 										<div className="relative aspect-square md:aspect-auto h-full min-h-[300px] bg-muted/50 rounded-xl border border-border p-4">
 											{/* Abstract Visualization */}

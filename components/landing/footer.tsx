@@ -8,13 +8,9 @@ export const Footer = () => {
 			<div className="container px-4 mx-auto">
 				{/* CTA Section */}
 				<div className="text-center mb-20">
-					<h2 className="text-3xl md:text-5xl font-bold text-foreground mb-6">
-						Ready to take control?
+					<h2 className="text-xl md:text-5xl font-bold text-foreground mb-6">
+						Request Access to take control
 					</h2>
-					<p className="text-muted-foreground max-w-2xl mx-auto mb-8">
-						Join the forward-thinking teams transforming their onboarding with Control
-						Tower.
-					</p>
 					<a href="/sign-up">
 						<Button
 							size="lg"

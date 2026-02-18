@@ -1,6 +1,6 @@
-import { Webhook } from "svix";
-import { headers } from "next/headers";
 import type { WebhookEvent } from "@clerk/nextjs/server";
+import { headers } from "next/headers";
+import { Webhook } from "svix";
 
 export async function POST(req: Request) {
 	const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
 	const svix_timestamp = headerPayload.get("svix-timestamp");
 	const svix_signature = headerPayload.get("svix-signature");
 
-	if (!svix_id || !svix_timestamp || !svix_signature) {
+	if (!(svix_id && svix_timestamp && svix_signature)) {
 		return new Response("Error occurred -- no svix headers", {
 			status: 400,
 		});
@@ -43,10 +43,7 @@ export async function POST(req: Request) {
 	}
 
 	const { id } = evt.data;
-	const eventType = evt.type;
-
-	console.log(`Webhook with an ID of ${id} and type of ${eventType}`);
-	console.log("Webhook body:", body);
+	const _eventType = evt.type;
 
 	return new Response("Webhook received", { status: 200 });
 }
