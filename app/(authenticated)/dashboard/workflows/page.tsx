@@ -93,8 +93,7 @@ export default async function WorkflowsPage() {
 				...w,
 				stage: normalizeStage(w.stage),
 				status: normalizeStatus(w.status),
-				stageName:
-					w.stageName || STAGE_NAMES[normalizeStage(w.stage)] || "Unknown",
+				stageName: STAGE_NAMES[normalizeStage(w.stage)] || "Unknown",
 				// Parse metadata if it exists, otherwise use empty object
 				payload: w.metadata ? JSON.parse(w.metadata) : {},
 				hasQuote: quotesByWorkflow.has(w.id),

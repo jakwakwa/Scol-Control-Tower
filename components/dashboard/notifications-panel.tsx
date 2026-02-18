@@ -11,7 +11,7 @@ import {
 	RiUserLine,
 } from "@remixicon/react";
 import Link from "next/link";
-import * as React from "react";
+import { type MouseEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -105,17 +105,17 @@ export function NotificationsPanel({
 	onAction,
 	onDelete,
 }: NotificationsPanelProps) {
-	const [isOpen, setIsOpen] = React.useState(false);
-	const [_isMounted, setIsMounted] = React.useState(false);
+	const [isOpen, setIsOpen] = useState(false);
+	const [isMounted, setIsMounted] = useState(false);
 	const unreadCount = notifications?.filter(n => !n.read).length;
 
 	// Delay rendering until after hydration to prevent Radix UI aria-controls ID mismatch
-	React.useEffect(() => {
+	useEffect(() => {
 		setIsMounted(true);
 	}, []);
 
 	const handleAction = async (
-		e: React.MouseEvent,
+		e: MouseEvent,
 		notification: WorkflowNotification,
 		action: "approve" | "reject" | "retry" | "cancel" | "view"
 	) => {

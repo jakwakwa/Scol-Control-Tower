@@ -4,7 +4,7 @@ CREATE TABLE `activity_logs` (
 	`action` text NOT NULL,
 	`description` text NOT NULL,
 	`performed_by` text,
-	`created_at` integer DEFAULT '"2026-01-30T14:00:06.703Z"',
+	`created_at` integer DEFAULT '"2026-02-18T10:35:02.379Z"',
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -39,6 +39,43 @@ CREATE TABLE `agents` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `agents_agent_id_unique` ON `agents` (`agent_id`);--> statement-breakpoint
+CREATE TABLE `ai_analysis_logs` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`applicant_id` integer NOT NULL,
+	`workflow_id` integer NOT NULL,
+	`agent_name` text NOT NULL,
+	`prompt_version_id` text,
+	`confidence_score` integer,
+	`human_override_reason` text,
+	`narrative` text,
+	`raw_output` text,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`workflow_id`) REFERENCES `workflows`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE TABLE `ai_feedback_logs` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`workflow_id` integer NOT NULL,
+	`applicant_id` integer NOT NULL,
+	`ai_outcome` text NOT NULL,
+	`ai_confidence` integer,
+	`ai_check_type` text NOT NULL,
+	`human_outcome` text NOT NULL,
+	`override_category` text NOT NULL,
+	`override_subcategory` text,
+	`override_details` text,
+	`is_divergent` integer NOT NULL,
+	`divergence_weight` integer,
+	`divergence_type` text,
+	`decided_by` text NOT NULL,
+	`decided_at` integer NOT NULL,
+	`consumed_for_retraining` integer DEFAULT false,
+	`consumed_at` integer,
+	FOREIGN KEY (`workflow_id`) REFERENCES `workflows`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
 CREATE TABLE `applicant_magiclink_forms` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`applicant_id` integer NOT NULL,
@@ -46,11 +83,16 @@ CREATE TABLE `applicant_magiclink_forms` (
 	`form_type` text NOT NULL,
 	`status` text DEFAULT 'pending' NOT NULL,
 	`token_hash` text NOT NULL,
+	`token` text,
 	`token_prefix` text,
 	`sent_at` integer,
 	`viewed_at` integer,
 	`expires_at` integer,
 	`submitted_at` integer,
+	`decision_status` text,
+	`decision_outcome` text,
+	`decision_reason` text,
+	`decision_at` integer,
 	`created_at` integer NOT NULL,
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`workflow_id`) REFERENCES `workflows`(`id`) ON UPDATE no action ON DELETE no action
@@ -80,14 +122,21 @@ CREATE TABLE `applicants` (
 	`contact_name` text NOT NULL,
 	`email` text NOT NULL,
 	`phone` text,
+	`business_type` text,
+	`entity_type` text,
+	`product_type` text,
 	`industry` text,
+	`employee_count` integer,
 	`mandate_type` text,
 	`mandate_volume` integer,
 	`status` text DEFAULT 'new' NOT NULL,
 	`risk_level` text,
 	`itc_score` integer,
 	`itc_status` text,
-	`employee_count` integer,
+	`escalation_tier` integer DEFAULT 1,
+	`salvage_deadline` integer,
+	`is_salvaged` integer DEFAULT false,
+	`sanction_status` text DEFAULT 'clear',
 	`account_executive` text,
 	`notes` text,
 	`created_at` integer NOT NULL,
@@ -207,8 +256,21 @@ CREATE TABLE `risk_assessments` (
 	`reviewed_by` text,
 	`reviewed_at` integer,
 	`notes` text,
-	`created_at` integer DEFAULT '"2026-01-30T14:00:06.703Z"',
+	`created_at` integer DEFAULT '"2026-02-18T10:35:02.378Z"',
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE TABLE `sanction_clearance` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`applicant_id` integer NOT NULL,
+	`workflow_id` integer NOT NULL,
+	`sanction_list_id` text,
+	`cleared_by` text NOT NULL,
+	`clearance_reason` text NOT NULL,
+	`is_false_positive` integer NOT NULL,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`workflow_id`) REFERENCES `workflows`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE TABLE `signatures` (
@@ -250,6 +312,28 @@ CREATE TABLE `workflows` (
 	`stage` integer DEFAULT 1,
 	`status` text DEFAULT 'pending',
 	`started_at` integer,
+	`completed_at` integer,
+	`terminated_at` integer,
+	`terminated_by` text,
+	`termination_reason` text,
+	`procurement_cleared` integer,
+	`documents_complete` integer,
+	`ai_analysis_complete` integer,
+	`mandate_retry_count` integer DEFAULT 0,
+	`mandate_last_sent_at` integer,
+	`risk_manager_approval` text,
+	`account_manager_approval` text,
+	`sales_evaluation_status` text,
+	`sales_issues_summary` text,
+	`issue_flagged_by` text,
+	`pre_risk_required` integer,
+	`pre_risk_outcome` text,
+	`pre_risk_evaluated_at` integer,
+	`applicant_decision_outcome` text,
+	`applicant_decline_reason` text,
+	`stage_name` text,
+	`current_agent` text,
+	`review_type` text,
 	`metadata` text,
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );

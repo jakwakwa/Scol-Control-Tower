@@ -49,11 +49,13 @@ const seedSchema = {
 	sanctionClearance: schema.sanctionClearance,
 	aiAnalysisLogs: schema.aiAnalysisLogs,
 	agentCallbacks: schema.agentCallbacks,
+	aiFeedbackLogs: schema.aiFeedbackLogs,
 };
 
 async function main() {
-	await reset(db, seedSchema);
-	await seed(db, seedSchema).refine(funcs => ({
+	// Cast as any: drizzle-seed has a known typing limitation with libsql driver
+	await reset(db as any, seedSchema);
+	await seed(db as any, seedSchema).refine(funcs => ({
 		// ── Core: Applicants ──────────────────────────────────────
 		applicants: {
 			count: 10,
@@ -522,6 +524,35 @@ async function main() {
 				}),
 				confidenceScore: funcs.int({ minValue: 40, maxValue: 99 }),
 				narrative: funcs.loremIpsum({ sentencesCount: 3 }),
+			},
+		},
+
+		// ── AI Feedback Logs ──────────────────────────────────────
+		aiFeedbackLogs: {
+			count: 6,
+			columns: {
+				aiOutcome: funcs.valuesFromArray({
+					values: ["APPROVE", "MANUAL_REVIEW", "DECLINE"],
+				}),
+				aiConfidence: funcs.int({ minValue: 30, maxValue: 98 }),
+				aiCheckType: funcs.valuesFromArray({
+					values: ["validation", "risk", "sanctions", "aggregated"],
+				}),
+				humanOutcome: funcs.valuesFromArray({
+					values: ["APPROVED", "REJECTED", "REQUEST_MORE_INFO"],
+				}),
+				overrideCategory: funcs.valuesFromArray({
+					values: ["CONTEXT", "HALLUCINATION", "DATA_ERROR", "MISSING_INFO", "OTHER"],
+				}),
+				overrideSubcategory: funcs.valuesFromArray({
+					values: ["industry_context", "stale_data", "incomplete_records", null],
+				}),
+				isDivergent: funcs.valuesFromArray({ values: [true, false] }),
+				divergenceWeight: funcs.int({ minValue: 1, maxValue: 10 }),
+				divergenceType: funcs.valuesFromArray({
+					values: ["false_positive", "false_negative", "severity_mismatch", null],
+				}),
+				decidedBy: funcs.email(),
 			},
 		},
 	}));
