@@ -1,9 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
 import {
 	RiAlertLine,
 	RiCheckDoubleLine,
@@ -15,9 +11,12 @@ import {
 	RiUserLine,
 } from "@remixicon/react";
 import Link from "next/link";
-import router from "next/router";
 import * as React from "react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 export interface WorkflowNotification {
 	id: string;
@@ -144,7 +143,7 @@ export function NotificationsPanel({
 					<Badge
 						variant="destructive"
 						className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full p-0 text-[10px] animate-pulse">
-						<span className="text-destructive text-[8px]">
+						<span className="text-white text-[8px]">
 							{unreadCount > 9 ? "9+" : unreadCount}
 						</span>
 					</Badge>

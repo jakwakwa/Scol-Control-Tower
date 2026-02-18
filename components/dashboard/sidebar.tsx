@@ -1,17 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
-	RiDashboardLine,
-	RiUserAddLine,
 	RiBarChartBoxAiFill,
-	RiRobot2Line,
+	RiDashboardLine,
 	RiMenuFoldLine,
 	RiMenuUnfoldLine,
-	RiSignalTowerFill,
+	RiRobot2Line,
 	RiShieldCheckLine,
+	RiUserAddLine,
 } from "@remixicon/react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 
@@ -49,7 +48,7 @@ export function Sidebar({
 				<div className={cn("flex items-center gap-1 ", isCollapsed && "hidden")}>
 					<div className="flex flex-col w-full h-fit items-start px-4 py-2 justify-center rounded-2xl  border-stone-500/20">
 						<img src="/assets/logo-dark.svg" alt="StratCol" className="h-8 w-auto" />
-						<span className="text-secondary text-xs uppercase leading-[14px]">
+						<span className="text-secondary text-xs uppercase hidden leading-[14px]">
 							Control Tower
 						</span>
 					</div>
