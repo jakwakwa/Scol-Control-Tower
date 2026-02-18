@@ -1,12 +1,12 @@
 "use client";
 
-import { Sidebar } from "./sidebar";
+import { UserButton } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useDashboardStore } from "@/lib/dashboard-store";
 import { cn } from "@/lib/utils";
 import { NotificationsPanel, type WorkflowNotification } from "./notifications-panel";
-import { UserButton } from "@clerk/nextjs";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useDashboardStore } from "@/lib/dashboard-store";
+import { Sidebar } from "./sidebar";
 
 interface DashboardShellProps {
 	children: React.ReactNode;
@@ -16,8 +16,13 @@ interface DashboardShellProps {
 export function DashboardShell({ children, notifications = [] }: DashboardShellProps) {
 	const router = useRouter();
 	const [isCollapsed, setIsCollapsed] = useState(false);
+	const [isMounted, setIsMounted] = useState(false);
 
 	const { title, description, actions } = useDashboardStore();
+
+	useEffect(() => {
+		setIsMounted(true);
+	}, []);
 
 	return (
 		<div className="min-h-screen bg-linear-to-br from-background via-background/50 to-background/10 ">
@@ -116,9 +121,11 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 									}
 								}}
 							/>
-							<div suppressHydrationWarning>
-								<UserButton />
-							</div>
+							{isMounted && (
+								<div suppressHydrationWarning>
+									<UserButton />
+								</div>
+							)}
 						</div>
 					</div>
 				</header>

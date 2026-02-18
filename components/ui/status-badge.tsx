@@ -1,5 +1,6 @@
+import { RiAlertFill, RiCheckFill } from "@remixicon/react";
+import type React from "react";
 import { cn } from "@/lib/utils";
-import React from "react";
 
 // Types
 export type StatusType = "success" | "warning" | "error" | "info" | "neutral" | "brand";
@@ -10,7 +11,7 @@ const statusStyles: Record<StatusType, string> = {
 	warning: "bg-warning/50 text-warning-foreground border-warning",
 	error: "bg-destructive/20 text-destructive-foreground border-rose-500/20",
 	info: "bg-sky-500/10 text-sky-400 border-sky-500/20",
-	neutral: "bg-secondary/50 text-muted-foreground border-sidebar-border",
+	neutral: "bg-secondary/90 text-muted-foreground border-sidebar-border",
 	brand: "bg-primary/10 text-primary border-primary/20",
 };
 
@@ -89,8 +90,14 @@ export function RiskBadge({ level }: { level: string }) {
 	else if (l === "high") status = "error";
 
 	return (
-		<StatusBadge status={status} className="uppercase tracking-wider text-[10px]">
-			{level} Risk
+		<StatusBadge
+			status={status}
+			className={`uppercase flex items-center justify-center tracking-wider text-[8px] min-w-[17px] min-h-[17px] p-0 ${level === "green" ? "bg-emerald-100" : level === "red" ? "bg-destructive animate-bounce" : "bg-none"} `}>
+			{level === "red" ? (
+				<RiAlertFill className="text-red-200 font-black" size={12} />
+			) : (
+				<RiCheckFill size={12} />
+			)}
 		</StatusBadge>
 	);
 }

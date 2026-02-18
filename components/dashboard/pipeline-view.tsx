@@ -7,7 +7,6 @@ import {
 	RiEditLine,
 	RiFileTextLine,
 	RiFlowChart,
-	RiMoneyDollarCircleLine,
 	RiMoreLine,
 	RiRobot2Line,
 	RiUserLine,
@@ -49,18 +48,18 @@ const PIPELINE_STAGES = [
 	{
 		id: "quote_review",
 		stageNumber: 1,
-		title: "Quote & Review",
+		title: "Lead Capture",
 		color: "bg-blue-500/5 border-blue-500/70",
-		icon: RiMoneyDollarCircleLine,
-		shortTitle: "Quote",
+		icon: RiUserLine,
+		shortTitle: "Lead",
 	},
 	{
 		id: "mandate_collection",
 		stageNumber: 2,
-		title: "Mandate Collection",
+		title: "Facility & Quote",
 		color: "bg-indigo-500/5 border-indigo-500/70",
 		icon: RiEditLine,
-		shortTitle: "Mandates",
+		shortTitle: "Facility",
 	},
 	{
 		id: "procurement_ai",
@@ -115,13 +114,27 @@ export function PipelineView({ workflows }: { workflows: PipelineWorkflow[] }) {
 					const stageString = String(stageValue).toLowerCase();
 					switch (stage.id) {
 						case "quote_review":
-							return ["new", "contacted", "qualified", "lead_capture", "entry", "entry_quote", "quote"].includes(
-								stageString
-							);
+							return [
+								"new",
+								"contacted",
+								"qualified",
+								"lead_capture",
+								"entry",
+								"entry_quote",
+								"quote",
+							].includes(stageString);
 						case "mandate_collection":
-							return ["proposal", "quotation", "quote_signing", "signing", "mandate", "mandate_processing", "mandate_collection"].includes(
-								stageString
-							);
+							return [
+								"proposal",
+								"quotation",
+								"quote_signing",
+								"signing",
+								"facility",
+								"facility_application",
+								"mandate",
+								"mandate_processing",
+								"mandate_collection",
+							].includes(stageString);
 						case "procurement_ai":
 							return [
 								"negotiation",

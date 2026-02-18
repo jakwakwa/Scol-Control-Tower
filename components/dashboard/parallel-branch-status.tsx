@@ -1,15 +1,15 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import {
-	RiCheckLine,
-	RiLoader3Line,
 	RiAlertLine,
-	RiShieldCheckLine,
+	RiCheckLine,
 	RiFileTextLine,
 	RiGitBranchLine,
+	RiLoader3Line,
+	RiShieldCheckLine,
 } from "@remixicon/react";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 // ============================================
 // Types
@@ -77,13 +77,7 @@ const statusConfig = {
 // Branch Card Component
 // ============================================
 
-function BranchCard({
-	branch,
-	isLast,
-}: {
-	branch: BranchStatus;
-	isLast: boolean;
-}) {
+function BranchCard({ branch, isLast }: { branch: BranchStatus; isLast: boolean }) {
 	const config = statusConfig[branch.status];
 	const StatusIcon = config.icon;
 	const BranchIcon = branch.icon;
@@ -124,12 +118,8 @@ function BranchCard({
 								<BranchIcon className="h-4 w-4 text-muted-foreground" />
 							</div>
 							<div>
-								<p className="text-sm font-medium text-foreground">
-									{branch.name}
-								</p>
-								<p className="text-xs text-muted-foreground">
-									{branch.description}
-								</p>
+								<p className="text-sm font-medium text-foreground">{branch.name}</p>
+								<p className="text-xs text-muted-foreground">{branch.description}</p>
 							</div>
 						</div>
 
@@ -148,9 +138,7 @@ function BranchCard({
 									className={cn(
 										"font-medium",
 										branch.riskScore <= 30 && "text-emerald-400",
-										branch.riskScore > 30 &&
-											branch.riskScore <= 60 &&
-											"text-yellow-400",
+										branch.riskScore > 30 && branch.riskScore <= 60 && "text-yellow-400",
 										branch.riskScore > 60 && "text-red-400"
 									)}>
 									{branch.riskScore}%
@@ -200,9 +188,9 @@ export function ParallelBranchStatus({
 	title = "Parallel Processing",
 	requireAll = true,
 }: ParallelBranchStatusProps) {
-	const completedCount = branches.filter((b) => b.status === "completed").length;
+	const completedCount = branches.filter(b => b.status === "completed").length;
 	const allComplete = completedCount === branches.length;
-	const hasFailure = branches.some((b) => b.status === "failed");
+	const hasFailure = branches.some(b => b.status === "failed");
 
 	return (
 		<div className="space-y-3">

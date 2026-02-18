@@ -1,17 +1,34 @@
 "use client";
 
-import * as React from "react";
+import {
+	RiAlertLine,
+	RiArrowDownSLine,
+	RiArrowUpSLine,
+	RiCheckLine,
+	RiCloseLine,
+	RiFlowChart,
+	RiMore2Fill,
+	RiPauseCircleLine,
+	RiThumbDownLine,
+	RiThumbUpLine,
+	RiTimeLine,
+	RiUserLine,
+} from "@remixicon/react";
+import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
+import * as React from "react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DataTable } from "@/components/ui/data-table";
 import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
+	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogFooter,
 } from "@/components/ui/dialog";
 import {
 	DropdownMenu,
@@ -22,23 +39,6 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import {
-	RiAlertLine,
-	RiArrowDownSLine,
-	RiArrowUpSLine,
-	RiCheckLine,
-	RiCloseLine,
-	RiFlowChart,
-	RiMore2Fill,
-	RiTimeLine,
-	RiUserLine,
-	RiThumbUpLine,
-	RiThumbDownLine,
-	RiPauseCircleLine,
-} from "@remixicon/react";
-import type { ColumnDef } from "@tanstack/react-table";
-import { DataTable } from "@/components/ui/data-table";
-import { toast } from "sonner";
 
 // --- Types ---
 
@@ -66,8 +66,8 @@ export interface WorkflowRow {
 
 /** V2 Workflow Stage Names (SOP-aligned) */
 export const STAGE_NAMES: Record<number, string> = {
-	1: "Quote & Review",
-	2: "Mandate Collection",
+	1: "Lead Capture",
+	2: "Facility & Quote",
 	3: "Procurement & AI",
 	4: "Risk Review",
 	5: "Contract",
@@ -369,16 +369,16 @@ export const columns: ColumnDef<WorkflowRow>[] = [
 									View Applicant Details
 								</Link>
 							</DropdownMenuItem>
-						{canViewQuote && (
-							<DropdownMenuItem asChild>
-								<Link
-									href={`/dashboard/applicants/${row.original.applicantId}?tab=reviews`}
-									className="cursor-pointer flex items-center">
-									<RiCheckLine className="mr-2 h-4 w-4" />
-									View Quotation
-								</Link>
-							</DropdownMenuItem>
-						)}
+							{canViewQuote && (
+								<DropdownMenuItem asChild>
+									<Link
+										href={`/dashboard/applicants/${row.original.applicantId}?tab=reviews`}
+										className="cursor-pointer flex items-center">
+										<RiCheckLine className="mr-2 h-4 w-4" />
+										View Quotation
+									</Link>
+								</DropdownMenuItem>
+							)}
 							<DropdownMenuSeparator />
 							<DropdownMenuItem asChild>
 								<Link
@@ -430,7 +430,7 @@ function HITLConfirmDialog({
 		}
 	};
 
-	if (!workflow || !action) return null;
+	if (!(workflow && action)) return null;
 
 	const isApprove = action === "approve";
 
@@ -610,7 +610,7 @@ export function WorkflowTable({ workflows, onRefresh }: WorkflowTableProps) {
 	}, []);
 
 	const handleHITLConfirm = React.useCallback(async () => {
-		if (!selectedWorkflow || !hitlAction) return;
+		if (!(selectedWorkflow && hitlAction)) return;
 
 		const payload = {
 			agentId: "human_hitl",

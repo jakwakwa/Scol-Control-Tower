@@ -1,9 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
 import {
 	RiAlertLine,
 	RiCheckDoubleLine,
@@ -15,9 +11,12 @@ import {
 	RiUserLine,
 } from "@remixicon/react";
 import Link from "next/link";
-import router from "next/router";
 import * as React from "react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 export interface WorkflowNotification {
 	id: string;
@@ -107,7 +106,7 @@ export function NotificationsPanel({
 	onDelete,
 }: NotificationsPanelProps) {
 	const [isOpen, setIsOpen] = React.useState(false);
-	const [isMounted, setIsMounted] = React.useState(false);
+	const [_isMounted, setIsMounted] = React.useState(false);
 	const unreadCount = notifications?.filter(n => !n.read).length;
 
 	// Delay rendering until after hydration to prevent Radix UI aria-controls ID mismatch
@@ -133,25 +132,25 @@ export function NotificationsPanel({
 	};
 
 	// Render a non-interactive placeholder during SSR to prevent hydration mismatch
-	if (!isMounted) {
-		return (
-			<Button
-				variant="ghost"
-				size="icon"
-				className="relative h-9 w-9 hover:bg-secondary/10">
-				<RiNotification3Line className="h-5 w-5" />
-				{unreadCount > 0 && (
-					<Badge
-						variant="destructive"
-						className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full p-0 text-[10px] animate-pulse">
-						<span className="text-destructive text-[8px]">
-							{unreadCount > 9 ? "9+" : unreadCount}
-						</span>
-					</Badge>
-				)}
-			</Button>
-		);
-	}
+	if (!isMount	ed
+	)
+	return (
+		<Button
+			variant="ghost"
+			size="icon"
+			className="relative h-9 w-9 hover:bg-secondary/10">
+			<RiNotification3Line className="h-5 w-5" />
+			{unreadCount > 0 && (
+				<Badge
+					variant="destructive"
+					className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full p-0 text-[10px] animate-pulse">
+					<span className="text-white text-[8px]">
+						{unreadCount > 9 ? "9+" : unreadCount}
+					</span>
+				</Badge>
+			)}
+		</Button>
+	);
 
 	return (
 		<Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -199,7 +198,8 @@ export function NotificationsPanel({
 						</div>
 					) : (
 						notifications?.map(notification => {
-							const config = notificationConfig[notification?.type];
+							const config =
+								notificationConfig[notification?.type] ?? notificationConfig.info;
 							const Icon = config.icon;
 
 							return (
@@ -265,15 +265,13 @@ export function NotificationsPanel({
 													{/* Approval Actions */}
 													{(notification?.type === "awaiting" ||
 														notification?.type === "warning") && (
-														<>
-															<Button
-																variant="ghost"
-																size="sm"
-																className="h-6 px-2 text-xs hover:bg-teal-500/40 hover:text-emerald-600/80"
-																onClick={e => handleAction(e, notification, "view")}>
-																View
-															</Button>
-														</>
+														<Button
+															variant="ghost"
+															size="sm"
+															className="h-6 px-2 text-xs hover:bg-teal-500/40 hover:text-emerald-600/80"
+															onClick={e => handleAction(e, notification, "view")}>
+															View
+														</Button>
 													)}
 													{/* Error/Timeout Actions */}
 													{(notification?.type === "error" ||
