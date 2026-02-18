@@ -559,7 +559,11 @@ export type Events = {
 		data: {
 			workflowId: number;
 			applicantId: number;
-			reason: "PROCUREMENT_DENIED" | "COMPLIANCE_VIOLATION" | "FRAUD_DETECTED" | "MANUAL_TERMINATION";
+			reason:
+				| "PROCUREMENT_DENIED"
+				| "COMPLIANCE_VIOLATION"
+				| "FRAUD_DETECTED"
+				| "MANUAL_TERMINATION";
 			decidedBy: string;
 			terminatedAt: string;
 			notes?: string;
@@ -587,7 +591,14 @@ export type Events = {
 		data: {
 			workflowId: number;
 			applicantId: number;
-			businessType: "NPO" | "PROPRIETOR" | "COMPANY" | "TRUST" | "BODY_CORPORATE" | "PARTNERSHIP" | "CLOSE_CORPORATION";
+			businessType:
+				| "NPO"
+				| "PROPRIETOR"
+				| "COMPANY"
+				| "TRUST"
+				| "BODY_CORPORATE"
+				| "PARTNERSHIP"
+				| "CLOSE_CORPORATION";
 			requiredDocuments: string[];
 			optionalDocuments: string[];
 		};
@@ -603,6 +614,42 @@ export type Events = {
 			businessType: string;
 			documentsRequested: string[];
 			sentAt: string;
+		};
+	};
+
+	// ================================================================
+	// Sanction Clearance Events (SOP v3.1.0)
+	// ================================================================
+
+	/** Sanction hit cleared by compliance officer */
+	"sanction/cleared": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			officerId: string;
+			reason: string;
+			clearedAt: string;
+		};
+	};
+
+	/** Sanction hit confirmed as true positive */
+	"sanction/confirmed": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			officerId: string;
+			confirmedAt: string;
+		};
+	};
+
+	/** Escalation tier changed (Document Collection) */
+	"escalation/tier.changed": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			newTier: number; // 1, 2, 3
+			reason: string;
+			changedAt: string;
 		};
 	};
 
@@ -665,7 +712,11 @@ export type Events = {
 			canAutoApprove: boolean;
 			requiresManualReview: boolean;
 			isBlocked: boolean;
-			recommendation: "AUTO_APPROVE" | "PROCEED_WITH_CONDITIONS" | "MANUAL_REVIEW" | "BLOCK";
+			recommendation:
+				| "AUTO_APPROVE"
+				| "PROCEED_WITH_CONDITIONS"
+				| "MANUAL_REVIEW"
+				| "BLOCK";
 			flags: string[];
 		};
 	};
@@ -728,7 +779,11 @@ export type Events = {
 				validationSummary: Record<string, unknown>;
 				riskSummary: Record<string, unknown>;
 				sanctionsSummary: Record<string, unknown>;
-				overallRecommendation: "APPROVE" | "CONDITIONAL_APPROVE" | "MANUAL_REVIEW" | "DECLINE";
+				overallRecommendation:
+					| "APPROVE"
+					| "CONDITIONAL_APPROVE"
+					| "MANUAL_REVIEW"
+					| "DECLINE";
 				aggregatedScore: number;
 				flags: string[];
 			};
