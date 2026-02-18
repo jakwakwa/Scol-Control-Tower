@@ -106,7 +106,7 @@ export function NotificationsPanel({
 	onDelete,
 }: NotificationsPanelProps) {
 	const [isOpen, setIsOpen] = React.useState(false);
-	const [isMounted, setIsMounted] = React.useState(false);
+	const [_isMounted, setIsMounted] = React.useState(false);
 	const unreadCount = notifications?.filter(n => !n.read).length;
 
 	// Delay rendering until after hydration to prevent Radix UI aria-controls ID mismatch
@@ -198,7 +198,8 @@ export function NotificationsPanel({
 						</div>
 					) : (
 						notifications?.map(notification => {
-							const config = notificationConfig[notification?.type];
+							const config =
+								notificationConfig[notification?.type] ?? notificationConfig.info;
 							const Icon = config.icon;
 
 							return (
@@ -264,15 +265,13 @@ export function NotificationsPanel({
 													{/* Approval Actions */}
 													{(notification?.type === "awaiting" ||
 														notification?.type === "warning") && (
-														<>
-															<Button
-																variant="ghost"
-																size="sm"
-																className="h-6 px-2 text-xs hover:bg-teal-500/40 hover:text-emerald-600/80"
-																onClick={e => handleAction(e, notification, "view")}>
-																View
-															</Button>
-														</>
+														<Button
+															variant="ghost"
+															size="sm"
+															className="h-6 px-2 text-xs hover:bg-teal-500/40 hover:text-emerald-600/80"
+															onClick={e => handleAction(e, notification, "view")}>
+															View
+														</Button>
 													)}
 													{/* Error/Timeout Actions */}
 													{(notification?.type === "error" ||

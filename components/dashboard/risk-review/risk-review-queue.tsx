@@ -1,7 +1,20 @@
 "use client";
 
+import {
+	RiAlarmWarningLine,
+	RiAlertLine,
+	RiBuilding2Line,
+	RiCheckLine,
+	RiCloseLine,
+	RiEyeLine,
+	RiPercentLine,
+	RiRefreshLine,
+	RiScalesLine,
+	RiShieldCheckLine,
+	RiTimeLine,
+} from "@remixicon/react";
 import * as React from "react";
-import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,21 +25,9 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import {
-	RiShieldCheckLine,
-	RiAlertLine,
-	RiTimeLine,
-	RiCheckLine,
-	RiCloseLine,
-	RiBuilding2Line,
-	RiPercentLine,
-	RiScalesLine,
-	RiEyeLine,
-	RiRefreshLine,
-} from "@remixicon/react";
-import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 // ============================================
 // Types
@@ -68,6 +69,11 @@ export interface RiskReviewItem {
 	hasAnomalies?: boolean;
 	/** Procurement-specific: Anomaly descriptions */
 	anomalies?: string[];
+	// SOP v3.1.0 — Sanctions & Escalation
+	/** Current sanction status */
+	sanctionStatus?: "clear" | "flagged" | "confirmed_hit";
+	/** Current escalation tier (1=Normal, 2=Manager Alert, 3=Salvage) */
+	escalationTier?: number;
 }
 
 interface RiskReviewCardProps {
@@ -258,9 +264,29 @@ export function RiskReviewCard({
 						<div className="flex-1 min-w-0">
 							<div className="flex items-center gap-2">
 								<h3 className="text-base font-semibold ">{item.clientName}</h3>
-								<Badge  className="bg-secondary/10 text-secondary text-[10px] shrink-0">
+								<Badge className="bg-secondary/10 text-secondary text-[10px] shrink-0">
 									WF-{item.workflowId}
 								</Badge>
+								{/* SOP v3.1.0: Sanction status badge */}
+								{item.sanctionStatus === "flagged" && (
+									<Badge variant="destructive" className="text-[10px] shrink-0 gap-1">
+										<RiAlarmWarningLine className="h-3 w-3" />
+										SANCTION
+									</Badge>
+								)}
+								{/* SOP v3.1.0: Escalation tier badge */}
+								{item.escalationTier && item.escalationTier >= 2 && (
+									<Badge
+										variant="outline"
+										className={cn(
+											"text-[10px] shrink-0",
+											item.escalationTier === 3
+												? "bg-red-500/10 text-red-400 border-red-500/20"
+												: "bg-orange-500/10 text-orange-400 border-orange-500/20"
+										)}>
+										Tier {item.escalationTier}
+									</Badge>
+								)}
 							</div>
 							<div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
 								<span className="flex items-center gap-1">

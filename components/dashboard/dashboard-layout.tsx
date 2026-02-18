@@ -1,7 +1,7 @@
 "use client";
 
+import type { WorkflowNotification } from "./notifications-panel";
 import { PageMeta } from "./page-meta";
-import { type WorkflowNotification } from "./notifications-panel";
 
 interface DashboardLayoutProps {
 	children: React.ReactNode;
