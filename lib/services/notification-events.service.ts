@@ -4,7 +4,17 @@ import { notifications, workflowEvents } from "@/db/schema";
 export interface CreateNotificationParams {
 	workflowId: number;
 	applicantId: number;
-	type: "awaiting" | "completed" | "failed" | "timeout" | "paused" | "error" | "warning" | "success" | "info" | "terminated";
+	type:
+		| "awaiting"
+		| "completed"
+		| "failed"
+		| "timeout"
+		| "paused"
+		| "error"
+		| "warning"
+		| "success"
+		| "info"
+		| "terminated";
 	title: string;
 	message: string;
 	actionable?: boolean;
@@ -42,6 +52,7 @@ export interface LogEventParams {
 		| "documents_requested"
 		| "validation_completed"
 		| "sanctions_completed"
+		| "sanction_cleared"
 		| "risk_analysis_completed"
 		| "risk_manager_review"
 		| "financial_statements_confirmed"
