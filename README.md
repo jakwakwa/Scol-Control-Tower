@@ -1,6 +1,6 @@
 # SCOL Watchtower Platform
 
-![Watch Tower](/app/opengraph-image.png)
+![Control Tower](/app/opengraph-image.png)
 
 ## Overview
 
