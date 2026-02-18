@@ -10,26 +10,23 @@
  * 3. Audit trail for compliance
  */
 
-import { z } from "zod";
-import {
-	validateDocumentsBatch,
-	type BatchValidationResult,
-} from "./validation.agent";
+import { eq } from "drizzle-orm";
+import { getDatabaseClient } from "@/app/utils";
+import { aiAnalysisLogs, riskAssessments, workflowEvents } from "@/db/schema";
+import { generateReporterAnalysis, type ReporterOutput } from "./reporter.agent";
 import {
 	analyzeFinancialRisk,
 	canAutoApprove as canAutoApproveRisk,
-	requiresManualReview as requiresManualRiskReview,
 	type RiskAnalysisResult,
+	requiresManualReview as requiresManualRiskReview,
 } from "./risk.agent";
 import {
-	performSanctionsCheck,
 	canAutoApprove as canAutoApproveSanctions,
 	isBlocked as isSanctionsBlocked,
+	performSanctionsCheck,
 	type SanctionsCheckResult,
 } from "./sanctions.agent";
-import { getDatabaseClient } from "@/app/utils";
-import { riskAssessments, workflowEvents } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { type BatchValidationResult, validateDocumentsBatch } from "./validation.agent";
 
 // ============================================
 // Types & Schemas
@@ -73,6 +70,7 @@ export interface AggregatedAnalysisResult {
 		validation: Record<string, unknown>;
 		risk: Record<string, unknown>;
 		sanctions: Record<string, unknown>;
+		reporter?: ReporterOutput;
 	};
 
 	// Aggregated Scores
@@ -129,10 +127,6 @@ export async function performAggregatedAnalysis(
 ): Promise<AggregatedAnalysisResult> {
 	const startTime = Date.now();
 	const analysisId = `AGG-${input.workflowId}-${Date.now()}`;
-
-	console.log(
-		`[AggregatedAnalysis] Starting analysis ${analysisId} for workflow ${input.workflowId}`
-	);
 
 	const agentsRun: ("validation" | "risk" | "sanctions")[] = [];
 	const flags: string[] = [];
@@ -205,12 +199,10 @@ export async function performAggregatedAnalysis(
 		!isSanctionsBlock &&
 		canAutoApproveSanctions(sanctionsResult) &&
 		canAutoApproveRisk(riskResult) &&
-		(!validationResult ||
-			validationResult.summary.overallRecommendation === "PROCEED");
+		(!validationResult || validationResult.summary.overallRecommendation === "PROCEED");
 
 	const requiresManualReview =
-		!canAutoApprove &&
-		!isSanctionsBlock &&
+		!(canAutoApprove || isSanctionsBlock) &&
 		(requiresManualRiskReview(riskResult) ||
 			sanctionsResult.overall.reviewRequired ||
 			(validationResult &&
@@ -254,6 +246,41 @@ export async function performAggregatedAnalysis(
 		aggregatedScore
 	);
 
+	// Run Reporter Agent
+	const reporterResult = await generateReporterAnalysis({
+		applicantData: {
+			companyName: input.applicantData.companyName,
+			industry: input.applicantData.industry,
+		},
+		aggregatedScore,
+		validationSummary: validationResult
+			? {
+					passed: validationResult.summary.passed,
+					failed: validationResult.summary.failed,
+					total: validationResult.summary.totalDocuments,
+				}
+			: { passed: 0, failed: 0, total: 0 },
+		riskSummary: {
+			score: riskResult.overall.score,
+			category: riskResult.creditRisk.riskCategory,
+			flags: [
+				...(riskResult.stability.hasBounced ? ["Bounced transactions"] : []),
+				...(riskResult.stability.gamblingIndicators.length > 0
+					? ["Gambling indicators"]
+					: []),
+			],
+		},
+		sanctionsSummary: {
+			isBlocked: isSanctionsBlock,
+			flags: [
+				...(sanctionsResult.pepScreening.isPEP ? ["PEP Identified"] : []),
+				...(sanctionsResult.adverseMedia.alertsFound > 0
+					? [`${sanctionsResult.adverseMedia.alertsFound} Adverse Media Alerts`]
+					: []),
+			],
+		},
+	});
+
 	// Run SOP-required external check stubs (all mocked in Phase 1)
 	const externalChecks = runExternalCheckStubs(input);
 
@@ -284,6 +311,7 @@ export async function performAggregatedAnalysis(
 				requiresEDD: sanctionsResult.overall.requiresEDD,
 				adverseMediaAlerts: sanctionsResult.adverseMedia.alertsFound,
 			},
+			reporter: reporterResult,
 		},
 		scores: {
 			validationScore,
@@ -313,11 +341,11 @@ export async function performAggregatedAnalysis(
 	};
 
 	// Store result in database
-	await storeAnalysisResult(input.workflowId, input.applicantId, result);
-
-	console.log(
-		`[AggregatedAnalysis] Completed ${analysisId} in ${result.metadata.processingTimeMs}ms - ` +
-			`Score: ${aggregatedScore}, Recommendation: ${recommendation}`
+	await storeAnalysisResult(
+		input.workflowId,
+		input.applicantId,
+		result,
+		reporterResult.promptVersionId
 	);
 
 	return result;
@@ -329,12 +357,10 @@ export async function performAggregatedAnalysis(
 function calculateValidationScore(result: BatchValidationResult): number {
 	if (result.summary.totalDocuments === 0) return 100;
 
-	const passRate =
-		(result.summary.passed / result.summary.totalDocuments) * 100;
+	const passRate = (result.summary.passed / result.summary.totalDocuments) * 100;
 
 	// Penalize for review required or failed
-	const penalty =
-		result.summary.requiresReview * 5 + result.summary.failed * 15;
+	const penalty = result.summary.requiresReview * 5 + result.summary.failed * 15;
 
 	return Math.max(0, Math.round(passRate - penalty));
 }
@@ -362,7 +388,9 @@ function generateAggregatedReasoning(
 ): string {
 	const parts: string[] = [];
 
-	parts.push(`Aggregated analysis completed with overall score of ${aggregatedScore}/100.`);
+	parts.push(
+		`Aggregated analysis completed with overall score of ${aggregatedScore}/100.`
+	);
 
 	switch (recommendation) {
 		case "AUTO_APPROVE":
@@ -371,17 +399,13 @@ function generateAggregatedReasoning(
 			);
 			break;
 		case "PROCEED_WITH_CONDITIONS":
-			parts.push(
-				"Checks passed with some conditions. May proceed with monitoring."
-			);
+			parts.push("Checks passed with some conditions. May proceed with monitoring.");
 			if (risk.overall.conditions) {
 				parts.push(`Conditions: ${risk.overall.conditions.join("; ")}`);
 			}
 			break;
 		case "MANUAL_REVIEW":
-			parts.push(
-				"One or more checks require human review before proceeding."
-			);
+			parts.push("One or more checks require human review before proceeding.");
 			break;
 		case "BLOCK":
 			parts.push(
@@ -416,7 +440,8 @@ function generateAggregatedReasoning(
 async function storeAnalysisResult(
 	workflowId: number,
 	applicantId: number,
-	result: AggregatedAnalysisResult
+	result: AggregatedAnalysisResult,
+	promptVersionId: string = "unknown"
 ): Promise<void> {
 	const db = getDatabaseClient();
 	if (!db) {
@@ -481,6 +506,20 @@ async function storeAnalysisResult(
 				processingTimeMs: result.metadata.processingTimeMs,
 			}),
 		});
+
+		// Log Reporter Agent output to ai_analysis_logs
+		if (result.agents.reporter) {
+			await db.insert(aiAnalysisLogs).values({
+				applicantId,
+				workflowId,
+				agentName: "reporter",
+				promptVersionId,
+				confidenceScore: result.agents.reporter.confidence_score,
+				narrative: result.agents.reporter.narrative,
+				rawOutput: JSON.stringify(result.agents.reporter),
+				createdAt: new Date(),
+			});
+		}
 	} catch (error) {
 		console.error("[AggregatedAnalysis] Error storing result:", error);
 	}
@@ -496,7 +535,7 @@ async function storeAnalysisResult(
  * Switch to "live" by setting env flags (e.g., ENABLE_XDS_LIVE=true).
  */
 function runExternalCheckStubs(
-	input: AggregatedAnalysisInput
+	_input: AggregatedAnalysisInput
 ): AggregatedAnalysisResult["externalChecks"] {
 	const mockResult = (name: string) => ({
 		status: "mock" as const,
