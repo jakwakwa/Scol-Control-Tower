@@ -20,8 +20,8 @@
   --action-foreground: oklch(87.842% 0.04267 110.224);
   --muted: rgba(201, 163, 86, 0.897);
   --muted-foreground: oklch(14.997% 0.00457 84.872 / 0.643);
-  --destructive:  rgba(176, 26, 64, 0.649);
-  --destructive-foreground: rgb(235, 83, 121);
+  --destructive:  rgb(255, 86, 128);
+  --destructive-foreground: rgb(236, 25, 81);
   --accent: oklch(12.856% 0.00001 271.152 / 0.252);
   --accent-foreground: oklch(92.239% 0.12642 95.539);
   --success: rgb(32, 148, 109);
