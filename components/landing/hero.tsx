@@ -1,112 +1,97 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Zap } from "lucide-react";
-import Link from "next/link";
 import { motion } from "framer-motion";
+import { ArrowRight, FileText } from "lucide-react";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
 
-export const Hero = () => {
+export function Hero() {
 	return (
-		<section className="relative overflow-hidden py-24 lg:py-32 bg-rich-black text-foreground">
-			{/* Background Gradient Mesh */}
-			<div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
-				<div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-primary/40 blur-[120px] rounded-full mix-blend-screen animate-pulse-slow" />
-				<div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-accent/30 blur-[120px] rounded-full mix-blend-screen animate-pulse-slow delay-1000" />
-			</div>
-
-			<div className="container px-4 md:px-6 mx-auto relative z-10 flex flex-col items-center text-center">
-				<motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.5 }}
-					className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 text-accent text-sm font-medium mb-8 border border-accent/20">
-					<Sparkles size={16} />
-					<span>AI-Powered Onboarding</span>
-				</motion.div>
-
-				<motion.h1
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.5, delay: 0.1 }}
-					className="text-4xl md:text-6xl lg:text-6xl font-black tracking-tight mb-6 bg-clip-text text-transparent bg-linear-to-br from-secondary via-secondary/90 to-secondary/50">
-					SCOL Watch Tower <br className="hidden md:block" />
-					<span className="text-primary text-4xl">Onboarding Intelligence</span>
-				</motion.h1>
-
-				<motion.p
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.5, delay: 0.2 }}
-					className="text-lg md:text-xl text-muted-foreground max-w-2xl mb-10 leading-relaxed">
-					Streamline your workflow with intelligent automations. Seamlessly connect Turso,
-					Clerk, and your favorite tools to deliver a world-class onboarding experience.
-				</motion.p>
-
-				<motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.5, delay: 0.3 }}
-					className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-					<Link href="/sign-up" className="w-full sm:w-auto">
-						<Button
-							size="lg"
-							className="w-full sm:w-auto gap-2 text-base font-semibold h-12 shadow-lg shadow-primary/20">
-							Get Started <ArrowRight size={18} />
-						</Button>
-					</Link>
-					<Link href="/sign-in" className="w-full sm:w-auto">
-						<Button
-							variant="outline"
-							size="lg"
-							className="w-full sm:w-auto gap-2 text-base h-12 bg-transparent border-secondary/10 hover:bg-secondary/5 text-white">
-							Sign In
-						</Button>
-					</Link>
-				</motion.div>
-
-				{/* Floating Elements / Visuals */}
-				<motion.div
-					initial={{ opacity: 0, scale: 0.9 }}
-					animate={{ opacity: 1, scale: 1 }}
-					transition={{ duration: 0.8, delay: 0.5 }}
-					className="mt-20 w-full max-w-5xl bg-secondary/5 border border-secondary/10 rounded-2xl p-4 md:p-8 backdrop-blur-sm shadow-2xl relative overflow-hidden">
-					<div className="absolute inset-0 bg-linear-to-t from-rich-black/50 to-transparent z-10 pointer-events-none" />
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-6 opacity-80">
-						{/* Mock UI Cards */}
-						<div className="bg-card/50 p-6 rounded-xl border border-border/50 flex flex-col gap-4">
-							<div className="h-2 w-20 bg-primary/20 rounded-full" />
-							<div className="h-20 w-full bg-secondary/5 rounded-lg animate-pulse" />
-							<div className="flex gap-2">
-								<div className="h-8 w-8 rounded-full bg-primary/20" />
-								<div className="space-y-2 flex-1">
-									<div className="h-2 w-full bg-secondary/5 rounded-full" />
-									<div className="h-2 w-2/3 bg-secondary/5 rounded-full" />
-								</div>
-							</div>
+		<section className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden bg-background">
+			<div className="container px-4 mx-auto relative z-10">
+				<div className="max-w-4xl mx-auto text-center mb-16">
+					<motion.div
+						initial={{ opacity: 0, y: 20 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.5 }}>
+						<div className="flex justify-center mb-8">
+							<Image
+								src="/assets/logo-dark.svg"
+								alt="Control Tower Logo"
+								width={200}
+								height={64}
+								className="h-16 w-auto"
+								priority
+							/>
 						</div>
-						<div className="bg-card/50 p-6 rounded-xl border border-border/50 flex flex-col gap-4 md:mt-12">
-							<div className="flex justify-between items-center">
-								<div className="h-2 w-20 bg-accent/20 rounded-full" />
-								<Zap className="text-accent" size={16} />
-							</div>
-							<div className="space-y-3">
-								<div className="h-12 w-full bg-secondary/5 rounded-lg border-l-4 border-accent" />
-								<div className="h-12 w-full bg-secondary/5 rounded-lg border-l-4 border-transparent" />
-								<div className="h-12 w-full bg-secondary/5 rounded-lg border-l-4 border-transparent" />
-							</div>
+						<h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-8 text-foreground">
+							Accelerate Trust.
+							<br />
+							Automate Onboarding.
+						</h1>
+						<p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
+							Transform your client intake from a paper chase into a digital science. The
+							central command for Sales and Compliance teams.
+						</p>
+						<div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+							<a href="/dashboard">
+								<Button
+									size="lg"
+									className="rounded-full h-12 px-8 text-base bg-primary text-primary-foreground hover:bg-primary/90">
+									Launch Control Tower
+									<ArrowRight className="ml-2 h-4 w-4" />
+								</Button>
+							</a>
+							<a
+								href="https://stratcolltd.mintlify.app/user-guides/overview"
+								target="_blank"
+								rel="noopener noreferrer">
+								<Button
+									variant="outline"
+									size="lg"
+									className="rounded-full h-12 px-8 text-base border-border text-foreground hover:bg-muted">
+									<FileText className="mr-2 h-4 w-4" />
+									View Documentation
+								</Button>
+							</a>
 						</div>
-						<div className="bg-card/50 p-6 rounded-xl border border-border/50 flex flex-col gap-4">
-							<div className="h-2 w-20 bg-chart-1/20 rounded-full" />
-							<div className="h-32 w-full bg-secondary/5 rounded-lg flex items-end justify-between px-2 pb-2 gap-2">
-								<div className="w-full bg-chart-1/20 h-[40%] rounded-t-sm" />
-								<div className="w-full bg-chart-1/40 h-[70%] rounded-t-sm" />
-								<div className="w-full bg-chart-1/60 h-[50%] rounded-t-sm" />
-								<div className="w-full bg-chart-1/80 h-[85%] rounded-t-sm" />
-							</div>
-						</div>
+					</motion.div>
+				</div>
+
+				{/* Dashboard Mockup with Tilt Animation */}
+				<motion.div
+					initial={{ rotateX: -15, opacity: 0, y: 50 }}
+					animate={{ rotateX: 0, opacity: 1, y: 0 }}
+					transition={{
+						type: "spring",
+						stiffness: 100,
+						damping: 20,
+						delay: 0.2,
+					}}
+					style={{
+						perspective: 1000,
+					}}
+					className="relative max-w-6xl mx-auto">
+					<div className="relative rounded-xl border border-border bg-card/50 backdrop-blur-sm shadow-2xl overflow-hidden group">
+						<div className="absolute inset-0 bg-linear-to-b from-transparent to-background/20 z-20 pointer-events-none" />
+
+						{/* Dashboard Image */}
+						<Image
+							src="/assets/dashboard-mockup.png"
+							alt="StratCol Control Tower Dashboard Interface"
+							width={1200}
+							height={800}
+							className="w-full h-auto object-cover shadow-inner"
+						/>
 					</div>
+
+					{/* Glow Effect */}
+					<div className="absolute -inset-4 bg-primary/10 blur-3xl -z-10 rounded-[3rem] opacity-40" />
 				</motion.div>
 			</div>
+
+			{/* Background Grid */}
+			<div className="absolute inset-0 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,var(--background)_70%,transparent_100%)] pointer-events-none opacity-20" />
 		</section>
 	);
-};
+}

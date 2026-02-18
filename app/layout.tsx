@@ -1,6 +1,6 @@
-import type { Metadata } from "next";
-import { Inter, DM_Sans } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import type { Metadata } from "next";
+import { DM_Sans, Inter } from "next/font/google";
 
 import "./globals.css";
 
@@ -27,7 +27,7 @@ export default function RootLayout({
 		<ClerkProvider>
 			<html lang="en" className={dmSans.variable} suppressHydrationWarning>
 				<body
-					className={`bg-rich-black overscroll-none ${inter.className}`}
+					className={`bg-white overscroll-none ${inter.className}`}
 					suppressHydrationWarning>
 					{children}
 				</body>
