@@ -1,0 +1,132 @@
+---
+title: "AI feedback pipeline"
+description: "How human overrides are captured as structured data to retrain AI risk models."
+---
+
+## Overview
+
+Every human decision in the Control Tower creates a structured feedback log that captures what the AI recommended versus what the human decided and why. This data feeds directly into the AI retraining pipeline, enabling the risk models to improve over time.
+
+The pipeline follows a simple principle: **every override becomes a retrainable data point**.
+
+## How it works
+
+```
+AI recommends → Human decides → System compares → Feedback log created → Retraining queue
+```
+
+1. The AI produces a risk assessment with an outcome and confidence score.
+2. A human reviewer makes a decision using the [structured decision dialog](/user-guides/risk-review#structured-decision-dialog).
+3. The system compares the two decisions and detects divergence.
+4. A feedback log is written to the `ai_feedback_logs` table.
+5. If the decisions diverge, an `ai/feedback.divergence_detected` event is emitted for downstream processing.
+
+## Override taxonomy
+
+The override taxonomy is a structured classification system that maps human overrides into programmatic categories. It is defined in `lib/constants/override-taxonomy.ts`.
+
+### Categories
+
+| Category | Description |
+| :--- | :--- |
+| `AI_ALIGNED` | Human agrees with the AI recommendation |
+| `MISSING_CONTEXT` | AI lacked information the human had |
+| `INCORRECT_RISK_SCORING` | AI scored the risk too high or too low |
+| `FALSE_POSITIVE_FLAG` | AI flagged a non-issue |
+| `FALSE_NEGATIVE_MISS` | AI missed a real risk |
+| `POLICY_EXCEPTION` | Human overriding based on policy or management decision |
+| `DATA_QUALITY_ISSUE` | AI used stale, incorrect, or missing data |
+| `OTHER` | Uncategorised — requires free-text explanation |
+
+### Subcategories
+
+Each category has optional subcategories for finer granularity:
+
+- **Missing Context**: Additional Documents Provided, Verbal Confirmation Received, Historical Relationship Known, External Verification Done
+- **Incorrect Risk Scoring**: Score Too High, Score Too Low, Wrong Risk Factors Weighted, Outdated Model Data
+- **False Positive Flag**: Name Collision, Resolved Issue, Incorrect Data Match, Legitimate Business Activity
+- **False Negative Miss**: Hidden Risk Factor, Pattern Not Detected, New/Emerging Risk Type, Cross-reference Not Found
+- **Policy Exception**: Management Override, New Regulatory Guidance, Client Tier Exception
+- **Data Quality Issue**: Stale/Outdated Data, Incorrect Data Source, Missing Required Fields
+
+## Divergence detection
+
+The system automatically detects when a human decision diverges from the AI recommendation.
+
+### Divergence types
+
+| Type | Meaning |
+| :--- | :--- |
+| `false_positive` | AI flagged a risk that the human determined was not real |
+| `false_negative` | AI cleared a risk that the human determined was real |
+| `severity_mismatch` | Both agree something is an issue but disagree on severity |
+
+### Divergence weight
+
+Each divergent feedback log is assigned a weight from 1–10, representing priority for retraining. Higher weights indicate more impactful corrections.
+
+## Feedback log schema
+
+Each log entry captures the full picture:
+
+| Field | Description |
+| :--- | :--- |
+| `aiOutcome` | What the AI recommended (APPROVE, MANUAL_REVIEW, DECLINE) |
+| `aiConfidence` | AI confidence score (0–100) |
+| `aiCheckType` | Type of AI check (identity_verification, document_analysis, risk_screening, aggregated) |
+| `humanOutcome` | What the human decided (APPROVED, REJECTED, REQUEST_MORE_INFO) |
+| `overrideCategory` | Selected category from the taxonomy |
+| `overrideSubcategory` | Optional subcategory |
+| `overrideDetails` | Optional free text (max 500 characters) |
+| `isDivergent` | Whether the AI and human decisions differ |
+| `divergenceWeight` | Priority for retraining (1–10) |
+| `divergenceType` | Classification of the divergence |
+| `decidedBy` | User ID of the reviewer |
+
+## Retraining lifecycle
+
+Feedback logs have a retraining status:
+
+- **Not consumed**: available for the next retraining batch
+- **Consumed**: already processed by the retraining pipeline
+
+The `consumedForRetraining` flag and `consumedAt` timestamp track this status.
+
+## Integration points
+
+### Inngest events
+
+- `ai/feedback.divergence_detected` — emitted when a human decision diverges from the AI recommendation. Contains the feedback log ID, divergence type, weight, and both outcomes.
+
+### API endpoints
+
+Both risk decision endpoints capture structured override data:
+
+- `POST /api/risk-decision` — final risk decision (approve, reject, request more info)
+- `POST /api/risk-decision/procurement` — procurement check decision (cleared, denied)
+
+Each endpoint records:
+
+1. A legacy `workflow_events` entry for the audit log
+2. A structured `ai_feedback_logs` entry for retraining
+3. The appropriate Inngest event to resume the workflow
+
+### Response format
+
+Risk decision API responses now include feedback data:
+
+```json
+{
+  "success": true,
+  "workflowId": 123,
+  "decision": {
+    "outcome": "APPROVED",
+    "overrideCategory": "MISSING_CONTEXT",
+    "decidedBy": "user_abc"
+  },
+  "feedback": {
+    "feedbackLogId": 456,
+    "isDivergent": true
+  }
+}
+```

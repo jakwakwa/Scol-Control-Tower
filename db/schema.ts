@@ -54,6 +54,14 @@ export const applicants = sqliteTable("applicants", {
 	itcScore: integer("itc_score"),
 	itcStatus: text("itc_status"),
 
+	// SOP v3.1.0: Tiered Escalation & Sanctions
+	escalationTier: integer("escalation_tier").default(1), // 1=Normal, 2=Manager Alert, 3=Salvage
+	salvageDeadline: integer("salvage_deadline", { mode: "timestamp" }),
+	isSalvaged: integer("is_salvaged", { mode: "boolean" }).default(false),
+	sanctionStatus: text("sanction_status", {
+		enum: ["clear", "flagged", "confirmed_hit"],
+	}).default("clear"),
+
 	// System
 	accountExecutive: text("account_executive"),
 	notes: text("notes"),
@@ -178,6 +186,15 @@ export const workflows = sqliteTable("workflows", {
 	// Two-factor approval tracking (Stage 6)
 	riskManagerApproval: text("risk_manager_approval"), // JSON: { approvedBy, timestamp, decision }
 	accountManagerApproval: text("account_manager_approval"), // JSON: { approvedBy, timestamp, decision }
+	// Stage 2 sales/pre-risk + applicant decision tracking
+	salesEvaluationStatus: text("sales_evaluation_status"), // pending, approved, issues_found
+	salesIssuesSummary: text("sales_issues_summary"),
+	issueFlaggedBy: text("issue_flagged_by"), // account_manager, ai, system
+	preRiskRequired: integer("pre_risk_required", { mode: "boolean" }),
+	preRiskOutcome: text("pre_risk_outcome"), // approved, rejected, skipped
+	preRiskEvaluatedAt: integer("pre_risk_evaluated_at", { mode: "timestamp" }),
+	applicantDecisionOutcome: text("applicant_decision_outcome"), // approved, declined
+	applicantDeclineReason: text("applicant_decline_reason"),
 
 	stageName: text("stage_name"),
 	currentAgent: text("current_agent"),
@@ -209,6 +226,51 @@ export const workflowEvents = sqliteTable("workflow_events", {
 });
 
 /**
+ * AI Feedback Logs - Structured override data for AI retraining
+ *
+ * Stores structured pairs: (AI said X, Human said Y because Z)
+ * Every human override becomes a retrainable data point.
+ * Divergence metrics enable prioritized retraining queues.
+ */
+export const aiFeedbackLogs = sqliteTable("ai_feedback_logs", {
+	id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
+	workflowId: integer("workflow_id")
+		.notNull()
+		.references(() => workflows.id),
+	applicantId: integer("applicant_id")
+		.notNull()
+		.references(() => applicants.id),
+
+	// What the AI said
+	aiOutcome: text("ai_outcome").notNull(), // "APPROVE" | "MANUAL_REVIEW" | "DECLINE"
+	aiConfidence: integer("ai_confidence"), // 0-100
+	aiCheckType: text("ai_check_type").notNull(), // "validation" | "risk" | "sanctions" | "aggregated"
+
+	// What the human said
+	humanOutcome: text("human_outcome").notNull(), // "APPROVED" | "REJECTED" | "REQUEST_MORE_INFO"
+	overrideCategory: text("override_category").notNull(), // From OVERRIDE_CATEGORIES
+	overrideSubcategory: text("override_subcategory"),
+	overrideDetails: text("override_details"), // Optional free text for "OTHER"
+
+	// Divergence metrics
+	isDivergent: integer("is_divergent", { mode: "boolean" }).notNull(),
+	divergenceWeight: integer("divergence_weight"), // 1-10 priority for retraining
+	divergenceType: text("divergence_type"), // "false_positive" | "false_negative" | "severity_mismatch"
+
+	// Actor
+	decidedBy: text("decided_by").notNull(),
+	decidedAt: integer("decided_at", { mode: "timestamp" })
+		.notNull()
+		.$defaultFn(() => new Date()),
+
+	// Retraining status
+	consumedForRetraining: integer("consumed_for_retraining", { mode: "boolean" }).default(
+		false
+	),
+	consumedAt: integer("consumed_at", { mode: "timestamp" }),
+});
+
+/**
  * Applicant Magic Link Forms - Magic link tracking
  */
 export const applicantMagiclinkForms = sqliteTable("applicant_magiclink_forms", {
@@ -226,6 +288,10 @@ export const applicantMagiclinkForms = sqliteTable("applicant_magiclink_forms", 
 	viewedAt: integer("viewed_at", { mode: "timestamp" }),
 	expiresAt: integer("expires_at", { mode: "timestamp" }),
 	submittedAt: integer("submitted_at", { mode: "timestamp" }),
+	decisionStatus: text("decision_status"), // pending, responded
+	decisionOutcome: text("decision_outcome"), // approved, declined
+	decisionReason: text("decision_reason"),
+	decisionAt: integer("decision_at", { mode: "timestamp" }),
 	createdAt: integer("created_at", { mode: "timestamp" })
 		.notNull()
 		.$defaultFn(() => new Date()),
@@ -371,6 +437,7 @@ export const workflowsRelations = relations(workflows, ({ one, many }) => ({
 	internalForms: many(internalForms),
 	documentUploads: many(documentUploads),
 	signatures: many(signatures),
+	aiFeedbackLogs: many(aiFeedbackLogs),
 }));
 
 export const applicantMagiclinkFormsRelations = relations(
@@ -424,6 +491,17 @@ export const agentCallbacksRelations = relations(agentCallbacks, ({ one }) => ({
 	workflow: one(workflows, {
 		fields: [agentCallbacks.workflowId],
 		references: [workflows.id],
+	}),
+}));
+
+export const aiFeedbackLogsRelations = relations(aiFeedbackLogs, ({ one }) => ({
+	workflow: one(workflows, {
+		fields: [aiFeedbackLogs.workflowId],
+		references: [workflows.id],
+	}),
+	applicant: one(applicants, {
+		fields: [aiFeedbackLogs.applicantId],
+		references: [applicants.id],
 	}),
 }));
 
@@ -607,3 +685,51 @@ export const signaturesRelations = relations(signatures, ({ one }) => ({
 		references: [internalForms.id],
 	}),
 }));
+
+// ============================================
+// SOP v3.1.0: New Tables
+// ============================================
+
+/**
+ * Sanction Clearance Table - Track manual clearance of sanction hits
+ */
+export const sanctionClearance = sqliteTable("sanction_clearance", {
+	id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
+	applicantId: integer("applicant_id")
+		.notNull()
+		.references(() => applicants.id),
+	workflowId: integer("workflow_id")
+		.notNull()
+		.references(() => workflows.id),
+	sanctionListId: text("sanction_list_id"), // External ID (e.g. OFAC-123)
+	clearedBy: text("cleared_by").notNull(), // User ID
+	clearanceReason: text("clearance_reason").notNull(), // Mandatory justification
+	isFalsePositive: integer("is_false_positive", { mode: "boolean" }).notNull(),
+	createdAt: integer("created_at", { mode: "timestamp" })
+		.notNull()
+		.$defaultFn(() => new Date()),
+});
+
+/**
+ * AI Analysis Logs - Detailed AI outputs
+ */
+export const aiAnalysisLogs = sqliteTable("ai_analysis_logs", {
+	id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
+	applicantId: integer("applicant_id")
+		.notNull()
+		.references(() => applicants.id),
+	workflowId: integer("workflow_id")
+		.notNull()
+		.references(() => workflows.id),
+	agentName: text("agent_name").notNull(), // 'risk', 'sanctions', 'reporter'
+	promptVersionId: text("prompt_version_id"), // Git hash or SemVer
+	confidenceScore: integer("confidence_score"), // 0-100
+	humanOverrideReason: text("human_override_reason", {
+		enum: ["CONTEXT", "HALLUCINATION", "DATA_ERROR"],
+	}),
+	narrative: text("narrative"), // The structured output or summary
+	rawOutput: text("raw_output"), // Full JSON output
+	createdAt: integer("created_at", { mode: "timestamp" })
+		.notNull()
+		.$defaultFn(() => new Date()),
+});

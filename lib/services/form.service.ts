@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import { applicantMagiclinkForms, applicantSubmissions } from "@/db/schema";
-import type { FormType, FormInstanceStatus } from "@/lib/types";
+import type { FormDecisionOutcome, FormInstanceStatus, FormType } from "@/lib/types";
 
 interface CreateFormInstanceOptions {
 	applicantId: number;
@@ -128,4 +128,28 @@ export async function recordFormSubmission(options: {
 	await markFormInstanceStatus(options.applicantMagiclinkFormId, "submitted");
 
 	return submission;
+}
+
+export async function recordFormDecision(options: {
+	formInstanceId: number;
+	outcome: FormDecisionOutcome;
+	reason?: string;
+}) {
+	const db = getDatabaseClient();
+	if (!db) {
+		throw new Error("Database connection failed");
+	}
+
+	const [updated] = await db
+		.update(applicantMagiclinkForms)
+		.set({
+			decisionStatus: "responded",
+			decisionOutcome: options.outcome.toLowerCase(),
+			decisionReason: options.reason?.trim() || null,
+			decisionAt: new Date(),
+		})
+		.where(eq(applicantMagiclinkForms.id, options.formInstanceId))
+		.returning();
+
+	return updated ?? null;
 }

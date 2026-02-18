@@ -29,6 +29,7 @@ import {
 } from "@/lib/services/document-requirements.service";
 import {
 	sendApplicantFormLinksEmail,
+	sendApplicantStatusEmail,
 	sendInternalAlertEmail,
 } from "@/lib/services/email.service";
 import { createFormInstance } from "@/lib/services/form.service";
@@ -70,7 +71,7 @@ const OVERLIMIT_THRESHOLD = 500_000_00; // R500,000 in cents
 const WORKFLOW_TIMEOUT = "30d";
 const STAGE_TIMEOUT = "14d";
 const REVIEW_TIMEOUT = "7d";
-const MANDATE_RETRY_TIMEOUT = "7d";
+const _MANDATE_RETRY_TIMEOUT = "7d";
 const MAX_MANDATE_RETRIES = 8;
 
 // ============================================
@@ -88,6 +89,38 @@ async function guardKillSwitch(workflowId: number, stepName: string): Promise<vo
 			`[KillSwitch] Workflow ${workflowId} terminated - stopping ${stepName}`
 		);
 	}
+}
+
+async function notifyApplicantDecline(options: {
+	applicantId: number;
+	workflowId: number;
+	subject: string;
+	heading: string;
+	message: string;
+}) {
+	const db = getDatabaseClient();
+	if (!db) return;
+	const [applicant] = await db
+		.select()
+		.from(applicants)
+		.where(eq(applicants.id, options.applicantId));
+	if (!applicant) return;
+
+	await sendApplicantStatusEmail({
+		email: applicant.email,
+		subject: options.subject,
+		heading: options.heading,
+		message: options.message,
+	});
+
+	await createWorkflowNotification({
+		workflowId: options.workflowId,
+		applicantId: options.applicantId,
+		type: "error",
+		title: options.heading,
+		message: options.message,
+		actionable: false,
+	});
 }
 
 // ============================================
@@ -218,7 +251,202 @@ export const controlTowerWorkflow = inngest.createFunction(
 			return { status: "timeout", stage: 2, reason: "Facility application timeout" };
 		}
 
-		// Step 2.2: Determine mandate type and required documents
+		// Step 2.2: Sales evaluation + issues/pre-risk path
+		const salesEvaluation = await step.run("sales-evaluation", async () => {
+			await guardKillSwitch(workflowId, "sales-evaluation");
+			const formData = facilitySubmission.data.formData as {
+				mandateVolume?: number;
+				annualTurnover?: number;
+			};
+			const mandateVolume = formData?.mandateVolume ?? 0;
+			const annualTurnover = formData?.annualTurnover ?? 0;
+			const issues: string[] = [];
+
+			if (mandateVolume > OVERLIMIT_THRESHOLD) {
+				issues.push("Mandate volume exceeds overlimit threshold");
+			}
+			if (annualTurnover > 0 && mandateVolume > annualTurnover * 0.75) {
+				issues.push("Mandate volume materially high relative to turnover");
+			}
+
+			await inngest.send({
+				name: "sales/evaluation.started",
+				data: {
+					workflowId,
+					applicantId,
+					startedAt: new Date().toISOString(),
+				},
+			});
+
+			if (issues.length > 0) {
+				const db = getDatabaseClient();
+				if (db) {
+					await db
+						.update(workflows)
+						.set({
+							salesEvaluationStatus: "issues_found",
+							salesIssuesSummary: issues.join("; "),
+							issueFlaggedBy: "system",
+							preRiskRequired: true,
+						})
+						.where(eq(workflows.id, workflowId));
+				}
+
+				await inngest.send({
+					name: "sales/evaluation.issues_found",
+					data: {
+						workflowId,
+						applicantId,
+						issues,
+						flaggedBy: "system",
+						requiresPreRiskEvaluation: true,
+						detectedAt: new Date().toISOString(),
+					},
+				});
+			} else {
+				const db = getDatabaseClient();
+				if (db) {
+					await db
+						.update(workflows)
+						.set({
+							salesEvaluationStatus: "approved",
+							preRiskRequired: false,
+						})
+						.where(eq(workflows.id, workflowId));
+				}
+
+				await inngest.send({
+					name: "sales/evaluation.approved",
+					data: {
+						workflowId,
+						applicantId,
+						approvedBy: "system",
+						approvedAt: new Date().toISOString(),
+					},
+				});
+			}
+
+			return {
+				hasIssues: issues.length > 0,
+				issues,
+			};
+		});
+
+		if (salesEvaluation.hasIssues) {
+			await step.run("stage-2-awaiting-pre-risk-approval", async () => {
+				await updateWorkflowStatus(workflowId, "awaiting_human", 2);
+				await createWorkflowNotification({
+					workflowId,
+					applicantId,
+					type: "warning",
+					title: "Pre-risk Approval Required",
+					message:
+						"Issues were detected during sales evaluation. Complete pre-risk approval before quote can be sent.",
+					actionable: true,
+				});
+			});
+
+			const preRiskApproval = await step.waitForEvent("wait-pre-risk-approval", {
+				event: "risk/pre-approval.decided",
+				timeout: REVIEW_TIMEOUT,
+				match: "data.workflowId",
+			});
+
+			if (!preRiskApproval) {
+				return { status: "timeout", stage: 2, reason: "Pre-risk approval timeout" };
+			}
+
+			if (preRiskApproval.data.decision.outcome === "REJECTED") {
+				await step.run("pre-risk-declined-notify", async () => {
+					await notifyApplicantDecline({
+						applicantId,
+						workflowId,
+						subject: "Facility Application Update",
+						heading: "Application declined after pre-risk review",
+						message:
+							preRiskApproval.data.decision.reason ||
+							"Your application could not proceed after pre-risk review.",
+					});
+					const db = getDatabaseClient();
+					if (db) {
+						await db
+							.update(workflows)
+							.set({
+								preRiskOutcome: "rejected",
+								preRiskEvaluatedAt: new Date(),
+								applicantDecisionOutcome: "declined",
+								applicantDeclineReason:
+									preRiskApproval.data.decision.reason || "Declined in pre-risk approval",
+							})
+							.where(eq(workflows.id, workflowId));
+					}
+				});
+				return {
+					status: "terminated",
+					stage: 2,
+					reason: "Rejected in pre-risk approval",
+				};
+			}
+
+			if (preRiskApproval.data.decision.requiresPreRiskEvaluation) {
+				const preRiskEvaluation = await step.waitForEvent("wait-pre-risk-evaluation", {
+					event: "risk/pre-evaluation.decided",
+					timeout: REVIEW_TIMEOUT,
+					match: "data.workflowId",
+				});
+
+				if (!preRiskEvaluation) {
+					return { status: "timeout", stage: 2, reason: "Pre-risk evaluation timeout" };
+				}
+
+				if (preRiskEvaluation.data.decision.outcome === "REJECTED") {
+					await step.run("pre-risk-evaluation-declined-notify", async () => {
+						await notifyApplicantDecline({
+							applicantId,
+							workflowId,
+							subject: "Facility Application Update",
+							heading: "Application declined after pre-risk evaluation",
+							message:
+								preRiskEvaluation.data.decision.reason ||
+								"Your application could not proceed after pre-risk evaluation.",
+						});
+						const db = getDatabaseClient();
+						if (db) {
+							await db
+								.update(workflows)
+								.set({
+									preRiskOutcome: "rejected",
+									preRiskEvaluatedAt: new Date(),
+									applicantDecisionOutcome: "declined",
+									applicantDeclineReason:
+										preRiskEvaluation.data.decision.reason ||
+										"Declined in optional pre-risk evaluation",
+								})
+								.where(eq(workflows.id, workflowId));
+						}
+					});
+					return {
+						status: "terminated",
+						stage: 2,
+						reason: "Rejected in optional pre-risk evaluation",
+					};
+				}
+			}
+
+			await step.run("pre-risk-approval-complete", async () => {
+				const db = getDatabaseClient();
+				if (!db) return;
+				await db
+					.update(workflows)
+					.set({
+						preRiskOutcome: "approved",
+						preRiskEvaluatedAt: new Date(),
+					})
+					.where(eq(workflows.id, workflowId));
+			});
+		}
+
+		// Step 2.3: Determine mandate type and required documents
 		const mandateInfo = await step.run("determine-mandate", async () => {
 			await guardKillSwitch(workflowId, "determine-mandate");
 
@@ -280,7 +508,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 			};
 		});
 
-		// Step 2.3: AI Generate Quotation (after facility application)
+		// Step 2.4: AI Generate Quotation (after facility application)
 		const quotationResult = await step.run("ai-generate-quote", async () => {
 			await guardKillSwitch(workflowId, "ai-generate-quote");
 
@@ -333,7 +561,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 
 		const { quote, isOverlimit } = quotationResult;
 
-		// Step 2.4: Manager Quote Review (decision loop)
+		// Step 2.5: Manager Quote Review (decision loop)
 		await step.run("notify-manager-quote", async () => {
 			const title = isOverlimit
 				? "OVERLIMIT: Quote Requires Special Approval"
@@ -376,7 +604,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 			return { status: "timeout", stage: 2, reason: "Quote approval timeout" };
 		}
 
-		// Step 2.5: Send quote for client signature
+		// Step 2.6: Send quote for client decision
 		await step.run("send-quote-to-applicant", async () => {
 			await guardKillSwitch(workflowId, "send-quote-to-applicant");
 
@@ -407,18 +635,44 @@ export const controlTowerWorkflow = inngest.createFunction(
 			updateWorkflowStatus(workflowId, "awaiting_human", 2)
 		);
 
-		// Wait for quote signature
-		const quoteSigned = await step.waitForEvent("wait-quote-signed", {
-			event: "quote/signed",
+		// Wait for applicant decision on quote
+		const quoteResponse = await step.waitForEvent("wait-quote-response", {
+			event: "quote/responded",
 			timeout: WORKFLOW_TIMEOUT,
 			match: "data.workflowId",
 		});
 
-		if (!quoteSigned) {
-			return { status: "timeout", stage: 2, reason: "Quote signature timeout" };
+		if (!quoteResponse) {
+			return { status: "timeout", stage: 2, reason: "Quote response timeout" };
 		}
 
-		// Step 2.6: Request commercial mandate documents with 7-day retry loop (max 8)
+		if (quoteResponse.data.decision === "DECLINED") {
+			await step.run("quote-declined-notify", async () => {
+				await notifyApplicantDecline({
+					applicantId,
+					workflowId,
+					subject: "Quotation decision received",
+					heading: "Quotation declined",
+					message:
+						quoteResponse.data.reason ||
+						"We have recorded your decline on the quotation.",
+				});
+				const db = getDatabaseClient();
+				if (db) {
+					await db
+						.update(workflows)
+						.set({
+							applicantDecisionOutcome: "declined",
+							applicantDeclineReason:
+								quoteResponse.data.reason || "Applicant declined quotation",
+						})
+						.where(eq(workflows.id, workflowId));
+				}
+			});
+			return { status: "terminated", stage: 2, reason: "Applicant declined quotation" };
+		}
+
+		// Step 2.7: Request commercial mandate documents with 7-day retry loop (max 8)
 		await step.run("send-mandate-request", async () => {
 			await guardKillSwitch(workflowId, "send-mandate-request");
 
@@ -513,92 +767,172 @@ export const controlTowerWorkflow = inngest.createFunction(
 			updateWorkflowStatus(workflowId, "awaiting_human", 2)
 		);
 
-		// Mandate collection with 7-day timeout and retry loop (max 8)
+		// Mandate collection with Tiered Escalation (SOP v3.1.0)
 		let mandateDocsReceived = await step.waitForEvent("wait-mandate-docs", {
 			event: "document/mandate.submitted",
-			timeout: MANDATE_RETRY_TIMEOUT,
+			timeout: "7d", // Standard 7-day cycle
 			match: "data.workflowId",
 		});
 
-		// Retry loop for mandate collection
 		let retryCount = 1;
-		while (!mandateDocsReceived && retryCount < MAX_MANDATE_RETRIES) {
-			retryCount++;
 
-			// Send reminder
-			await step.run(`mandate-retry-${retryCount}`, async () => {
-				await guardKillSwitch(workflowId, `mandate-retry-${retryCount}`);
+		while (!mandateDocsReceived && retryCount <= MAX_MANDATE_RETRIES) {
+			// Tiered Escalation Logic
+			// SOP v3.1.0: Tier 1 (Retry 4), Tier 2 (Retry 7), Salvage (Retry 8)
 
-				const db = getDatabaseClient();
-				if (!db) return;
+			if (retryCount === 4) {
+				// TIER 1: Account Manager Intervention
+				await step.run("tier-1-escalation", async () => {
+					await guardKillSwitch(workflowId, "tier-1-escalation");
+					const db = getDatabaseClient();
+					if (db) {
+						await db
+							.update(applicants)
+							.set({ escalationTier: 2 }) // 2 = Manager Alert
+							.where(eq(applicants.id, applicantId));
+					}
 
-				await db
-					.update(workflows)
-					.set({
-						mandateRetryCount: retryCount,
-						mandateLastSentAt: new Date(),
-					})
-					.where(eq(workflows.id, workflowId));
-
-				const [applicant] = await db
-					.select()
-					.from(applicants)
-					.where(eq(applicants.id, applicantId));
-
-				if (applicant) {
-					await sendInternalAlertEmail({
-						title: `Mandate Reminder ${retryCount}/${MAX_MANDATE_RETRIES}`,
-						message: `Mandate documents still outstanding after ${retryCount} reminders. ${MAX_MANDATE_RETRIES - retryCount} reminders remaining before termination.`,
+					await createWorkflowNotification({
 						workflowId,
 						applicantId,
-						type: retryCount >= 6 ? "warning" : "info",
-						actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}?tab=documents`,
+						type: "warning",
+						title: "Tier 1 Escalation: Mandate Overdue",
+						message:
+							"Mandate documents overdue (4th retry). Please call applicant immediately.",
+						actionable: true,
 					});
-				}
 
-				await logWorkflowEvent({
-					workflowId,
-					eventType: "mandate_retry",
-					payload: { retryCount, maxRetries: MAX_MANDATE_RETRIES },
+					await inngest.send({
+						name: "escalation/tier.changed",
+						data: {
+							workflowId,
+							applicantId,
+							newTier: 2,
+							reason: "Mandate overdue (Retry 4)",
+							changedAt: new Date().toISOString(),
+						},
+					});
 				});
+			} else if (retryCount === 7) {
+				// TIER 2: Final Warning
+				await step.run("tier-2-escalation", async () => {
+					await guardKillSwitch(workflowId, "tier-2-escalation");
+					// Send Final Warning Email (simulated via alert for now)
+					await createWorkflowNotification({
+						workflowId,
+						applicantId,
+						type: "error",
+						title: "Tier 2 Escalation: Risk of Termination",
+						message: "Applicant flagged for termination check. Final warning sent.",
+						actionable: false,
+					});
+				});
+			} else if (retryCount === 8) {
+				// SALVAGE STATE (Retry 8)
+				await step.run("tier-3-salvage-state", async () => {
+					await guardKillSwitch(workflowId, "tier-3-salvage-state");
+
+					const db = getDatabaseClient();
+					const deadline = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+
+					if (db) {
+						await db
+							.update(applicants)
+							.set({
+								escalationTier: 3,
+								salvageDeadline: deadline,
+							})
+							.where(eq(applicants.id, applicantId));
+					}
+
+					await createWorkflowNotification({
+						workflowId,
+						applicantId,
+						type: "error",
+						title: "SALVAGE STATE ACTIVATED",
+						message: "Application will terminate in 48 hours unless salvaged by Manager.",
+						actionable: true,
+					});
+
+					await inngest.send({
+						name: "escalation/tier.changed",
+						data: {
+							workflowId,
+							applicantId,
+							newTier: 3,
+							reason: "Salvage State (Retry 8)",
+							changedAt: new Date().toISOString(),
+						},
+					});
+				});
+
+				// Wait 48 hours for salvage
+				await step.sleep("wait-salvage", "48h");
+
+				// Check if salvaged
+				const outcome = await step.run("check-salvage-outcome", async () => {
+					const db = getDatabaseClient();
+					if (!db) return false;
+					const [app] = await db
+						.select()
+						.from(applicants)
+						.where(eq(applicants.id, applicantId));
+					return !!app?.isSalvaged;
+				});
+
+				if (!outcome) {
+					// Termination
+					await executeKillSwitch({
+						workflowId,
+						applicantId,
+						reason: "MANUAL_TERMINATION",
+						decidedBy: "system_salvage_expired",
+						notes: "Salvage period expired without manual override",
+					});
+					return {
+						status: "terminated",
+						stage: 2,
+						reason: "Terminated after Salvage State expiration",
+					};
+				}
+			}
+
+			// Standard Retry (or continued retry if salvaged)
+			await step.run(`mandate-retry-${retryCount}`, async () => {
+				await guardKillSwitch(workflowId, `mandate-retry-${retryCount}`);
+				const db = getDatabaseClient();
+				if (db) {
+					await db
+						.update(workflows)
+						.set({
+							mandateRetryCount: retryCount,
+							mandateLastSentAt: new Date(),
+						})
+						.where(eq(workflows.id, workflowId));
+				}
 			});
 
-			mandateDocsReceived = await step.waitForEvent(
-				`wait-mandate-docs-retry-${retryCount}`,
-				{
-					event: "document/mandate.submitted",
-					timeout: MANDATE_RETRY_TIMEOUT,
-					match: "data.workflowId",
-				}
-			);
+			// If not max retries, wait again
+			if (retryCount < MAX_MANDATE_RETRIES) {
+				mandateDocsReceived = await step.waitForEvent(
+					`wait-mandate-docs-retry-${retryCount}`,
+					{
+						event: "document/mandate.submitted",
+						timeout: "7d",
+						match: "data.workflowId",
+					}
+				);
+			}
+
+			retryCount++;
 		}
 
 		if (!mandateDocsReceived) {
-			// Max retries exhausted — terminate per SOP
-			await step.run("mandate-exhausted-terminate", async () => {
-				await executeKillSwitch({
-					workflowId,
-					applicantId,
-					reason: "MANUAL_TERMINATION",
-					decidedBy: "system_mandate_timeout",
-					notes: `Mandate collection exhausted after ${MAX_MANDATE_RETRIES} retries`,
-				});
-
-				await inngest.send({
-					name: "mandate/collection.expired",
-					data: {
-						workflowId,
-						applicantId,
-						retryCount: MAX_MANDATE_RETRIES,
-						reason: "max_retries",
-						expiredAt: new Date().toISOString(),
-					},
-				});
-			});
+			// Should have been handled by Salvage State, but safety net
 			return {
 				status: "terminated",
 				stage: 2,
-				reason: `Mandate collection exhausted after ${MAX_MANDATE_RETRIES} retries`,
+				reason: "Mandate collection exhausted",
 			};
 		}
 
@@ -886,16 +1220,110 @@ export const controlTowerWorkflow = inngest.createFunction(
 
 		context.aiAnalysisComplete = true;
 
-		// Check if blocked by sanctions
+		// Check if blocked by sanctions (SOP v3.1.0)
 		if (aiAnalysis.overall.isBlocked) {
-			await executeKillSwitch({
-				workflowId,
-				applicantId,
-				reason: "COMPLIANCE_VIOLATION",
-				decidedBy: "ai_sanctions_agent",
-				notes: `Blocked by sanctions check: ${aiAnalysis.overall.reasoning}`,
-			});
-			return { status: "terminated", stage: 3, reason: "Blocked by sanctions screening" };
+			// Detect if it is specifically a Sanctions Hit
+			// (Assuming mock agent returns 'BLOCKED' in riskLevel or unSanctions.matchFound)
+			const sanctionsResult = aiAnalysis.agents?.sanctions as any;
+			const isSanctionHit =
+				sanctionsResult?.riskLevel === "BLOCKED" ||
+				sanctionsResult?.unSanctions?.matchFound;
+
+			if (isSanctionHit) {
+				// SANCTION PAUSE PROTOCOL
+				await step.run("enter-sanction-pause", async () => {
+					await updateWorkflowStatus(workflowId, "paused", 3);
+
+					const db = getDatabaseClient();
+					if (db) {
+						await db
+							.update(applicants)
+							.set({ sanctionStatus: "flagged" })
+							.where(eq(applicants.id, applicantId));
+					}
+
+					await createWorkflowNotification({
+						workflowId,
+						applicantId,
+						type: "error",
+						title: "CRITICAL: Sanction Hit Detected",
+						message:
+							"Workflow PAUSED. Compliance Officer clearance required. 'Retry' is forbidden.",
+						actionable: true,
+					});
+
+					await sendInternalAlertEmail({
+						title: "CRITICAL: Sanction Hit Paused Workflow",
+						message:
+							"A potential sanction hit has paused the workflow. Compliance Officer must adjudicate via Sanction Clearance Interface.",
+						workflowId,
+						applicantId,
+						type: "error",
+						actionUrl: `${getBaseUrl()}/dashboard/compliance/sanctions/${applicantId}`,
+					});
+				});
+
+				// Wait for Clearance or Confirmation
+				const clearanceEvent = await step.waitForEvent("wait-sanction-clearance", {
+					event: "sanction/cleared",
+					timeout: "30d", // Long timeout for compliance
+					match: "data.workflowId",
+				});
+
+				// We also need to listen for "sanction/confirmed" but inngest waitForEvent is single event.
+				// For now, we assume if "sanction/cleared" isn't fired, it might be terminated via other means (kill switch)
+				// OR we can use race() if Inngest supports it (in current SDK it might not easily).
+				// workaround: The "Confirm Hit" action in UI should probably trigger "workflow/terminated" event directly (Kill Switch) OR fire "sanction/confirmed".
+				// IF we receive "sanction/cleared", we resume.
+				// IF we don't, we time out or get killed.
+
+				if (!clearanceEvent) {
+					// Timeout or Killed
+					return {
+						status: "terminated",
+						stage: 3,
+						reason: "Sanction clearance timed out",
+					};
+				}
+
+				// If Cleared
+				await step.run("resume-from-sanction-pause", async () => {
+					await updateWorkflowStatus(workflowId, "processing", 3);
+					const db = getDatabaseClient();
+					if (db) {
+						await db
+							.update(applicants)
+							.set({ sanctionStatus: "clear" })
+							.where(eq(applicants.id, applicantId));
+					}
+
+					await logWorkflowEvent({
+						workflowId,
+						eventType: "sanction_cleared",
+						payload: {
+							officerId: clearanceEvent.data.officerId,
+							reason: clearanceEvent.data.reason,
+							clearedAt: clearanceEvent.data.clearedAt,
+						},
+					});
+				});
+
+				// Continue normally...
+			} else {
+				// Other blocking reasons (Fraud, etc)
+				await executeKillSwitch({
+					workflowId,
+					applicantId,
+					reason: "COMPLIANCE_VIOLATION",
+					decidedBy: "ai_sanctions_agent",
+					notes: `Blocked by AI checks: ${aiAnalysis.overall.reasoning}`,
+				});
+				return {
+					status: "terminated",
+					stage: 3,
+					reason: "Blocked by sanctions screening",
+				};
+			}
 		}
 
 		// ================================================================
@@ -950,6 +1378,17 @@ export const controlTowerWorkflow = inngest.createFunction(
 				reason: "MANUAL_TERMINATION",
 				decidedBy: riskDecision.data.decision.decidedBy,
 				notes: riskDecision.data.decision.reason,
+			});
+			await step.run("risk-declined-notify-applicant", async () => {
+				await notifyApplicantDecline({
+					applicantId,
+					workflowId,
+					subject: "Facility Application Outcome",
+					heading: "Application declined after final risk review",
+					message:
+						riskDecision.data.decision.reason ||
+						"Your application was not approved after final risk review.",
+				});
 			});
 			return { status: "terminated", stage: 4, reason: "Rejected by Risk Manager" };
 		}
@@ -1124,15 +1563,48 @@ export const controlTowerWorkflow = inngest.createFunction(
 			updateWorkflowStatus(workflowId, "awaiting_human", 5)
 		);
 
-		// Wait for contract signature
-		const contractSigned = await step.waitForEvent("wait-contract-signed", {
-			event: "contract/signed",
+		// Wait for applicant decision on contract
+		const contractDecision = await step.waitForEvent("wait-contract-decision", {
+			event: "form/decision.responded",
 			timeout: REVIEW_TIMEOUT,
 			match: "data.workflowId",
 		});
 
-		if (!contractSigned) {
-			return { status: "timeout", stage: 5, reason: "Contract signature timeout" };
+		if (!contractDecision) {
+			return { status: "timeout", stage: 5, reason: "Contract decision timeout" };
+		}
+
+		if (contractDecision.data.formType !== "STRATCOL_CONTRACT") {
+			return {
+				status: "failed",
+				stage: 5,
+				reason: "Received non-contract form decision while waiting for contract decision",
+			};
+		}
+
+		if (contractDecision.data.decision === "DECLINED") {
+			await step.run("contract-declined-notify-applicant", async () => {
+				await notifyApplicantDecline({
+					applicantId,
+					workflowId,
+					subject: "Contract decision received",
+					heading: "Contract was declined",
+					message:
+						contractDecision.data.reason || "We have recorded your contract decline.",
+				});
+				const db = getDatabaseClient();
+				if (db) {
+					await db
+						.update(workflows)
+						.set({
+							applicantDecisionOutcome: "declined",
+							applicantDeclineReason:
+								contractDecision.data.reason || "Applicant declined contract",
+						})
+						.where(eq(workflows.id, workflowId));
+				}
+			});
+			return { status: "terminated", stage: 5, reason: "Applicant declined contract" };
 		}
 
 		// Wait for ABSA 6995 form completion

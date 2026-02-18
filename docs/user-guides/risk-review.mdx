@@ -1,0 +1,96 @@
+---
+title: "Risk review"
+description: "Review AI risk assessments, make structured override decisions, and feed the AI retraining pipeline."
+---
+
+## Risk review queue
+
+Open **Risk Review** from the sidebar to see all workflows awaiting a human risk decision. Items arrive here when the AI risk assessment flags a workflow for manual review.
+
+### What you see
+
+Each card in the queue shows:
+
+- **Client name** and workflow ID
+- **Company name** and entity type
+- **AI trust score** (0–100)
+- **AI recommendation** (e.g. Approve, Manual Review, Decline)
+- **Risk level** badge (Low, Medium, High, Critical)
+- **Time waiting** since the item entered the queue
+
+### Quick actions
+
+From every card you can:
+
+- **View Details** to open the full risk review sheet
+- **Approve** or **Reject** to open the structured decision dialog
+
+## Structured decision dialog
+
+When you approve or reject a workflow, the system captures structured override data instead of free-text reasons. This data feeds the AI retraining pipeline automatically.
+
+### Required fields
+
+1. **Override Category** — select the category that best describes your assessment. Options include:
+
+| Category | When to use |
+| :--- | :--- |
+| AI Decision Aligned | Your decision matches the AI recommendation |
+| Missing Context | The AI lacked information you have |
+| Incorrect Risk Scoring | The AI scored too high or too low |
+| False Positive Flag | The AI flagged something that is not a real issue |
+| False Negative Miss | The AI missed a real risk factor |
+| Policy Exception | You are overriding based on a policy or management decision |
+| Data Quality Issue | The AI used stale, incorrect, or incomplete data |
+| Other | None of the above — additional details are required |
+
+2. **Subcategory** (optional) — a more specific label within the selected category. For example, under "False Positive Flag" you might select "Name Collision (Not Same Entity)".
+
+3. **Additional Notes** — free text for extra context. Required when the category is "Other".
+
+### AI divergence warning
+
+When your decision contradicts the AI recommendation (e.g. approving when the AI said "Decline"), the dialog shows an **AI Divergence** warning. This flags the decision for priority retraining review.
+
+### Validation rules
+
+- A category is always required.
+- Rejections cannot use "AI Decision Aligned" (since declining contradicts alignment).
+- "Other" requires additional notes.
+
+## Risk review detail sheet
+
+Select **View Details** to open the full risk review sheet for an item.
+
+### Tabs
+
+- **Overview**: applicant details, AI trust score, entity information, risk flags
+- **Risk Assessment**: full AI risk analysis, sanctions check results, validation summary
+- **Documents**: uploaded documents with verification status (bank statements, accountant letters, etc.)
+- **Timeline**: audit log of all workflow events and transitions
+
+### Quick approve/reject from detail view
+
+The detail view includes approve and reject buttons. These use default categories:
+
+- **Approve** defaults to "AI Decision Aligned"
+- **Reject** defaults to "Other"
+
+For full structured input, use the decision dialog from the queue cards instead.
+
+## Review types
+
+The system distinguishes two review types based on workflow stage:
+
+- **Procurement review** — triggered during the procurement/risk verification stage
+- **Risk review** — triggered during the final risk decision stage
+
+The review type badge appears in the detail sheet header and determines which API endpoint receives the decision.
+
+## What happens after a decision
+
+1. The decision is logged as a `workflow_event` in the database.
+2. A **structured feedback log** is created in `ai_feedback_logs` for retraining (see [AI feedback pipeline](/user-guides/ai-feedback-pipeline)).
+3. If the decision diverges from the AI recommendation, an `ai/feedback.divergence_detected` event is emitted.
+4. The workflow resumes or terminates based on the outcome.
+5. If the decision is a rejection, a **kill switch** may be triggered to halt all parallel processes (procurement decisions).

@@ -36,6 +36,35 @@ export default async function WorkflowsPage() {
 
 	if (db) {
 		try {
+			const normalizeStage = (
+				stage: number | null | undefined
+			): 1 | 2 | 3 | 4 | 5 | 6 => {
+				if (
+					stage === 1 ||
+					stage === 2 ||
+					stage === 3 ||
+					stage === 4 ||
+					stage === 5 ||
+					stage === 6
+				) {
+					return stage;
+				}
+				return 1;
+			};
+			const normalizeStatus = (
+				status: string | null | undefined
+			): WorkflowRow["status"] => {
+				if (status === "processing") return "in_progress";
+				if (status === "terminated") return "failed";
+				if (status === "pending") return "pending";
+				if (status === "awaiting_human") return "awaiting_human";
+				if (status === "completed") return "completed";
+				if (status === "failed") return "failed";
+				if (status === "timeout") return "timeout";
+				if (status === "paused") return "paused";
+				return "pending";
+			};
+
 			// Fetch all workflows with applicant data
 			const workflowRows = await db
 				.select({
@@ -64,13 +93,14 @@ export default async function WorkflowsPage() {
 
 			allWorkflows = workflowRows.map(w => ({
 				...w,
-				stage: w.stage as WorkflowRow["stage"],
-				status: w.status as WorkflowRow["status"],
+				stage: normalizeStage(w.stage),
+				status: normalizeStatus(w.status),
 				stageName:
-					w.stageName || STAGE_NAMES[w.stage as keyof typeof STAGE_NAMES] || "Unknown",
+					w.stageName || STAGE_NAMES[normalizeStage(w.stage)] || "Unknown",
 				// Parse metadata if it exists, otherwise use empty object
 				payload: w.metadata ? JSON.parse(w.metadata) : {},
 				hasQuote: quotesByWorkflow.has(w.id),
+				currentAgent: "system",
 			}));
 
 			// Calculate stats for V2 6-stage workflow

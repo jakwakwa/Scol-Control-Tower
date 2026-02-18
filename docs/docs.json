@@ -19,11 +19,13 @@
               "user-guides/overview",
               "user-guides/applicants",
               "user-guides/workflows",
-              "user-guides/e2e-testing",
+              "user-guides/risk-review",
+              "user-guides/ai-feedback-pipeline",
               "user-guides/onboarding-forms",
+              "user-guides/quotations",
               "user-guides/agents",
               "user-guides/notifications",
-              "user-guides/quotations"
+              "user-guides/e2e-testing"
             ]
           },
           {

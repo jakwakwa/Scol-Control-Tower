@@ -1,7 +1,7 @@
-export {
-	RiskReviewQueue,
-	RiskReviewCard,
-	RiskDecisionDialog,
-} from "./risk-review-queue";
-export type { RiskReviewItem } from "./risk-review-queue";
 export { RiskReviewDetail } from "./risk-review-detail";
+export type { OverrideData, RiskReviewItem } from "./risk-review-queue";
+export {
+	RiskDecisionDialog,
+	RiskReviewCard,
+	RiskReviewQueue,
+} from "./risk-review-queue";

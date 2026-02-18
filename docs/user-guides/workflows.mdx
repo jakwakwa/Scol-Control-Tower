@@ -10,18 +10,20 @@ Open **Workflows** from the sidebar to see all active and completed workflows.
 ### What you can do
 
 - Sort by client, status, agent, or start time
-- View a workflow’s detail page
+- View a workflow's detail page
 - Open the workflow payload for deeper inspection
 - Approve or reject workflows awaiting human input
 
 ## Workflow stages
 
-Each workflow moves through four stages:
+Each workflow moves through six stages:
 
 1. **Applicant Capture**: intake and initial record creation
-2. **Quotation**: agreement and service configuration
+2. **Quotation**: sales evaluation, pre-risk checks, AI quote generation, and client approval/decline
 3. **Verification**: bank assessment and FICA document checks
 4. **Integration**: handover and operational readiness
+5. **Contract**: StratCol agreement and call centre application with client approval/decline
+6. **Final Approval**: two-factor sign-off by Risk Manager and Account Manager
 
 ## Workflow statuses
 
@@ -44,6 +46,58 @@ When a workflow status is **Awaiting human**, quick actions appear:
 
 You will be prompted to confirm the action before it is sent.
 
+### Structured override decisions
+
+Approval and rejection decisions now use a **structured override dialog** instead of free-text reasons. You select a category, optional subcategory, and can add notes. This data feeds the AI retraining pipeline. See [Risk review](/user-guides/risk-review) for full details.
+
+## Sales evaluation (Stage 2)
+
+After the facility application is submitted, the system runs an automated sales evaluation to detect potential issues before a quote is generated.
+
+### Possible outcomes
+
+- **No issues found**: the workflow continues directly to quote generation.
+- **Issues found**: the workflow pauses and creates a **Pre-risk Approval Required** notification. Staff must review and approve before the quote can be sent.
+
+### Pre-risk approval path
+
+When issues are detected:
+
+1. A notification is created with the issues summary.
+2. A staff member approves or rejects via the `risk/pre-approval.decided` event.
+3. If approved but flagged for deeper evaluation, a second `risk/pre-evaluation.decided` wait occurs.
+4. If rejected at any step, the applicant is notified by email and the workflow terminates.
+5. Once approved, the workflow continues to quote generation.
+
+### Tracking fields
+
+The applicant detail page shows:
+
+- **Sales Evaluation**: current status (`not_started`, `approved`, `issues_found`)
+- **Pre-risk Path**: whether pre-risk was required and its outcome
+- **Applicant Decision**: whether the applicant approved or declined
+
+## Applicant approve/decline flow
+
+Several Stage 2 and Stage 5 steps now support **explicit applicant decisions** instead of signature-only flows:
+
+### Quote response (Stage 2)
+
+After staff approves and sends a quote, the client receives a form link. The client can:
+
+- **Approve** the quotation
+- **Decline** the quotation (with a required reason)
+
+If declined, the applicant receives a confirmation email and the workflow terminates with reason "Applicant declined quotation".
+
+### Contract response (Stage 5)
+
+The StratCol contract form also supports approve/decline decisions. If the applicant declines the contract, the workflow terminates with reason "Applicant declined contract".
+
+### Email notifications on decline
+
+When an applicant declines any decision-enabled form, the system sends a status email confirming the decline and logs the reason in the `applicantDeclineReason` field on the workflow.
+
 ## Workflow details page
 
 Select **View workflow** from the actions menu to open the detail view.
@@ -52,6 +106,9 @@ Select **View workflow** from the actions menu to open the detail view.
 
 - **Header**: workflow ID, client, status, and stage
 - **Generated quote**: amount, status, and rationale (when available)
+- **Sales evaluation**: status, issues summary, and flagged-by indicator
+- **Pre-risk path**: required/not required, outcome
+- **Applicant decision**: current outcome and decline reason (if any)
 - **Activity timeline**: audit log of all events and transitions
 - **Client details**: company and contact information
 - **Processing status**: current agent and any error details

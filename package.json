@@ -15,6 +15,7 @@
 		"test:e2e:headed": "playwright test --headed",
 		"test:e2e:debug": "playwright test --debug",
 		"test:db:reset": "bun run scripts/reset-test-db.ts",
+		"db:seed": "bun run scripts/seed.ts",
 		"dev:all": "./setup-dev.sh"
 	},
 	"dependencies": {
@@ -38,6 +39,7 @@
 		"clsx": "^2.1.1",
 		"date-fns": "^4.1.0",
 		"drizzle-orm": "^0.45.1",
+		"drizzle-seed": "^0.3.1",
 		"framer-motion": "^12.29.2",
 		"inngest": "^3.49.3",
 		"lucide-react": "^0.563.0",

@@ -1,24 +1,23 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { DashboardLayout } from "@/components/dashboard";
-import { GlassCard } from "@/components/dashboard";
 import {
-	RiShieldCheckLine,
 	RiAlertLine,
-	RiTimeLine,
-	RiSearchLine,
 	RiFilter3Line,
 	RiRefreshLine,
+	RiSearchLine,
+	RiTimeLine,
 } from "@remixicon/react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { DashboardLayout } from "@/components/dashboard";
 import {
-	RiskReviewQueue,
 	RiskReviewDetail,
 	type RiskReviewItem,
+	RiskReviewQueue,
 } from "@/components/dashboard/risk-review";
-import { toast } from "sonner";
+import type { OverrideData } from "@/components/dashboard/risk-review/risk-review-queue";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function RiskReviewPage() {
 	const [searchTerm, setSearchTerm] = useState("");
@@ -55,7 +54,7 @@ export default function RiskReviewPage() {
 		fetchRiskReviewItems();
 	}, [fetchRiskReviewItems]);
 
-	const handleApprove = async (id: number, reason?: string) => {
+	const handleApprove = async (id: number, overrideData: OverrideData) => {
 		const item = items.find(i => i.id === id);
 		if (!item) {
 			toast.error("Workflow not found");
@@ -71,9 +70,9 @@ export default function RiskReviewPage() {
 					applicantId: item.applicantId,
 					decision: {
 						outcome: "APPROVED",
-						decidedBy: "staff",
-						reason: reason || "Approved after manual review",
-						timestamp: new Date().toISOString(),
+						overrideCategory: overrideData.overrideCategory,
+						overrideSubcategory: overrideData.overrideSubcategory,
+						overrideDetails: overrideData.overrideDetails,
 					},
 				}),
 			});
@@ -94,7 +93,7 @@ export default function RiskReviewPage() {
 		}
 	};
 
-	const handleReject = async (id: number, reason: string) => {
+	const handleReject = async (id: number, overrideData: OverrideData) => {
 		const item = items.find(i => i.id === id);
 		if (!item) {
 			toast.error("Workflow not found");
@@ -110,9 +109,9 @@ export default function RiskReviewPage() {
 					applicantId: item.applicantId,
 					decision: {
 						outcome: "REJECTED",
-						decidedBy: "staff",
-						reason,
-						timestamp: new Date().toISOString(),
+						overrideCategory: overrideData.overrideCategory,
+						overrideSubcategory: overrideData.overrideSubcategory,
+						overrideDetails: overrideData.overrideDetails,
 					},
 				}),
 			});
@@ -206,12 +205,12 @@ export default function RiskReviewPage() {
 				item={selectedItem}
 				open={isDetailOpen}
 				onOpenChange={setIsDetailOpen}
-				onApprove={async (id, reason) => {
-					await handleApprove(id, reason);
+				onApprove={async (id, overrideData) => {
+					await handleApprove(id, overrideData);
 					setIsDetailOpen(false);
 				}}
-				onReject={async (id, reason) => {
-					await handleReject(id, reason);
+				onReject={async (id, overrideData) => {
+					await handleReject(id, overrideData);
 					setIsDetailOpen(false);
 				}}
 			/>

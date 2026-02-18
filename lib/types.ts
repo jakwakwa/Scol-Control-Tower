@@ -56,6 +56,16 @@ export const FormInstanceStatusSchema = z.enum([
 
 export type FormInstanceStatus = z.infer<typeof FormInstanceStatusSchema>;
 
+export const FormDecisionOutcomeSchema = z.enum(["APPROVED", "DECLINED"]);
+export type FormDecisionOutcome = z.infer<typeof FormDecisionOutcomeSchema>;
+
+export const DecisionEnabledFormTypeSchema = z.enum([
+	"SIGNED_QUOTATION",
+	"STRATCOL_CONTRACT",
+	"CALL_CENTRE_APPLICATION",
+]);
+export type DecisionEnabledFormType = z.infer<typeof DecisionEnabledFormTypeSchema>;
+
 export const DocumentCategorySchema = z.enum([
 	"standard_application",
 	"fica_entity",

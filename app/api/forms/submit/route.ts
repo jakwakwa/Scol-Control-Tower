@@ -2,19 +2,6 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { inngest } from "@/inngest";
-import type { FormType } from "@/lib/types";
-import { getDatabaseClient } from "@/app/utils";
-import { quotes } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
-import {
-	absa6995Schema,
-	accountantLetterSchema,
-	callCentreApplicationSchema,
-	facilityApplicationSchema,
-	signedQuotationSchema,
-	stratcolContractSchema,
-	type FacilityApplicationForm,
-} from "@/lib/validations/forms";
 import {
 	getFormInstanceByToken,
 	recordFormSubmission,
@@ -23,6 +10,16 @@ import {
 	createWorkflowNotification,
 	logWorkflowEvent,
 } from "@/lib/services/notification-events.service";
+import type { FormType } from "@/lib/types";
+import {
+	absa6995Schema,
+	accountantLetterSchema,
+	callCentreApplicationSchema,
+	type FacilityApplicationForm,
+	facilityApplicationSchema,
+	signedQuotationSchema,
+	stratcolContractSchema,
+} from "@/lib/validations/forms";
 
 const formSubmissionSchema = z.object({
 	token: z.string().min(10),
@@ -108,36 +105,6 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		let latestQuoteId: number | null = null;
-		let quoteDb = null as Awaited<ReturnType<typeof getDatabaseClient>> | null;
-
-		if (formType === "SIGNED_QUOTATION" && formInstance.workflowId) {
-			quoteDb = await getDatabaseClient();
-
-			if (!quoteDb) {
-				return NextResponse.json(
-					{ error: "Database connection failed" },
-					{ status: 500 }
-				);
-			}
-
-			const quoteResults = await quoteDb
-				.select()
-				.from(quotes)
-				.where(eq(quotes.workflowId, formInstance.workflowId))
-				.orderBy(desc(quotes.createdAt))
-				.limit(1);
-
-			if (quoteResults.length === 0) {
-				return NextResponse.json(
-					{ error: "No quote available for this workflow" },
-					{ status: 404 }
-				);
-			}
-
-			latestQuoteId = quoteResults[0].id;
-		}
-
 		const submission = await recordFormSubmission({
 			applicantMagiclinkFormId: formInstance.id,
 			applicantId: formInstance.applicantId,
@@ -219,46 +186,6 @@ export async function POST(request: NextRequest) {
 						submittedAt: new Date().toISOString(),
 					},
 				});
-			}
-
-			if (formType === "STRATCOL_CONTRACT") {
-				await inngest.send({
-					name: "contract/signed",
-					data: {
-						workflowId: formInstance.workflowId,
-						signedAt: new Date().toISOString(),
-					},
-				});
-			}
-
-			if (formType === "SIGNED_QUOTATION" && formInstance.workflowId) {
-				const db = quoteDb ?? (await getDatabaseClient());
-
-				if (!db) {
-					console.error("[FormSubmit] Database connection failed for quote update");
-				} else {
-					const updateResults = latestQuoteId
-						? await db
-								.update(quotes)
-								.set({ status: "approved", updatedAt: new Date() })
-								.where(eq(quotes.id, latestQuoteId))
-								.returning()
-						: [];
-
-					const resolvedQuoteId = updateResults[0]?.id ?? latestQuoteId;
-
-					if (resolvedQuoteId) {
-						await inngest.send({
-							name: "quote/signed",
-							data: {
-								workflowId: formInstance.workflowId,
-								applicantId: formInstance.applicantId,
-								quoteId: resolvedQuoteId,
-								signedAt: new Date().toISOString(),
-							},
-						});
-					}
-				}
 			}
 
 			if (formType === "ACCOUNTANT_LETTER") {

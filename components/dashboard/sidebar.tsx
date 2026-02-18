@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	RiAlarmWarningLine,
 	RiBarChartBoxAiFill,
 	RiDashboardLine,
 	RiMenuFoldLine,
@@ -22,6 +23,11 @@ const navigation = [
 		name: "Risk Review",
 		href: "/dashboard/risk-review",
 		icon: RiShieldCheckLine,
+	},
+	{
+		name: "Sanctions",
+		href: "/dashboard/sanctions",
+		icon: RiAlarmWarningLine,
 	},
 	{ name: "Agents", href: "/dashboard/agents", icon: RiRobot2Line },
 ];

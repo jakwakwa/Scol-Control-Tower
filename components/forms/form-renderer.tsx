@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { ZodTypeAny } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { type ReactNode, useMemo, useState } from "react";
 import type { FieldValues, Resolver } from "react-hook-form";
 import { FormProvider, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import type { ZodTypeAny } from "zod";
 import { Button } from "@/components/ui/button";
 import { FormField, RepeatableFieldGroup } from "./form-fields";
-import type { FormSectionDefinition, FieldDefinition } from "./types";
+import type { FieldDefinition, FormSectionDefinition } from "./types";
 
 interface FormRendererProps {
 	sections: FormSectionDefinition[];
@@ -17,6 +17,7 @@ interface FormRendererProps {
 	submitLabel?: string;
 	onSubmit: (values: FieldValues) => Promise<void>;
 	disabled?: boolean;
+	renderActions?: ReactNode;
 }
 
 const isRepeatable = (
@@ -32,6 +33,7 @@ export default function FormRenderer({
 	submitLabel = "Submit",
 	onSubmit,
 	disabled,
+	renderActions,
 }: FormRendererProps) {
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const form = useForm<FieldValues>({
@@ -117,9 +119,13 @@ export default function FormRenderer({
 				{submitError ? <p className="text-sm text-destructive">{submitError}</p> : null}
 
 				<div className="flex items-center justify-end gap-3">
-					<Button type="submit" disabled={disabled || form.formState.isSubmitting}>
-						{form.formState.isSubmitting ? "Submitting..." : submitLabel}
-					</Button>
+					{renderActions ? (
+						renderActions
+					) : (
+						<Button type="submit" disabled={disabled || form.formState.isSubmitting}>
+							{form.formState.isSubmitting ? "Submitting..." : submitLabel}
+						</Button>
+					)}
 				</div>
 			</form>
 		</FormProvider>

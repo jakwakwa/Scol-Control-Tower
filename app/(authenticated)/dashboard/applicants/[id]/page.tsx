@@ -2,8 +2,6 @@
 
 import {
 	RiAi,
-	RiAiAgentFill,
-	RiAiGenerate,
 	RiBuildingLine,
 	RiCheckLine,
 	RiCloseLine,
@@ -20,8 +18,7 @@ import {
 	RiShieldCheckLine,
 	RiUploadCloud2Line,
 } from "@remixicon/react";
-import { retryFacilitySubmission } from "@/lib/actions/workflow.actions";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DashboardLayout, GlassCard } from "@/components/dashboard";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { RiskBadge, StageBadge, StatusBadge } from "@/components/ui/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { retryFacilitySubmission } from "@/lib/actions/workflow.actions";
 
 interface ApplicantDetail {
 	id: number;
@@ -104,6 +102,13 @@ interface Workflow {
 	id: number;
 	stage?: number | null;
 	status?: string | null;
+	salesEvaluationStatus?: string | null;
+	salesIssuesSummary?: string | null;
+	issueFlaggedBy?: string | null;
+	preRiskRequired?: number | boolean | null;
+	preRiskOutcome?: string | null;
+	applicantDecisionOutcome?: string | null;
+	applicantDeclineReason?: string | null;
 }
 
 const formatDate = (value?: string | number | Date | null) => {
@@ -167,7 +172,8 @@ export default function ApplicantDetailPage() {
 		}
 	}, [quote, isEditingQuote]);
 
-	const canEditQuote = quote && !["pending_signature", "approved", "rejected"].includes(quote.status);
+	const canEditQuote =
+		quote && !["pending_signature", "approved", "rejected"].includes(quote.status);
 
 	const handleSaveQuoteDraft = async () => {
 		if (!quote) return;
@@ -238,7 +244,11 @@ export default function ApplicantDetailPage() {
 
 	const handleDeclineQuote = async () => {
 		if (!quote) return;
-		if (!window.confirm("Are you sure you want to decline this quote? This action cannot be undone.")) {
+		if (
+			!window.confirm(
+				"Are you sure you want to decline this quote? This action cannot be undone."
+			)
+		) {
 			return;
 		}
 		setQuoteActionLoading("decline");
@@ -464,7 +474,9 @@ export default function ApplicantDetailPage() {
 							<div className="flex items-center gap-3 text-sm">
 								<RiShieldCheckLine className="h-4 w-4 text-muted-foreground" />
 								<span className="capitalize">
-									{client.mandateType ? client.mandateType.replace(/_/g, " ").toLowerCase() : "Not set"}
+									{client.mandateType
+										? client.mandateType.replace(/_/g, " ").toLowerCase()
+										: "Not set"}
 								</span>
 							</div>
 						</div>
@@ -566,6 +578,51 @@ export default function ApplicantDetailPage() {
 										</p>
 									</div>
 								</div>
+								{workflow ? (
+									<div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-3">
+										<div className="p-3 rounded-lg bg-secondary/10 border border-border/40">
+											<p className="text-xs uppercase text-muted-foreground font-bold">
+												Sales Evaluation
+											</p>
+											<p className="text-sm mt-1">
+												{workflow.salesEvaluationStatus || "not_started"}
+											</p>
+											{workflow.salesIssuesSummary ? (
+												<p className="text-xs text-muted-foreground mt-1">
+													{workflow.salesIssuesSummary}
+												</p>
+											) : null}
+										</div>
+										<div className="p-3 rounded-lg bg-secondary/10 border border-border/40">
+											<p className="text-xs uppercase text-muted-foreground font-bold">
+												Pre-risk Path
+											</p>
+											<p className="text-sm mt-1">
+												{workflow.preRiskRequired
+													? workflow.preRiskOutcome || "required"
+													: "not_required"}
+											</p>
+											{workflow.issueFlaggedBy ? (
+												<p className="text-xs text-muted-foreground mt-1">
+													Flagged by {workflow.issueFlaggedBy}
+												</p>
+											) : null}
+										</div>
+										<div className="p-3 rounded-lg bg-secondary/10 border border-border/40 md:col-span-2">
+											<p className="text-xs uppercase text-muted-foreground font-bold">
+												Applicant Decision
+											</p>
+											<p className="text-sm mt-1">
+												{workflow.applicantDecisionOutcome || "pending"}
+											</p>
+											{workflow.applicantDeclineReason ? (
+												<p className="text-xs text-muted-foreground mt-1">
+													Reason: {workflow.applicantDeclineReason}
+												</p>
+											) : null}
+										</div>
+									</div>
+								) : null}
 							</GlassCard>
 						</TabsContent>
 
@@ -663,7 +720,7 @@ export default function ApplicantDetailPage() {
 																{instance.formType.replace(/_/g, " ").toLowerCase()}
 															</p>
 															<p className="text-sm text-success/90 my-1 font-sans italic">
-															{instance.status}
+																{instance.status}
 															</p>
 															{instance.token ? (
 																<Button
@@ -672,7 +729,9 @@ export default function ApplicantDetailPage() {
 																	size="xs"
 																	className="mt-1 px-2 bg-slate-700/50 text-xs"
 																	onClick={() => handleCopyMagicLink(instance)}>
-																	{copiedFormId === instance.id ? "Copied" : "Copy Client link"}
+																	{copiedFormId === instance.id
+																		? "Copied"
+																		: "Copy Client link"}
 																</Button>
 															) : (
 																<p className="mt-1 text-xs text-muted-foreground">
@@ -713,11 +772,16 @@ export default function ApplicantDetailPage() {
 																		key={key}
 																		className="flex justify-between items-start p-2 rounded-lg bg-card border border-border/40">
 																		<span className="text-xs text-muted-foreground capitalize">
-																			{key.replace(/([A-Z])/g, " $1").replace(/_/g, " ").toLowerCase()}
+																			{key
+																				.replace(/([A-Z])/g, " $1")
+																				.replace(/_/g, " ")
+																				.toLowerCase()}
 																		</span>
 																		<span className="text-xs font-medium text-foreground text-right max-w-[60%] wrap-break-word capitalize">
 																			{typeof value === "string"
-																				? /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/i.test(value)
+																				? /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/i.test(
+																						value
+																					)
 																					? formatDateTime(value)
 																					: value.replace(/_/g, " ").toLowerCase()
 																				: String(value)}
@@ -852,7 +916,11 @@ export default function ApplicantDetailPage() {
 														{Object.entries(analysis).map(([key, value]) => (
 															<p key={key}>
 																<span className="font-medium capitalize">
-																	{key.replace(/([A-Z])/g, " $1").replace(/_/g, " ").toLowerCase()}:
+																	{key
+																		.replace(/([A-Z])/g, " $1")
+																		.replace(/_/g, " ")
+																		.toLowerCase()}
+																	:
 																</span>{" "}
 																<span className="capitalize">
 																	{typeof value === "string"
@@ -887,7 +955,9 @@ export default function ApplicantDetailPage() {
 						<TabsContent value="reviews">
 							<div className="space-y-3">
 								<div className="flex items-center justify-between">
-									<h3 className="font-bold text-slate-800/50 text-3xl mt-4 pt-4 pl-4">Quote Review</h3>
+									<h3 className="font-bold text-slate-800/50 text-3xl mt-4 pt-4 pl-4">
+										Quote Review
+									</h3>
 									{quote && canEditQuote && !isEditingQuote && (
 										<Button
 											variant="outline"
@@ -909,7 +979,9 @@ export default function ApplicantDetailPage() {
 												<div>
 													{isEditingQuote ? (
 														<div className="space-y-1">
-															<p className="text-xs text-muted-foreground">Amount (cents)</p>
+															<p className="text-xs text-muted-foreground">
+																Amount (cents)
+															</p>
 															<Input
 																type="number"
 																value={editAmount}
@@ -918,12 +990,9 @@ export default function ApplicantDetailPage() {
 															/>
 														</div>
 													) : (
-														
-															<h4 className="font-black text-2xl text-emerald-900">
-																R {(quote.amount / 100).toLocaleString()}
-															</h4>
-														
-													
+														<h4 className="font-black text-2xl text-emerald-900">
+															R {(quote.amount / 100).toLocaleString()}
+														</h4>
 													)}
 												</div>
 											</div>
@@ -962,7 +1031,9 @@ export default function ApplicantDetailPage() {
 
 										<div className="grid grid-cols-2 gap-4 mb-6">
 											<div className="p-3 rounded-lg bg-secondary/10 border border-border/40">
-												<p className="text-xs text-muted-foreground mb-1">Base Fee (bps)</p>
+												<p className="text-xs text-muted-foreground mb-1">
+													Base Fee (bps)
+												</p>
 												{isEditingQuote ? (
 													<Input
 														type="number"
@@ -977,7 +1048,9 @@ export default function ApplicantDetailPage() {
 												)}
 											</div>
 											<div className="p-3 rounded-lg bg-secondary/10 border border-border/40">
-												<p className="text-xs text-muted-foreground mb-1">Adjusted Fee (bps)</p>
+												<p className="text-xs text-muted-foreground mb-1">
+													Adjusted Fee (bps)
+												</p>
 												{isEditingQuote ? (
 													<Input
 														type="number"
@@ -999,15 +1072,23 @@ export default function ApplicantDetailPage() {
 										{quote.rationale && (
 											<div className="mb-4 border border-border/40 p-4 rounded-lg bg-secondary/5">
 												<h5 className="flex items-center gap-1.5 text-xs font-bold uppercase text-violet-800 mb-2">
-													<span className="border-3 border-violet-800/40 animate-bounce rounded-xl w-8 h-8 flex items-center justify-center"> <RiAi color="var(--color-violet-600)" className="w-4 h-4" /> </span> <span className="text-violet-800">Rationale</span>
+													<span className="border-3 border-violet-800/40 animate-bounce rounded-xl w-8 h-8 flex items-center justify-center">
+														{" "}
+														<RiAi
+															color="var(--color-violet-600)"
+															className="w-4 h-4"
+														/>{" "}
+													</span>{" "}
+													<span className="text-violet-800">Rationale</span>
 												</h5>
-												<p className="text-sm leading-relaxed font-sans text-muted-foreground">{quote.rationale}</p>
+												<p className="text-sm leading-relaxed font-sans text-muted-foreground">
+													{quote.rationale}
+												</p>
 											</div>
 										)}
 
 										{quote.details && (
 											<div>
-											
 												<div className="text-sm text-muted-foreground">
 													{(() => {
 														try {
@@ -1019,11 +1100,16 @@ export default function ApplicantDetailPage() {
 																			key={key}
 																			className="flex flex-col p-4 justify-start gap-1 bg-card text-foreground/60 shadow-lg shadow-secondary/10 rounded-lg border border-border/60">
 																			<span className="capitalize font-bold">
-																				{key.replace(/([A-Z])/g, " $1").replace(/_/g, " ").toLowerCase()}
+																				{key
+																					.replace(/([A-Z])/g, " $1")
+																					.replace(/_/g, " ")
+																					.toLowerCase()}
 																			</span>
 																			<span className="font-medium capitalize font-sans text-muted-foreground/80">
 																				{typeof value === "string"
-																					? /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/i.test(value)
+																					? /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/i.test(
+																							value
+																						)
 																						? formatDateTime(value)
 																						: value.replace(/_/g, " ").toLowerCase()
 																					: String(value)}
@@ -1039,8 +1125,6 @@ export default function ApplicantDetailPage() {
 												</div>
 											</div>
 										)}
-
-									
 
 										{/* Action buttons for editing */}
 										{isEditingQuote && (

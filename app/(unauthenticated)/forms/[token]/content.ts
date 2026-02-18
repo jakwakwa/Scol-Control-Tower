@@ -1,6 +1,6 @@
+import type { ZodTypeAny } from "zod";
 import type { FormSectionDefinition } from "@/components/forms/types";
 import type { FormType } from "@/lib/types";
-import type { ZodTypeAny } from "zod";
 import {
 	absa6995Schema,
 	accountantLetterSchema,
@@ -20,6 +20,12 @@ export const formContent: Record<
 		submitLabel: string;
 		defaultValues: Record<string, unknown>;
 		testData?: Record<string, unknown>;
+		decision?: {
+			enabled: boolean;
+			approveLabel: string;
+			declineLabel: string;
+			requiresDeclineReason?: boolean;
+		};
 	}
 > = {
 	FACILITY_APPLICATION: {
@@ -176,7 +182,13 @@ export const formContent: Record<
 		title: "Signed Quotation",
 		description: "Review and accept the quotation provided by StratCol.",
 		schema: signedQuotationSchema,
-		submitLabel: "Accept quotation",
+		submitLabel: "Submit quotation details",
+		decision: {
+			enabled: true,
+			approveLabel: "Approve quotation",
+			declineLabel: "Decline quotation",
+			requiresDeclineReason: true,
+		},
 		defaultValues: {
 			consentAccepted: false,
 		},
@@ -229,7 +241,13 @@ export const formContent: Record<
 		title: "StratCol Contract",
 		description: "Provide entity details and confirm the StratCol agreement.",
 		schema: stratcolContractSchema,
-		submitLabel: "Submit contract",
+		submitLabel: "Submit contract details",
+		decision: {
+			enabled: true,
+			approveLabel: "Approve contract",
+			declineLabel: "Decline contract",
+			requiresDeclineReason: true,
+		},
 		defaultValues: {
 			beneficialOwners: [{}],
 			consentAccepted: false,
@@ -1276,7 +1294,13 @@ export const formContent: Record<
 		description:
 			"Complete this application if your business will use call centre collections. All sections are required.",
 		schema: callCentreApplicationSchema,
-		submitLabel: "Submit call centre application",
+		submitLabel: "Submit call centre details",
+		decision: {
+			enabled: true,
+			approveLabel: "Approve call centre application",
+			declineLabel: "Decline call centre application",
+			requiresDeclineReason: true,
+		},
 		defaultValues: {
 			serviceAgreementAccepted: false,
 		},
