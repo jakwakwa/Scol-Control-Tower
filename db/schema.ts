@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { text, integer, sqliteTable } from "drizzle-orm/sqlite-core";
+import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // ============================================
 // Core Onboarding Tables
@@ -179,6 +179,11 @@ export const workflows = sqliteTable("workflows", {
 	riskManagerApproval: text("risk_manager_approval"), // JSON: { approvedBy, timestamp, decision }
 	accountManagerApproval: text("account_manager_approval"), // JSON: { approvedBy, timestamp, decision }
 
+	stageName: text("stage_name"),
+	currentAgent: text("current_agent"),
+	reviewType: text("review_type"), // procurement or general
+
+	// System
 	metadata: text("metadata"),
 });
 
