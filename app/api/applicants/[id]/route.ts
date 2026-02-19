@@ -1,17 +1,17 @@
+import { and, desc, eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
 import {
 	applicantMagiclinkForms,
-	applicants,
 	applicantSubmissions,
+	applicants,
 	documents,
 	quotes,
 	riskAssessments,
 	workflowEvents,
 	workflows,
 } from "@/db/schema";
-import { and, desc, eq } from "drizzle-orm";
 import { updateApplicantSchema } from "@/lib/validations";
 
 /**
@@ -184,10 +184,8 @@ export async function GET(
 							: latestSanctions.timestamp
 								? new Date(latestSanctions.timestamp).toISOString()
 								: null,
-					riskLevel:
-						typeof payload?.riskLevel === "string" ? payload.riskLevel : null,
-					isBlocked:
-						typeof payload?.isBlocked === "boolean" ? payload.isBlocked : null,
+					riskLevel: typeof payload?.riskLevel === "string" ? payload.riskLevel : null,
+					isBlocked: typeof payload?.isBlocked === "boolean" ? payload.isBlocked : null,
 				};
 			}
 		}

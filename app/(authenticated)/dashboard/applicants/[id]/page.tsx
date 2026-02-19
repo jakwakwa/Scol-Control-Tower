@@ -158,7 +158,9 @@ export default function ApplicantDetailPage() {
 	const [quote, setQuote] = useState<Quote | null>(null);
 	// Workflow instance for actions
 	const [workflow, setWorkflow] = useState<Workflow | null>(null);
-	const [sanctionsCheck, setSanctionsCheck] = useState<SanctionsCheckSnapshot | null>(null);
+	const [sanctionsCheck, setSanctionsCheck] = useState<SanctionsCheckSnapshot | null>(
+		null
+	);
 	const [loading, setLoading] = useState(true);
 	const [actionLoading, setActionLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);

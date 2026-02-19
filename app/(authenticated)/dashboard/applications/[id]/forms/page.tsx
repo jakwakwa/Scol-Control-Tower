@@ -56,7 +56,8 @@ const FORM_CONFIGS: FormConfig[] = [
 	{
 		type: "facility_application",
 		title: "Facility Application",
-		description: "Service selection and volume metrics used for pre-risk and quote calculation",
+		description:
+			"Service selection and volume metrics used for pre-risk and quote calculation",
 		stage: 2,
 		icon: RiFileTextLine,
 	},
@@ -70,7 +71,8 @@ const FORM_CONFIGS: FormConfig[] = [
 	{
 		type: "fica_documents",
 		title: "FICA Documents",
-		description: "Required documents for FICA verification, then ITC and main sanctions checks run",
+		description:
+			"Required documents for FICA verification, then ITC and main sanctions checks run",
 		stage: 3,
 		icon: RiFileTextLine,
 	},

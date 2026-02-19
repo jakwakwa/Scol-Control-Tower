@@ -224,7 +224,9 @@ export const controlTowerWorkflow = inngest.createFunction(
 					let payload: StoredSanctionsPayload | null = null;
 					if (latestSanctionsEvent.payload) {
 						try {
-							payload = JSON.parse(latestSanctionsEvent.payload) as StoredSanctionsPayload;
+							payload = JSON.parse(
+								latestSanctionsEvent.payload
+							) as StoredSanctionsPayload;
 						} catch {
 							payload = null;
 						}
@@ -283,7 +285,8 @@ export const controlTowerWorkflow = inngest.createFunction(
 			const sanctionsResult = await performSanctionsCheck({
 				applicantId,
 				workflowId,
-				entityName: applicant.companyName || applicant.contactName || `Applicant ${applicantId}`,
+				entityName:
+					applicant.companyName || applicant.contactName || `Applicant ${applicantId}`,
 				entityType: resolveSanctionsEntityType(applicant.entityType),
 				countryCode: "ZA",
 				registrationNumber: applicant.registrationNumber || undefined,
