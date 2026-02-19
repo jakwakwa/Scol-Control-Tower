@@ -132,25 +132,25 @@ export function NotificationsPanel({
 	};
 
 	// Render a non-interactive placeholder during SSR to prevent hydration mismatch
-	if (!isMount	ed
-	)
-	return (
-		<Button
-			variant="ghost"
-			size="icon"
-			className="relative h-9 w-9 hover:bg-secondary/10">
-			<RiNotification3Line className="h-5 w-5" />
-			{unreadCount > 0 && (
-				<Badge
-					variant="destructive"
-					className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full p-0 text-[10px] animate-pulse">
-					<span className="text-white text-[8px]">
-						{unreadCount > 9 ? "9+" : unreadCount}
-					</span>
-				</Badge>
-			)}
-		</Button>
-	);
+	if (!isMounted) {
+		return (
+			<Button
+				variant="ghost"
+				size="icon"
+				className="relative h-9 w-9 hover:bg-secondary/10">
+				<RiNotification3Line className="h-5 w-5" />
+				{unreadCount > 0 && (
+					<Badge
+						variant="destructive"
+						className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full p-0 text-[10px] animate-pulse">
+						<span className="text-white text-[8px]">
+							{unreadCount > 9 ? "9+" : unreadCount}
+						</span>
+					</Badge>
+				)}
+			</Button>
+		);
+	}
 
 	return (
 		<Popover open={isOpen} onOpenChange={setIsOpen}>

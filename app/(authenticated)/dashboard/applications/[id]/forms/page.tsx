@@ -56,7 +56,7 @@ const FORM_CONFIGS: FormConfig[] = [
 	{
 		type: "facility_application",
 		title: "Facility Application",
-		description: "Service selection and volume metrics for quote calculation",
+		description: "Service selection and volume metrics used for pre-risk and quote calculation",
 		stage: 2,
 		icon: RiFileTextLine,
 	},
@@ -70,7 +70,7 @@ const FORM_CONFIGS: FormConfig[] = [
 	{
 		type: "fica_documents",
 		title: "FICA Documents",
-		description: "Required documents for FICA compliance verification",
+		description: "Required documents for FICA verification, then ITC and main sanctions checks run",
 		stage: 3,
 		icon: RiFileTextLine,
 	},
@@ -185,8 +185,9 @@ export default async function FormsHubPage({
 				<div>
 					<h1 className="text-2xl font-bold text-foreground">Onboarding Forms</h1>
 					<p className="text-muted-foreground mt-1">
-						{applicant?.companyName || "Unknown"} - Complete all required forms to proceed
-						with onboarding
+						{applicant?.companyName || "Unknown"} - Complete forms in order: Facility
+						Application, Pre-risk (if flagged), Quote, then FICA to trigger ITC and
+						sanctions checks.
 					</p>
 				</div>
 

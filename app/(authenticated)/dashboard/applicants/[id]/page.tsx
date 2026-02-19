@@ -43,6 +43,7 @@ interface ApplicantDetail {
 	status: string;
 	riskLevel?: string | null;
 	itcScore?: number | null;
+	sanctionStatus?: "clear" | "flagged" | "confirmed_hit" | null;
 	accountExecutive?: string | null;
 	createdAt?: string | number | Date | null;
 }
@@ -111,6 +112,14 @@ interface Workflow {
 	applicantDeclineReason?: string | null;
 }
 
+interface SanctionsCheckSnapshot {
+	source: string;
+	reused: boolean;
+	checkedAt: string | null;
+	riskLevel: string | null;
+	isBlocked: boolean | null;
+}
+
 const formatDate = (value?: string | number | Date | null) => {
 	if (!value) return "-";
 	const date = value instanceof Date ? value : new Date(value);
@@ -149,6 +158,7 @@ export default function ApplicantDetailPage() {
 	const [quote, setQuote] = useState<Quote | null>(null);
 	// Workflow instance for actions
 	const [workflow, setWorkflow] = useState<Workflow | null>(null);
+	const [sanctionsCheck, setSanctionsCheck] = useState<SanctionsCheckSnapshot | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [actionLoading, setActionLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -174,6 +184,8 @@ export default function ApplicantDetailPage() {
 
 	const canEditQuote =
 		quote && !["pending_signature", "approved", "rejected"].includes(quote.status);
+	const isPreRiskCleared =
+		!workflow?.preRiskRequired || workflow.preRiskOutcome === "approved";
 
 	const handleSaveQuoteDraft = async () => {
 		if (!quote) return;
@@ -206,6 +218,10 @@ export default function ApplicantDetailPage() {
 
 	const handleSaveAndApprove = async () => {
 		if (!quote) return;
+		if (!isPreRiskCleared) {
+			setQuoteMessage("Pre-risk clearance is still pending.");
+			return;
+		}
 		setQuoteActionLoading("approve");
 		setQuoteMessage(null);
 		try {
@@ -275,6 +291,10 @@ export default function ApplicantDetailPage() {
 
 	const handleApproveQuote = async () => {
 		if (!quote) return;
+		if (!isPreRiskCleared) {
+			setQuoteMessage("Pre-risk clearance is still pending.");
+			return;
+		}
 		setQuoteActionLoading("approve");
 		setQuoteMessage(null);
 		try {
@@ -374,6 +394,7 @@ export default function ApplicantDetailPage() {
 				setRiskAssessment(data.riskAssessment || null);
 				setQuote(data.quote || null);
 				setWorkflow(data.workflow || null);
+				setSanctionsCheck(data.sanctionsCheck || null);
 			} catch (err) {
 				if (!mounted) return;
 				setError(err instanceof Error ? err.message : "Failed to load applicant");
@@ -443,7 +464,7 @@ export default function ApplicantDetailPage() {
 							<span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
 								Risk Profile
 							</span>
-							<div className="mt-2 flex items-center gap-2">
+							<div className="mt-2 flex flex-wrap items-center gap-2">
 								<RiskBadge level={client.riskLevel || "unknown"} />
 								{client.itcScore !== null && client.itcScore !== undefined ? (
 									<span
@@ -455,7 +476,24 @@ export default function ApplicantDetailPage() {
 										ITC: {client.itcScore}
 									</span>
 								) : null}
+								<Badge
+									variant="outline"
+									className={
+										client.sanctionStatus === "flagged" ||
+										client.sanctionStatus === "confirmed_hit"
+											? "text-red-500 border-red-500"
+											: "text-emerald-700 border-emerald-500/40"
+									}>
+									Sanctions: {client.sanctionStatus || "clear"}
+								</Badge>
 							</div>
+							{sanctionsCheck?.checkedAt ? (
+								<p className="text-xs text-muted-foreground mt-2">
+									Last sanctions run: {formatDateTime(sanctionsCheck.checkedAt)} (
+									{sanctionsCheck.source.replace(/_/g, " ").toLowerCase()}
+									{sanctionsCheck.reused ? ", reused" : ""})
+								</p>
+							) : null}
 						</div>
 
 						<Separator className="bg-border/50" />
@@ -607,6 +645,25 @@ export default function ApplicantDetailPage() {
 													Flagged by {workflow.issueFlaggedBy}
 												</p>
 											) : null}
+										</div>
+										<div className="p-3 rounded-lg bg-secondary/10 border border-border/40">
+											<p className="text-xs uppercase text-muted-foreground font-bold">
+												Sanctions Check
+											</p>
+											<p className="text-sm mt-1">
+												{sanctionsCheck?.riskLevel || "pending"}
+											</p>
+											{sanctionsCheck?.checkedAt ? (
+												<p className="text-xs text-muted-foreground mt-1">
+													{formatDateTime(sanctionsCheck.checkedAt)} via{" "}
+													{sanctionsCheck.source.replace(/_/g, " ").toLowerCase()}
+													{sanctionsCheck.reused ? " (reused)" : ""}
+												</p>
+											) : (
+												<p className="text-xs text-muted-foreground mt-1">
+													Runs during pre-risk (if flagged) or at ITC after FICA.
+												</p>
+											)}
 										</div>
 										<div className="p-3 rounded-lg bg-secondary/10 border border-border/40 md:col-span-2">
 											<p className="text-xs uppercase text-muted-foreground font-bold">
@@ -1134,6 +1191,12 @@ export default function ApplicantDetailPage() {
 													{quoteMessage && (
 														<p className="text-sm text-amber-600">{quoteMessage}</p>
 													)}
+													{!isPreRiskCleared && (
+														<p className="text-sm text-amber-700">
+															Awaiting pre-risk clearance before this quote can be
+															approved and sent.
+														</p>
+													)}
 													<div className="flex flex-wrap gap-2">
 														<Button
 															variant="outline"
@@ -1160,7 +1223,7 @@ export default function ApplicantDetailPage() {
 														<Button
 															variant="secondary"
 															onClick={handleSaveAndApprove}
-															disabled={quoteActionLoading !== null}
+															disabled={quoteActionLoading !== null || !isPreRiskCleared}
 															className="gap-2 bg-teal-600 hover:bg-teal-700">
 															{quoteActionLoading === "approve" ? (
 																<RiLoader4Line className="h-4 w-4 animate-spin" />
@@ -1195,11 +1258,17 @@ export default function ApplicantDetailPage() {
 													{quoteMessage && (
 														<p className="text-sm text-amber-600">{quoteMessage}</p>
 													)}
+													{!isPreRiskCleared && (
+														<p className="text-sm text-amber-700">
+															Awaiting pre-risk clearance before this quote can be
+															approved and sent.
+														</p>
+													)}
 													<div className="flex flex-wrap gap-2">
 														<Button
 															variant="secondary"
 															onClick={handleApproveQuote}
-															disabled={quoteActionLoading !== null}
+															disabled={quoteActionLoading !== null || !isPreRiskCleared}
 															className="gap-2 bg-linear-to-b from-teal-600 to-teal-700 rounded-xl h-12.5 outline-0 border-2 border-teal-600 text-shadow-sm text-shadow-teal-950/40  p-4 text-white text-sm shadow-md shadow-teal-950/60 hover:shadow-teal-900/60  hover:opacity-80 hover:border-teal-700 transition-all duration-300">
 															{quoteActionLoading === "approve" ? (
 																<RiLoader4Line className="h-4 w-4 animate-spin" />

@@ -1,9 +1,9 @@
 /**
  * StratCol Onboarding Control Tower Workflow — SOP-Aligned (6-Stage)
  *
- * Stage 1: Lead Capture & ITC    — Account Manager data entry → ITC check
- * Stage 2: Facility & Quote       — Facility app → mandate mapping → AI quote → Manager review → signed quote → Mandate collection (7-day retry, max 8)
- * Stage 3: Procurement & AI     — Parallel: Procurement risk + AI multi-agent analysis + Reporter Agent
+ * Stage 1: Lead Capture & Initiation — Account Manager data entry → Facility dispatch kickoff
+ * Stage 2: Facility, Pre-Risk & Quote — Facility app → sales evaluation (+ optional pre-risk sanctions) → mandate mapping → AI quote → Manager review → signed quote → Mandate collection (7-day retry, max 8)
+ * Stage 3: Procurement & AI     — Parallel: Procurement risk + FICA intake → ITC + sanctions (main check) → AI multi-agent analysis + Reporter Agent
  * Stage 4: Risk Review           — Risk Manager final review (no auto-approve bypass)
  * Stage 5: Contract              — Account Manager review/edit AI contract → Send contract + ABSA form
  * Stage 6: Final Approval        — Two-factor: Risk Manager + Account Manager → Onboarding complete
@@ -16,11 +16,16 @@
  * - Human approval checkpoints with proper Inngest signal handling
  */
 
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
 import { getBaseUrl, getDatabaseClient } from "@/app/utils";
 import { applicants, workflowEvents, workflows } from "@/db/schema";
-import { performAggregatedAnalysis } from "@/lib/services/agents";
+import {
+	isSanctionsBlocked,
+	performAggregatedAnalysis,
+	performSanctionsCheck,
+	type SanctionsCheckResult,
+} from "@/lib/services/agents";
 import {
 	type BusinessType,
 	determineBusinessType,
@@ -63,6 +68,26 @@ interface WorkflowContext {
 	aiAnalysisComplete?: boolean;
 }
 
+type SanctionsCheckSource = "pre_risk" | "itc_main";
+
+interface SanctionsExecutionResult {
+	source: SanctionsCheckSource;
+	reused: boolean;
+	checkedAt: string;
+	riskLevel: SanctionsCheckResult["overall"]["riskLevel"];
+	isBlocked: boolean;
+	result: SanctionsCheckResult;
+}
+
+interface StoredSanctionsPayload {
+	source?: SanctionsCheckSource;
+	reused?: boolean;
+	checkedAt?: string;
+	riskLevel?: SanctionsCheckResult["overall"]["riskLevel"];
+	isBlocked?: boolean;
+	sanctionsResult?: SanctionsCheckResult;
+}
+
 // ============================================
 // Constants
 // ============================================
@@ -73,6 +98,7 @@ const STAGE_TIMEOUT = "14d";
 const REVIEW_TIMEOUT = "7d";
 const _MANDATE_RETRY_TIMEOUT = "7d";
 const MAX_MANDATE_RETRIES = 8;
+const SANCTIONS_RECHECK_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 // ============================================
 // Kill Switch Guard
@@ -123,6 +149,25 @@ async function notifyApplicantDecline(options: {
 	});
 }
 
+function resolveSanctionsEntityType(
+	entityType?: string | null
+): "INDIVIDUAL" | "COMPANY" | "TRUST" | "OTHER" {
+	const normalized = entityType?.toLowerCase().trim();
+	if (!normalized) return "COMPANY";
+	if (normalized.includes("trust")) return "TRUST";
+	if (normalized.includes("proprietor") || normalized.includes("individual")) {
+		return "INDIVIDUAL";
+	}
+	if (
+		normalized.includes("company") ||
+		normalized.includes("corporation") ||
+		normalized.includes("close_corporation")
+	) {
+		return "COMPANY";
+	}
+	return "OTHER";
+}
+
 // ============================================
 // Main Control Tower Workflow (SOP-aligned 6-stage)
 // ============================================
@@ -148,44 +193,157 @@ export const controlTowerWorkflow = inngest.createFunction(
 			`[ControlTower] Starting workflow ${workflowId} for applicant ${applicantId}`
 		);
 
+		const runSanctionsForWorkflow = async (
+			source: SanctionsCheckSource,
+			options?: { allowReuse?: boolean }
+		): Promise<SanctionsExecutionResult> => {
+			const allowReuse = options?.allowReuse ?? false;
+			const db = getDatabaseClient();
+			if (!db) throw new Error("Database connection failed");
+
+			const [applicant] = await db
+				.select()
+				.from(applicants)
+				.where(eq(applicants.id, applicantId));
+			if (!applicant) throw new Error(`Applicant ${applicantId} not found`);
+
+			if (allowReuse) {
+				const [latestSanctionsEvent] = await db
+					.select()
+					.from(workflowEvents)
+					.where(
+						and(
+							eq(workflowEvents.workflowId, workflowId),
+							eq(workflowEvents.eventType, "sanctions_completed")
+						)
+					)
+					.orderBy(desc(workflowEvents.timestamp))
+					.limit(1);
+
+				if (latestSanctionsEvent) {
+					let payload: StoredSanctionsPayload | null = null;
+					if (latestSanctionsEvent.payload) {
+						try {
+							payload = JSON.parse(latestSanctionsEvent.payload) as StoredSanctionsPayload;
+						} catch {
+							payload = null;
+						}
+					}
+
+					const fallbackCheckedAt = latestSanctionsEvent.timestamp
+						? new Date(latestSanctionsEvent.timestamp).toISOString()
+						: undefined;
+					const checkedAtRaw = payload?.checkedAt || fallbackCheckedAt;
+					const parsedCheckedAt = checkedAtRaw ? new Date(checkedAtRaw) : null;
+					const reusableResult = payload?.sanctionsResult;
+					const isFresh =
+						!!parsedCheckedAt &&
+						!Number.isNaN(parsedCheckedAt.getTime()) &&
+						Date.now() - parsedCheckedAt.getTime() <= SANCTIONS_RECHECK_WINDOW_MS;
+
+					if (isFresh && reusableResult) {
+						const checkedAt = parsedCheckedAt.toISOString();
+						const isBlocked = isSanctionsBlocked(reusableResult);
+
+						await db
+							.update(applicants)
+							.set({ sanctionStatus: isBlocked ? "flagged" : "clear" })
+							.where(eq(applicants.id, applicantId));
+
+						await logWorkflowEvent({
+							workflowId,
+							eventType: "sanctions_completed",
+							payload: {
+								source,
+								reused: true,
+								reusedFrom: payload?.source || "unknown",
+								checkedAt,
+								riskLevel: reusableResult.overall.riskLevel,
+								isBlocked,
+								passed: reusableResult.overall.passed,
+								isPEP: reusableResult.pepScreening.isPEP,
+								requiresEDD: reusableResult.overall.requiresEDD,
+								adverseMediaCount: reusableResult.adverseMedia.alertsFound,
+								sanctionsResult: reusableResult,
+							},
+						});
+
+						return {
+							source,
+							reused: true,
+							checkedAt,
+							riskLevel: reusableResult.overall.riskLevel,
+							isBlocked,
+							result: reusableResult,
+						};
+					}
+				}
+			}
+
+			const sanctionsResult = await performSanctionsCheck({
+				applicantId,
+				workflowId,
+				entityName: applicant.companyName || applicant.contactName || `Applicant ${applicantId}`,
+				entityType: resolveSanctionsEntityType(applicant.entityType),
+				countryCode: "ZA",
+				registrationNumber: applicant.registrationNumber || undefined,
+			});
+			const checkedAt = sanctionsResult.metadata.checkedAt || new Date().toISOString();
+			const isBlocked = isSanctionsBlocked(sanctionsResult);
+
+			await db
+				.update(applicants)
+				.set({ sanctionStatus: isBlocked ? "flagged" : "clear" })
+				.where(eq(applicants.id, applicantId));
+
+			await logWorkflowEvent({
+				workflowId,
+				eventType: "sanctions_completed",
+				payload: {
+					source,
+					reused: false,
+					checkedAt,
+					riskLevel: sanctionsResult.overall.riskLevel,
+					isBlocked,
+					passed: sanctionsResult.overall.passed,
+					isPEP: sanctionsResult.pepScreening.isPEP,
+					requiresEDD: sanctionsResult.overall.requiresEDD,
+					adverseMediaCount: sanctionsResult.adverseMedia.alertsFound,
+					sanctionsResult,
+				},
+			});
+
+			await inngest.send({
+				name: "agent/sanctions.completed",
+				data: {
+					workflowId,
+					applicantId,
+					riskLevel: sanctionsResult.overall.riskLevel,
+					passed: sanctionsResult.overall.passed,
+					isPEP: sanctionsResult.pepScreening.isPEP,
+					requiresEDD: sanctionsResult.overall.requiresEDD,
+					adverseMediaCount: sanctionsResult.adverseMedia.alertsFound,
+				},
+			});
+
+			return {
+				source,
+				reused: false,
+				checkedAt,
+				riskLevel: sanctionsResult.overall.riskLevel,
+				isBlocked,
+				result: sanctionsResult,
+			};
+		};
+
 		// ================================================================
-		// STAGE 1: Lead Capture & ITC
-		// Account Manager data entry → ITC check
+		// STAGE 1: Lead Capture & Initiation
+		// Account Manager data entry → workflow kickoff
 		// ================================================================
 
 		await step.run("stage-1-start", () =>
 			updateWorkflowStatus(workflowId, "processing", 1)
 		);
-
-		// Step 1.1: ITC check
-		const _initialChecks = await step.run("initial-checks", async () => {
-			await guardKillSwitch(workflowId, "initial-checks");
-
-			const itcResult = await performITCCheck({ applicantId, workflowId });
-
-			const db = getDatabaseClient();
-			if (db) {
-				await db
-					.update(applicants)
-					.set({
-						itcScore: itcResult.creditScore,
-						itcStatus: itcResult.recommendation,
-					})
-					.where(eq(applicants.id, applicantId));
-			}
-
-			await logWorkflowEvent({
-				workflowId,
-				eventType: "itc_check_completed",
-				payload: {
-					creditScore: itcResult.creditScore,
-					recommendation: itcResult.recommendation,
-					passed: itcResult.passed,
-				},
-			});
-
-			return itcResult;
-		});
 
 		// ================================================================
 		// STAGE 2: Facility & Quote
@@ -333,6 +491,11 @@ export const controlTowerWorkflow = inngest.createFunction(
 		});
 
 		if (salesEvaluation.hasIssues) {
+			const preRiskSanctions = await step.run("pre-risk-sanctions-check", async () => {
+				await guardKillSwitch(workflowId, "pre-risk-sanctions-check");
+				return runSanctionsForWorkflow("pre_risk", { allowReuse: false });
+			});
+
 			await step.run("stage-2-awaiting-pre-risk-approval", async () => {
 				await updateWorkflowStatus(workflowId, "awaiting_human", 2);
 				await createWorkflowNotification({
@@ -340,8 +503,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 					applicantId,
 					type: "warning",
 					title: "Pre-risk Approval Required",
-					message:
-						"Issues were detected during sales evaluation. Complete pre-risk approval before quote can be sent.",
+					message: `Issues were detected during sales evaluation. Sanctions check: ${preRiskSanctions.riskLevel}${preRiskSanctions.reused ? " (reused)" : ""}. Complete pre-risk approval before quote can be sent.`,
 					actionable: true,
 				});
 			});
@@ -1153,6 +1315,48 @@ export const controlTowerWorkflow = inngest.createFunction(
 			return { status: "timeout", stage: 3, reason: "FICA document upload timeout" };
 		}
 
+		// Main ITC check now runs after FICA receipt
+		const itcAndSanctions = await step.run("run-main-itc-and-sanctions", async () => {
+			await guardKillSwitch(workflowId, "run-main-itc-and-sanctions");
+
+			const itcResult = await performITCCheck({ applicantId, workflowId });
+			const db = getDatabaseClient();
+			if (db) {
+				await db
+					.update(applicants)
+					.set({
+						itcScore: itcResult.creditScore,
+						itcStatus: itcResult.recommendation,
+					})
+					.where(eq(applicants.id, applicantId));
+			}
+
+			await logWorkflowEvent({
+				workflowId,
+				eventType: "itc_check_completed",
+				payload: {
+					creditScore: itcResult.creditScore,
+					recommendation: itcResult.recommendation,
+					passed: itcResult.passed,
+					executedAt: new Date().toISOString(),
+					stage: 3,
+				},
+			});
+
+			const sanctions = await runSanctionsForWorkflow("itc_main", { allowReuse: true });
+
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: sanctions.isBlocked ? "warning" : "info",
+				title: "ITC & Sanctions Check Complete",
+				message: `ITC recommendation: ${itcResult.recommendation}. Sanctions risk: ${sanctions.riskLevel}${sanctions.reused ? " (reused within 7-day window)" : ""}.`,
+				actionable: false,
+			});
+
+			return { itcResult, sanctions };
+		});
+
 		// Run aggregated AI analysis (Validation, Risk, Sanctions agents)
 		const aiAnalysis = await step.run("run-ai-analysis", async () => {
 			await guardKillSwitch(workflowId, "run-ai-analysis");
@@ -1173,6 +1377,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 					countryCode: "ZA",
 				},
 				requestedAmount: context.mandateVolume,
+				sanctionsOverride: itcAndSanctions.sanctions.result as SanctionsCheckResult,
 			});
 
 			// Emit aggregated analysis event
@@ -1222,12 +1427,11 @@ export const controlTowerWorkflow = inngest.createFunction(
 
 		// Check if blocked by sanctions (SOP v3.1.0)
 		if (aiAnalysis.overall.isBlocked) {
-			// Detect if it is specifically a Sanctions Hit
-			// (Assuming mock agent returns 'BLOCKED' in riskLevel or unSanctions.matchFound)
-			const sanctionsResult = aiAnalysis.agents?.sanctions as any;
+			// Detect if it is specifically a sanctions hit
+			const sanctionsResult = aiAnalysis.sanctions;
 			const isSanctionHit =
-				sanctionsResult?.riskLevel === "BLOCKED" ||
-				sanctionsResult?.unSanctions?.matchFound;
+				sanctionsResult?.overall.riskLevel === "BLOCKED" ||
+				sanctionsResult?.unSanctions.matchFound === true;
 
 			if (isSanctionHit) {
 				// SANCTION PAUSE PROTOCOL

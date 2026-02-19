@@ -32,7 +32,6 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import {
 	Sheet,
 	SheetContent,
@@ -401,11 +400,15 @@ export function RiskReviewDetail({
 		setIsSubmitting(true);
 		setActionType(pendingAction);
 		try {
-			const overrideData: OverrideData = {
-				overrideCategory: overrideCategory,
-				overrideDetails: overrideReason,
+			const categoryMap: Record<OverrideCategory, OverrideData["overrideCategory"]> = {
+				CONTEXT: "MISSING_CONTEXT",
+				HALLUCINATION: "FALSE_POSITIVE_FLAG",
+				DATA_ERROR: "DATA_QUALITY_ISSUE",
 			};
-
+			const overrideData: OverrideData = {
+				overrideCategory: categoryMap[overrideCategory],
+				overrideDetails: `[${overrideCategory}] ${overrideReason}`,
+			};
 			if (pendingAction === "approve") {
 				await onApprove(item.id, overrideData);
 			} else {

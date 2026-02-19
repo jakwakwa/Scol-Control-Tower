@@ -5,7 +5,7 @@ description: "How AI quotes are generated, reviewed, and approved or declined du
 
 ## Overview
 
-Quotes are generated automatically by Gemini AI when an applicant reaches Stage 2 of the onboarding workflow. The quote is stored as a draft and requires staff approval before the client can respond. The client can then **approve or decline** the quote, and the workflow continues or terminates accordingly.
+Quotes are generated automatically by Gemini AI when an applicant reaches Stage 2 of the onboarding workflow, but only after the Facility Application is submitted and any required pre-risk clearance is complete. The quote is stored as a draft and requires staff approval before the client can sign it. Once the client signs, the workflow continues to mandate collection and later contract signing.
 
 ## Staff workflow
 
@@ -17,6 +17,8 @@ Quotes are generated automatically by Gemini AI when an applicant reaches Stage 
    - **Adjusted fee** (basis points)
    - **Rationale** (required)
 4. Click **Approve & Send to Client**.
+
+If pre-risk clearance is still pending, quote approval actions stay disabled until clearance is recorded.
 
 What happens next:
 
@@ -60,7 +62,7 @@ What happens next:
 
 ## Workflow pause and timeouts
 
-Stage 2 waits for two events:
+Stage 2 waits for two events after quote generation:
 
 1. Staff approval (`quote/approved`)
 2. Client response (`quote/responded`)

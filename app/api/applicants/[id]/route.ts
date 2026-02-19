@@ -8,9 +8,10 @@ import {
 	documents,
 	quotes,
 	riskAssessments,
+	workflowEvents,
 	workflows,
 } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { updateApplicantSchema } from "@/lib/validations";
 
 /**
@@ -129,6 +130,13 @@ export async function GET(
 
 		// Fetch quote for the most recent workflow if exists
 		let quote = null;
+		let sanctionsCheck: {
+			source: string;
+			reused: boolean;
+			checkedAt: string | null;
+			riskLevel: string | null;
+			isBlocked: boolean | null;
+		} | null = null;
 		if (workflowRows.length > 0) {
 			const latestWorkflow = workflowRows[0];
 			const quoteRows = await db
@@ -138,6 +146,50 @@ export async function GET(
 				.orderBy(desc(quotes.createdAt))
 				.limit(1);
 			quote = quoteRows[0] || null;
+
+			const sanctionsRows = await db
+				.select()
+				.from(workflowEvents)
+				.where(
+					and(
+						eq(workflowEvents.workflowId, latestWorkflow.id),
+						eq(workflowEvents.eventType, "sanctions_completed")
+					)
+				)
+				.orderBy(desc(workflowEvents.timestamp))
+				.limit(1);
+
+			const latestSanctions = sanctionsRows[0];
+			if (latestSanctions) {
+				let payload: Record<string, unknown> | null = null;
+				if (latestSanctions.payload) {
+					try {
+						payload = JSON.parse(latestSanctions.payload) as Record<string, unknown>;
+					} catch {
+						payload = null;
+					}
+				}
+
+				sanctionsCheck = {
+					source:
+						typeof payload?.source === "string"
+							? payload.source
+							: typeof payload?.reusedFrom === "string"
+								? payload.reusedFrom
+								: "unknown",
+					reused: Boolean(payload?.reused),
+					checkedAt:
+						typeof payload?.checkedAt === "string"
+							? payload.checkedAt
+							: latestSanctions.timestamp
+								? new Date(latestSanctions.timestamp).toISOString()
+								: null,
+					riskLevel:
+						typeof payload?.riskLevel === "string" ? payload.riskLevel : null,
+					isBlocked:
+						typeof payload?.isBlocked === "boolean" ? payload.isBlocked : null,
+				};
+			}
 		}
 
 		return NextResponse.json({
@@ -148,6 +200,7 @@ export async function GET(
 			riskAssessment: riskAssessmentRows[0] || null,
 			workflow: workflowRows[0] || null,
 			quote,
+			sanctionsCheck,
 		});
 	} catch (error) {
 		console.error("Error fetching applicant:", error);

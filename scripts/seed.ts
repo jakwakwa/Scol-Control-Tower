@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+// @ts-nocheck
 
 /**
  * Seed script for the Turso database using drizzle-seed.
