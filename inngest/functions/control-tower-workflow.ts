@@ -298,7 +298,6 @@ export const controlTowerWorkflow = inngest.createFunction(
 				.update(applicants)
 				.set({ sanctionStatus: isBlocked ? "flagged" : "clear" })
 				.where(eq(applicants.id, applicantId));
-
 			await logWorkflowEvent({
 				workflowId,
 				eventType: "sanctions_completed",

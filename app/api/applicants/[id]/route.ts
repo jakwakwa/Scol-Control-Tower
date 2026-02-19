@@ -12,6 +12,7 @@ import {
 	workflowEvents,
 	workflows,
 } from "@/db/schema";
+import { and, desc, eq } from "drizzle-orm";
 import { updateApplicantSchema } from "@/lib/validations";
 
 /**
@@ -146,7 +147,6 @@ export async function GET(
 				.orderBy(desc(quotes.createdAt))
 				.limit(1);
 			quote = quoteRows[0] || null;
-
 			const sanctionsRows = await db
 				.select()
 				.from(workflowEvents)
