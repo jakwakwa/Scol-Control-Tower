@@ -1,5 +1,5 @@
-import { cn } from "@/lib/utils";
 import type { RemixiconComponentType } from "@remixicon/react";
+import { cn } from "@/lib/utils";
 
 interface StatsCardProps {
 	title: string;
@@ -39,7 +39,13 @@ export function StatsCard({
 			)}>
 			{/* Background gradient effect */}
 			<div className="absolute inset-0 bg-linear-to-br from-secondary/2 to-transparent" />
-
+			<div
+				className={cn(
+					"flex h-8 w-8 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110",
+					iconColorClasses[iconColor]
+				)}>
+				<Icon className="h-4 w-4" />
+			</div>
 			{/* Content */}
 			<div className="relative flex items-start justify-between">
 				<div className="space-y-2">
@@ -63,14 +69,6 @@ export function StatsCard({
 							<span className="text-xs text-muted-foreground">vs last week</span>
 						</div>
 					)}
-				</div>
-
-				<div
-					className={cn(
-						"flex h-12 w-12 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110",
-						iconColorClasses[iconColor]
-					)}>
-					<Icon className="h-6 w-6" />
 				</div>
 			</div>
 

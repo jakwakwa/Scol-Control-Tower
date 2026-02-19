@@ -401,13 +401,8 @@ export function RiskReviewDetail({
 		setIsSubmitting(true);
 		setActionType(pendingAction);
 		try {
-			const categoryMap: Record<OverrideCategory, OverrideData["overrideCategory"]> = {
-				CONTEXT: "MISSING_CONTEXT",
-				HALLUCINATION: "FALSE_POSITIVE_FLAG",
-				DATA_ERROR: "DATA_QUALITY_ISSUE",
-			};
 			const overrideData: OverrideData = {
-				overrideCategory: categoryMap[overrideCategory],
+				overrideCategory: overrideCategory,
 				overrideDetails: `[${overrideCategory}] ${overrideReason}`,
 			};
 			if (pendingAction === "approve") {

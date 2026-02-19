@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "c7e13202-37eb-4a87-a97c-32966bc01402",
+  "id": "9b6ae8f5-f905-49b6-b7cd-5e0f5cf4be43",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "activity_logs": {
@@ -48,7 +48,7 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false,
-          "default": "'\"2026-02-18T10:35:02.379Z\"'"
+          "default": "'\"2026-02-19T21:50:17.238Z\"'"
         }
       },
       "indexes": {},
@@ -1815,7 +1815,7 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false,
-          "default": "'\"2026-02-18T10:35:02.378Z\"'"
+          "default": "'\"2026-02-19T21:50:17.238Z\"'"
         }
       },
       "indexes": {},

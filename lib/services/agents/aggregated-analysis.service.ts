@@ -21,7 +21,6 @@ import {
 } from "@/lib/services/firecrawl";
 import { analyzeRisk as runProcureCheck } from "@/lib/services/risk.service";
 import { generateReporterAnalysis, type ReporterOutput } from "./reporter.agent";
-import { analyzeRisk as runProcureCheck } from "@/lib/services/risk.service";
 import {
 	analyzeFinancialRisk,
 	canAutoApprove as canAutoApproveRisk,

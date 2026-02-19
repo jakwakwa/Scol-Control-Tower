@@ -10,8 +10,8 @@
  */
 
 import { type NextRequest, NextResponse } from "next/server";
+import { getDatabaseClient } from "@/app/utils";
 import { applicants } from "@/db/schema";
-import { getDatabaseClient } from "@/lib/db";
 import { createFormInstance } from "@/lib/services/form.service";
 import { FormTypeSchema } from "@/lib/types";
 

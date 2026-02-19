@@ -725,7 +725,19 @@ export const aiAnalysisLogs = sqliteTable("ai_analysis_logs", {
 	promptVersionId: text("prompt_version_id"), // Git hash or SemVer
 	confidenceScore: integer("confidence_score"), // 0-100
 	humanOverrideReason: text("human_override_reason", {
-		enum: ["CONTEXT", "HALLUCINATION", "DATA_ERROR"],
+		enum: [
+			"AI_ALIGNED",
+			"MISSING_CONTEXT",
+			"INCORRECT_RISK_SCORING",
+			"FALSE_POSITIVE_FLAG",
+			"FALSE_NEGATIVE_MISS",
+			"POLICY_EXCEPTION",
+			"DATA_QUALITY_ISSUE",
+			"OTHER",
+			"CONTEXT",
+			"HALLUCINATION",
+			"DATA_ERROR",
+		],
 	}),
 	narrative: text("narrative"), // The structured output or summary
 	rawOutput: text("raw_output"), // Full JSON output

@@ -543,7 +543,13 @@ async function main() {
 					values: ["APPROVED", "REJECTED", "REQUEST_MORE_INFO"],
 				}),
 				overrideCategory: funcs.valuesFromArray({
-					values: ["CONTEXT", "HALLUCINATION", "DATA_ERROR", "MISSING_INFO", "OTHER"],
+					values: [
+						"MISSING_CONTEXT",
+						"INCORRECT_RISK_SCORING",
+						"FALSE_POSITIVE_FLAG",
+						"FALSE_NEGATIVE_MISS",
+						"OTHER",
+					],
 				}),
 				overrideSubcategory: funcs.valuesFromArray({
 					values: ["industry_context", "stale_data", "incomplete_records", null],

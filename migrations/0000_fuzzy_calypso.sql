@@ -4,7 +4,7 @@ CREATE TABLE `activity_logs` (
 	`action` text NOT NULL,
 	`description` text NOT NULL,
 	`performed_by` text,
-	`created_at` integer DEFAULT '"2026-02-18T10:35:02.379Z"',
+	`created_at` integer DEFAULT '"2026-02-19T21:50:17.238Z"',
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -256,7 +256,7 @@ CREATE TABLE `risk_assessments` (
 	`reviewed_by` text,
 	`reviewed_at` integer,
 	`notes` text,
-	`created_at` integer DEFAULT '"2026-02-18T10:35:02.378Z"',
+	`created_at` integer DEFAULT '"2026-02-19T21:50:17.238Z"',
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
