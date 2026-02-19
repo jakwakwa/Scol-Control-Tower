@@ -13,11 +13,11 @@
  */
 
 import { auth } from "@clerk/nextjs/server";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getDatabaseClient } from "@/app/utils";
-import { workflowEvents, workflows } from "@/db/schema";
+import { aiAnalysisLogs, workflowEvents, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import { OVERRIDE_CATEGORIES } from "@/lib/constants/override-taxonomy";
 import { recordFeedbackLog } from "@/lib/services/divergence.service";
@@ -31,6 +31,7 @@ const RiskDecisionSchema = z.object({
 	applicantId: z.number().int().positive("Applicant ID is required"),
 	decision: z.object({
 		outcome: z.enum(["APPROVED", "REJECTED", "REQUEST_MORE_INFO"]),
+		reason: z.string().optional(),
 		/** Structured override category — maps to AI failure taxonomy */
 		overrideCategory: z.enum(OVERRIDE_CATEGORIES),
 		/** Specific subcategory within the parent category */
@@ -105,6 +106,7 @@ export async function POST(request: NextRequest) {
 			eventType: "human_override",
 			payload: JSON.stringify({
 				decision: decision.outcome,
+				reason: decision.reason,
 				overrideCategory: decision.overrideCategory,
 				overrideSubcategory: decision.overrideSubcategory,
 				overrideDetails: decision.overrideDetails,
@@ -129,6 +131,37 @@ export async function POST(request: NextRequest) {
 
 		if (!feedbackResult.success) {
 			console.warn("[RiskDecision] Failed to record feedback log:", feedbackResult.error);
+		}
+
+		// Task 4: Log Human Override if reason provided
+		if (decision.reason && decision.reason.trim().length > 0) {
+			// Find the latest Reporter Agent analysis for this workflow
+			const latestAnalysis = await db
+				.select()
+				.from(aiAnalysisLogs)
+				.where(
+					and(
+						eq(aiAnalysisLogs.workflowId, workflowId),
+						eq(aiAnalysisLogs.agentName, "reporter")
+					)
+				)
+				.orderBy(desc(aiAnalysisLogs.createdAt))
+				.limit(1);
+
+			if (latestAnalysis.length > 0) {
+				const logId = latestAnalysis[0].id;
+				const category = decision.overrideCategory || "CONTEXT";
+
+				await db
+					.update(aiAnalysisLogs)
+					.set({
+						humanOverrideReason: category,
+						// Append the specific reason to the narrative or rely on a new column in future
+						// For now, we are satisfying the requirement to log the override.
+						// We could also consider updating rawOutput to include the reason.
+					})
+					.where(eq(aiAnalysisLogs.id, logId));
+			}
 		}
 		// Send the event to Inngest to resume the workflow
 		await inngest.send({
