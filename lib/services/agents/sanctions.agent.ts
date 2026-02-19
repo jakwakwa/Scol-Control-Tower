@@ -20,6 +20,7 @@ import { z } from "zod";
 
 const YENTE_CONFIG = {
 	apiUrl: process.env.YENTE_API_URL,
+	apiKey: process.env.OPENSANCTIONS_KEY,
 	threshold: parseFloat(process.env.YENTE_MATCH_THRESHOLD || "0.7"),
 	dataset: process.env.YENTE_DATASET || "default",
 };
@@ -264,7 +265,7 @@ function buildYenteQueries(
 		entityProps.registrationNumber = [input.registrationNumber];
 	}
 
-	queries["primary"] = {
+	queries.primary = {
 		schema: entitySchema,
 		properties: entityProps,
 	};
@@ -316,7 +317,8 @@ async function performYenteSanctionsCheck(
 	input: SanctionsCheckInput
 ): Promise<SanctionsCheckResult> {
 	const queries = buildYenteQueries(input);
-	const url = `${YENTE_CONFIG.apiUrl}/match/${YENTE_CONFIG.dataset}?threshold=${YENTE_CONFIG.threshold}`;
+	const apiKeyParam = YENTE_CONFIG.apiKey ? `&api_key=${YENTE_CONFIG.apiKey}` : "";
+	const url = `${YENTE_CONFIG.apiUrl}/match/${YENTE_CONFIG.dataset}?threshold=${YENTE_CONFIG.threshold}${apiKeyParam}`;
 
 	const response = await fetch(url, {
 		method: "POST",
@@ -544,7 +546,7 @@ function generateMockSanctionsResult(input: SanctionsCheckInput): SanctionsCheck
 						{
 							listName: "UN Security Council Consolidated List",
 							matchType: "PARTIAL" as const,
-							matchedName: input.entityName.split(" ")[0] + " Industries",
+							matchedName: `${input.entityName.split(" ")[0]} Industries`,
 							confidence: 45,
 							sanctionType: "Trade Restrictions",
 							sanctionDate: "2022-03-15",
@@ -705,7 +707,7 @@ function simpleHash(str: string): number {
 	for (let i = 0; i < str.length; i++) {
 		const char = str.charCodeAt(i);
 		hash = (hash << 5) - hash + char;
-		hash = hash & hash;
+		hash &= hash;
 	}
 	return Math.abs(hash);
 }

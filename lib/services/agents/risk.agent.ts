@@ -41,11 +41,7 @@ export const RiskAnalysisResultSchema = z.object({
 		incomeFrequency: z
 			.enum(["WEEKLY", "BI_WEEKLY", "MONTHLY", "IRREGULAR", "UNKNOWN"])
 			.describe("Detected income frequency"),
-		consistencyScore: z
-			.number()
-			.min(0)
-			.max(100)
-			.describe("Cash flow consistency score"),
+		consistencyScore: z.number().min(0).max(100).describe("Cash flow consistency score"),
 	}),
 
 	// Financial Stability
@@ -66,10 +62,12 @@ export const RiskAnalysisResultSchema = z.object({
 		riskCategory: z
 			.enum(["LOW", "MEDIUM", "HIGH", "VERY_HIGH"])
 			.describe("Overall credit risk category"),
-		riskScore: z.number().min(0).max(100).describe("Credit risk score (100 = highest risk)"),
-		affordabilityRatio: z
+		riskScore: z
 			.number()
-			.describe("Ratio of income to expenses (>1 is good)"),
+			.min(0)
+			.max(100)
+			.describe("Credit risk score (100 = highest risk)"),
+		affordabilityRatio: z.number().describe("Ratio of income to expenses (>1 is good)"),
 		redFlags: z.array(z.string()).describe("Credit-related red flags"),
 		positiveIndicators: z.array(z.string()).describe("Positive credit indicators"),
 	}),
@@ -86,6 +84,9 @@ export const RiskAnalysisResultSchema = z.object({
 			.optional()
 			.describe("Conditions for approval if applicable"),
 	}),
+
+	// Data Source Indicator
+	dataSource: z.string().describe("Whether results are from live AI or mock engine"),
 });
 
 export type RiskAnalysisResult = z.infer<typeof RiskAnalysisResultSchema>;
@@ -115,19 +116,11 @@ export interface RiskAnalysisInput {
 export async function analyzeFinancialRisk(
 	input: RiskAnalysisInput
 ): Promise<RiskAnalysisResult> {
-	console.log(
-		`[RiskAgent] Analyzing risk for applicant ${input.applicantId}, workflow ${input.workflowId}`
-	);
-
 	// Simulate processing delay
 	await new Promise(resolve => setTimeout(resolve, 500));
 
 	// Generate deterministic mock results based on input
 	const mockResult = generateMockRiskAnalysis(input);
-
-	console.log(
-		`[RiskAgent] Analysis complete - Overall score: ${mockResult.overall.score}, Recommendation: ${mockResult.overall.recommendation}`
-	);
 
 	return mockResult;
 }
@@ -153,9 +146,7 @@ function generateMockRiskAnalysis(input: RiskAnalysisInput): RiskAnalysisResult 
 	const riskyIndustries = ["gambling", "crypto", "forex", "lending"];
 	if (
 		input.applicantData?.industry &&
-		riskyIndustries.some(i =>
-			input.applicantData!.industry!.toLowerCase().includes(i)
-		)
+		riskyIndustries.some(i => input.applicantData!.industry!.toLowerCase().includes(i))
 	) {
 		baseRiskScore += 20;
 	}
@@ -201,11 +192,7 @@ function generateMockRiskAnalysis(input: RiskAnalysisInput): RiskAnalysisResult 
 			netCashFlow: Math.round(averageBalance * 0.2),
 			regularIncomeDetected: stabilityScore > 60,
 			incomeFrequency:
-				stabilityScore > 70
-					? "MONTHLY"
-					: stabilityScore > 50
-						? "BI_WEEKLY"
-						: "IRREGULAR",
+				stabilityScore > 70 ? "MONTHLY" : stabilityScore > 50 ? "BI_WEEKLY" : "IRREGULAR",
 			consistencyScore,
 		},
 
@@ -248,12 +235,11 @@ function generateMockRiskAnalysis(input: RiskAnalysisInput): RiskAnalysisResult 
 			reasoning: generateReasoning(finalRiskScore, recommendation, hasBounced),
 			conditions:
 				recommendation === "CONDITIONAL_APPROVE"
-					? [
-							"Monthly volume limit of R50,000",
-							"Quarterly account review required",
-						]
+					? ["Monthly volume limit of R50,000", "Quarterly account review required"]
 					: undefined,
 		},
+
+		dataSource: "Mock Risk Engine v1.0",
 	};
 }
 
@@ -272,9 +258,7 @@ function generateReasoning(
 		parts.push("Cash flow analysis shows consistent income and manageable expenses.");
 	} else if (riskScore <= 50) {
 		parts.push("Financial profile shows moderate stability with some areas of concern.");
-		parts.push(
-			"Recommend proceeding with conditions to mitigate identified risks."
-		);
+		parts.push("Recommend proceeding with conditions to mitigate identified risks.");
 	} else if (riskScore <= 70) {
 		parts.push("Financial profile raises several concerns that require human review.");
 		parts.push("Cash flow patterns suggest potential affordability challenges.");

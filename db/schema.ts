@@ -196,6 +196,11 @@ export const workflows = sqliteTable("workflows", {
 	applicantDecisionOutcome: text("applicant_decision_outcome"), // approved, declined
 	applicantDeclineReason: text("applicant_decline_reason"),
 
+	stageName: text("stage_name"),
+	currentAgent: text("current_agent"),
+	reviewType: text("review_type"), // procurement or general
+
+	// System
 	metadata: text("metadata"),
 });
 

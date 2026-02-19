@@ -22,7 +22,7 @@ import {
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { DataSourceBadge } from "@/components/ui/data-source-badge";
 import {
 	Dialog,
 	DialogContent,
@@ -42,36 +42,13 @@ import {
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import {
+	OVERRIDE_CATEGORIES,
+	OVERRIDE_CATEGORY_LABELS,
+	type OverrideCategory,
+} from "@/lib/constants/override-taxonomy";
 import { cn } from "@/lib/utils";
 import type { RiskReviewItem } from "./risk-review-queue";
-
-// ============================================
-// Override Category Type
-// ============================================
-
-type OverrideCategory = "CONTEXT" | "HALLUCINATION" | "DATA_ERROR";
-
-const OVERRIDE_CATEGORIES: {
-	value: OverrideCategory;
-	label: string;
-	description: string;
-}[] = [
-	{
-		value: "CONTEXT",
-		label: "Additional Context",
-		description: "I have contextual information the AI did not have access to",
-	},
-	{
-		value: "HALLUCINATION",
-		label: "AI Hallucination",
-		description: "The AI generated inaccurate or fabricated information",
-	},
-	{
-		value: "DATA_ERROR",
-		label: "Data Error",
-		description: "The underlying data used by the AI was incorrect or outdated",
-	},
-];
 
 // ============================================
 // Types
@@ -424,11 +401,15 @@ export function RiskReviewDetail({
 		setIsSubmitting(true);
 		setActionType(pendingAction);
 		try {
-			const reasonWithCategory = `[${overrideCategory}] ${overrideReason}`;
+			const overrideData: OverrideData = {
+				overrideCategory: overrideCategory,
+				overrideDetails: overrideReason,
+			};
+
 			if (pendingAction === "approve") {
-				await onApprove(item.id, reasonWithCategory);
+				await onApprove(item.id, overrideData);
 			} else {
-				await onReject(item.id, reasonWithCategory);
+				await onReject(item.id, overrideData);
 			}
 			setShowOverrideModal(false);
 			setPendingAction(null);
@@ -523,6 +504,8 @@ export function RiskReviewDetail({
 										</span>
 									)}
 								</Badge>
+								{/* Data source badge (mock vs live) */}
+								<DataSourceBadge dataSource={item.dataSource} />
 							</SheetDescription>
 						</div>
 						<div
@@ -944,20 +927,19 @@ export function RiskReviewDetail({
 									Override Category <span className="text-destructive">*</span>
 								</Label>
 								<div className="grid gap-2">
-									{OVERRIDE_CATEGORIES.map(cat => (
+									{OVERRIDE_CATEGORIES.filter(c => c !== "AI_ALIGNED").map(cat => (
 										<button
-											key={cat.value}
+											key={cat}
 											type="button"
 											className={cn(
 												"flex flex-col items-start p-3 rounded-lg border text-left transition-all duration-150",
-												overrideCategory === cat.value
+												overrideCategory === cat
 													? "border-primary bg-primary/10 ring-1 ring-primary/30"
 													: "border-secondary/20 hover:border-secondary/40 hover:bg-secondary/5"
 											)}
-											onClick={() => setOverrideCategory(cat.value)}>
-											<span className="text-sm font-medium">{cat.label}</span>
-											<span className="text-xs text-muted-foreground mt-0.5">
-												{cat.description}
+											onClick={() => setOverrideCategory(cat)}>
+											<span className="text-sm font-medium">
+												{OVERRIDE_CATEGORY_LABELS[cat]}
 											</span>
 										</button>
 									))}

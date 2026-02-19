@@ -27,6 +27,7 @@
 		"@hello-pangea/dnd": "^18.0.1",
 		"@hookform/resolvers": "^5.2.2",
 		"@libsql/client": "^0.17.0",
+		"@mendable/firecrawl-js": "^4.13.0",
 		"@next/env": "^16.1.6",
 		"@react-email/components": "^1.0.6",
 		"@react-email/render": "^2.0.4",

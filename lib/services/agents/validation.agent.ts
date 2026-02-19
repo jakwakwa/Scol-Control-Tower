@@ -13,7 +13,7 @@
 
 import { generateObject } from "ai";
 import { z } from "zod";
-import { getThinkingModel, isAIConfigured, AI_CONFIG } from "@/lib/ai/models";
+import { AI_CONFIG, getThinkingModel, isAIConfigured } from "@/lib/ai/models";
 
 // ============================================
 // Types & Schemas
@@ -27,13 +27,13 @@ export const ValidationResultSchema = z.object({
 		.min(0)
 		.max(100)
 		.describe("Confidence score for authenticity (0-100)"),
-	authenticityFlags: z
-		.array(z.string())
-		.describe("Any red flags regarding authenticity"),
+	authenticityFlags: z.array(z.string()).describe("Any red flags regarding authenticity"),
 
 	// Data Integrity
 	dataIntegrityPassed: z.boolean().describe("Whether data integrity checks passed"),
-	dataIntegrityIssues: z.array(z.string()).describe("List of data integrity issues found"),
+	dataIntegrityIssues: z
+		.array(z.string())
+		.describe("List of data integrity issues found"),
 
 	// Date Validation
 	documentDate: z.string().optional().describe("Date found on document (YYYY-MM-DD)"),
@@ -81,7 +81,9 @@ export const ValidationResultSchema = z.object({
 	reasoning: z.string().describe("Detailed reasoning for the validation result"),
 });
 
-export type ValidationResult = z.infer<typeof ValidationResultSchema>;
+export type ValidationResult = z.infer<typeof ValidationResultSchema> & {
+	dataSource: string;
+};
 
 export interface ValidationInput {
 	documentType: string;
@@ -108,35 +110,23 @@ export interface ValidationInput {
 export async function validateDocument(
 	input: ValidationInput
 ): Promise<ValidationResult> {
-	console.log(
-		`[ValidationAgent] Validating ${input.documentType} for workflow ${input.workflowId}`
-	);
-
 	if (!isAIConfigured()) {
-		console.log("[ValidationAgent] AI not configured, using mock validation");
-		return generateMockValidation(input);
-	}
-
-	try {
-		const prompt = buildValidationPrompt(input);
-
-		const { object } = await generateObject({
-			model: getThinkingModel(),
-			schema: ValidationResultSchema,
-			schemaName: "DocumentValidation",
-			schemaDescription: "Document authenticity and validation analysis",
-			prompt,
-			temperature: AI_CONFIG.ANALYSIS_TEMPERATURE,
-		});
-
-		console.log(
-			`[ValidationAgent] Validation complete - Overall score: ${object.overallScore}`
+		throw new Error(
+			"[ValidationAgent] AI is not configured. Set GOOGLE_GENERATIVE_AI_API_KEY to enable document validation."
 		);
-		return object;
-	} catch (error) {
-		console.error("[ValidationAgent] AI validation failed:", error);
-		return generateMockValidation(input);
 	}
+
+	const prompt = buildValidationPrompt(input);
+
+	const { object } = await generateObject({
+		model: getThinkingModel(),
+		schema: ValidationResultSchema,
+		schemaName: "DocumentValidation",
+		schemaDescription: "Document authenticity and validation analysis",
+		prompt,
+		temperature: AI_CONFIG.ANALYSIS_TEMPERATURE,
+	});
+	return { ...object, dataSource: "Gemini AI" };
 }
 
 /**
@@ -204,88 +194,6 @@ SCORING GUIDELINES:
 Be thorough but fair. Not all minor formatting inconsistencies indicate fraud.`;
 }
 
-/**
- * Generate mock validation result when AI is not available
- */
-function generateMockValidation(input: ValidationInput): ValidationResult {
-	// Generate deterministic but realistic mock results
-	const hash = simpleHash(input.documentContent + input.documentType);
-	const baseScore = 70 + (hash % 25); // Score between 70-94
-
-	const isProofOfAddress = input.documentType
-		.toLowerCase()
-		.includes("address");
-	const isBankStatement = input.documentType
-		.toLowerCase()
-		.includes("bank");
-
-	return {
-		isAuthentic: baseScore > 75,
-		authenticityScore: baseScore,
-		authenticityFlags:
-			baseScore < 80
-				? ["Document quality could be improved", "Some fields partially obscured"]
-				: [],
-
-		dataIntegrityPassed: baseScore > 70,
-		dataIntegrityIssues:
-			baseScore < 75
-				? ["Minor formatting inconsistencies detected"]
-				: [],
-
-		documentDate: new Date(
-			Date.now() - (hash % 60) * 24 * 60 * 60 * 1000
-		).toISOString().split("T")[0],
-		dateValid: (hash % 60) < 45, // Valid if less than 45 days old
-		dateIssues:
-			(hash % 60) >= 45
-				? ["Document may be older than 3 months"]
-				: [],
-
-		crossReferenceVerified: baseScore > 72,
-		crossReferenceDetails: {
-			nameMatch: baseScore > 70,
-			addressMatch: baseScore > 72,
-			accountMatch: isBankStatement ? baseScore > 75 : undefined,
-			idMatch: baseScore > 78,
-		},
-
-		isValidProofOfResidence: isProofOfAddress ? baseScore > 75 : undefined,
-		addressExtractionConfidence: isProofOfAddress ? baseScore : undefined,
-		extractedAddress: isProofOfAddress
-			? {
-					street: "123 Example Street",
-					city: "Johannesburg",
-					province: "Gauteng",
-					postalCode: "2000",
-				}
-			: undefined,
-
-		overallValid: baseScore > 70,
-		overallScore: baseScore,
-		recommendation:
-			baseScore >= 80
-				? "ACCEPT"
-				: baseScore >= 60
-					? "REVIEW"
-					: "REQUEST_NEW_DOCUMENT",
-		reasoning: `Mock validation completed. Document ${input.documentType} scored ${baseScore}/100 based on standard validation criteria. ${baseScore >= 70 ? "Document appears acceptable." : "Document requires further review or replacement."}`,
-	};
-}
-
-/**
- * Simple hash function for deterministic mock results
- */
-function simpleHash(str: string): number {
-	let hash = 0;
-	for (let i = 0; i < Math.min(str.length, 100); i++) {
-		const char = str.charCodeAt(i);
-		hash = (hash << 5) - hash + char;
-		hash = hash & hash;
-	}
-	return Math.abs(hash);
-}
-
 // ============================================
 // Batch Validation
 // ============================================
@@ -322,10 +230,6 @@ export interface BatchValidationResult {
 export async function validateDocumentsBatch(
 	input: BatchValidationInput
 ): Promise<BatchValidationResult> {
-	console.log(
-		`[ValidationAgent] Batch validating ${input.documents.length} documents for workflow ${input.workflowId}`
-	);
-
 	const results = await Promise.all(
 		input.documents.map(async doc => ({
 			documentId: doc.id,

@@ -1,8 +1,8 @@
+import { auth } from "@clerk/nextjs/server";
+import { and, eq, or } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
-import { workflows, applicants, riskAssessments } from "@/db/schema";
-import { eq, and, or, desc } from "drizzle-orm";
-import { auth } from "@clerk/nextjs/server";
+import { applicants, riskAssessments, workflows } from "@/db/schema";
 
 /**
  * GET /api/risk-review
@@ -11,7 +11,7 @@ import { auth } from "@clerk/nextjs/server";
  * SOP-aligned: Stage 3 (procurement review) and Stage 4 (risk manager final review).
  * Uses the Reporter Agent output stored in risk_assessments.ai_analysis.
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
 	try {
 		const { userId } = await auth();
 		if (!userId) {
@@ -67,12 +67,18 @@ export async function GET(request: NextRequest) {
 				}
 
 				// Extract fields from Reporter Agent output
-				const aggregatedScore = (aiAnalysis?.scores as Record<string, number>)?.aggregatedScore;
+				const aggregatedScore = (aiAnalysis?.scores as Record<string, number>)
+					?.aggregatedScore;
 				const recommendation = aiAnalysis?.recommendation as string | undefined;
 				const flags = aiAnalysis?.flags as string[] | undefined;
 				const sanctionsLevel = aiAnalysis?.sanctionsLevel as string | undefined;
-				const validationSummary = aiAnalysis?.validationSummary as Record<string, unknown> | undefined;
-				const riskDetails = aiAnalysis?.riskDetails as Record<string, unknown> | undefined;
+				const validationSummary = aiAnalysis?.validationSummary as
+					| Record<string, unknown>
+					| undefined;
+				const riskDetails = aiAnalysis?.riskDetails as
+					| Record<string, unknown>
+					| undefined;
+				const dataSource = aiAnalysis?.dataSource as string | undefined;
 
 				// Build risk flags array from the flags field
 				const riskFlags = (flags || []).map((flag: string, idx: number) => ({
@@ -109,6 +115,8 @@ export async function GET(request: NextRequest) {
 					reasoning: aiAnalysis
 						? `Sanctions: ${sanctionsLevel || "Pending"}. Validation: ${validationSummary ? "Complete" : "Pending"}. Risk: ${riskDetails ? "Complete" : "Pending"}.`
 						: undefined,
+					// Data source indicator (mock vs live)
+					dataSource: dataSource || undefined,
 					// Full Reporter Agent payload for detail view
 					reporterAgentOutput: aiAnalysis,
 					// Assessment fields

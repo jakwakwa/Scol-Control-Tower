@@ -43,7 +43,9 @@ export const ReporterOutputSchema = z.object({
 	key_reasoning: z.array(z.string()),
 });
 
-export type ReporterOutput = z.infer<typeof ReporterOutputSchema>;
+export type ReporterOutput = z.infer<typeof ReporterOutputSchema> & {
+	dataSource: string;
+};
 
 // ============================================
 // Helper: Git Version
@@ -106,17 +108,19 @@ export async function generateReporterAnalysis(
 
 		return {
 			...object,
+			dataSource: "Gemini AI",
 			promptVersionId,
 		};
 	} catch (error) {
 		console.error("[ReporterAgent] Analysis failed", error);
-		// Fallback for failure
+		// AI failed — escalate to human review (not a mock, a genuine error path)
 		return {
 			recommendation: "MANUAL_REVIEW",
 			confidence_score: 0,
 			narrative:
 				"AI Analysis failed to generate a report. Manual review is required.\n\nSystem encountered an error during report generation.",
 			key_reasoning: ["System Error: Report generation failed"],
+			dataSource: "AI Error — Manual Escalation",
 			promptVersionId,
 		};
 	}

@@ -18,6 +18,7 @@ import * as React from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DataSourceBadge } from "@/components/ui/data-source-badge";
 import {
 	Dialog,
 	DialogContent,
@@ -88,6 +89,8 @@ export interface RiskReviewItem {
 	sanctionStatus?: "clear" | "flagged" | "confirmed_hit";
 	/** Current escalation tier (1=Normal, 2=Manager Alert, 3=Salvage) */
 	escalationTier?: number;
+	/** Data source indicator (mock vs live) */
+	dataSource?: string | null;
 }
 
 interface RiskReviewCardProps {
@@ -304,6 +307,8 @@ export function RiskReviewCard({
 										Tier {item.escalationTier}
 									</Badge>
 								)}
+								{/* Data source badge (mock vs live) */}
+								<DataSourceBadge dataSource={item.dataSource} />
 							</div>
 							<div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
 								<span className="flex items-center gap-1">

@@ -119,6 +119,9 @@ export async function GET(_request: NextRequest) {
 					isPEP: matchDetails?.isPEP as boolean,
 					riskLevel: (matchDetails?.riskLevel as string) || "BLOCKED",
 					narrative: analysis?.narrative || undefined,
+					dataSource:
+						((matchDetails?.metadata as Record<string, unknown>)?.dataSource as string) ||
+						null,
 					deepLinks: buildDeepLinks(matchDetails),
 				};
 			})

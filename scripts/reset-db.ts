@@ -24,6 +24,9 @@ async function reset() {
 		await db.delete(schema.documentUploads);
 		await db.delete(schema.internalForms);
 		await db.delete(schema.agentCallbacks);
+		await db.delete(schema.aiFeedbackLogs);
+		await db.delete(schema.aiAnalysisLogs);
+		await db.delete(schema.sanctionClearance);
 		await db.delete(schema.workflowEvents);
 		await db.delete(schema.quotes);
 		await db.delete(schema.notifications);
