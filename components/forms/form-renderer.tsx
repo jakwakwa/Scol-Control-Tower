@@ -66,7 +66,7 @@ export default function FormRenderer({
 		<FormProvider {...form}>
 			<form onSubmit={handleSubmit} className="space-y-10">
 				{showTestButton && (
-					<div className="mb-6 p-4 border border-dashed border-yellow-500/50 bg-yellow-50/50 rounded-lg flex items-center justify-between">
+					<div className="mb-6 p-4 border border-dashed border-amber-500/20 bg-amber-500/5 rounded-lg flex items-center justify-between">
 						<div className="space-y-1">
 							<p className="text-sm font-medium text-yellow-800">Testing Mode Active</p>
 							<p className="text-xs text-yellow-700">
@@ -78,7 +78,7 @@ export default function FormRenderer({
 							variant="outline"
 							size="sm"
 							onClick={() => form.reset(testData)}
-							className="bg-white border-yellow-200 hover:bg-yellow-50 hover:text-yellow-900 text-yellow-800">
+							className="bg-gray-950/40 border-gray-900/50 hover:bg-gray-900/50 hover:text-amber-700 text-secondary/80">
 							Autofill Form
 						</Button>
 					</div>

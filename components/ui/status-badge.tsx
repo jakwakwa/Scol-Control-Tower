@@ -92,7 +92,7 @@ export function RiskBadge({ level }: { level: string }) {
 	return (
 		<StatusBadge
 			status={status}
-			className={`uppercase flex items-center justify-center tracking-wider text-[8px] min-w-[17px] min-h-[17px] p-0 ${level === "green" ? "bg-emerald-100" : level === "red" ? "bg-destructive animate-bounce" : "bg-none"} `}>
+			className={`uppercase flex items-center justify-center tracking-wider text-[8px] min-w-[17px] min-h-[17px] p-0 ${level === "green" ? "bg-emerald-400/30" : level === "red" ? "bg-destructive animate-bounce" : "bg-none"} `}>
 			{level === "red" ? (
 				<RiAlertFill className="text-red-200 font-black" size={12} />
 			) : (

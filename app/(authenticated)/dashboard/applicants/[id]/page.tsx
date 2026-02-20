@@ -19,7 +19,7 @@ import {
 	RiUploadCloud2Line,
 } from "@remixicon/react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DashboardLayout, GlassCard } from "@/components/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { RiskBadge, StageBadge, StatusBadge } from "@/components/ui/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { retryFacilitySubmission } from "@/lib/actions/workflow.actions";
 
 interface ApplicantDetail {
@@ -174,6 +175,11 @@ export default function ApplicantDetailPage() {
 	const [editAdjustedFee, setEditAdjustedFee] = useState("");
 	const [quoteActionLoading, setQuoteActionLoading] = useState<string | null>(null);
 	const [quoteMessage, setQuoteMessage] = useState<string | null>(null);
+	const [preRiskActionLoading, setPreRiskActionLoading] = useState<
+		"approve" | "reject" | null
+	>(null);
+	const [preRiskReason, setPreRiskReason] = useState("");
+	const [preRiskMessage, setPreRiskMessage] = useState<string | null>(null);
 
 	// Initialize edit values when quote loads or edit mode is enabled
 	useEffect(() => {
@@ -188,6 +194,7 @@ export default function ApplicantDetailPage() {
 		quote && !["pending_signature", "approved", "rejected"].includes(quote.status);
 	const isPreRiskCleared =
 		!workflow?.preRiskRequired || workflow.preRiskOutcome === "approved";
+	const isPreRiskPending = Boolean(workflow?.preRiskRequired) && !workflow?.preRiskOutcome;
 
 	const handleSaveQuoteDraft = async () => {
 		if (!quote) return;
@@ -379,24 +386,144 @@ export default function ApplicantDetailPage() {
 		}
 	};
 
+	const applyApplicantPayload = useCallback((data: Record<string, unknown>) => {
+		setApplicant((data.applicant as ApplicantDetail | null) || null);
+		setDocuments((data.documents as ApplicantDocument[]) || []);
+		setApplicantSubmissions(
+			(data.applicantSubmissions as ApplicantFormSubmission[]) || []
+		);
+		setApplicantMagiclinkForms(
+			(data.applicantMagiclinkForms as ApplicantFormInstance[]) || []
+		);
+		setRiskAssessment((data.riskAssessment as RiskAssessment | null) || null);
+		setQuote((data.quote as Quote | null) || null);
+		setWorkflow((data.workflow as Workflow | null) || null);
+		setSanctionsCheck((data.sanctionsCheck as SanctionsCheckSnapshot | null) || null);
+	}, []);
+
+	const refreshApplicantData = useCallback(async () => {
+		const response = await fetch(`/api/applicants/${id}`);
+		if (!response.ok) {
+			throw new Error("Failed to fetch applicant");
+		}
+		const data = (await response.json()) as Record<string, unknown>;
+		applyApplicantPayload(data);
+		return data;
+	}, [id, applyApplicantPayload]);
+
+	const waitForPreRiskOutcome = useCallback(
+		async (expectedOutcome: "approved" | "rejected") => {
+			const attempts = 6;
+			for (let attempt = 0; attempt < attempts; attempt += 1) {
+				if (attempt > 0) {
+					await new Promise(resolve => setTimeout(resolve, 1500));
+				}
+
+				try {
+					const data = await refreshApplicantData();
+					const latestWorkflow = (data.workflow as Workflow | null) || null;
+
+					if (expectedOutcome === "approved") {
+						if (
+							latestWorkflow?.preRiskOutcome === "approved" ||
+							latestWorkflow?.preRiskRequired === false
+						) {
+							return true;
+						}
+						continue;
+					}
+
+					if (
+						latestWorkflow?.preRiskOutcome === "rejected" ||
+						latestWorkflow?.applicantDecisionOutcome === "declined" ||
+						latestWorkflow?.status === "terminated"
+					) {
+						return true;
+					}
+				} catch (pollError) {
+					console.error("Failed to poll pre-risk transition:", pollError);
+				}
+			}
+
+			return false;
+		},
+		[refreshApplicantData]
+	);
+
+	const handlePreRiskDecision = async (outcome: "APPROVED" | "REJECTED") => {
+		if (!(workflow?.id && applicant)) return;
+		if (outcome === "REJECTED" && !preRiskReason.trim()) {
+			setPreRiskMessage("Please provide a reason when declining pre-risk approval.");
+			return;
+		}
+
+		setPreRiskActionLoading(outcome === "APPROVED" ? "approve" : "reject");
+		setPreRiskMessage(null);
+
+		try {
+			const response = await fetch("/api/risk-decision/pre", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					workflowId: workflow.id,
+					applicantId: applicant.id,
+					stage: "pre_approval",
+					decision: {
+						outcome,
+						reason: preRiskReason.trim() || undefined,
+						requiresPreRiskEvaluation: outcome === "APPROVED" ? false : undefined,
+					},
+				}),
+			});
+
+			if (!response.ok) {
+				const payload = await response.json().catch(() => ({}));
+				throw new Error(payload?.error || "Failed to submit pre-risk decision");
+			}
+
+			setPreRiskMessage("Decision submitted. Waiting for workflow state update...");
+
+			const expectedOutcome = outcome === "APPROVED" ? "approved" : "rejected";
+			const transitioned = await waitForPreRiskOutcome(expectedOutcome);
+			if (!transitioned) {
+				setPreRiskMessage(
+					"Decision was submitted, but confirmation is delayed. Refresh and verify the latest workflow status."
+				);
+				return;
+			}
+
+			setPreRiskMessage(
+				outcome === "APPROVED"
+					? "Pre-risk approved. Workflow can now continue to quote flow."
+					: "Pre-risk declined. Workflow termination has been recorded."
+			);
+
+			if (outcome === "REJECTED") {
+				setPreRiskReason("");
+			}
+		} catch (decisionError) {
+			setPreRiskMessage(
+				decisionError instanceof Error
+					? decisionError.message
+					: "Failed to submit pre-risk decision"
+			);
+		} finally {
+			setPreRiskActionLoading(null);
+		}
+	};
+
 	useEffect(() => {
 		let mounted = true;
+
 		const fetchApplicant = async () => {
 			try {
 				const response = await fetch(`/api/applicants/${id}`);
 				if (!response.ok) {
 					throw new Error("Failed to fetch applicant");
 				}
-				const data = await response.json();
+				const data = (await response.json()) as Record<string, unknown>;
 				if (!mounted) return;
-				setApplicant(data.applicant);
-				setDocuments(data.documents || []);
-				setApplicantSubmissions(data.applicantSubmissions || []);
-				setApplicantMagiclinkForms(data.applicantMagiclinkForms || []);
-				setRiskAssessment(data.riskAssessment || null);
-				setQuote(data.quote || null);
-				setWorkflow(data.workflow || null);
-				setSanctionsCheck(data.sanctionsCheck || null);
+				applyApplicantPayload(data);
 			} catch (err) {
 				if (!mounted) return;
 				setError(err instanceof Error ? err.message : "Failed to load applicant");
@@ -411,27 +538,27 @@ export default function ApplicantDetailPage() {
 		return () => {
 			mounted = false;
 		};
-	}, [id]);
+	}, [id, applyApplicantPayload]);
 
-	if (loading) {
-		return (
+if (loading) {
+	return (
 			<DashboardLayout title="Loading..." description="Fetching applicant details">
 				<p className="text-sm text-muted-foreground">Loading applicant details...</p>
 			</DashboardLayout>
 		);
-	}
+}
 
-	if (error || !applicant) {
-		return (
+if (error || !applicant) {
+	return (
 			<DashboardLayout title="Applicant not found" description="Unable to load applicant">
 				<p className="text-sm text-destructive">{error || "Applicant not found"}</p>
 			</DashboardLayout>
 		);
-	}
+}
 
-	const client = applicant;
+const client = applicant;
 
-	return (
+return (
 		<DashboardLayout
 			title={client.companyName}
 			description={`Registration: ${client.registrationNumber || "N/A"}`}
@@ -553,7 +680,7 @@ export default function ApplicantDetailPage() {
 				{/* Main Content Area */}
 				<div className="lg:col-span-2">
 					<Tabs defaultValue={defaultTab} className="w-full">
-						<TabsList className="mb-0 bg-slate-700 w-full justify-start border-b border-border/40 rounded-b-none rounded-t-xl h-auto p-0 gap-2">
+						<TabsList className="mb-0 bg-primary/40 w-full justify-start border-b border-border/40 rounded-b-none rounded-t-xl h-auto p-0 gap-2">
 							<TabsTrigger
 								value="overview"
 								className="rounded-b-none border-b-2 border-none outline-0 shadow-none px-4 py-3">
@@ -1028,6 +1155,77 @@ export default function ApplicantDetailPage() {
 										</Button>
 									)}
 								</div>
+								{workflow?.preRiskRequired ? (
+									<GlassCard className="border-l-4 border-l-amber-500">
+										<div className="space-y-4">
+											<div>
+												<p className="text-xs uppercase text-muted-foreground font-bold">
+													Pre-risk assessment
+												</p>
+												<p className="text-sm mt-1 text-foreground">
+													{isPreRiskPending
+														? "Sales evaluation flagged this application. A pre-risk decision is required before quote progression."
+														: workflow.preRiskOutcome === "approved"
+															? "Pre-risk has been approved. Workflow can continue."
+															: "Pre-risk was declined. Workflow termination has been recorded."}
+												</p>
+												{workflow.salesIssuesSummary ? (
+													<p className="text-xs text-muted-foreground mt-2">
+														Issues: {workflow.salesIssuesSummary}
+													</p>
+												) : null}
+												{sanctionsCheck?.riskLevel ? (
+													<p className="text-xs text-muted-foreground mt-1">
+														Sanctions snapshot: {sanctionsCheck.riskLevel}
+														{sanctionsCheck.reused ? " (reused)" : ""}
+													</p>
+												) : null}
+											</div>
+
+											{isPreRiskPending ? (
+												<>
+													<Textarea
+														value={preRiskReason}
+														onChange={e => setPreRiskReason(e.target.value)}
+														placeholder="Optional note for approval, required for decline."
+														className="min-h-[88px]"
+														disabled={preRiskActionLoading !== null}
+													/>
+													<div className="flex flex-wrap gap-2">
+														<Button
+															variant="secondary"
+															className="gap-2 bg-teal-600 hover:bg-teal-700"
+															onClick={() => handlePreRiskDecision("APPROVED")}
+															disabled={preRiskActionLoading !== null}>
+															{preRiskActionLoading === "approve" ? (
+																<RiLoader4Line className="h-4 w-4 animate-spin" />
+															) : (
+																<RiCheckLine className="h-4 w-4" />
+															)}
+															Approve Pre-risk
+														</Button>
+														<Button
+															variant="destructive"
+															className="gap-2"
+															onClick={() => handlePreRiskDecision("REJECTED")}
+															disabled={preRiskActionLoading !== null}>
+															{preRiskActionLoading === "reject" ? (
+																<RiLoader4Line className="h-4 w-4 animate-spin" />
+															) : (
+																<RiCloseLine className="h-4 w-4" />
+															)}
+															Decline Pre-risk
+														</Button>
+													</div>
+												</>
+											) : null}
+
+											{preRiskMessage ? (
+												<p className="text-sm text-amber-700">{preRiskMessage}</p>
+											) : null}
+										</div>
+									</GlassCard>
+								) : null}
 								{quote ? (
 									<GlassCard>
 										<div className="flex items-start justify-between mb-6">
@@ -1059,7 +1257,7 @@ export default function ApplicantDetailPage() {
 												variant="outline"
 												className={
 													quote.status === "approved"
-														? "text-emerald-100 bg-emerald-600/80 border-emerald-500"
+														? "text-emerald-100/40 bg-emerald-600/80 border-emerald-500"
 														: quote.status === "rejected"
 															? "text-red-500 border-red-500"
 															: quote.status === "pending_approval"

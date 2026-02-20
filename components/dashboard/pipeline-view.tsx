@@ -174,7 +174,7 @@ export function PipelineView({ workflows }: { workflows: PipelineWorkflow[] }) {
 	if (!columns) return <div>Loading pipeline...</div>;
 
 	return (
-		<div className="h-full overflow-x-auto  rounded-xl  bg-linear-to-br from-slate-200/10  to-slate-100/10 border border-sidebar-border  m-4 p-4 shadow-[inset_-10px_-1px_10px_rgba(0,0,0,0.1)]">
+		<div className="h-full overflow-x-auto  rounded-xl  bg-linear-to-br from-background/50  to-slate-950/20 border border-sidebar-border  m-4 p-4 shadow-[inset_-10px_-1px_10px_rgba(0,0,0,0.1)]">
 			{/* 6-column layout with reduced gaps for smaller screens */}
 			<div className="flex gap-3 min-w-[1400px] ">
 				{PIPELINE_STAGES.map(stage => (

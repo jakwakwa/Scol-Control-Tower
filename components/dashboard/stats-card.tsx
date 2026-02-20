@@ -41,7 +41,7 @@ export function StatsCard({
 			<div className="absolute inset-0 bg-linear-to-br from-secondary/2 to-transparent" />
 			<div
 				className={cn(
-					"flex h-8 w-8 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110",
+					"flex h-8 w-8 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 mb-2",
 					iconColorClasses[iconColor]
 				)}>
 				<Icon className="h-4 w-4" />
@@ -50,7 +50,7 @@ export function StatsCard({
 			<div className="relative flex items-start justify-between">
 				<div className="space-y-2">
 					<p className="text-sm font-medium text-muted-foreground">{title}</p>
-					<p className="text-3xl font-bold tracking-tight">{value}</p>
+					<p className="text-2xl font-bold tracking-tight">{value}</p>
 
 					{change && (
 						<div className="flex items-center gap-1.5">

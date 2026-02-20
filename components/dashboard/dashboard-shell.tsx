@@ -13,6 +13,22 @@ interface DashboardShellProps {
 	notifications?: WorkflowNotification[];
 }
 
+const getNotificationRoute = (notification: WorkflowNotification): string => {
+	const message = notification.message.toLowerCase();
+	const isPreRiskReview =
+		message.includes("pre-risk") || message.includes("sales evaluation");
+	const isQuoteReview =
+		message.includes("quote ready for review") ||
+		message.includes("overlimit: quote requires special approval") ||
+		message.includes("quotation");
+
+	if (isPreRiskReview || isQuoteReview) {
+		return `/dashboard/applicants/${notification.applicantId}?tab=reviews`;
+	}
+
+	return `/dashboard/applicants/${notification.applicantId}`;
+};
+
 export function DashboardShell({ children, notifications = [] }: DashboardShellProps) {
 	const router = useRouter();
 	const [isCollapsed, setIsCollapsed] = useState(false);
@@ -35,7 +51,7 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 					<div className="flex h-20 items-center justify-between px-8">
 						<div>
 							{title && (
-								<h1 className="text-xl font-bold bg-linear-to-r from-primary to-muted bg-clip-text text-transparent">
+								<h1 className="text-xl font-bold bg-linear-to-r from-secondary to-muted bg-clip-text text-transparent">
 									{title}
 								</h1>
 							)}
@@ -61,13 +77,7 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 								onAction={async (notification, action) => {
 									try {
 										if (action === "view") {
-											const isQuote = notification.message
-												.toLowerCase()
-												.includes("quote");
-											const route = isQuote
-												? `/dashboard/applicants/${notification.applicantId}?tab=reviews`
-												: `/dashboard/applicants/${notification.applicantId}`;
-											router.push(route);
+											router.push(getNotificationRoute(notification));
 										}
 
 										if (action === "retry" || action === "cancel") {
@@ -94,11 +104,7 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 								}}
 								onNotificationClick={async notification => {
 									try {
-										const isQuote = notification.message.toLowerCase().includes("quote");
-										const route = isQuote
-											? `/dashboard/applicants/${notification.applicantId}?tab=reviews`
-											: `/dashboard/applicants/${notification.applicantId}`;
-										router.push(route);
+										router.push(getNotificationRoute(notification));
 
 										// Mark notification as read
 										await fetch(`/api/notifications/${notification.id}`, {
