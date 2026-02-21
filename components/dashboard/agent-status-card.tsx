@@ -45,7 +45,7 @@ export function AgentStatusCard({ agent, onClick }: AgentStatusCardProps) {
 	const config = statusConfig[agent.status];
 
 	const containerClasses = cn(
-		"group relative overflow-hidden rounded-2xl border border-sidebar-border bg-card/50 backdrop-blur-sm p-6",
+		"group relative overflow-hidden rounded-2xl border border-sidebar-border bg-card/50 backdrop-blur-xs p-6",
 		"shadow-xl shadow-black/5",
 		"transition-all duration-300",
 		onClick &&

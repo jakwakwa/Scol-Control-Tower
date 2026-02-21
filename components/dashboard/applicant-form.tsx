@@ -151,10 +151,10 @@ export function ApplicantForm({
 		<form onSubmit={handleSubmit} className="space-y-8">
 			{/* Test Mode Banner */}
 			{isMockarooTestMode && (
-				<div className="flex items-center justify-between p-4 rounded-lg border border-warning bg-warning shadow-lg shadow-amber-800/10">
+				<div className="flex items-center justify-between p-4 rounded-lg border border-warning bg-warning/20 shadow-lg shadow-amber-800/5">
 					<div className="flex items-center gap-2">
 						<span className="text-warning-foreground animate-pulse text-sm font-medium">
-						<RiTestTubeLine className="h-8 w-8 animate-pulse" /> Test Mode
+							<RiTestTubeLine className="h-8 w-8 animate-pulse" /> Test Mode
 						</span>
 					</div>
 					<Button
@@ -169,178 +169,181 @@ export function ApplicantForm({
 			)}
 
 			{/* Company Information */}
-			<GlassCard>
-				<h3 className="text-lg font-semibold mb-6">Company Information</h3>
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-					<div className="space-y-2">
-						<Label htmlFor="companyName">Company Name *</Label>
-						<Input
-							id="companyName"
-							value={formData.companyName}
-							onChange={e => updateField("companyName", e.target.value)}
-							placeholder="Enter company name"
-							className={cn(
-								errors.companyName ? "border-red-500" : "border-input-border"
+			<div className="glass-card-container-form">
+				<GlassCard>
+					<h3 className="text-lg font-semibold mb-6">Company Information</h3>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+						<div className="space-y-2">
+							<Label htmlFor="companyName">Company Name *</Label>
+							<Input
+								id="companyName"
+								value={formData.companyName}
+								onChange={e => updateField("companyName", e.target.value)}
+								placeholder="Enter company name"
+								className={cn(
+									errors.companyName ? "border-red-500" : "border-input-border"
+								)}
+							/>
+							{errors.companyName && (
+								<p className="text-xs text-red-400">{errors.companyName}</p>
 							)}
-						/>
-						{errors.companyName && (
-							<p className="text-xs text-red-400">{errors.companyName}</p>
-						)}
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="registrationNumber">CIPC Registration Number</Label>
+							<Input
+								className="border-input-border"
+								id="registrationNumber"
+								value={formData.registrationNumber}
+								onChange={e => updateField("registrationNumber", e.target.value)}
+								placeholder="e.g., 2024/123456/07"
+							/>
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="entityType">Entity Type</Label>
+							<select
+								id="entityType"
+								value={formData.entityType}
+								onChange={e => updateField("entityType", e.target.value)}
+								className="flex h-10 w-full rounded-md border border-input-border bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+								<option value="">Select Entity Type</option>
+								<option value="proprietor">Proprietor</option>
+								<option value="company">Company (Pty Ltd)</option>
+								<option value="close_corporation">Close Corporation</option>
+								<option value="partnership">Partnership</option>
+								<option value="npo">NPO</option>
+								<option value="trust">Trust</option>
+								<option value="body_corporate">Body Corporate</option>
+								<option value="other">Other</option>
+							</select>
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="productType">Product Type</Label>
+							<select
+								id="productType"
+								value={formData.productType}
+								onChange={e => updateField("productType", e.target.value)}
+								className="flex h-10 w-full rounded-md border border-input-border bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+								<option value="">Select Product Type</option>
+								<option value="standard">Standard</option>
+								<option value="premium_collections">Premium Collections</option>
+								<option value="call_centre">Call Centre</option>
+							</select>
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="industry">Industry</Label>
+							<Input
+								className="border-input-border"
+								id="industry"
+								value={formData.industry}
+								onChange={e => updateField("industry", e.target.value)}
+								placeholder="e.g., Financial Services, Mining"
+							/>
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="employeeCount">Employee Count</Label>
+							<Input
+								className="border-input-border"
+								id="employeeCount"
+								type="number"
+								value={formData.employeeCount}
+								onChange={e => updateField("employeeCount", e.target.value)}
+								placeholder="e.g., 250"
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="estimatedVolume">Estimated Volume</Label>
+							<Input
+								className="border-input-border"
+								id="estimatedVolume"
+								value={formData.estimatedVolume}
+								onChange={e => updateField("estimatedVolume", e.target.value)}
+								placeholder="e.g., R500,000"
+							/>
+						</div>
 					</div>
 
-					<div className="space-y-2">
-						<Label htmlFor="registrationNumber">CIPC Registration Number</Label>
-						<Input
-							className="border-input-border"
-							id="registrationNumber"
-							value={formData.registrationNumber}
-							onChange={e => updateField("registrationNumber", e.target.value)}
-							placeholder="e.g., 2024/123456/07"
-						/>
-					</div>
-
-					<div className="space-y-2">
-						<Label htmlFor="entityType">Entity Type</Label>
+					<div className="space-y-2 mt-4">
+						<Label htmlFor="mandateType">Mandate Type</Label>
 						<select
-							id="entityType"
-							value={formData.entityType}
-							onChange={e => updateField("entityType", e.target.value)}
+							id="mandateType"
+							value={formData.mandateType}
+							onChange={e => updateField("mandateType", e.target.value)}
 							className="flex h-10 w-full rounded-md border border-input-border bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-							<option value="">Select Entity Type</option>
-							<option value="proprietor">Proprietor</option>
-							<option value="company">Company (Pty Ltd)</option>
-							<option value="close_corporation">Close Corporation</option>
-							<option value="partnership">Partnership</option>
-							<option value="npo">NPO</option>
-							<option value="trust">Trust</option>
-							<option value="body_corporate">Body Corporate</option>
-							<option value="other">Other</option>
+							<option value="">Select Mandate Type</option>
+							<option value="debit_order">Debit Order</option>
+							<option value="eft_collection">EFT Collection</option>
+							<option value="realtime_clearing">Realtime Clearing</option>
+							<option value="managed_collection">Managed Collection</option>
 						</select>
 					</div>
+				</GlassCard>
+			</div>
+			<div className="glass-card-container-form">
+				{/* Contact Information */}
+				<GlassCard>
+					<h3 className="text-lg font-semibold mb-6">Contact Information</h3>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+						<div className="space-y-2">
+							<Label htmlFor="contactName">Contact Name *</Label>
+							<Input
+								id="contactName"
+								value={formData.contactName}
+								onChange={e => updateField("contactName", e.target.value)}
+								placeholder="Enter contact name"
+								className={cn(errors.contactName && "border-red-500")}
+							/>
+							{errors.contactName && (
+								<p className="text-xs text-red-400">{errors.contactName}</p>
+							)}
+						</div>
 
-					<div className="space-y-2">
-						<Label htmlFor="productType">Product Type</Label>
-						<select
-							id="productType"
-							value={formData.productType}
-							onChange={e => updateField("productType", e.target.value)}
-							className="flex h-10 w-full rounded-md border border-input-border bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-							<option value="">Select Product Type</option>
-							<option value="standard">Standard</option>
-							<option value="premium_collections">Premium Collections</option>
-							<option value="call_centre">Call Centre</option>
-						</select>
+						<div className="space-y-2">
+							<Label htmlFor="email">Email Address *</Label>
+							<Input
+								id="email"
+								type="email"
+								value={formData.email}
+								onChange={e => updateField("email", e.target.value)}
+								placeholder="contact@company.co.za"
+								className={cn(errors.email && "border-red-500")}
+							/>
+							{errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
+						</div>
+
+						<div className="space-y-2 md:col-span-2">
+							<Label htmlFor="phone">Phone Number</Label>
+							<Input
+								id="phone"
+								type="tel"
+								value={formData.phone}
+								onChange={e => updateField("phone", e.target.value)}
+								placeholder="+27 XX XXX XXXX"
+							/>
+						</div>
 					</div>
-
+				</GlassCard>
+			</div>
+			<div className="glass-card-container-form">
+				{/* Additional Notes */}
+				<GlassCard>
+					<h3 className="text-lg font-semibold mb-6">Additional Notes</h3>
 					<div className="space-y-2">
-						<Label htmlFor="industry">Industry</Label>
-						<Input
-							className="border-input-border"
-							id="industry"
-							value={formData.industry}
-							onChange={e => updateField("industry", e.target.value)}
-							placeholder="e.g., Financial Services, Mining"
+						<Label htmlFor="notes">Notes</Label>
+						<Textarea
+							id="notes"
+							value={formData.notes}
+							onChange={e => updateField("notes", e.target.value)}
+							placeholder="Add any relevant notes about this applicant..."
+							rows={4}
 						/>
 					</div>
-
-					<div className="space-y-2">
-						<Label htmlFor="employeeCount">Employee Count</Label>
-						<Input
-							className="border-input-border"
-							id="employeeCount"
-							type="number"
-							value={formData.employeeCount}
-							onChange={e => updateField("employeeCount", e.target.value)}
-							placeholder="e.g., 250"
-						/>
-					</div>
-					<div className="space-y-2">
-						<Label htmlFor="estimatedVolume">Estimated Volume</Label>
-					<Input
-						className="border-input-border"
-						id="estimatedVolume"
-						value={formData.estimatedVolume}
-						onChange={e => updateField("estimatedVolume", e.target.value)}
-							placeholder="e.g., R500,000"
-						/>
-					</div>
-				</div>
-
-				<div className="space-y-2 mt-4">
-					<Label htmlFor="mandateType">Mandate Type</Label>
-					<select
-						id="mandateType"
-						value={formData.mandateType}
-						onChange={e => updateField("mandateType", e.target.value)}
-						className="flex h-10 w-full rounded-md border border-input-border bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-						<option value="">Select Mandate Type</option>
-						<option value="debit_order">Debit Order</option>
-						<option value="eft_collection">EFT Collection</option>
-						<option value="realtime_clearing">Realtime Clearing</option>
-						<option value="managed_collection">Managed Collection</option>
-					</select>
-				</div>
-			</GlassCard>
-
-			{/* Contact Information */}
-			<GlassCard>
-				<h3 className="text-lg font-semibold mb-6">Contact Information</h3>
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-					<div className="space-y-2">
-						<Label htmlFor="contactName">Contact Name *</Label>
-						<Input
-							id="contactName"
-							value={formData.contactName}
-							onChange={e => updateField("contactName", e.target.value)}
-							placeholder="Enter contact name"
-							className={cn(errors.contactName && "border-red-500")}
-						/>
-						{errors.contactName && (
-							<p className="text-xs text-red-400">{errors.contactName}</p>
-						)}
-					</div>
-
-					<div className="space-y-2">
-						<Label htmlFor="email">Email Address *</Label>
-						<Input
-							id="email"
-							type="email"
-							value={formData.email}
-							onChange={e => updateField("email", e.target.value)}
-							placeholder="contact@company.co.za"
-							className={cn(errors.email && "border-red-500")}
-						/>
-						{errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
-					</div>
-
-					<div className="space-y-2 md:col-span-2">
-						<Label htmlFor="phone">Phone Number</Label>
-						<Input
-							id="phone"
-							type="tel"
-							value={formData.phone}
-							onChange={e => updateField("phone", e.target.value)}
-							placeholder="+27 XX XXX XXXX"
-						/>
-					</div>
-				</div>
-			</GlassCard>
-
-			{/* Additional Notes */}
-			<GlassCard>
-				<h3 className="text-lg font-semibold mb-6">Additional Notes</h3>
-				<div className="space-y-2">
-					<Label htmlFor="notes">Notes</Label>
-					<Textarea
-						id="notes"
-						value={formData.notes}
-						onChange={e => updateField("notes", e.target.value)}
-						placeholder="Add any relevant notes about this applicant..."
-						rows={4}
-					/>
-				</div>
-			</GlassCard>
-
+				</GlassCard>
+			</div>
 			{/* Actions */}
 			<div className="flex items-center justify-end gap-4">
 				<Button
