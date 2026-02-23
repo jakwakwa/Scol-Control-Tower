@@ -173,7 +173,7 @@ export function NotificationsPanel({
 			</PopoverTrigger>
 			<PopoverContent
 				align="end"
-				className="w-[380px] border-secondary/10 bg-zinc-100/10 backdrop-blur-sm p-0">
+				className="w-[380px] border-secondary/10 bg-black/40 backdrop-blur-sm p-0">
 				{/* Header */}
 				<div className="flex items-center justify-between border-b border-secondary/10 px-4 py-3">
 					<h3 className="text-sm font-semibold">Notifications</h3>

@@ -138,7 +138,7 @@ function SanctionCard({
 }) {
 	return (
 		<Card
-			className="cursor-pointer border-destructive/30 bg-destructive/5 hover:border-destructive/50 transition-all duration-200 group"
+			className="cursor-pointer border-destructive/30 bg-transparent backdrop-blur-xs	15 hover:border-destructive/50 transition-all duration-200 group shadow-xl shadow-black/40"
 			onClick={() => onSelect(item)}>
 			<CardHeader className="pb-2">
 				<div className="flex items-start justify-between">
