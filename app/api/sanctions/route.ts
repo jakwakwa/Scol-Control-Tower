@@ -15,6 +15,7 @@ import { z } from "zod";
 import { getDatabaseClient } from "@/app/utils";
 import { aiAnalysisLogs, applicants, sanctionClearance, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
+import { executeKillSwitch } from "@/lib/services/kill-switch.service";
 
 // ============================================
 // Schemas
@@ -239,6 +240,15 @@ export async function POST(request: NextRequest) {
 			.update(applicants)
 			.set({ sanctionStatus: "confirmed_hit" })
 			.where(eq(applicants.id, applicantId));
+
+		// Trigger kill switch so the active Inngest workflow run is cancelled immediately
+		await executeKillSwitch({
+			workflowId,
+			applicantId,
+			reason: "COMPLIANCE_VIOLATION",
+			decidedBy: userId,
+			notes: "Sanction hit confirmed as true positive by Compliance Officer",
+		});
 
 		// Send Inngest event to terminate workflow
 		await inngest.send({
