@@ -84,6 +84,16 @@ export interface RiskReviewItem {
 	hasAnomalies?: boolean;
 	/** Procurement-specific: Anomaly descriptions */
 	anomalies?: string[];
+	/** Procurement automation failed; full manual procurement check required */
+	procurementCheckFailed?: boolean;
+	/** Error detail from failed procurement automation */
+	procurementFailureReason?: string;
+	/** System/source that failed (e.g., procurecheck) */
+	procurementFailureSource?: string;
+	/** Operator guidance for manual fallback */
+	procurementFailureGuidance?: string;
+	/** ProcureCheck recommendation if available */
+	procurementRecommendedAction?: string;
 	// SOP v3.1.0 — Sanctions & Escalation
 	/** Current sanction status */
 	sanctionStatus?: "clear" | "flagged" | "confirmed_hit";
@@ -216,6 +226,9 @@ export function RiskReviewCard({
 	onReject,
 	onViewDetails,
 }: RiskReviewCardProps) {
+	const requiresManualProcurementCheck =
+		item.reviewType === "procurement" && item.procurementCheckFailed;
+
 	const [_isApproving, setIsApproving] = React.useState(false);
 	const [showDecisionDialog, setShowDecisionDialog] = React.useState(false);
 	const [decisionAction, setDecisionAction] = React.useState<"approve" | "reject" | null>(
@@ -309,6 +322,13 @@ export function RiskReviewCard({
 								)}
 								{/* Data source badge (mock vs live) */}
 								<DataSourceBadge dataSource={item.dataSource} />
+								{requiresManualProcurementCheck && (
+									<Badge
+										variant="outline"
+										className="text-[10px] shrink-0 bg-red-500/10 text-red-400 border-red-500/20">
+										Manual Procurement Check
+									</Badge>
+								)}
 							</div>
 							<div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
 								<span className="flex items-center gap-1">
@@ -404,6 +424,24 @@ export function RiskReviewCard({
 							</div>
 						</div>
 					</div>
+
+					{/* Procurement fallback warning */}
+					{requiresManualProcurementCheck && (
+						<div className="mt-4 p-3 rounded-lg border border-red-500/20 bg-red-500/10">
+							<p className="text-xs font-semibold text-red-400 uppercase tracking-wide">
+								Manual Procurement Check Required
+							</p>
+							<p className="text-xs text-muted-foreground mt-1">
+								{item.procurementFailureGuidance ||
+									"Automated procurement checks failed to run. Complete a full manual procurement review and record the procurement decision."}
+							</p>
+							{item.procurementFailureReason && (
+								<p className="text-xs text-red-300 mt-2">
+									Failure: {item.procurementFailureReason}
+								</p>
+							)}
+						</div>
+					)}
 
 					{/* Risk Flags Preview */}
 					{displayFlags.length > 0 && (
@@ -727,8 +765,12 @@ export function RiskReviewQueue({
 	onViewDetails,
 	onRefresh,
 }: RiskReviewQueueProps) {
-	const highPriorityItems = items.filter(item => (item.aiTrustScore || 100) < 60);
-	const normalItems = items.filter(item => (item.aiTrustScore || 100) >= 60);
+	const highPriorityItems = items.filter(
+		item => item.procurementCheckFailed || (item.aiTrustScore || 100) < 60
+	);
+	const normalItems = items.filter(
+		item => !item.procurementCheckFailed && (item.aiTrustScore || 100) >= 60
+	);
 
 	if (isLoading) {
 		return (
