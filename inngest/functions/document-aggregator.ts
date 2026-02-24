@@ -1,6 +1,10 @@
 import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
-import { getDocumentRequirements } from "@/config/document-requirements";
+import {
+	type BusinessType,
+	getDocumentRequirements,
+	resolveBusinessType,
+} from "@/lib/services/document-requirements.service";
 import { applicants, documents } from "@/db/schema";
 import { inngest } from "../client";
 
@@ -44,18 +48,21 @@ export const documentAggregator = inngest.createFunction(
 
 		// 2. Check for required documents
 		// Dynamically fetch requirements based on applicant context
-		let requirements = ["BANK_STATEMENT"]; // Fallback
+		let requirements: string[] = ["BANK_STATEMENT_3_MONTH"]; // Fallback
 
 		if (applicantInfo) {
-			const entityType = applicantInfo.entityType as any; // E.g., 'company', 'proprietor'
-			const industry = applicantInfo.industry || undefined;
+			// Resolve business type using the service logic (preferring saved businessType)
+			const businessType = resolveBusinessType(
+				applicantInfo.entityType,
+				applicantInfo.businessType
+			);
 
-			const docReqs = getDocumentRequirements({
-				entityType,
-				industry,
-			});
+			const docReqs = getDocumentRequirements(
+				businessType,
+				applicantInfo.industry ?? undefined
+			);
 
-			requirements = docReqs.filter(req => req.required).map(req => req.type);
+			requirements = docReqs.documents.filter(req => req.required).map(req => req.id);
 		}
 
 		const uploadedTypes = applicantDocs.map(d => d.type);
