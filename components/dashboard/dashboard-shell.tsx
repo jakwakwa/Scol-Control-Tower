@@ -42,7 +42,7 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 
 	return (
 		<div className="min-h-screen dotted-grid-main">
-			<svg
+			{/* <svg
 				aria-hidden="true"
 				className="pointer-events-none absolute h-0 w-0 overflow-hidden"
 				focusable="false">
@@ -76,7 +76,7 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 						/>
 					</filter>
 				</defs>
-			</svg>
+			</svg> */}
 			<Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
 
 			{/* Main content */}

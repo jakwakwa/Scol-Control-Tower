@@ -194,7 +194,8 @@ export default function ApplicantDetailPage() {
 		quote && !["pending_signature", "approved", "rejected"].includes(quote.status);
 	const isPreRiskCleared =
 		!workflow?.preRiskRequired || workflow.preRiskOutcome === "approved";
-	const isPreRiskPending = Boolean(workflow?.preRiskRequired) && !workflow?.preRiskOutcome;
+	const isPreRiskPending =
+		Boolean(workflow?.preRiskRequired) && !workflow?.preRiskOutcome;
 
 	const handleSaveQuoteDraft = async () => {
 		if (!quote) return;
@@ -540,25 +541,25 @@ export default function ApplicantDetailPage() {
 		};
 	}, [id, applyApplicantPayload]);
 
-if (loading) {
-	return (
+	if (loading) {
+		return (
 			<DashboardLayout title="Loading..." description="Fetching applicant details">
 				<p className="text-sm text-muted-foreground">Loading applicant details...</p>
 			</DashboardLayout>
 		);
-}
+	}
 
-if (error || !applicant) {
-	return (
+	if (error || !applicant) {
+		return (
 			<DashboardLayout title="Applicant not found" description="Unable to load applicant">
 				<p className="text-sm text-destructive">{error || "Applicant not found"}</p>
 			</DashboardLayout>
 		);
-}
+	}
 
-const client = applicant;
+	const client = applicant;
 
-return (
+	return (
 		<DashboardLayout
 			title={client.companyName}
 			description={`Registration: ${client.registrationNumber || "N/A"}`}
@@ -598,9 +599,7 @@ return (
 								{client.itcScore !== null && client.itcScore !== undefined ? (
 									<span
 										className={`text-sm font-bold ${
-											client.itcScore < 60
-												? "text-destructive-foreground"
-												: "text-emerald-900"
+											client.itcScore < 60 ? "text-destructive-foreground" : "text-emer"
 										}`}>
 										ITC: {client.itcScore}
 									</span>
@@ -1141,7 +1140,7 @@ return (
 						<TabsContent value="reviews">
 							<div className="space-y-3">
 								<div className="flex items-center justify-between">
-									<h3 className="font-bold text-slate-800/50 text-3xl mt-4 pt-4 pl-4">
+									<h3 className="font-bold text-slate-300 text-3xl mt-4 pt-4 pl-4">
 										Quote Review
 									</h3>
 									{quote && canEditQuote && !isEditingQuote && (
@@ -1247,7 +1246,7 @@ return (
 															/>
 														</div>
 													) : (
-														<h4 className="font-black text-2xl text-emerald-900">
+														<h4 className="font-black text-2xl text-emerald-500">
 															R {(quote.amount / 100).toLocaleString()}
 														</h4>
 													)}
@@ -1328,15 +1327,15 @@ return (
 
 										{quote.rationale && (
 											<div className="mb-4 border border-border/40 p-4 rounded-lg bg-secondary/5">
-												<h5 className="flex items-center gap-1.5 text-xs font-bold uppercase text-violet-800 mb-2">
-													<span className="border-3 border-violet-800/40 animate-bounce rounded-xl w-8 h-8 flex items-center justify-center">
+												<h5 className="flex items-center gap-1.5 text-xs font-bold uppercase text-violet-400 mb-2">
+													<span className="border-3 border-violet-400/80 animate-pulse rounded-xl w-8 h-8 flex items-center justify-center">
 														{" "}
 														<RiAi
-															color="var(--color-violet-600)"
+															color="var(--color-violet-400)"
 															className="w-4 h-4"
 														/>{" "}
 													</span>{" "}
-													<span className="text-violet-800">Rationale</span>
+													<span className="text-violet-400">Rationale</span>
 												</h5>
 												<p className="text-sm leading-relaxed font-sans text-muted-foreground">
 													{quote.rationale}

@@ -81,7 +81,7 @@ function TabsContent({
 		<TabsPrimitive.Content
 			data-slot="tabs-content"
 			className={cn(
-				"text-sm bg-card/10 rounded-b-3xl p-0 m-0 shadow-2xl shadow-xl/5 flex-1 outline-none",
+				"text-sm text-foreground bg-background rounded-b-3xl px-2 m-0 shadow-2xl shadow-xl/5 flex-1 outline-none",
 				className
 			)}
 			{...props}

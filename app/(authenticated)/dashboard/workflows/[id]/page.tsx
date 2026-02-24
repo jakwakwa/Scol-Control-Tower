@@ -211,7 +211,7 @@ export default async function WorkflowDetailsPage({
 										variant="outline"
 										className={cn(
 											latestQuote.status === "approved"
-												? "text-emerald-900 bg-emerald-500 border-emerald-500/40"
+												? "text-emerald-500 bg-emerald-500 border-emerald-500/40"
 												: "text-warning-foreground border-warning"
 										)}>
 										{latestQuote.status.toUpperCase()}
