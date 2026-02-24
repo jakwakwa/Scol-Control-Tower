@@ -1228,9 +1228,23 @@ export const controlTowerWorkflow = inngest.createFunction(
 					};
 				} catch (error) {
 					console.error("[ControlTower] Procurement check error:", error);
+					
+					// Force fail open for now if error, to unblock testing if API fails
+					// In production this might be different, but for now we need progress.
+					// Or wait, the requirement is that it MUST run. If it fails, it should probably return requiresReview=true with error.
+					
+					await logWorkflowEvent({
+						workflowId,
+						eventType: "error",
+						payload: {
+							error: String(error),
+							context: "procurement_check_failed",
+						},
+					});
+
 					return {
 						cleared: false,
-						requiresReview: true,
+						requiresReview: true, // Still require review if it fails
 						error: String(error),
 						killSwitchTriggered: false,
 					};
@@ -1262,13 +1276,18 @@ export const controlTowerWorkflow = inngest.createFunction(
 		});
 
 		// Execute both streams in parallel
-		const [procurementResult, _documentResult] = await Promise.all([
+		// We use Promise.all to ensure both streams are started.
+		// However, we need to handle the waiting logic carefully.
+		// The original logic waited sequentially for procurement review THEN fica docs.
+		// We need to wait for BOTH potential outcomes in parallel.
+
+		const [procurementStreamResult, _documentStreamResult] = await Promise.all([
 			procurementStream,
 			documentStream,
 		]);
 
 		// Check if kill switch was triggered by procurement
-		if (procurementResult.killSwitchTriggered) {
+		if (procurementStreamResult.killSwitchTriggered) {
 			return {
 				status: "terminated",
 				stage: 3,
@@ -1276,18 +1295,61 @@ export const controlTowerWorkflow = inngest.createFunction(
 			};
 		}
 
-		// Procurement always requires manual review per SOP
-		if (procurementResult.requiresReview) {
+		// PARALLEL WAIT LOGIC
+		// We need to wait for:
+		// 1. Procurement Review Decision (if required)
+		// 2. FICA Documents Received (always)
+		// These can happen in ANY order.
+
+		const promises: Promise<any>[] = [];
+
+		// Promise 1: Procurement Review (if needed)
+		let procurementDecisionData: any = null;
+		if (procurementStreamResult.requiresReview) {
 			await step.run("stage-3-awaiting-procurement-review", () =>
 				updateWorkflowStatus(workflowId, "awaiting_human", 3)
 			);
 
-			const procurementDecision = await step.waitForEvent("wait-procurement-decision", {
+			const procurePromise = step.waitForEvent("wait-procurement-decision", {
 				event: "risk/procurement.completed",
 				timeout: REVIEW_TIMEOUT,
 				match: "data.workflowId",
 			});
+			promises.push(procurePromise);
+		} else {
+			context.procurementCleared = true;
+			// Push a resolved promise so index mapping stays consistent? 
+			// Actually easier to assign results by checking what we pushed.
+			// But Promise.all returns array.
+			// Let's use specific variables.
+		}
 
+		// Promise 2: FICA Docs
+		const ficaPromise = step.waitForEvent("wait-fica-docs", {
+			event: "upload/fica.received",
+			timeout: STAGE_TIMEOUT,
+			match: "data.workflowId",
+		});
+		promises.push(ficaPromise);
+
+		// Wait for all
+		const results = await Promise.all(promises);
+
+		// Unpack results
+		// If procurement review was required, results[0] is procureDecision, results[1] is ficaDocs.
+		// If not, results[0] is ficaDocs.
+		let ficaDocsReceived: any = null;
+		let procurementDecision: any = null;
+
+		if (procurementStreamResult.requiresReview) {
+			procurementDecision = results[0];
+			ficaDocsReceived = results[1];
+		} else {
+			ficaDocsReceived = results[0];
+		}
+
+		// Handle Procurement Decision
+		if (procurementStreamResult.requiresReview) {
 			if (!procurementDecision) {
 				await executeKillSwitch({
 					workflowId,
@@ -1306,17 +1368,10 @@ export const controlTowerWorkflow = inngest.createFunction(
 					reason: "Procurement denied by Risk Manager",
 				};
 			}
-
 			context.procurementCleared = true;
 		}
 
-		// Wait for FICA documents
-		const ficaDocsReceived = await step.waitForEvent("wait-fica-docs", {
-			event: "upload/fica.received",
-			timeout: STAGE_TIMEOUT,
-			match: "data.workflowId",
-		});
-
+		// Handle FICA Docs
 		if (!ficaDocsReceived) {
 			return { status: "timeout", stage: 3, reason: "FICA document upload timeout" };
 		}
@@ -1865,57 +1920,22 @@ export const controlTowerWorkflow = inngest.createFunction(
 		);
 
 		// Wait for both approvals (can arrive in any order)
-		const riskManagerApproval = await step.waitForEvent("wait-risk-manager-approval", {
-			event: "approval/risk-manager.received",
-			timeout: REVIEW_TIMEOUT,
-			match: "data.workflowId",
-		});
+		const [riskManagerApproval, accountManagerApproval] = await Promise.all([
+			step.waitForEvent("wait-risk-manager-approval", {
+				event: "approval/risk-manager.received",
+				timeout: REVIEW_TIMEOUT,
+				match: "data.workflowId",
+			}),
+			step.waitForEvent("wait-account-manager-approval", {
+				event: "approval/account-manager.received",
+				timeout: REVIEW_TIMEOUT,
+				match: "data.workflowId",
+			}),
+		]);
 
 		if (!riskManagerApproval) {
 			return { status: "timeout", stage: 6, reason: "Risk Manager approval timeout" };
 		}
-
-		if (riskManagerApproval.data.decision === "REJECTED") {
-			await executeKillSwitch({
-				workflowId,
-				applicantId,
-				reason: "MANUAL_TERMINATION",
-				decidedBy: riskManagerApproval.data.approvedBy,
-				notes:
-					riskManagerApproval.data.reason || "Rejected at final approval by Risk Manager",
-			});
-			return {
-				status: "terminated",
-				stage: 6,
-				reason: "Rejected by Risk Manager at final approval",
-			};
-		}
-
-		// Persist Risk Manager approval
-		await step.run("persist-rm-approval", async () => {
-			const db = getDatabaseClient();
-			if (!db) return;
-			await db
-				.update(workflows)
-				.set({
-					riskManagerApproval: JSON.stringify({
-						approvedBy: riskManagerApproval.data.approvedBy,
-						timestamp: riskManagerApproval.data.timestamp,
-						decision: riskManagerApproval.data.decision,
-					}),
-				})
-				.where(eq(workflows.id, workflowId));
-		});
-
-		const accountManagerApproval = await step.waitForEvent(
-			"wait-account-manager-approval",
-			{
-				event: "approval/account-manager.received",
-				timeout: REVIEW_TIMEOUT,
-				match: "data.workflowId",
-			}
-		);
-
 		if (!accountManagerApproval) {
 			return { status: "timeout", stage: 6, reason: "Account Manager approval timeout" };
 		}
@@ -1937,13 +1957,20 @@ export const controlTowerWorkflow = inngest.createFunction(
 			};
 		}
 
-		// Persist Account Manager approval
-		await step.run("persist-am-approval", async () => {
+		// Persist Approvals
+		await step.run("persist-approvals", async () => {
 			const db = getDatabaseClient();
 			if (!db) return;
+			
+			// Persist both approvals
 			await db
 				.update(workflows)
 				.set({
+					riskManagerApproval: JSON.stringify({
+						approvedBy: riskManagerApproval.data.approvedBy,
+						timestamp: riskManagerApproval.data.timestamp,
+						decision: riskManagerApproval.data.decision,
+					}),
 					accountManagerApproval: JSON.stringify({
 						approvedBy: accountManagerApproval.data.approvedBy,
 						timestamp: accountManagerApproval.data.timestamp,
