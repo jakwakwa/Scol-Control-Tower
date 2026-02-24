@@ -817,6 +817,43 @@ export function RiskReviewDetail({
 						)}
 					</p>
 
+					{reviewType === "procurement" && item.procurementCheckFailed && (
+						<div className="mt-2 pt-2 border-t border-red-500/20">
+							<div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 space-y-2">
+								<p className="text-[10px] font-semibold uppercase tracking-wide text-red-300">
+									Manual Procurement Check Required
+								</p>
+								<p className="text-xs text-muted-foreground">
+									{item.procurementFailureGuidance ||
+										"Automated ProcureCheck execution failed. Risk Manager must perform a complete manual procurement check before finalizing this stage."}
+								</p>
+								{item.procurementFailureReason && (
+									<p className="text-xs text-red-200">
+										Failure reason: {item.procurementFailureReason}
+									</p>
+								)}
+								<div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+									<div>
+										<span className="uppercase text-[10px] text-muted-foreground/70">
+											Source
+										</span>
+										<p className="text-foreground/90">
+											{item.procurementFailureSource || "procurecheck"}
+										</p>
+									</div>
+									<div>
+										<span className="uppercase text-[10px] text-muted-foreground/70">
+											Recommended
+										</span>
+										<p className="text-foreground/90">
+											{item.procurementRecommendedAction || "MANUAL_REVIEW"}
+										</p>
+									</div>
+								</div>
+							</div>
+						</div>
+					)}
+
 					{/* Procurement-specific data display */}
 					{reviewType === "procurement" && item.procurementScore !== undefined && (
 						<div className="mt-2 pt-2 border-t border-secondary/10 grid grid-cols-2 gap-2">
