@@ -1,11 +1,14 @@
+import { resolve } from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 import { config } from "dotenv";
-import { resolve } from "node:path";
 
 // Load test environment variables.
 // `override: true` ensures .env.test values win over empty/placeholder
 // env vars that CI runners may inject from unconfigured secrets.
 config({ path: resolve(__dirname, ".env.test"), override: true });
+
+const playwrightWebServerPort = Number(process.env.PW_WEB_SERVER_PORT || "3000");
+const playwrightBaseUrl = `http://localhost:${playwrightWebServerPort}`;
 
 /**
  * Playwright Configuration for StratCol Control Tower
@@ -34,7 +37,7 @@ export default defineConfig({
 	/* Shared settings for all projects */
 	use: {
 		/* Base URL for navigation */
-		baseURL: "http://localhost:3000",
+		baseURL: playwrightBaseUrl,
 
 		/* Collect trace on first retry */
 		trace: "on-first-retry",
@@ -94,12 +97,20 @@ export default defineConfig({
 			},
 			dependencies: ["global setup"],
 		},
+		/* Local regression test: procurement fallback flow (no global setup) */
+		{
+			name: "workflow local fallback tests",
+			testMatch: /workflow\/procurement-fallback\.local\.spec\.ts/,
+			use: {
+				...devices["Desktop Chrome"],
+			},
+		},
 	],
 
 	/* Run your local dev server before starting the tests */
 	webServer: {
-		command: "bun run dev",
-		url: "http://localhost:3000",
+		command: `bun run dev -- --port ${playwrightWebServerPort}`,
+		url: playwrightBaseUrl,
 		reuseExistingServer: !process.env.CI,
 		timeout: 120 * 1000,
 	},
