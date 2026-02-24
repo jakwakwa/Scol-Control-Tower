@@ -87,6 +87,25 @@ const notificationConfig = {
 	},
 };
 
+const MANUAL_PROCUREMENT_ALERT_TERMS = [
+	"manual procurement check required",
+	"procurement_check_failed",
+	"procurecheck failed",
+	"procurement check failed",
+];
+
+function isManualProcurementNotification(message: string): boolean {
+	const normalized = message.toLowerCase();
+	return MANUAL_PROCUREMENT_ALERT_TERMS.some(term => normalized.includes(term));
+}
+
+function formatNotificationMessage(message: string): string {
+	if (!isManualProcurementNotification(message)) {
+		return message;
+	}
+	return "Automated procurement checks failed. Risk Manager must complete a full manual procurement check and record a procurement decision.";
+}
+
 interface NotificationsPanelProps {
 	notifications: WorkflowNotification[];
 	onMarkAllRead?: () => void;
@@ -201,6 +220,9 @@ export function NotificationsPanel({
 							const config =
 								notificationConfig[notification?.type] ?? notificationConfig.info;
 							const Icon = config.icon;
+							const isManualProcurementAlert = isManualProcurementNotification(
+								notification?.message || ""
+							);
 
 							return (
 								<div
@@ -231,9 +253,18 @@ export function NotificationsPanel({
 									{/* Content */}
 									<div className="flex-1 min-w-0 relative z-10 pointer-events-none">
 										<div className="flex items-start justify-between gap-2">
-											<p className="text-sm font-medium truncate">
-												{notification?.clientName}
-											</p>
+											<div className="flex items-center gap-2 min-w-0">
+												<p className="text-sm font-medium truncate">
+													{notification?.clientName}
+												</p>
+												{isManualProcurementAlert && (
+													<Badge
+														variant="outline"
+														className="text-[10px] text-red-300 border-red-500/30 bg-red-500/10">
+														Manual Check
+													</Badge>
+												)}
+											</div>
 											<div className="flex items-center gap-2">
 												{!notification?.read && (
 													<span className="h-2 w-2 shrink-0 rounded-full bg-blue-500" />
@@ -251,7 +282,7 @@ export function NotificationsPanel({
 											</div>
 										</div>
 										<p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-											{notification?.message}
+											{formatNotificationMessage(notification?.message || "")}
 										</p>
 										<div className="flex items-center justify-between mt-2">
 											<span className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
@@ -262,38 +293,49 @@ export function NotificationsPanel({
 											{/* Actionable Buttons */}
 											{notification?.actionable && (
 												<div className="flex gap-1 pointer-events-auto">
-													{/* Approval Actions */}
-													{(notification?.type === "awaiting" ||
-														notification?.type === "warning") && (
+													{isManualProcurementAlert && (
 														<Button
 															variant="ghost"
 															size="sm"
-															className="h-6 px-2 text-xs hover:bg-teal-500/40 hover:text-emerald-600/80"
+															className="h-6 px-2 text-xs hover:bg-amber-500/20 hover:text-amber-300"
 															onClick={e => handleAction(e, notification, "view")}>
-															View
+															Open Risk Review
 														</Button>
 													)}
+													{/* Approval Actions */}
+													{!isManualProcurementAlert &&
+														(notification?.type === "awaiting" ||
+															notification?.type === "warning") && (
+															<Button
+																variant="ghost"
+																size="sm"
+																className="h-6 px-2 text-xs hover:bg-teal-500/40 hover:text-emerald-600/80"
+																onClick={e => handleAction(e, notification, "view")}>
+																View
+															</Button>
+														)}
 													{/* Error/Timeout Actions */}
-													{(notification?.type === "error" ||
-														notification?.type === "timeout" ||
-														notification?.type === "paused") && (
-														<>
-															<Button
-																variant="ghost"
-																size="sm"
-																className="h-6 px-2 text-xs hover:bg-blue-500/20 hover:text-blue-400"
-																onClick={e => handleAction(e, notification, "retry")}>
-																Retry
-															</Button>
-															<Button
-																variant="ghost"
-																size="sm"
-																className="h-6 px-2 text-xs hover:bg-red-500/20 hover:text-red-400"
-																onClick={e => handleAction(e, notification, "cancel")}>
-																Cancel
-															</Button>
-														</>
-													)}
+													{!isManualProcurementAlert &&
+														(notification?.type === "error" ||
+															notification?.type === "timeout" ||
+															notification?.type === "paused") && (
+															<>
+																<Button
+																	variant="ghost"
+																	size="sm"
+																	className="h-6 px-2 text-xs hover:bg-blue-500/20 hover:text-blue-400"
+																	onClick={e => handleAction(e, notification, "retry")}>
+																	Retry
+																</Button>
+																<Button
+																	variant="ghost"
+																	size="sm"
+																	className="h-6 px-2 text-xs hover:bg-red-500/20 hover:text-red-400"
+																	onClick={e => handleAction(e, notification, "cancel")}>
+																	Cancel
+																</Button>
+															</>
+														)}
 												</div>
 											)}
 										</div>

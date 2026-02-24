@@ -21,6 +21,15 @@ const getNotificationRoute = (notification: WorkflowNotification): string => {
 		message.includes("quote ready for review") ||
 		message.includes("overlimit: quote requires special approval") ||
 		message.includes("quotation");
+	const isProcurementManualCheck =
+		message.includes("manual procurement check required") ||
+		message.includes("procurement_check_failed") ||
+		message.includes("procurecheck failed") ||
+		message.includes("procurement review required");
+
+	if (isProcurementManualCheck) {
+		return "/dashboard/risk-review";
+	}
 
 	if (isPreRiskReview || isQuoteReview) {
 		return `/dashboard/applicants/${notification.applicantId}?tab=reviews`;

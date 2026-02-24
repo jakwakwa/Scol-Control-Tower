@@ -1,16 +1,16 @@
-import { getDatabaseClient } from "@/app/utils";
-import { DashboardLayout, GlassCard, DashboardSection } from "@/components/dashboard";
-import { Button } from "@/components/ui/button";
-import { notifications, applicants, workflows } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
 import {
+	RiAlertLine,
+	RiCheckDoubleLine,
 	RiCheckLine,
 	RiDeleteBinLine,
-	RiAlertLine,
 	RiTimeLine,
-	RiCheckDoubleLine,
 } from "@remixicon/react";
+import { desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { getDatabaseClient } from "@/app/utils";
+import { DashboardLayout, DashboardSection, GlassCard } from "@/components/dashboard";
+import { Button } from "@/components/ui/button";
+import { applicants, notifications, workflows } from "@/db/schema";
 
 async function markAsRead(formData: FormData) {
 	"use server";
@@ -61,6 +61,25 @@ async function markAllAsRead() {
 	await db.update(notifications).set({ read: true });
 
 	revalidatePath("/dashboard/notifications");
+}
+
+const MANUAL_PROCUREMENT_ALERT_TERMS = [
+	"manual procurement check required",
+	"procurement_check_failed",
+	"procurecheck failed",
+	"procurement check failed",
+];
+
+function isManualProcurementNotification(message: string): boolean {
+	const normalized = message.toLowerCase();
+	return MANUAL_PROCUREMENT_ALERT_TERMS.some(term => normalized.includes(term));
+}
+
+function formatNotificationMessage(message: string): string {
+	if (!isManualProcurementNotification(message)) {
+		return message;
+	}
+	return "Automated procurement checks failed. Complete a full manual procurement check in Risk Review and record the procurement decision.";
 }
 
 export default async function NotificationsPage() {
@@ -152,14 +171,19 @@ export default async function NotificationsPage() {
 										)}
 									</div>
 									<div>
-										<h4 className="font-medium">
+										<h4 className="font-medium flex items-center gap-2">
 											{notification.clientName || "Unknown Client"}
+											{isManualProcurementNotification(notification.message) && (
+												<span className="text-[10px] uppercase tracking-wide text-red-300 border border-red-500/30 bg-red-500/10 rounded px-1.5 py-0.5">
+													Manual Check
+												</span>
+											)}
 											{!notification.read && (
 												<span className="ml-2 inline-block w-2 h-2 rounded-full bg-blue-400" />
 											)}
 										</h4>
 										<p className="text-sm text-muted-foreground">
-											{notification.message}
+											{formatNotificationMessage(notification.message)}
 										</p>
 										<p className="text-xs text-muted-foreground/60 mt-1">
 											{notification.createdAt
