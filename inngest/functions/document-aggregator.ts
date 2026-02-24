@@ -1,7 +1,8 @@
-import { inngest } from "../client";
+import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
-import { documents } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { getDocumentRequirements } from "@/config/document-requirements";
+import { applicants, documents } from "@/db/schema";
+import { inngest } from "../client";
 
 /**
  * FICA Document Aggregator
@@ -16,11 +17,7 @@ export const documentAggregator = inngest.createFunction(
 	{ id: "fica-document-aggregator", name: "FICA Document Aggregator" },
 	{ event: "document/uploaded" },
 	async ({ event, step }) => {
-		const { applicantId, workflowId, documentType } = event.data;
-
-		console.log(
-			`[Aggregator] Document uploaded: ${documentType} for Applicant ${applicantId}`
-		);
+		const { applicantId, workflowId } = event.data;
 
 		// 1. Fetch all documents for this applicant
 		const applicantDocs = await step.run("fetch-all-documents", async () => {
@@ -33,23 +30,45 @@ export const documentAggregator = inngest.createFunction(
 				.where(eq(documents.applicantId, applicantId));
 		});
 
+		// 1.5 Fetch the applicant details to determine requirements
+		const applicantInfo = await step.run("fetch-applicant-info", async () => {
+			const db = getDatabaseClient();
+			if (!db) throw new Error("Database connection failed");
+			const result = await db
+				.select()
+				.from(applicants)
+				.where(eq(applicants.id, applicantId))
+				.limit(1);
+			return result[0];
+		});
+
 		// 2. Check for required documents
-		// Based on onboarding.ts requirement: Bank Statement + Accountant Letter
-		const requirements = ["BANK_STATEMENT"];
+		// Dynamically fetch requirements based on applicant context
+		let requirements = ["BANK_STATEMENT"]; // Fallback
+
+		if (applicantInfo) {
+			const entityType = applicantInfo.entityType as any; // E.g., 'company', 'proprietor'
+			const industry = applicantInfo.industry || undefined;
+
+			const docReqs = getDocumentRequirements({
+				entityType,
+				industry,
+			});
+
+			requirements = docReqs.filter(req => req.required).map(req => req.type);
+		}
+
 		const uploadedTypes = applicantDocs.map(d => d.type);
 
 		const missing = requirements.filter(req => !uploadedTypes.includes(req));
 
 		if (missing.length > 0) {
-			console.log(`[Aggregator] Still missing documents: ${missing.join(", ")}`);
 			return {
 				status: "pending",
 				missing,
 				uploadedCount: applicantDocs.length,
 			};
 		}
-
-		console.log(`[Aggregator] All FICA documents received! Triggering workflow resume.`);
 
 		// 3. Emit the bundle event expected by onboarding.ts
 		// Map db documents to the shape expected by onboarding.ts event
