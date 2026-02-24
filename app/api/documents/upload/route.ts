@@ -1,14 +1,14 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { inngest } from "@/inngest";
-import { getDatabaseClient, getBaseUrl } from "@/app/utils";
+import { getBaseUrl, getDatabaseClient } from "@/app/utils";
 import { documents } from "@/db/schema";
-import { DocumentCategorySchema, DocumentTypeSchema } from "@/lib/types";
+import { inngest } from "@/inngest";
 import {
 	getFormInstanceByToken,
 	markFormInstanceStatus,
 } from "@/lib/services/form.service";
+import { DocumentCategorySchema, DocumentTypeSchema } from "@/lib/types";
 
 const UploadSchema = z.object({
 	token: z.string().min(10),
@@ -67,8 +67,12 @@ export async function POST(request: NextRequest) {
 			"application/msword",
 			"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 			"image/jpeg",
+			"image/jpg", // Commonly requested
 			"image/png",
 			"image/webp",
+			"image/heic", // iOS standard
+			"image/heif", // iOS standard
+			"application/rtf", // Some basic text docs
 		];
 
 		const uploadedDocuments = [];
