@@ -1227,25 +1227,58 @@ export const controlTowerWorkflow = inngest.createFunction(
 						killSwitchTriggered: false,
 					};
 				} catch (error) {
-					console.error("[ControlTower] Procurement check error:", error);
-					
-					// Force fail open for now if error, to unblock testing if API fails
-					// In production this might be different, but for now we need progress.
-					// Or wait, the requirement is that it MUST run. If it fails, it should probably return requiresReview=true with error.
-					
+					const errorMessage = error instanceof Error ? error.message : String(error);
+					console.error("[ControlTower] Procurement check execution failed:", error);
+
+					const manualReviewGuidance =
+						"Automated ProcureCheck could not run. Risk Manager must perform a full manual procurement check.";
+
 					await logWorkflowEvent({
 						workflowId,
 						eventType: "error",
 						payload: {
-							error: String(error),
+							error: errorMessage,
 							context: "procurement_check_failed",
+							source: "procurecheck",
+							stage: 3,
+							manualReviewRequired: true,
+							fallbackMode: "manual_human_procurement_check",
+							failedAreas: [
+								"Automated procurement vendor screening",
+								"Automated procurement risk scoring",
+							],
+							guidance: manualReviewGuidance,
 						},
+					});
+
+					await createWorkflowNotification({
+						workflowId,
+						applicantId,
+						type: "error",
+						title: "Manual Procurement Check Required",
+						message:
+							"Automated ProcureCheck failed to execute. Continue reviewing available Stage 3 outputs and complete a full manual procurement check.",
+						actionable: true,
+					});
+
+					await sendInternalAlertEmail({
+						title: "Manual Procurement Check Required",
+						message: `Automated ProcureCheck failed for this workflow.\nError: ${errorMessage}\nRequired Action: Complete a full manual procurement check and record a procurement decision in Risk Review.\nNote: Other Stage 3 checks continue and should still be reviewed.`,
+						workflowId,
+						applicantId,
+						type: "error",
+						details: {
+							context: "procurement_check_failed",
+							stage: 3,
+							manualReviewRequired: true,
+						},
+						actionUrl: `${getBaseUrl()}/dashboard/risk-review`,
 					});
 
 					return {
 						cleared: false,
-						requiresReview: true, // Still require review if it fails
-						error: String(error),
+						requiresReview: true,
+						error: errorMessage,
 						killSwitchTriggered: false,
 					};
 				}
@@ -1304,7 +1337,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 		const promises: Promise<any>[] = [];
 
 		// Promise 1: Procurement Review (if needed)
-		let procurementDecisionData: any = null;
+		const _procurementDecisionData: any = null;
 		if (procurementStreamResult.requiresReview) {
 			await step.run("stage-3-awaiting-procurement-review", () =>
 				updateWorkflowStatus(workflowId, "awaiting_human", 3)
@@ -1318,7 +1351,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 			promises.push(procurePromise);
 		} else {
 			context.procurementCleared = true;
-			// Push a resolved promise so index mapping stays consistent? 
+			// Push a resolved promise so index mapping stays consistent?
 			// Actually easier to assign results by checking what we pushed.
 			// But Promise.all returns array.
 			// Let's use specific variables.
@@ -1961,7 +1994,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 		await step.run("persist-approvals", async () => {
 			const db = getDatabaseClient();
 			if (!db) return;
-			
+
 			// Persist both approvals
 			await db
 				.update(workflows)
