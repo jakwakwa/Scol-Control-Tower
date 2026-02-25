@@ -2,6 +2,7 @@
 
 import {
 	RiCheckboxCircleLine,
+	RiCheckDoubleLine,
 	RiCheckLine,
 	RiContractLine,
 	RiEditLine,
@@ -9,6 +10,7 @@ import {
 	RiFlowChart,
 	RiMenu3Line,
 	RiRobot2Line,
+	RiTimeLine,
 	RiUserLine,
 } from "@remixicon/react";
 import Link from "next/link";
@@ -36,6 +38,9 @@ export type PipelineWorkflow = {
 		riskLevel?: string;
 		registrationNumber?: string;
 		mandateType?: string;
+		procurementCleared?: boolean;
+		documentsComplete?: boolean;
+		aiAnalysisComplete?: boolean;
 	};
 	startedAt?: string | Date;
 };
@@ -245,6 +250,51 @@ function PipelineCard({ workflow }: { workflow: PipelineWorkflow }) {
 					{`| ID: ${workflow.applicantId ? workflow.applicantId : " #"}`}
 				</p>
 			</div>
+
+			{/* Stage 3 Parallel Indicators */}
+			{stageNumber === 3 && (
+				<div className="flex items-center gap-1.5 mt-2 mb-2">
+					<div
+						className={`flex items-center justify-center p-1 rounded-sm border ${
+							workflow.payload?.procurementCleared
+								? "bg-green-500/10 border-green-500/20 text-green-500"
+								: "bg-amber-500/10 border-amber-500/20 text-amber-500"
+						}`}
+						title="Procurement Review">
+						{workflow.payload?.procurementCleared ? (
+							<RiCheckDoubleLine className="w-3.5 h-3.5" />
+						) : (
+							<RiTimeLine className="w-3.5 h-3.5" />
+						)}
+					</div>
+					<div
+						className={`flex items-center justify-center p-1 rounded-sm border ${
+							workflow.payload?.documentsComplete
+								? "bg-green-500/10 border-green-500/20 text-green-500"
+								: "bg-amber-500/10 border-amber-500/20 text-amber-500"
+						}`}
+						title="FICA Documents">
+						{workflow.payload?.documentsComplete ? (
+							<RiCheckDoubleLine className="w-3.5 h-3.5" />
+						) : (
+							<RiTimeLine className="w-3.5 h-3.5" />
+						)}
+					</div>
+					<div
+						className={`flex items-center justify-center p-1 rounded-sm border ${
+							workflow.payload?.aiAnalysisComplete
+								? "bg-green-500/10 border-green-500/20 text-green-500"
+								: "bg-amber-500/10 border-amber-500/20 text-amber-500"
+						}`}
+						title="AI Analysis">
+						{workflow.payload?.aiAnalysisComplete ? (
+							<RiCheckDoubleLine className="w-3.5 h-3.5" />
+						) : (
+							<RiTimeLine className="w-3.5 h-3.5" />
+						)}
+					</div>
+				</div>
+			)}
 
 			{/* Subtitle: Registration Number */}
 
