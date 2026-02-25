@@ -7,6 +7,13 @@ import { GlassCard } from "@/components/dashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -204,35 +211,39 @@ export function ApplicantForm({
 
 						<div className="space-y-2">
 							<Label htmlFor="entityType">Entity Type</Label>
-							<select
-								id="entityType"
+							<Select
 								value={formData.entityType}
-								onChange={e => updateField("entityType", e.target.value)}
-								className="flex h-10 w-full rounded-md border border-input-border bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-								<option value="">Select Entity Type</option>
-								<option value="proprietor">Proprietor</option>
-								<option value="company">Company (Pty Ltd)</option>
-								<option value="close_corporation">Close Corporation</option>
-								<option value="partnership">Partnership</option>
-								<option value="npo">NPO</option>
-								<option value="trust">Trust</option>
-								<option value="body_corporate">Body Corporate</option>
-								<option value="other">Other</option>
-							</select>
+								onValueChange={v => updateField("entityType", v)}>
+								<SelectTrigger id="entityType" className="w-full">
+									<SelectValue placeholder="Select Entity Type" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="proprietor">Proprietor</SelectItem>
+									<SelectItem value="company">Company (Pty Ltd)</SelectItem>
+									<SelectItem value="close_corporation">Close Corporation</SelectItem>
+									<SelectItem value="partnership">Partnership</SelectItem>
+									<SelectItem value="npo">NPO</SelectItem>
+									<SelectItem value="trust">Trust</SelectItem>
+									<SelectItem value="body_corporate">Body Corporate</SelectItem>
+									<SelectItem value="other">Other</SelectItem>
+								</SelectContent>
+							</Select>
 						</div>
 
 						<div className="space-y-2">
 							<Label htmlFor="productType">Product Type</Label>
-							<select
-								id="productType"
+							<Select
 								value={formData.productType}
-								onChange={e => updateField("productType", e.target.value)}
-								className="flex h-10 w-full rounded-md border border-input-border bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-								<option value="">Select Product Type</option>
-								<option value="standard">Standard</option>
-								<option value="premium_collections">Premium Collections</option>
-								<option value="call_centre">Call Centre</option>
-							</select>
+								onValueChange={v => updateField("productType", v)}>
+								<SelectTrigger id="productType" className="w-full">
+									<SelectValue placeholder="Select Product Type" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="standard">Standard</SelectItem>
+									<SelectItem value="premium_collections">Premium Collections</SelectItem>
+									<SelectItem value="call_centre">Call Centre</SelectItem>
+								</SelectContent>
+							</Select>
 						</div>
 
 						<div className="space-y-2">
@@ -273,17 +284,19 @@ export function ApplicantForm({
 
 					<div className="space-y-2 mt-4">
 						<Label htmlFor="mandateType">Mandate Type</Label>
-						<select
-							id="mandateType"
+						<Select
 							value={formData.mandateType}
-							onChange={e => updateField("mandateType", e.target.value)}
-							className="flex h-10 w-full rounded-md border border-input-border bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-							<option value="">Select Mandate Type</option>
-							<option value="debit_order">Debit Order</option>
-							<option value="eft_collection">EFT Collection</option>
-							<option value="realtime_clearing">Realtime Clearing</option>
-							<option value="managed_collection">Managed Collection</option>
-						</select>
+							onValueChange={v => updateField("mandateType", v)}>
+							<SelectTrigger id="mandateType" className="w-full">
+								<SelectValue placeholder="Select Mandate Type" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="debit_order">Debit Order</SelectItem>
+								<SelectItem value="eft_collection">EFT Collection</SelectItem>
+								<SelectItem value="realtime_clearing">Realtime Clearing</SelectItem>
+								<SelectItem value="managed_collection">Managed Collection</SelectItem>
+							</SelectContent>
+						</Select>
 					</div>
 				</GlassCard>
 			</div>
