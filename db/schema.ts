@@ -80,19 +80,21 @@ export const documents = sqliteTable("documents", {
 	id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
 	applicantId: integer("applicant_id")
 		.notNull()
-		.references(() => applicants.id), // Link to Applicant
-	type: text("type").notNull(), // bank_statement, id_document, etc.
-	status: text("status").notNull().default("pending"), // pending, uploaded, verified, rejected
-	category: text("category"), // standard_application, fica_entity, etc.
-	source: text("source"), // client, agent, internal, system
+		.references(() => applicants.id),
+	type: text("type").notNull(),
+	status: text("status").notNull().default("pending"),
+	category: text("category"),
+	source: text("source"),
 	fileName: text("file_name"),
+	fileContent: text("file_content"),
+	mimeType: text("mime_type"),
 	storageUrl: text("storage_url"),
 	uploadedBy: text("uploaded_by"),
 	uploadedAt: integer("uploaded_at", { mode: "timestamp" }),
 	verifiedAt: integer("verified_at", { mode: "timestamp" }),
 	processedAt: integer("processed_at", { mode: "timestamp" }),
-	processingStatus: text("processing_status"), // pending, processed, failed
-	processingResult: text("processing_result"), // JSON string
+	processingStatus: text("processing_status"),
+	processingResult: text("processing_result"),
 	notes: text("notes"),
 });
 
@@ -598,23 +600,24 @@ export const documentUploads = sqliteTable("document_uploads", {
 	category: text("category", {
 		enum: ["standard", "individual", "financial", "professional", "industry"],
 	}).notNull(),
-	documentType: text("document_type").notNull(), // e.g., "cipc_registration", "director_id", "bank_statement"
+	documentType: text("document_type").notNull(),
 	fileName: text("file_name").notNull(),
-	fileSize: integer("file_size").notNull(), // bytes
+	fileSize: integer("file_size").notNull(),
+	fileContent: text("file_content"),
 	mimeType: text("mime_type").notNull(),
-	storageKey: text("storage_key").notNull(), // S3/R2 key or local path
-	storageUrl: text("storage_url"), // Public or signed URL
+	storageKey: text("storage_key").notNull(),
+	storageUrl: text("storage_url"),
 	verificationStatus: text("verification_status", {
 		enum: ["pending", "verified", "rejected", "expired"],
 	})
 		.notNull()
 		.default("pending"),
 	verificationNotes: text("verification_notes"),
-	verifiedBy: text("verified_by"), // Clerk user ID or "system"
+	verifiedBy: text("verified_by"),
 	verifiedAt: integer("verified_at", { mode: "timestamp" }),
-	expiresAt: integer("expires_at", { mode: "timestamp" }), // For documents with expiry
-	metadata: text("metadata"), // JSON for additional document-specific data
-	uploadedBy: text("uploaded_by"), // Clerk user ID
+	expiresAt: integer("expires_at", { mode: "timestamp" }),
+	metadata: text("metadata"),
+	uploadedBy: text("uploaded_by"),
 	uploadedAt: integer("uploaded_at", { mode: "timestamp" })
 		.notNull()
 		.$defaultFn(() => new Date()),

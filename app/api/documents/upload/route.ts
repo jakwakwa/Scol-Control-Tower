@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getBaseUrl, getDatabaseClient } from "@/app/utils";
+import { getDatabaseClient } from "@/app/utils";
 import { documents } from "@/db/schema";
 import { inngest } from "@/inngest";
 import {
@@ -57,6 +57,27 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ error: "No files uploaded" }, { status: 400 });
 		}
 
+		// #region agent log
+		fetch("http://127.0.0.1:7777/ingest/1342ad28-6f5b-44ef-8633-73ef757759a0", {
+			method: "POST",
+			headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b54daf" },
+			body: JSON.stringify({
+				sessionId: "b54daf",
+				location: "api/documents/upload/route.ts:ENTRY",
+				message: "Document upload received - storing base64 content",
+				data: {
+					fileCount: files.length,
+					files: files.map(f => ({ name: f.name, size: f.size, type: f.type })),
+					applicantId: formInstance.applicantId,
+					workflowId: formInstance.workflowId,
+				},
+				timestamp: Date.now(),
+				hypothesisId: "B",
+				runId: "post-fix",
+			}),
+		}).catch(() => {});
+		// #endregion
+
 		const db = getDatabaseClient();
 		if (!db) {
 			return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
@@ -67,12 +88,12 @@ export async function POST(request: NextRequest) {
 			"application/msword",
 			"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 			"image/jpeg",
-			"image/jpg", // Commonly requested
+			"image/jpg",
 			"image/png",
 			"image/webp",
-			"image/heic", // iOS standard
-			"image/heif", // iOS standard
-			"application/rtf", // Some basic text docs
+			"image/heic",
+			"image/heif",
+			"application/rtf",
 		];
 
 		const uploadedDocuments = [];
@@ -87,7 +108,11 @@ export async function POST(request: NextRequest) {
 				continue;
 			}
 
-			const storageUrl = await mockUploadFile(file, formInstance.workflowId ?? 0);
+			const arrayBuffer = await file.arrayBuffer();
+			const base64Content = Buffer.from(arrayBuffer).toString("base64");
+
+			const storageUrl = `/api/documents/download?applicantId=${formInstance.applicantId}&type=${validation.data.documentType}&fileName=${encodeURIComponent(file.name)}`;
+
 			const [inserted] = await db
 				.insert(documents)
 				.values([
@@ -98,6 +123,8 @@ export async function POST(request: NextRequest) {
 						source: "client",
 						status: "uploaded",
 						fileName: file.name,
+						fileContent: base64Content,
+						mimeType: file.type,
 						storageUrl,
 						uploadedBy: "client",
 						uploadedAt: new Date(),
@@ -141,16 +168,7 @@ export async function POST(request: NextRequest) {
 			documents: uploadedDocuments,
 		});
 	} catch (error) {
-		console.error("[DocumentUpload] Error:", error);
 		const message = error instanceof Error ? error.message : "Unexpected error";
 		return NextResponse.json({ error: message }, { status: 500 });
 	}
-}
-
-async function mockUploadFile(file: File, workflowId: number): Promise<string> {
-	await new Promise(resolve => setTimeout(resolve, 100));
-	const timestamp = Date.now();
-	const safeFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-	const baseUrl = getBaseUrl();
-	return `${baseUrl}/uploads/workflows/${workflowId}/${timestamp}-${safeFilename}`;
 }

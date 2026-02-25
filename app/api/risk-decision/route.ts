@@ -32,11 +32,8 @@ const RiskDecisionSchema = z.object({
 	decision: z.object({
 		outcome: z.enum(["APPROVED", "REJECTED", "REQUEST_MORE_INFO"]),
 		reason: z.string().optional(),
-		/** Structured override category — maps to AI failure taxonomy */
 		overrideCategory: z.enum(OVERRIDE_CATEGORIES),
-		/** Specific subcategory within the parent category */
 		overrideSubcategory: z.string().optional(),
-		/** Optional free text for "OTHER" or additional notes (capped) */
 		overrideDetails: z.string().max(500).optional(),
 		conditions: z.array(z.string()).optional(),
 	}),
@@ -133,9 +130,7 @@ export async function POST(request: NextRequest) {
 			console.warn("[RiskDecision] Failed to record feedback log:", feedbackResult.error);
 		}
 
-		// Task 4: Log Human Override if reason provided
 		if (decision.reason && decision.reason.trim().length > 0) {
-			// Find the latest Reporter Agent analysis for this workflow
 			const latestAnalysis = await db
 				.select()
 				.from(aiAnalysisLogs)
@@ -154,12 +149,7 @@ export async function POST(request: NextRequest) {
 
 				await db
 					.update(aiAnalysisLogs)
-					.set({
-						humanOverrideReason: category,
-						// Append the specific reason to the narrative or rely on a new column in future
-						// For now, we are satisfying the requirement to log the override.
-						// We could also consider updating rawOutput to include the reason.
-					})
+					.set({ humanOverrideReason: category })
 					.where(eq(aiAnalysisLogs.id, logId));
 			}
 		}

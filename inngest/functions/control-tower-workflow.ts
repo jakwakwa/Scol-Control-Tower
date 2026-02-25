@@ -19,8 +19,16 @@
 import { and, desc, eq } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
 import { getBaseUrl, getDatabaseClient } from "@/app/utils";
-import { applicants, workflowEvents, workflows } from "@/db/schema";
 import {
+	applicantSubmissions,
+	applicants,
+	documents,
+	documentUploads,
+	workflowEvents,
+	workflows,
+} from "@/db/schema";
+import {
+	type AggregatedAnalysisResult,
 	isSanctionsBlocked,
 	performAggregatedAnalysis,
 	performSanctionsCheck,
@@ -65,6 +73,7 @@ interface WorkflowContext {
 	mandateVolume?: number;
 	procurementCleared?: boolean;
 	documentsComplete?: boolean;
+	accountantLetterRequired?: boolean;
 	aiAnalysisComplete?: boolean;
 }
 
@@ -868,6 +877,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 			});
 
 			if (applicant.productType !== "call_centre") {
+				context.accountantLetterRequired = true;
 				const accountantToken = await createFormInstance({
 					applicantId,
 					workflowId,
@@ -935,9 +945,10 @@ export const controlTowerWorkflow = inngest.createFunction(
 			updateWorkflowStatus(workflowId, "awaiting_human", 2)
 		);
 
-		// Mandate collection with Tiered Escalation (SOP v3.1.0)
+		// Mandate/FICA collection with Tiered Escalation (SOP v3.1.0)
+		// NOTE: The active document upload path emits `upload/fica.received`.
 		let mandateDocsReceived = await step.waitForEvent("wait-mandate-docs", {
-			event: "document/mandate.submitted",
+			event: "upload/fica.received",
 			timeout: "7d", // Standard 7-day cycle
 			match: "data.workflowId",
 		});
@@ -1085,7 +1096,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 				mandateDocsReceived = await step.waitForEvent(
 					`wait-mandate-docs-retry-${retryCount}`,
 					{
-						event: "document/mandate.submitted",
+						event: "upload/fica.received",
 						timeout: "7d",
 						match: "data.workflowId",
 					}
@@ -1329,57 +1340,73 @@ export const controlTowerWorkflow = inngest.createFunction(
 		}
 
 		// PARALLEL WAIT LOGIC
-		// We need to wait for:
-		// 1. Procurement Review Decision (if required)
-		// 2. FICA Documents Received (always)
-		// These can happen in ANY order.
-
-		const promises: Promise<any>[] = [];
-
-		// Promise 1: Procurement Review (if needed)
-		const _procurementDecisionData: any = null;
+		// Stream A: Procurement Review Decision (if required)
+		// Stream B: FICA Documents + Accountant Letter (if required) — both must arrive before AI runs
+		// These streams run independently and can complete in ANY order.
 		if (procurementStreamResult.requiresReview) {
 			await step.run("stage-3-awaiting-procurement-review", () =>
 				updateWorkflowStatus(workflowId, "awaiting_human", 3)
 			);
-
-			const procurePromise = step.waitForEvent("wait-procurement-decision", {
-				event: "risk/procurement.completed",
-				timeout: REVIEW_TIMEOUT,
-				match: "data.workflowId",
-			});
-			promises.push(procurePromise);
 		} else {
 			context.procurementCleared = true;
-			// Push a resolved promise so index mapping stays consistent?
-			// Actually easier to assign results by checking what we pushed.
-			// But Promise.all returns array.
-			// Let's use specific variables.
 		}
 
-		// Promise 2: FICA Docs
-		const ficaPromise = step.waitForEvent("wait-fica-docs", {
-			event: "upload/fica.received",
-			timeout: STAGE_TIMEOUT,
-			match: "data.workflowId",
-		});
-		promises.push(ficaPromise);
+		const procurePromise = procurementStreamResult.requiresReview
+			? step.waitForEvent("wait-procurement-decision", {
+					event: "risk/procurement.completed",
+					timeout: REVIEW_TIMEOUT,
+					match: "data.workflowId",
+				})
+			: Promise.resolve(null);
 
-		// Wait for all
-		const results = await Promise.all(promises);
+		const ficaPromise = context.documentsComplete
+			? Promise.resolve({
+					data: {
+						workflowId,
+						applicantId,
+						source: "stage2_documents_already_complete",
+					},
+				})
+			: step.waitForEvent("wait-fica-docs", {
+					event: "upload/fica.received",
+					timeout: STAGE_TIMEOUT,
+					match: "data.workflowId",
+				});
 
-		// Unpack results
-		// If procurement review was required, results[0] is procureDecision, results[1] is ficaDocs.
-		// If not, results[0] is ficaDocs.
-		let ficaDocsReceived: any = null;
-		let procurementDecision: any = null;
+		const accountantLetterPromise = context.accountantLetterRequired
+			? step.waitForEvent("wait-accountant-letter", {
+					event: "form/accountant-letter.submitted",
+					timeout: STAGE_TIMEOUT,
+					match: "data.workflowId",
+				})
+			: Promise.resolve(null);
 
-		if (procurementStreamResult.requiresReview) {
-			procurementDecision = results[0];
-			ficaDocsReceived = results[1];
-		} else {
-			ficaDocsReceived = results[0];
-		}
+		const [procurementDecision, ficaDocsReceived, accountantLetterReceived] =
+			await Promise.all([procurePromise, ficaPromise, accountantLetterPromise]);
+
+		// #region agent log
+		fetch("http://127.0.0.1:7777/ingest/1342ad28-6f5b-44ef-8633-73ef757759a0", {
+			method: "POST",
+			headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b54daf" },
+			body: JSON.stringify({
+				sessionId: "b54daf",
+				location: "control-tower-workflow.ts:stage3-parallel-wait-resolved",
+				message: "All Stage 3 parallel waits resolved",
+				data: {
+					workflowId,
+					applicantId,
+					procurementReceived: !!procurementDecision,
+					ficaDocsReceived: !!ficaDocsReceived,
+					accountantLetterReceived: !!accountantLetterReceived,
+					accountantLetterRequired: context.accountantLetterRequired,
+					documentsComplete: context.documentsComplete,
+				},
+				timestamp: Date.now(),
+				hypothesisId: "E",
+				runId: "post-fix-v2",
+			}),
+		}).catch(() => {});
+		// #endregion
 
 		// Handle Procurement Decision
 		if (procurementStreamResult.requiresReview) {
@@ -1409,8 +1436,22 @@ export const controlTowerWorkflow = inngest.createFunction(
 			return { status: "timeout", stage: 3, reason: "FICA document upload timeout" };
 		}
 
-		// Main ITC check now runs after FICA receipt
-		const itcAndSanctions = await step.run("run-main-itc-and-sanctions", async () => {
+		// Handle Accountant Letter
+		if (context.accountantLetterRequired && !accountantLetterReceived) {
+			return {
+				status: "timeout",
+				stage: 3,
+				reason: "Accountant letter submission timeout",
+			};
+		}
+
+		// ================================================================
+		// PARALLEL: ITC/Sanctions Check + AI Analysis (Validation Agent)
+		// Per SOP diagram: these two paths run independently, both must
+		// complete ("both green") before the Reporter Agent synthesizes.
+		// ================================================================
+
+		const itcStep = step.run("run-main-itc-and-sanctions", async () => {
 			await guardKillSwitch(workflowId, "run-main-itc-and-sanctions");
 
 			const itcResult = await performITCCheck({ applicantId, workflowId });
@@ -1451,14 +1492,104 @@ export const controlTowerWorkflow = inngest.createFunction(
 			return { itcResult, sanctions };
 		});
 
-		// Run aggregated AI analysis (Validation, Risk, Sanctions agents)
-		const aiAnalysis = await step.run("run-ai-analysis", async () => {
+		const aiStep = step.run("run-ai-analysis", async () => {
 			await guardKillSwitch(workflowId, "run-ai-analysis");
 
 			const db = getDatabaseClient();
 			const [applicant] = db
 				? await db.select().from(applicants).where(eq(applicants.id, applicantId))
 				: [];
+
+			const docsInDocumentsTable = db
+				? await db.select().from(documents).where(eq(documents.applicantId, applicantId))
+				: [];
+			const docsInUploadsTable = db
+				? await db
+						.select()
+						.from(documentUploads)
+						.where(eq(documentUploads.workflowId, workflowId))
+				: [];
+
+			let accountantLetterData: string | undefined;
+			if (context.accountantLetterRequired && db) {
+				const [submission] = await db
+					.select()
+					.from(applicantSubmissions)
+					.where(
+						and(
+							eq(applicantSubmissions.applicantId, applicantId),
+							eq(applicantSubmissions.formType, "ACCOUNTANT_LETTER")
+						)
+					)
+					.limit(1);
+				if (submission) {
+					accountantLetterData = submission.data;
+				}
+			}
+
+			const aiDocuments: Array<{
+				id: string;
+				type: string;
+				content: string;
+				contentType: "text" | "base64";
+			}> = [];
+
+			for (const doc of docsInDocumentsTable) {
+				if (doc.fileContent) {
+					aiDocuments.push({
+						id: String(doc.id),
+						type: doc.type,
+						content: doc.fileContent,
+						contentType: "base64",
+					});
+				}
+			}
+
+			for (const doc of docsInUploadsTable) {
+				if (doc.fileContent) {
+					aiDocuments.push({
+						id: String(doc.id),
+						type: doc.documentType,
+						content: doc.fileContent,
+						contentType: "base64",
+					});
+				}
+			}
+
+			if (accountantLetterData) {
+				aiDocuments.push({
+					id: `accountant-letter-${applicantId}`,
+					type: "ACCOUNTANT_LETTER",
+					content: accountantLetterData,
+					contentType: "text",
+				});
+			}
+
+			// #region agent log
+			fetch("http://127.0.0.1:7777/ingest/1342ad28-6f5b-44ef-8633-73ef757759a0", {
+				method: "POST",
+				headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b54daf" },
+				body: JSON.stringify({
+					sessionId: "b54daf",
+					location: "control-tower-workflow.ts:run-ai-analysis",
+					message: "AI analysis running IN PARALLEL with ITC",
+					data: {
+						workflowId,
+						applicantId,
+						documentsInDocumentsTable: docsInDocumentsTable.length,
+						documentsInUploadsTable: docsInUploadsTable.length,
+						docsWithContent: aiDocuments.length,
+						docTypes: aiDocuments.map(d => d.type),
+						hasAccountantLetter: !!accountantLetterData,
+						accountantLetterRequired: context.accountantLetterRequired,
+						validationAgentWillRun: aiDocuments.length > 0,
+					},
+					timestamp: Date.now(),
+					hypothesisId: "E",
+					runId: "post-fix-v2",
+				}),
+			}).catch(() => {});
+			// #endregion
 
 			const result = await performAggregatedAnalysis({
 				workflowId,
@@ -1470,57 +1601,117 @@ export const controlTowerWorkflow = inngest.createFunction(
 					industry: applicant?.industry || undefined,
 					countryCode: "ZA",
 				},
+				documents: aiDocuments.length > 0 ? aiDocuments : undefined,
 				requestedAmount: context.mandateVolume,
-				sanctionsOverride: itcAndSanctions.sanctions.result as SanctionsCheckResult,
-			});
-
-			// Emit aggregated analysis event
-			await inngest.send({
-				name: "agent/analysis.aggregated",
-				data: {
-					workflowId,
-					applicantId,
-					aggregatedScore: result.scores.aggregatedScore,
-					canAutoApprove: result.overall.canAutoApprove,
-					requiresManualReview: result.overall.requiresManualReview,
-					isBlocked: result.overall.isBlocked,
-					recommendation: result.overall.recommendation,
-					flags: result.overall.flags,
-				},
-			});
-
-			// Emit Reporter Agent consolidated report
-			await inngest.send({
-				name: "reporter/analysis.completed",
-				data: {
-					workflowId,
-					applicantId,
-					report: {
-						validationSummary: result.agents.validation || {},
-						riskSummary: result.agents.risk || {},
-						sanctionsSummary: result.agents.sanctions || {},
-						overallRecommendation:
-							result.overall.recommendation === "AUTO_APPROVE"
-								? "APPROVE"
-								: result.overall.recommendation === "BLOCK"
-									? "DECLINE"
-									: result.overall.recommendation === "MANUAL_REVIEW"
-										? "MANUAL_REVIEW"
-										: "CONDITIONAL_APPROVE",
-						aggregatedScore: result.scores.aggregatedScore,
-						flags: result.overall.flags,
-					},
-					completedAt: new Date().toISOString(),
-				},
 			});
 
 			return result;
 		});
 
+		// "Both green" — wait for ITC and AI analysis to complete in parallel
+		const [itcAndSanctions, aiAnalysisResult] = await Promise.all([itcStep, aiStep]);
+
+		// Reporter Agent: synthesize ITC + AI results into consolidated report
+		const aiAnalysis = await step.run(
+			"reporter-agent-synthesis",
+			async (): Promise<AggregatedAnalysisResult> => {
+				const combinedFlags = [
+					...aiAnalysisResult.overall.flags,
+					...(itcAndSanctions.sanctions.isBlocked ? ["ITC_SANCTIONS_BLOCKED"] : []),
+					...(!itcAndSanctions.itcResult.passed ? ["ITC_CHECK_FAILED"] : []),
+				];
+
+				await inngest.send({
+					name: "agent/analysis.aggregated",
+					data: {
+						workflowId,
+						applicantId,
+						aggregatedScore: aiAnalysisResult.scores.aggregatedScore,
+						canAutoApprove: aiAnalysisResult.overall.canAutoApprove,
+						requiresManualReview: aiAnalysisResult.overall.requiresManualReview,
+						isBlocked:
+							aiAnalysisResult.overall.isBlocked || itcAndSanctions.sanctions.isBlocked,
+						recommendation: aiAnalysisResult.overall.recommendation,
+						flags: combinedFlags,
+					},
+				});
+
+				await inngest.send({
+					name: "reporter/analysis.completed",
+					data: {
+						workflowId,
+						applicantId,
+						report: {
+							validationSummary: aiAnalysisResult.agents.validation || {},
+							riskSummary: aiAnalysisResult.agents.risk || {},
+							sanctionsSummary: aiAnalysisResult.agents.sanctions || {},
+							itcSummary: {
+								creditScore: itcAndSanctions.itcResult.creditScore,
+								recommendation: itcAndSanctions.itcResult.recommendation,
+								passed: itcAndSanctions.itcResult.passed,
+								sanctionsRiskLevel: itcAndSanctions.sanctions.riskLevel,
+								sanctionsBlocked: itcAndSanctions.sanctions.isBlocked,
+							},
+							overallRecommendation:
+								aiAnalysisResult.overall.recommendation === "AUTO_APPROVE"
+									? "APPROVE"
+									: aiAnalysisResult.overall.recommendation === "BLOCK"
+										? "DECLINE"
+										: aiAnalysisResult.overall.recommendation === "MANUAL_REVIEW"
+											? "MANUAL_REVIEW"
+											: "CONDITIONAL_APPROVE",
+							aggregatedScore: aiAnalysisResult.scores.aggregatedScore,
+							flags: combinedFlags,
+						},
+						completedAt: new Date().toISOString(),
+					},
+				});
+
+				// #region agent log
+				fetch("http://127.0.0.1:7777/ingest/1342ad28-6f5b-44ef-8633-73ef757759a0", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						"X-Debug-Session-Id": "b54daf",
+					},
+					body: JSON.stringify({
+						sessionId: "b54daf",
+						location: "control-tower-workflow.ts:reporter-agent-synthesis",
+						message: "Reporter Agent synthesized ITC + AI analysis results",
+						data: {
+							workflowId,
+							applicantId,
+							itcPassed: itcAndSanctions.itcResult.passed,
+							itcCreditScore: itcAndSanctions.itcResult.creditScore,
+							sanctionsBlocked: itcAndSanctions.sanctions.isBlocked,
+							aiAggregatedScore: aiAnalysisResult.scores.aggregatedScore,
+							aiRecommendation: aiAnalysisResult.overall.recommendation,
+							validationRan: !!aiAnalysisResult.validation,
+							combinedFlags,
+						},
+						timestamp: Date.now(),
+						hypothesisId: "E",
+						runId: "post-fix-v2",
+					}),
+				}).catch(() => {});
+				// #endregion
+
+				return {
+					...aiAnalysisResult,
+					overall: {
+						...aiAnalysisResult.overall,
+						isBlocked:
+							aiAnalysisResult.overall.isBlocked || itcAndSanctions.sanctions.isBlocked,
+						flags: combinedFlags,
+					},
+				} as AggregatedAnalysisResult;
+			}
+		);
+
 		context.aiAnalysisComplete = true;
 
-		// Check if blocked by sanctions (SOP v3.1.0)
-		if (aiAnalysis.overall.isBlocked) {
+		// Check if blocked by sanctions (SOP v3.1.0) — from either AI agents or ITC path
+		if (aiAnalysis.overall.isBlocked || itcAndSanctions.sanctions.isBlocked) {
 			// Detect if it is specifically a sanctions hit
 			const sanctionsResult = aiAnalysis.sanctions;
 			const isSanctionHit =

@@ -599,7 +599,9 @@ export default function ApplicantDetailPage() {
 								{client.itcScore !== null && client.itcScore !== undefined ? (
 									<span
 										className={`text-sm font-bold ${
-											client.itcScore < 60 ? "text-destructive-foreground" : "text-emer"
+											client.itcScore < 60
+												? "text-destructive-foreground"
+												: "text-emerald-900"
 										}`}>
 										ITC: {client.itcScore}
 									</span>

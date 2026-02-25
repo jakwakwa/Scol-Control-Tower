@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getDatabaseClient } from "@/app/utils";
-import { documentUploads, workflows, applicants } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import crypto from "crypto";
+import { eq } from "drizzle-orm";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import { getDatabaseClient } from "@/app/utils";
+import { applicants, documentUploads, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 
 /**
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
 		const metadata = formData.get("metadata") as string | null;
 
 		// Validate required fields
-		if (!file || !workflowId || !category || !documentType) {
+		if (!(file && workflowId && category && documentType)) {
 			return NextResponse.json(
 				{
 					error: "Missing required fields: file, workflowId, category, documentType",
@@ -84,24 +85,26 @@ export async function POST(request: NextRequest) {
 		const fileExtension = file.name.split(".").pop() || "bin";
 		const storageKey = `${workflowId}/${category}/${crypto.randomUUID()}.${fileExtension}`;
 
-		// In production, upload to S3/R2 here
-		// For now, we'll just store the metadata
-		// const fileBuffer = await file.arrayBuffer();
-		// await uploadToStorage(storageKey, fileBuffer);
+		const fileBuffer = await file.arrayBuffer();
+		const base64Content = Buffer.from(fileBuffer).toString("base64");
 
-		// Mock storage URL (in production, this would be the actual S3/R2 URL)
-		const storageUrl = `/api/onboarding/documents/download/${storageKey}`;
+		const storageUrl = `/api/documents/download?documentUploadId=PLACEHOLDER&storageKey=${encodeURIComponent(storageKey)}`;
 
-		// Create document record
 		const result = await db
 			.insert(documentUploads)
 			.values({
 				workflowId: workflowIdNum,
 				internalFormId: internalFormId ? parseInt(internalFormId) : null,
-				category: category as any,
+				category: category as
+					| "standard"
+					| "individual"
+					| "financial"
+					| "professional"
+					| "industry",
 				documentType,
 				fileName: file.name,
 				fileSize: file.size,
+				fileContent: base64Content,
 				mimeType: file.type,
 				storageKey,
 				storageUrl,
@@ -118,6 +121,12 @@ export async function POST(request: NextRequest) {
 				{ status: 500 }
 			);
 		}
+
+		const actualStorageUrl = `/api/documents/download?documentUploadId=${document.id}&storageKey=${encodeURIComponent(storageKey)}`;
+		await db
+			.update(documentUploads)
+			.set({ storageUrl: actualStorageUrl })
+			.where(eq(documentUploads.id, document.id));
 
 		// Send document uploaded event for aggregation
 		await inngest.send({

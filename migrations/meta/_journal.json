@@ -8,6 +8,13 @@
       "when": 1771537817252,
       "tag": "0000_fuzzy_calypso",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1771975598432,
+      "tag": "0001_burly_magik",
+      "breakpoints": true
     }
   ]
 }
