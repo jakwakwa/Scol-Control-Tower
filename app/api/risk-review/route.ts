@@ -232,13 +232,27 @@ export async function GET(_request: NextRequest) {
 					procurementFailureReason,
 					procurementFailureSource,
 					procurementFailureGuidance,
+					// Track if decisions have already been made
+					procurementDecisionMade: events.some(
+						e => e.eventType === "procurement_decision"
+					),
+					riskManagerDecisionMade: events.some(e => e.eventType === "human_override"),
 				};
 			})
 		);
 
+		let filteredItems = itemsWithAnalysis;
+		if (!showHistory) {
+			filteredItems = itemsWithAnalysis.filter(item => {
+				if (item.stage === 3 && item.procurementDecisionMade) return false;
+				if (item.stage === 4 && item.riskManagerDecisionMade) return false;
+				return true;
+			});
+		}
+
 		return NextResponse.json({
-			items: itemsWithAnalysis,
-			count: itemsWithAnalysis.length,
+			items: filteredItems,
+			count: filteredItems.length,
 		});
 	} catch (error) {
 		console.error("[API] Risk review fetch error:", error);

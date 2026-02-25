@@ -35,7 +35,6 @@ export async function POST(request: NextRequest) {
 		const internalFormId = formData.get("internalFormId") as string | null;
 		const category = formData.get("category") as string | null;
 		const documentType = formData.get("documentType") as string | null;
-		const userId = formData.get("userId") as string | null;
 		const metadata = formData.get("metadata") as string | null;
 
 		// Validate required fields
