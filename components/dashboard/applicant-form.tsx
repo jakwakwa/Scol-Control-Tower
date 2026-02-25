@@ -178,6 +178,7 @@ export function ApplicantForm({
 							<Input
 								id="companyName"
 								value={formData.companyName}
+								autoComplete={"companyName"}
 								onChange={e => updateField("companyName", e.target.value)}
 								placeholder="Enter company name"
 								className={cn(
@@ -194,6 +195,7 @@ export function ApplicantForm({
 							<Input
 								className="border-input-border"
 								id="registrationNumber"
+								autoComplete={"registrationNumber"}
 								value={formData.registrationNumber}
 								onChange={e => updateField("registrationNumber", e.target.value)}
 								placeholder="e.g., 2024/123456/07"
@@ -238,6 +240,7 @@ export function ApplicantForm({
 							<Input
 								className="border-input-border"
 								id="industry"
+								autoComplete={"industry"}
 								value={formData.industry}
 								onChange={e => updateField("industry", e.target.value)}
 								placeholder="e.g., Financial Services, Mining"
@@ -260,6 +263,7 @@ export function ApplicantForm({
 							<Input
 								className="border-input-border"
 								id="estimatedVolume"
+								autoComplete="estimatedVolume"
 								value={formData.estimatedVolume}
 								onChange={e => updateField("estimatedVolume", e.target.value)}
 								placeholder="e.g., R500,000"

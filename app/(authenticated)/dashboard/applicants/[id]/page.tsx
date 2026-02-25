@@ -1242,6 +1242,7 @@ export default function ApplicantDetailPage() {
 															</p>
 															<Input
 																type="number"
+																autoComplete={client.companyName}
 																value={editAmount}
 																onChange={e => setEditAmount(e.target.value)}
 																className="font-bold text-lg h-8 w-40"
