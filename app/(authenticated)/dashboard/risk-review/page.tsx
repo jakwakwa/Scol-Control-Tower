@@ -25,6 +25,7 @@ export default function RiskReviewPage() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [selectedItem, setSelectedItem] = useState<RiskReviewItem | null>(null);
 	const [isDetailOpen, setIsDetailOpen] = useState(false);
+	const [showHistory, setShowHistory] = useState(false);
 
 	const isProcurementReview = (item: RiskReviewItem): boolean =>
 		item.reviewType === "procurement" || item.stage === 3;
@@ -135,7 +136,7 @@ export default function RiskReviewPage() {
 	const fetchRiskReviewItems = useCallback(async () => {
 		setIsLoading(true);
 		try {
-			const response = await fetch("/api/risk-review");
+			const response = await fetch(`/api/risk-review?showHistory=${showHistory}`);
 			if (!response.ok) {
 				throw new Error("Failed to fetch risk review items");
 			}
@@ -154,7 +155,7 @@ export default function RiskReviewPage() {
 		} finally {
 			setIsLoading(false);
 		}
-	}, []);
+	}, [showHistory]);
 
 	useEffect(() => {
 		fetchRiskReviewItems();
@@ -230,6 +231,12 @@ export default function RiskReviewPage() {
 						disabled={isLoading}>
 						<RiRefreshLine className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
 						Refresh
+					</Button>
+					<Button
+						variant={showHistory ? "default" : "outline"}
+						className="gap-2"
+						onClick={() => setShowHistory(!showHistory)}>
+						{showHistory ? "Hide History" : "Show History"}
 					</Button>
 					<Button variant="outline" className="gap-2">
 						<RiFilter3Line className="h-4 w-4" />
