@@ -144,28 +144,6 @@ export async function performAggregatedAnalysis(
 	const agentsRun: ("validation" | "risk" | "sanctions")[] = [];
 	const flags: string[] = [];
 
-	// #region agent log
-	fetch("http://127.0.0.1:7777/ingest/1342ad28-6f5b-44ef-8633-73ef757759a0", {
-		method: "POST",
-		headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b54daf" },
-		body: JSON.stringify({
-			sessionId: "b54daf",
-			location: "aggregated-analysis.service.ts:performAggregatedAnalysis",
-			message: "Checking if documents field exists in input",
-			data: {
-				workflowId: input.workflowId,
-				hasDocumentsField: "documents" in input,
-				documentsIsUndefined: input.documents === undefined,
-				documentsIsNull: input.documents === null,
-				documentsLength: input.documents?.length ?? "N/A",
-				validationWillRun: !!(input.documents && input.documents.length > 0),
-				hasBankStatementText: !!input.bankStatementText,
-			},
-			timestamp: Date.now(),
-			hypothesisId: "A",
-		}),
-	}).catch(() => {});
-	// #endregion
 
 	// Run all agents in parallel
 	const [validationResult, riskResult, sanctionsResult] = await Promise.all([
@@ -227,29 +205,6 @@ export async function performAggregatedAnalysis(
 	const riskScore = riskResult.overall.score;
 	const sanctionsScore = calculateSanctionsScore(sanctionsResult);
 
-	// #region agent log
-	fetch("http://127.0.0.1:7777/ingest/1342ad28-6f5b-44ef-8633-73ef757759a0", {
-		method: "POST",
-		headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b54daf" },
-		body: JSON.stringify({
-			sessionId: "b54daf",
-			location: "aggregated-analysis.service.ts:SCORES",
-			message: "Validation agent result and score",
-			data: {
-				validationResultExists: !!validationResult,
-				validationScore,
-				validationScoreDefaultedTo100: !validationResult,
-				riskScore,
-				sanctionsScore,
-				validationSkippedReason: !validationResult
-					? "No documents provided - validation skipped entirely"
-					: "Documents were provided",
-			},
-			timestamp: Date.now(),
-			hypothesisId: "A",
-		}),
-	}).catch(() => {});
-	// #endregion
 
 	// Weighted aggregated score
 	const aggregatedScore = Math.round(

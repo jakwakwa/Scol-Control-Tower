@@ -1384,29 +1384,6 @@ export const controlTowerWorkflow = inngest.createFunction(
 		const [procurementDecision, ficaDocsReceived, accountantLetterReceived] =
 			await Promise.all([procurePromise, ficaPromise, accountantLetterPromise]);
 
-		// #region agent log
-		fetch("http://127.0.0.1:7777/ingest/1342ad28-6f5b-44ef-8633-73ef757759a0", {
-			method: "POST",
-			headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b54daf" },
-			body: JSON.stringify({
-				sessionId: "b54daf",
-				location: "control-tower-workflow.ts:stage3-parallel-wait-resolved",
-				message: "All Stage 3 parallel waits resolved",
-				data: {
-					workflowId,
-					applicantId,
-					procurementReceived: !!procurementDecision,
-					ficaDocsReceived: !!ficaDocsReceived,
-					accountantLetterReceived: !!accountantLetterReceived,
-					accountantLetterRequired: context.accountantLetterRequired,
-					documentsComplete: context.documentsComplete,
-				},
-				timestamp: Date.now(),
-				hypothesisId: "E",
-				runId: "post-fix-v2",
-			}),
-		}).catch(() => {});
-		// #endregion
 
 		// Handle Procurement Decision
 		if (procurementStreamResult.requiresReview) {
@@ -1565,31 +1542,6 @@ export const controlTowerWorkflow = inngest.createFunction(
 				});
 			}
 
-			// #region agent log
-			fetch("http://127.0.0.1:7777/ingest/1342ad28-6f5b-44ef-8633-73ef757759a0", {
-				method: "POST",
-				headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b54daf" },
-				body: JSON.stringify({
-					sessionId: "b54daf",
-					location: "control-tower-workflow.ts:run-ai-analysis",
-					message: "AI analysis running IN PARALLEL with ITC",
-					data: {
-						workflowId,
-						applicantId,
-						documentsInDocumentsTable: docsInDocumentsTable.length,
-						documentsInUploadsTable: docsInUploadsTable.length,
-						docsWithContent: aiDocuments.length,
-						docTypes: aiDocuments.map(d => d.type),
-						hasAccountantLetter: !!accountantLetterData,
-						accountantLetterRequired: context.accountantLetterRequired,
-						validationAgentWillRun: aiDocuments.length > 0,
-					},
-					timestamp: Date.now(),
-					hypothesisId: "E",
-					runId: "post-fix-v2",
-				}),
-			}).catch(() => {});
-			// #endregion
 
 			const result = await performAggregatedAnalysis({
 				workflowId,
@@ -1667,34 +1619,6 @@ export const controlTowerWorkflow = inngest.createFunction(
 					},
 				});
 
-				// #region agent log
-				fetch("http://127.0.0.1:7777/ingest/1342ad28-6f5b-44ef-8633-73ef757759a0", {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						"X-Debug-Session-Id": "b54daf",
-					},
-					body: JSON.stringify({
-						sessionId: "b54daf",
-						location: "control-tower-workflow.ts:reporter-agent-synthesis",
-						message: "Reporter Agent synthesized ITC + AI analysis results",
-						data: {
-							workflowId,
-							applicantId,
-							itcPassed: itcAndSanctions.itcResult.passed,
-							itcCreditScore: itcAndSanctions.itcResult.creditScore,
-							sanctionsBlocked: itcAndSanctions.sanctions.isBlocked,
-							aiAggregatedScore: aiAnalysisResult.scores.aggregatedScore,
-							aiRecommendation: aiAnalysisResult.overall.recommendation,
-							validationRan: !!aiAnalysisResult.validation,
-							combinedFlags,
-						},
-						timestamp: Date.now(),
-						hypothesisId: "E",
-						runId: "post-fix-v2",
-					}),
-				}).catch(() => {});
-				// #endregion
 
 				return {
 					...aiAnalysisResult,
