@@ -28,7 +28,7 @@ export default function RootLayout({
 		<ClerkProvider>
 			<html lang="en" className={dmSans.variable} suppressHydrationWarning>
 				<body
-					className={`dotted-grid-container-main  overscroll-none ${inter.className}`}
+					className={`dotted-grid-container-main  overscroll-none  ${inter.className} override-padding-reset`}
 					suppressHydrationWarning>
 					<DottedGridHeightSync />
 					{children}
