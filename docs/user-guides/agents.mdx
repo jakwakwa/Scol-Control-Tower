@@ -9,7 +9,7 @@ Agents are autonomous AI services or system workers that handle specialised task
 
 ### Active Agents (Powered by **Gemini 3 Flash**)
 
-- **Validation Agent**: Verifies uploaded documents (bank statements, ID, proof of residence) and accountant letter form data for authenticity, completeness, and cross-reference consistency. Receives both base64-encoded file content and structured form data from the `applicantSubmissions` table.
+- **Validation Agent**: Verifies uploaded documents (bank statements, ID, proof of residence, and optional accountant letter file when provided) for authenticity, completeness, and cross-reference consistency. Receives base64-encoded file content from the `documents` table.
 - **Risk Verification Agent**: Analyzes bank statements and accountant letters to assess FICA compliance and financial risk.
 - **Quote Generator Agent**: Generates risk-adjusted pricing quotes based on applicant profiles and credit scores.
 - **Sanctions Agent**: Screens applicants against UN consolidated, OFAC, and FIC TFS sanctions lists. When `ENABLE_FIRECRAWL_SANCTIONS_PRIMARY=true`, uses the Firecrawl agent to search company name, contact name, and board directors. See [Firecrawl Check Contracts](/agent-contracts/firecrawl-check-contracts#24-sanctions-primary-search-firecrawl-agent) for configuration details.
@@ -67,7 +67,6 @@ The Validation Agent receives documents from three sources:
 | :--- | :--- | :--- |
 | FICA document uploads | `documents` | Base64-encoded files (PDF, images) |
 | Onboarding document uploads | `documentUploads` | Base64-encoded files |
-| Accountant letter form | `applicantSubmissions` | Structured JSON text |
 
 ### Parallel execution
 

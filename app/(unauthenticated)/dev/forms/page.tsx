@@ -54,14 +54,6 @@ const FORMS: FormEntry[] = [
 		color: "#ef4444",
 	},
 	{
-		type: "ACCOUNTANT_LETTER",
-		title: "Accounting Officer Letter",
-		description: "Confirmation of accounting officer details and business information.",
-		route: "/forms",
-		sections: 3,
-		color: "#10b981",
-	},
-	{
 		type: "CALL_CENTRE_APPLICATION",
 		title: "Call Centre Application",
 		description:

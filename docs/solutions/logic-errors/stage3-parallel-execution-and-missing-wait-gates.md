@@ -3,6 +3,7 @@ title: "Stage 3 Parallel Execution Broken — ITC and AI Analysis Running Sequen
 date: 2026-02-25
 category: logic-errors
 severity: high
+superseded: "2026-02-25 — Accountant letter refactored from required form to optional file upload. No longer a wait gate."
 component: inngest/functions/control-tower-workflow.ts
 tags:
   - workflow-orchestration
@@ -30,7 +31,7 @@ symptoms:
 
 Stage 3 of the onboarding workflow had four structural issues that violated the SOP diagram:
 
-1. **Missing wait gate for accountant letter** — the workflow waited for FICA document uploads (`upload/fica.received`) and procurement decision (`risk/procurement.completed`), but never waited for the accountant letter form submission (`form/accountant-letter.submitted`). The AI analysis ran on incomplete data.
+1. **Missing wait gate for accountant letter** *(superseded)* — the workflow waited for FICA document uploads (`upload/fica.received`) and procurement decision (`risk/procurement.completed`), but never waited for the accountant letter form submission (`form/accountant-letter.submitted`). The AI analysis ran on incomplete data. *Note: Accountant letter is now an optional file upload, not a form; no wait gate.*
 
 2. **Sequential ITC → AI instead of parallel** — the ITC/sanctions check (`run-main-itc-and-sanctions`) ran first, then the AI analysis (`run-ai-analysis`) ran after it completed. Per the SOP, these are two independent paths that should execute concurrently.
 

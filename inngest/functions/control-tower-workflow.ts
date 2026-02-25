@@ -20,7 +20,6 @@ import { and, desc, eq } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
 import { getBaseUrl, getDatabaseClient } from "@/app/utils";
 import {
-	applicantSubmissions,
 	applicants,
 	documents,
 	documentUploads,
@@ -73,7 +72,6 @@ interface WorkflowContext {
 	mandateVolume?: number;
 	procurementCleared?: boolean;
 	documentsComplete?: boolean;
-	accountantLetterRequired?: boolean;
 	aiAnalysisComplete?: boolean;
 }
 
@@ -876,19 +874,6 @@ export const controlTowerWorkflow = inngest.createFunction(
 				url: `${getBaseUrl()}/uploads/${uploadToken.token}`,
 			});
 
-			if (applicant.productType !== "call_centre") {
-				context.accountantLetterRequired = true;
-				const accountantToken = await createFormInstance({
-					applicantId,
-					workflowId,
-					formType: "ACCOUNTANT_LETTER" as FormType,
-				});
-				links.push({
-					formType: "ACCOUNTANT_LETTER",
-					url: `${getBaseUrl()}/forms/${accountantToken.token}`,
-				});
-			}
-
 			if (applicant.productType === "call_centre") {
 				const callCentreToken = await createFormInstance({
 					applicantId,
@@ -1312,7 +1297,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 				type: "awaiting",
 				title: "FICA Documents Required",
 				message:
-					"Please upload bank statements and accountant letter for AI verification",
+					"Please upload bank statements and required documents for AI verification",
 				actionable: true,
 			});
 
@@ -1373,16 +1358,10 @@ export const controlTowerWorkflow = inngest.createFunction(
 					match: "data.workflowId",
 				});
 
-		const accountantLetterPromise = context.accountantLetterRequired
-			? step.waitForEvent("wait-accountant-letter", {
-					event: "form/accountant-letter.submitted",
-					timeout: STAGE_TIMEOUT,
-					match: "data.workflowId",
-				})
-			: Promise.resolve(null);
-
-		const [procurementDecision, ficaDocsReceived, accountantLetterReceived] =
-			await Promise.all([procurePromise, ficaPromise, accountantLetterPromise]);
+		const [procurementDecision, ficaDocsReceived] = await Promise.all([
+			procurePromise,
+			ficaPromise,
+		]);
 
 		// Handle Procurement Decision
 		if (procurementStreamResult.requiresReview) {
@@ -1410,15 +1389,6 @@ export const controlTowerWorkflow = inngest.createFunction(
 		// Handle FICA Docs
 		if (!ficaDocsReceived) {
 			return { status: "timeout", stage: 3, reason: "FICA document upload timeout" };
-		}
-
-		// Handle Accountant Letter
-		if (context.accountantLetterRequired && !accountantLetterReceived) {
-			return {
-				status: "timeout",
-				stage: 3,
-				reason: "Accountant letter submission timeout",
-			};
 		}
 
 		// ================================================================
@@ -1486,23 +1456,6 @@ export const controlTowerWorkflow = inngest.createFunction(
 						.where(eq(documentUploads.workflowId, workflowId))
 				: [];
 
-			let accountantLetterData: string | undefined;
-			if (context.accountantLetterRequired && db) {
-				const [submission] = await db
-					.select()
-					.from(applicantSubmissions)
-					.where(
-						and(
-							eq(applicantSubmissions.applicantId, applicantId),
-							eq(applicantSubmissions.formType, "ACCOUNTANT_LETTER")
-						)
-					)
-					.limit(1);
-				if (submission) {
-					accountantLetterData = submission.data;
-				}
-			}
-
 			const aiDocuments: Array<{
 				id: string;
 				type: string;
@@ -1530,15 +1483,6 @@ export const controlTowerWorkflow = inngest.createFunction(
 						contentType: "base64",
 					});
 				}
-			}
-
-			if (accountantLetterData) {
-				aiDocuments.push({
-					id: `accountant-letter-${applicantId}`,
-					type: "ACCOUNTANT_LETTER",
-					content: accountantLetterData,
-					contentType: "text",
-				});
 			}
 
 			const result = await performAggregatedAnalysis({

@@ -170,16 +170,6 @@ export type Events = {
 		};
 	};
 
-	/** Accountant letter form submitted */
-	"form/accountant-letter.submitted": {
-		data: {
-			workflowId: number;
-			applicantId: number;
-			submissionId: number;
-			submittedAt: string;
-		};
-	};
-
 	/** Call centre application form submitted */
 	"form/call-centre.submitted": {
 		data: {

@@ -13,7 +13,6 @@ import {
 import type { FormType } from "@/lib/types";
 import {
 	absa6995Schema,
-	accountantLetterSchema,
 	callCentreApplicationSchema,
 	type FacilityApplicationForm,
 	facilityApplicationSchema,
@@ -28,7 +27,6 @@ const formSubmissionSchema = z.object({
 		"SIGNED_QUOTATION",
 		"STRATCOL_CONTRACT",
 		"ABSA_6995",
-		"ACCOUNTANT_LETTER",
 		"CALL_CENTRE_APPLICATION",
 	]),
 	data: z.record(z.string(), z.unknown()),
@@ -39,7 +37,6 @@ const formSchemaMap: Record<FormType, z.ZodSchema> = {
 	SIGNED_QUOTATION: signedQuotationSchema,
 	STRATCOL_CONTRACT: stratcolContractSchema,
 	ABSA_6995: absa6995Schema,
-	ACCOUNTANT_LETTER: accountantLetterSchema,
 	CALL_CENTRE_APPLICATION: callCentreApplicationSchema,
 	DOCUMENT_UPLOADS: z.any(),
 };
@@ -183,18 +180,6 @@ export async function POST(request: NextRequest) {
 								(facilityData.forecastAverageValue || 0) *
 								12,
 						},
-						submittedAt: new Date().toISOString(),
-					},
-				});
-			}
-
-			if (formType === "ACCOUNTANT_LETTER") {
-				await inngest.send({
-					name: "form/accountant-letter.submitted",
-					data: {
-						workflowId: formInstance.workflowId,
-						applicantId: formInstance.applicantId,
-						submissionId: submission.id,
 						submittedAt: new Date().toISOString(),
 					},
 				});

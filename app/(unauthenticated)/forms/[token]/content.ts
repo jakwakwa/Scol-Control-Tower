@@ -3,7 +3,6 @@ import type { FormSectionDefinition } from "@/components/forms/types";
 import type { FormType } from "@/lib/types";
 import {
 	absa6995Schema,
-	accountantLetterSchema,
 	callCentreApplicationSchema,
 	facilityApplicationSchema,
 	signedQuotationSchema,
@@ -1200,93 +1199,6 @@ export const formContent: Record<
 			"businessMetrics.directorsUnderAdministration": "no",
 			"businessMetrics.formalComplaints": "no",
 			"businessMetrics.complianceConcerns": "no",
-		},
-	},
-	ACCOUNTANT_LETTER: {
-		title: "Confirmation of Accounting Officer Letter",
-		description:
-			"This letter confirms the legitimacy of the business and the accounting officer's professional standing. Please complete all fields below.",
-		schema: accountantLetterSchema,
-		submitLabel: "Submit accountant letter",
-		defaultValues: {
-			confirmLegitimate: false,
-		},
-		sections: [
-			{
-				title: "Business Information",
-				description:
-					"The accounting officer confirms the following details for the business applying for a StratCol collections facility.",
-				fields: [
-					{
-						name: "businessName",
-						label: "Business name",
-						type: "text",
-						required: true,
-						colSpan: 2,
-					},
-					{
-						name: "physicalAddress",
-						label: "Physical business address",
-						type: "textarea",
-						required: true,
-						colSpan: 2,
-					},
-				],
-			},
-			{
-				title: "Accounting Officer Details",
-				description: "Provide the details of the accounting officer or auditor.",
-				fields: [
-					{
-						name: "accountantName",
-						label: "Full name of accounting officer / auditor",
-						type: "text",
-						required: true,
-					},
-					{
-						name: "practiceNumber",
-						label: "Practice registration number",
-						type: "text",
-						required: true,
-					},
-				],
-			},
-			{
-				title: "Confirmation & Signature",
-				description:
-					"By signing below, you confirm that the above business is legitimate, operating as a going concern, and you are not aware of any investigation or pending legal action against the business.",
-				fields: [
-					{
-						name: "confirmLegitimate",
-						label:
-							"I confirm the business is legitimate and I am not aware of any investigation or pending legal action against the business.",
-						type: "checkbox",
-						required: true,
-						colSpan: 2,
-					},
-					{
-						name: "signatureName",
-						label: "Typed signature",
-						type: "signature",
-						required: true,
-					},
-					{
-						name: "signatureDate",
-						label: "Signature date",
-						type: "date",
-						required: true,
-					},
-				],
-			},
-		],
-		testData: {
-			businessName: "Test Company (Pty) Ltd",
-			physicalAddress: "123 Test Street, Sandton, 2196",
-			accountantName: "John Accountant",
-			practiceNumber: "PR-12345",
-			confirmLegitimate: true,
-			signatureName: "John Accountant",
-			signatureDate: new Date().toISOString().split("T")[0],
 		},
 	},
 	CALL_CENTRE_APPLICATION: {

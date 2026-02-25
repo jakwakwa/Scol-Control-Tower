@@ -256,25 +256,6 @@ export const absa6995Schema = z.object({
 export type Absa6995Form = z.infer<typeof absa6995Schema>;
 
 // ============================================
-// Accountant Letter Form
-// ============================================
-
-export const accountantLetterSchema = z.object({
-	businessName: z.string().min(2, "Business name is required"),
-	physicalAddress: z.string().min(5, "Physical address is required"),
-	accountantName: z.string().min(2, "Accountant name is required"),
-	practiceNumber: z.string().min(2, "Practice number is required"),
-	confirmLegitimate: z.literal(true, {
-		message:
-			"You must confirm the business is legitimate and you are not aware of any investigation",
-	}),
-	signatureName: z.string().min(2, "Signature is required"),
-	signatureDate: z.string().min(2, "Signature date is required"),
-});
-
-export type AccountantLetterForm = z.infer<typeof accountantLetterSchema>;
-
-// ============================================
 // Call Centre Application Form
 // ============================================
 

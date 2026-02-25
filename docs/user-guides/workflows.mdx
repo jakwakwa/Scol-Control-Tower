@@ -38,7 +38,6 @@ Before any checks begin, the workflow waits for **all required inputs** to arriv
 | Input | Event | Required |
 | :--- | :--- | :--- |
 | FICA documents (bank statement, ID, proof of residence) | `upload/fica.received` | Always |
-| Accountant letter form | `form/accountant-letter.submitted` | When product type is not "call_centre" |
 | Procurement decision | `risk/procurement.completed` | When procurement review is required |
 
 The workflow only proceeds once all applicable inputs have been received.
@@ -52,7 +51,7 @@ ProcureCheck runs against the applicant. Per SOP, the result always goes to a Ri
 After all documents and forms are received, two independent checks run **in parallel**:
 
 - **ITC + sanctions check**: credit check via XDS/ITC and sanctions screening against UN, OFAC, and FIC TFS lists.
-- **AI Validation Agent**: Gemini-powered analysis of all uploaded documents (bank statements, ID, proof of residence) and the accountant letter form data. Runs validation, risk, and sanctions agents internally.
+- **AI Validation Agent**: Gemini-powered analysis of all uploaded documents (bank statements, ID, proof of residence, and optional accountant letter when provided). Runs validation, risk, and sanctions agents internally.
 
 Both paths must complete before the workflow continues.
 

@@ -444,7 +444,7 @@ export function RiskReviewDetail({
 					id: "3",
 					type: "stage_change",
 					title: "FICA Documents Received",
-					description: "Bank statement and accountant letter uploaded",
+					description: "Required documents uploaded",
 					timestamp: new Date(item.createdAt.getTime() + 3600000),
 				},
 				{
