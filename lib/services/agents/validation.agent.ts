@@ -118,15 +118,39 @@ export async function validateDocument(
 
 	const prompt = buildValidationPrompt(input);
 
-	const { object } = await generateObject({
-		model: getThinkingModel(),
-		schema: ValidationResultSchema,
-		schemaName: "DocumentValidation",
-		schemaDescription: "Document authenticity and validation analysis",
-		prompt,
-		temperature: AI_CONFIG.ANALYSIS_TEMPERATURE,
-	});
-	return { ...object, dataSource: "Gemini AI" };
+	try {
+		const { object } = await generateObject({
+			model: getThinkingModel(),
+			schema: ValidationResultSchema,
+			schemaName: "DocumentValidation",
+			schemaDescription: "Document authenticity and validation analysis",
+			prompt,
+			temperature: AI_CONFIG.ANALYSIS_TEMPERATURE,
+		});
+		return { ...object, dataSource: "Gemini AI" };
+	} catch (error) {
+		console.error("[ValidationAgent] AI generation failed:", error);
+		return {
+			isAuthentic: false,
+			authenticityScore: 0,
+			authenticityFlags: ["AI Verification Failed"],
+			dataIntegrityPassed: false,
+			dataIntegrityIssues: ["System Error processing document"],
+			dateValid: false,
+			dateIssues: ["Could not verify date"],
+			crossReferenceVerified: false,
+			crossReferenceDetails: {
+				nameMatch: false,
+				addressMatch: false,
+			},
+			overallValid: false,
+			overallScore: 0,
+			recommendation: "REVIEW",
+			reasoning:
+				"AI Verification Failed. Manual review is required due to system error processing document.",
+			dataSource: "AI Error — Manual Escalation",
+		};
+	}
 }
 
 /**
