@@ -67,11 +67,7 @@ import { inngest } from "../client";
 interface WorkflowContext {
 	applicantId: number;
 	workflowId: number;
-	businessType?: BusinessType;
-	mandateType?: string;
-	mandateVolume?: number;
 	procurementCleared?: boolean;
-	documentsComplete?: boolean;
 	aiAnalysisComplete?: boolean;
 }
 
@@ -648,10 +644,6 @@ export const controlTowerWorkflow = inngest.createFunction(
 				applicantIndustry ?? undefined
 			);
 
-			context.businessType = businessType;
-			context.mandateType = formData.mandateType;
-			context.mandateVolume = formData.mandateVolume;
-
 			if (db) {
 				await db
 					.update(applicants)
@@ -1101,15 +1093,15 @@ export const controlTowerWorkflow = inngest.createFunction(
 		}
 
 		// Emit mandate verified event
-		await step.run("mandate-verified", async () => {
-			context.documentsComplete = true;
-
+		// NOTE: We return documentsComplete from this step so Stage 3 can use the
+		// step's memoized return value instead of mutating context (which is lost on replay).
+		const mandateVerified = await step.run("mandate-verified", async () => {
 			await inngest.send({
 				name: "mandate/verified",
 				data: {
 					workflowId,
 					applicantId,
-					mandateType: (context.mandateType || "MIXED") as
+					mandateType: (mandateInfo.mandateType || "MIXED") as
 						| "EFT"
 						| "DEBIT_ORDER"
 						| "CASH"
@@ -1122,8 +1114,10 @@ export const controlTowerWorkflow = inngest.createFunction(
 			await logWorkflowEvent({
 				workflowId,
 				eventType: "mandate_verified",
-				payload: { retryCount, mandateType: context.mandateType },
+				payload: { retryCount, mandateType: mandateInfo.mandateType },
 			});
+
+			return { documentsComplete: true };
 		});
 
 		// ================================================================
@@ -1346,7 +1340,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 				})
 			: Promise.resolve(null);
 
-		const ficaPromise = context.documentsComplete
+		const ficaPromise = mandateVerified.documentsComplete
 			? Promise.resolve({
 					data: {
 						workflowId,
@@ -1503,7 +1497,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 					countryCode: "ZA",
 				},
 				documents: aiDocuments.length > 0 ? aiDocuments : undefined,
-				requestedAmount: context.mandateVolume,
+				requestedAmount: mandateInfo.mandateVolume,
 			});
 
 			return result;
@@ -2122,7 +2116,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 					completedAt: new Date().toISOString(),
 					riskManagerApproval: riskManagerApproval.data.approvedBy,
 					accountManagerApproval: accountManagerApproval.data.approvedBy,
-					businessType: context.businessType,
+					businessType: mandateInfo.businessType,
 					aiScore: aiAnalysis.scores.aggregatedScore,
 				},
 			});
@@ -2133,7 +2127,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 			stage: 6,
 			workflowId,
 			applicantId,
-			businessType: context.businessType,
+			businessType: mandateInfo.businessType,
 			aiScore: aiAnalysis.scores.aggregatedScore,
 			riskManagerApproval: riskManagerApproval.data.approvedBy,
 			accountManagerApproval: accountManagerApproval.data.approvedBy,

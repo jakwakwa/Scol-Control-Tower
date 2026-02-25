@@ -153,6 +153,7 @@ export async function POST(request: NextRequest) {
 					.where(eq(aiAnalysisLogs.id, logId));
 			}
 		}
+
 		// Send the event to Inngest to resume the workflow
 		await inngest.send({
 			name: "risk/decision.received",
