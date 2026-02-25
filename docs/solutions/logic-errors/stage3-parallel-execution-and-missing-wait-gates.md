@@ -190,6 +190,7 @@ Wait acct letter ─┘  └─────────────────�
 
 ## Cross-References
 
+- **Related bug — Inngest replay drops context mutations:** [inngest-replay-context-mutation-deadlock-ControlTower-20260225.md](./inngest-replay-context-mutation-deadlock-ControlTower-20260225.md) — different root cause (context mutations inside `step.run()` callbacks are lost on Inngest replay, causing FICA gate to deadlock after procurement is CLEARED).
 - **Event definitions:** `inngest/events.ts` — `form/accountant-letter.submitted` (line 174), `upload/fica.received` (line 303), `reporter/analysis.completed` (line 846)
 - **Document aggregator:** `inngest/functions/document-aggregator.ts` — triggers `upload/fica.received` when all required FICA docs are present
 - **Form submission handler:** `app/api/forms/submit/route.ts` — emits `form/accountant-letter.submitted`
