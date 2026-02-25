@@ -1,5 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, gte, or } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants, riskAssessments, workflowEvents, workflows } from "@/db/schema";
@@ -23,7 +23,17 @@ export async function GET(_request: NextRequest) {
 			return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
 		}
 
-		// Fetch workflows awaiting human review at Stage 3 or Stage 4
+		const url = new URL(_request.url);
+		const showHistory = url.searchParams.get("showHistory") === "true";
+
+		const baseConditions = showHistory
+			? gte(workflows.stage, 3)
+			: and(
+					eq(workflows.status, "awaiting_human"),
+					or(eq(workflows.stage, 3), eq(workflows.stage, 4))
+				);
+
+		// Fetch workflows awaiting human review at Stage 3 or Stage 4 (or all if history)
 		const riskReviewWorkflows = await db
 			.select({
 				workflowId: workflows.id,
@@ -39,12 +49,7 @@ export async function GET(_request: NextRequest) {
 			})
 			.from(workflows)
 			.leftJoin(applicants, eq(workflows.applicantId, applicants.id))
-			.where(
-				and(
-					eq(workflows.status, "awaiting_human"),
-					or(eq(workflows.stage, 3), eq(workflows.stage, 4))
-				)
-			);
+			.where(baseConditions);
 
 		// For each workflow, fetch the Reporter Agent output from risk_assessments
 		const itemsWithAnalysis = await Promise.all(
