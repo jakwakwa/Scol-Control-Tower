@@ -27,7 +27,7 @@ interface ApplicantFormData {
 	productType: string;
 	industry: string;
 	employeeCount: string;
-	estimatedVolume: string;
+	estimatedTransactionsPerMonth: string;
 	mandateType: string;
 	notes: string;
 }
@@ -60,7 +60,10 @@ export function ApplicantForm({
 		industry: initialData?.industry || "",
 		mandateType: initialData?.mandateType || "",
 		employeeCount: initialData?.employeeCount || "",
-		estimatedVolume: initialData?.estimatedVolume || "",
+		estimatedTransactionsPerMonth:
+			initialData?.estimatedTransactionsPerMonth != null
+				? String(initialData.estimatedTransactionsPerMonth)
+				: "",
 		notes: initialData?.notes || "",
 	});
 
@@ -80,7 +83,7 @@ export function ApplicantForm({
 			industry: `${isMockarooTestMode ? "Software Development" : "Financial Services"}`,
 			mandateType: `${isMockarooTestMode ? "Debit Order" : "debit_order"}`,
 			employeeCount: `${isMockarooTestMode ? "1" : "50"}`,
-			estimatedVolume: `${isMockarooTestMode ? `R ${Math.floor(Math.random() * 100000)}` : "R500,000"}`,
+			estimatedTransactionsPerMonth: `${isMockarooTestMode ? Math.floor(Math.random() * 5000) + 10 : "500"}`,
 			notes: "Mockaroo test applicant - auto-generated for credit check testing",
 		});
 	};
@@ -131,6 +134,9 @@ export function ApplicantForm({
 						...formData,
 						employeeCount: formData.employeeCount
 							? parseInt(formData.employeeCount, 10)
+							: undefined,
+						estimatedTransactionsPerMonth: formData.estimatedTransactionsPerMonth
+							? Math.round(Number(formData.estimatedTransactionsPerMonth)) || undefined
 							: undefined,
 					}),
 				});
@@ -270,14 +276,20 @@ export function ApplicantForm({
 							/>
 						</div>
 						<div className="space-y-2">
-							<Label htmlFor="estimatedVolume">Estimated Volume</Label>
+							<Label htmlFor="estimatedTransactionsPerMonth">
+								Estimated Volume (transactions per month)
+							</Label>
 							<Input
 								className="border-input-border"
-								id="estimatedVolume"
-								autoComplete="estimatedVolume"
-								value={formData.estimatedVolume}
-								onChange={e => updateField("estimatedVolume", e.target.value)}
-								placeholder="e.g., R500,000"
+								id="estimatedTransactionsPerMonth"
+								type="number"
+								min={1}
+								autoComplete="estimatedTransactionsPerMonth"
+								value={formData.estimatedTransactionsPerMonth}
+								onChange={e =>
+									updateField("estimatedTransactionsPerMonth", e.target.value)
+								}
+								placeholder="e.g., 500"
 							/>
 						</div>
 					</div>
