@@ -77,27 +77,6 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ error: "No files uploaded" }, { status: 400 });
 		}
 
-		// #region agent log
-		fetch("http://127.0.0.1:7777/ingest/1342ad28-6f5b-44ef-8633-73ef757759a0", {
-			method: "POST",
-			headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b54daf" },
-			body: JSON.stringify({
-				sessionId: "b54daf",
-				location: "api/fica/upload/route.ts:ENTRY",
-				message: "FICA upload received",
-				data: {
-					workflowId: metadata.workflowId,
-					applicantId: metadata.applicantId,
-					documentType: metadata.documentType,
-					fileCount: files.length,
-					fileSizes: files.map(f => ({ name: f.name, size: f.size, type: f.type })),
-				},
-				timestamp: Date.now(),
-				hypothesisId: "B",
-			}),
-		}).catch(() => {});
-		// #endregion
-
 		const db = getDatabaseClient();
 		if (!db) {
 			return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
@@ -184,29 +163,6 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// #region agent log
-		fetch("http://127.0.0.1:7777/ingest/1342ad28-6f5b-44ef-8633-73ef757759a0", {
-			method: "POST",
-			headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b54daf" },
-			body: JSON.stringify({
-				sessionId: "b54daf",
-				location: "api/fica/upload/route.ts:STORED",
-				message: "File bytes stored as base64 in DB",
-				data: {
-					workflowId: metadata.workflowId,
-					uploadedDocs: uploadedDocuments.map(d => ({
-						type: d.type,
-						filename: d.filename,
-					})),
-					fileContentPreserved: true,
-				},
-				timestamp: Date.now(),
-				hypothesisId: "B",
-				runId: "post-fix",
-			}),
-		}).catch(() => {});
-		// #endregion
-
 		await inngest.send({
 			name: "upload/fica.received",
 			data: {
@@ -247,6 +203,16 @@ export async function GET(request: NextRequest) {
 		return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
 	}
 
+	const [workflow] = await db
+		.select({ applicantId: workflows.applicantId })
+		.from(workflows)
+		.where(eq(workflows.id, parseInt(workflowId)))
+		.limit(1);
+
+	if (!workflow) {
+		return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
+	}
+
 	const docs = await db
 		.select({
 			id: documents.id,
@@ -258,7 +224,7 @@ export async function GET(request: NextRequest) {
 			storageUrl: documents.storageUrl,
 		})
 		.from(documents)
-		.where(eq(documents.applicantId, parseInt(workflowId)));
+		.where(eq(documents.applicantId, workflow.applicantId));
 
 	return NextResponse.json({
 		workflowId: parseInt(workflowId),

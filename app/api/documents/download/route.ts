@@ -100,11 +100,16 @@ export async function GET(request: NextRequest) {
 
 		const buffer = Buffer.from(fileContent, "base64");
 
+		const safeFilename =
+			(resolvedFileName || "document")
+				.replace(/[\r\n"]/g, "_")
+				.slice(0, 255) || "document";
+
 		return new NextResponse(buffer, {
 			status: 200,
 			headers: {
 				"Content-Type": mimeType,
-				"Content-Disposition": `inline; filename="${resolvedFileName}"`,
+				"Content-Disposition": `inline; filename="${safeFilename}"`,
 				"Content-Length": buffer.length.toString(),
 			},
 		});

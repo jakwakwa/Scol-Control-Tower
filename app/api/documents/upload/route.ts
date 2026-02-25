@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDatabaseClient } from "@/app/utils";
 import { documents } from "@/db/schema";
-import { inngest } from "@/inngest";
+import { inngest } from "@/inngest/client";
 import {
 	getFormInstanceByToken,
 	markFormInstanceStatus,
@@ -57,27 +57,6 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ error: "No files uploaded" }, { status: 400 });
 		}
 
-		// #region agent log
-		fetch("http://127.0.0.1:7777/ingest/1342ad28-6f5b-44ef-8633-73ef757759a0", {
-			method: "POST",
-			headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b54daf" },
-			body: JSON.stringify({
-				sessionId: "b54daf",
-				location: "api/documents/upload/route.ts:ENTRY",
-				message: "Document upload received - storing base64 content",
-				data: {
-					fileCount: files.length,
-					files: files.map(f => ({ name: f.name, size: f.size, type: f.type })),
-					applicantId: formInstance.applicantId,
-					workflowId: formInstance.workflowId,
-				},
-				timestamp: Date.now(),
-				hypothesisId: "B",
-				runId: "post-fix",
-			}),
-		}).catch(() => {});
-		// #endregion
-
 		const db = getDatabaseClient();
 		if (!db) {
 			return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
@@ -96,15 +75,18 @@ export async function POST(request: NextRequest) {
 			"application/rtf",
 		];
 
+		const maxSize = 10 * 1024 * 1024;
 		const uploadedDocuments = [];
+		const rejected: { name: string; reason: string }[] = [];
 
 		for (const file of files) {
 			if (!allowedTypes.includes(file.type)) {
+				rejected.push({ name: file.name, reason: "File type not allowed" });
 				continue;
 			}
 
-			const maxSize = 10 * 1024 * 1024;
 			if (file.size > maxSize) {
+				rejected.push({ name: file.name, reason: "File size exceeds 10MB limit" });
 				continue;
 			}
 
@@ -153,7 +135,10 @@ export async function POST(request: NextRequest) {
 
 		if (uploadedDocuments.length === 0) {
 			return NextResponse.json(
-				{ error: "No valid files were uploaded" },
+				{
+					error: "No valid files were uploaded",
+					rejected: rejected.length > 0 ? rejected : undefined,
+				},
 				{ status: 400 }
 			);
 		}
@@ -166,6 +151,7 @@ export async function POST(request: NextRequest) {
 			success: true,
 			message: `${uploadedDocuments.length} document(s) uploaded successfully`,
 			documents: uploadedDocuments,
+			...(rejected.length > 0 && { rejected }),
 		});
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "Unexpected error";

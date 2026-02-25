@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import crypto from "crypto";
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
@@ -16,6 +17,11 @@ import { inngest } from "@/inngest/client";
  * 3. Add file validation
  */
 export async function POST(request: NextRequest) {
+	const { userId } = await auth();
+	if (!userId) {
+		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+	}
+
 	const db = getDatabaseClient();
 	if (!db) {
 		return NextResponse.json({ error: "Database not available" }, { status: 500 });
@@ -88,45 +94,48 @@ export async function POST(request: NextRequest) {
 		const fileBuffer = await file.arrayBuffer();
 		const base64Content = Buffer.from(fileBuffer).toString("base64");
 
-		const storageUrl = `/api/documents/download?documentUploadId=PLACEHOLDER&storageKey=${encodeURIComponent(storageKey)}`;
+		const document = await db.transaction(async tx => {
+			const [inserted] = await tx
+				.insert(documentUploads)
+				.values({
+					workflowId: workflowIdNum,
+					internalFormId: internalFormId ? parseInt(internalFormId) : null,
+					category: category as
+						| "standard"
+						| "individual"
+						| "financial"
+						| "professional"
+						| "industry",
+					documentType,
+					fileName: file.name,
+					fileSize: file.size,
+					fileContent: base64Content,
+					mimeType: file.type,
+					storageKey,
+					storageUrl: `/api/documents/download?documentUploadId=PLACEHOLDER&storageKey=${encodeURIComponent(storageKey)}`,
+					verificationStatus: "pending",
+					metadata: metadata || undefined,
+					uploadedBy: userId || undefined,
+				})
+				.returning();
 
-		const result = await db
-			.insert(documentUploads)
-			.values({
-				workflowId: workflowIdNum,
-				internalFormId: internalFormId ? parseInt(internalFormId) : null,
-				category: category as
-					| "standard"
-					| "individual"
-					| "financial"
-					| "professional"
-					| "industry",
-				documentType,
-				fileName: file.name,
-				fileSize: file.size,
-				fileContent: base64Content,
-				mimeType: file.type,
-				storageKey,
-				storageUrl,
-				verificationStatus: "pending",
-				metadata: metadata || undefined,
-				uploadedBy: userId || undefined,
-			})
-			.returning();
+			if (!inserted) return null;
 
-		const document = result[0];
+			const actualStorageUrl = `/api/documents/download?documentUploadId=${inserted.id}&storageKey=${encodeURIComponent(storageKey)}`;
+			await tx
+				.update(documentUploads)
+				.set({ storageUrl: actualStorageUrl })
+				.where(eq(documentUploads.id, inserted.id));
+
+			return { ...inserted, storageUrl: actualStorageUrl };
+		});
+
 		if (!document) {
 			return NextResponse.json(
 				{ error: "Failed to create document record" },
 				{ status: 500 }
 			);
 		}
-
-		const actualStorageUrl = `/api/documents/download?documentUploadId=${document.id}&storageKey=${encodeURIComponent(storageKey)}`;
-		await db
-			.update(documentUploads)
-			.set({ storageUrl: actualStorageUrl })
-			.where(eq(documentUploads.id, document.id));
 
 		// Send document uploaded event for aggregation
 		await inngest.send({
@@ -222,6 +231,11 @@ export async function POST(request: NextRequest) {
  * List all documents for a workflow
  */
 export async function GET(request: NextRequest) {
+	const { userId } = await auth();
+	if (!userId) {
+		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+	}
+
 	const db = getDatabaseClient();
 	if (!db) {
 		return NextResponse.json({ error: "Database not available" }, { status: 500 });
