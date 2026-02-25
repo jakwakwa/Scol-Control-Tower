@@ -140,7 +140,7 @@ APPLICANT DETAILS:
 - Company: ${applicantData.companyName}
 - Industry: ${applicantData.industry || "Not provided"}
 - Employee count: ${applicantData.employeeCount ?? "Not provided"}
-- Mandate volume (cents): ${applicantData.mandateVolume ?? "Not provided"}
+- Estimated transactions per month: ${applicantData.estimatedTransactionsPerMonth ?? "Not provided"}
 - ITC score: ${applicantData.itcScore ?? "Not provided"}
 - Mandate type: ${applicantData.mandateType ?? "Not provided"}
 
@@ -153,7 +153,7 @@ OUTPUT REQUIREMENTS:
 - recommendation: STANDARD, PREMIUM, or HIGH_RISK
 
 RULES:
-- If mandate volume is missing, assume 5,000,000 cents (R50,000).
+- If estimated transactions per month is missing, the AI may use a reasonable default for pricing context.
 - Keep adjustedFeePercent within 50-500 bps.
 - Use ITC score to adjust risk and pricing.`;
 
