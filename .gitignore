@@ -41,3 +41,4 @@ next-env.d.ts
 !.env.example
 
 playwright/.clerk
+package-lock.json
