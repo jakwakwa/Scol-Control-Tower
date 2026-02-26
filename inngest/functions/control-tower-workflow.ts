@@ -743,6 +743,19 @@ export const controlTowerWorkflow = inngest.createFunction(
 				actionable: true,
 			});
 
+			// Parse quote details for structured email rendering
+			let riskFactors: string | string[] | null = null;
+			let generatedAt: string | null = null;
+			if (quote?.details) {
+				try {
+					const parsed = JSON.parse(quote.details);
+					riskFactors = parsed.riskFactors ?? null;
+					generatedAt = parsed.generatedAt ?? null;
+				} catch {
+					// Ignore parse errors
+				}
+			}
+
 			await sendInternalAlertEmail({
 				title,
 				message: `Quote generated for review. Amount: R${((quote?.amount || 0) / 100).toFixed(2)}`,
@@ -750,6 +763,19 @@ export const controlTowerWorkflow = inngest.createFunction(
 				applicantId,
 				type: isOverlimit ? "warning" : "info",
 				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}?tab=reviews`,
+				approveUrl: quote?.quoteId
+					? `${getBaseUrl()}/api/quotes/${quote.quoteId}/approve`
+					: undefined,
+				quoteDetails: quote
+					? {
+							amount: quote.amount,
+							baseFeePercent: quote.baseFeePercent,
+							adjustedFeePercent: quote.adjustedFeePercent,
+							rationale: quote.rationale,
+							riskFactors,
+							generatedAt,
+						}
+					: undefined,
 			});
 		});
 

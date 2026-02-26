@@ -31,7 +31,16 @@ export async function sendInternalAlertEmail(params: {
 	applicantId: number;
 	type?: "info" | "warning" | "error" | "success";
 	details?: Record<string, unknown>;
+	quoteDetails?: {
+		amount?: number;
+		baseFeePercent?: number;
+		adjustedFeePercent?: number | null;
+		rationale?: string | null;
+		riskFactors?: string | string[] | null;
+		generatedAt?: string | null;
+	};
 	actionUrl?: string;
+	approveUrl?: string;
 }): Promise<EmailResult> {
 	if (!resend || alertRecipients.length === 0) {
 		console.warn(
@@ -49,7 +58,9 @@ export async function sendInternalAlertEmail(params: {
 				applicantId={params.applicantId}
 				type={params.type}
 				details={params.details}
+				quoteDetails={params.quoteDetails}
 				actionUrl={params.actionUrl}
+				approveUrl={params.approveUrl}
 			/>
 		);
 
