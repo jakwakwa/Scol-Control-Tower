@@ -12,14 +12,14 @@
  * - Audit trail for compliance
  */
 
-import { eq, and, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import {
-	workflows,
-	workflowEvents,
-	notifications,
 	applicantMagiclinkForms,
 	applicants,
+	notifications,
+	workflowEvents,
+	workflows,
 } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import { sendInternalAlertEmail } from "./email.service";
@@ -33,6 +33,7 @@ export type KillSwitchReason =
 	| "PROCUREMENT_DENIED"
 	| "COMPLIANCE_VIOLATION"
 	| "FRAUD_DETECTED"
+	| "TIMEOUT_TERMINATION"
 	| "MANUAL_TERMINATION";
 
 export interface KillSwitchResult {
@@ -71,10 +72,6 @@ export async function executeKillSwitch(
 ): Promise<KillSwitchResult> {
 	const { workflowId, applicantId, reason, decidedBy, notes } = input;
 	const terminatedAt = new Date();
-
-	console.log(
-		`[KillSwitch] EXECUTING for Workflow ${workflowId} - Reason: ${reason}`
-	);
 
 	const db = getDatabaseClient();
 	if (!db) {
@@ -163,12 +160,11 @@ export async function executeKillSwitch(
 			applicantId,
 			reason: `Kill switch activated: ${getReasonMessage(reason)}${notes ? ` — ${notes}` : ""}`,
 			escalationType: reason === "COMPLIANCE_VIOLATION" ? "compliance" : "kill_switch",
-			severity: reason === "COMPLIANCE_VIOLATION" || reason === "FRAUD_DETECTED" ? "critical" : "warning",
+			severity:
+				reason === "COMPLIANCE_VIOLATION" || reason === "FRAUD_DETECTED"
+					? "critical"
+					: "warning",
 		});
-
-		console.log(
-			`[KillSwitch] SUCCESS - Workflow ${workflowId} terminated, ${formsRevoked} forms revoked`
-		);
 
 		return {
 			success: true,
@@ -220,7 +216,7 @@ export async function isWorkflowTerminated(workflowId: number): Promise<boolean>
 async function revokeAllPendingForms(
 	db: NonNullable<ReturnType<typeof getDatabaseClient>>,
 	applicantId: number,
-	workflowId: number
+	_workflowId: number
 ): Promise<number> {
 	try {
 		const pendingForms = await db
@@ -257,6 +253,7 @@ function getReasonMessage(reason: KillSwitchReason): string {
 		PROCUREMENT_DENIED: "Procurement check denied by Risk Manager",
 		COMPLIANCE_VIOLATION: "Compliance violation detected",
 		FRAUD_DETECTED: "Potential fraud detected",
+		TIMEOUT_TERMINATION: "Terminated automatically due to timeout",
 		MANUAL_TERMINATION: "Manually terminated by administrator",
 	};
 	return messages[reason];
