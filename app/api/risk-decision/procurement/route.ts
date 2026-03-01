@@ -24,6 +24,7 @@ import { inngest } from "@/inngest/client";
 import { OVERRIDE_CATEGORIES } from "@/lib/constants/override-taxonomy";
 import { recordFeedbackLog } from "@/lib/services/divergence.service";
 import { executeKillSwitch } from "@/lib/services/kill-switch.service";
+import { acquireStateLock, markStaleData } from "@/lib/services/state-lock.service";
 
 // ============================================
 // Request Schema
@@ -97,6 +98,22 @@ export async function POST(request: NextRequest) {
 				{ status: 404 }
 			);
 		}
+
+		// Phase 1: Acquire state lock to prevent ghost processes from overwriting
+		// this finalized decision. The lock version is atomically incremented,
+		// so any late-arriving background data will detect the collision.
+		const lockVersion = await acquireStateLock(workflowId, userId);
+		console.info(
+			`[ProcurementDecision] State lock acquired: workflow=${workflowId}, version=${lockVersion}, actor=${userId}`
+		);
+
+		// Mark any partial/stale data from failed automation attempts
+		// This ensures human operators won't accidentally validate corrupted data
+		await markStaleData(
+			workflowId,
+			"procurement_decision",
+			`Human procurement decision (${decision.outcome}) recorded — purging stale automation data`
+		);
 
 		// Log the decision event to the database (legacy event log)
 		await db.insert(workflowEvents).values({

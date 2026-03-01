@@ -62,7 +62,9 @@ export interface LogEventParams {
 		| "two_factor_approval_risk_manager"
 		| "two_factor_approval_account_manager"
 		| "final_approval"
-		| "management_escalation";
+		| "management_escalation"
+		| "stale_data_flagged"
+		| "state_lock_acquired";
 	payload: object;
 	actorType?: "user" | "agent" | "platform";
 	actorId?: string;

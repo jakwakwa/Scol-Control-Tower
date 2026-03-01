@@ -204,6 +204,13 @@ export const workflows = sqliteTable("workflows", {
 	currentAgent: text("current_agent"),
 	reviewType: text("review_type"), // procurement or general
 
+	// State Locking — Optimistic Concurrency Control (Phase 1: Ghost Process Prevention)
+	// Incremented atomically on every finalized state change (human decision, kill switch, etc.)
+	// Background processes must check this version before writing to detect collisions.
+	stateLockVersion: integer("state_lock_version").default(0),
+	stateLockedAt: integer("state_locked_at", { mode: "timestamp" }),
+	stateLockedBy: text("state_locked_by"), // User ID or "system"
+
 	// System
 	metadata: text("metadata"),
 });

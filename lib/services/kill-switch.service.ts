@@ -24,6 +24,7 @@ import {
 import { inngest } from "@/inngest/client";
 import { sendInternalAlertEmail } from "./email.service";
 import { escalateToManagement } from "./notification.service";
+import { acquireStateLock } from "./state-lock.service";
 
 // ============================================
 // Types
@@ -97,6 +98,10 @@ export async function executeKillSwitch(
 				metadata: notes ? JSON.stringify({ notes }) : undefined,
 			})
 			.where(eq(workflows.id, workflowId));
+
+		// Phase 1: Acquire state lock to prevent ghost processes from
+		// overwriting the terminated state with late-arriving results
+		await acquireStateLock(workflowId, decidedBy);
 
 		// Step 2: Revoke all pending form links
 		const formsRevoked = await revokeAllPendingForms(db, applicantId, workflowId);

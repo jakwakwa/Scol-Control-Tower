@@ -55,6 +55,10 @@ import {
 } from "@/lib/services/notification-events.service";
 import { generateQuote, type Quote } from "@/lib/services/quote.service";
 import { analyzeRisk as runProcureCheck } from "@/lib/services/risk.service";
+import {
+	getStateLockInfo,
+	handleStateCollision,
+} from "@/lib/services/state-lock.service";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 import type { FormType } from "@/lib/types";
 import { inngest } from "../client";
@@ -1312,6 +1316,17 @@ export const controlTowerWorkflow = inngest.createFunction(
 			});
 		});
 
+		// Phase 1: Capture the current state lock version before launching parallel streams.
+		// This version is the "checkpoint" — if it changes during execution,
+		// a human has finalized the record and background data must be discarded.
+		const preLockState = await step.run("capture-state-lock-version", async () => {
+			const lockInfo = await getStateLockInfo(workflowId);
+			console.info(
+				`[ControlTower] State lock checkpoint: workflow=${workflowId}, version=${lockInfo.version}`
+			);
+			return { version: lockInfo.version };
+		});
+
 		// ================================================================
 		// PARALLEL STREAM A: Procurement Risk Assessment
 		// ================================================================
@@ -1320,6 +1335,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 			cleared: boolean;
 			requiresReview: boolean;
 			killSwitchTriggered: boolean;
+			stateLockCollision?: boolean;
 			reason?: string;
 			error?: string;
 			result?: Awaited<ReturnType<typeof runProcureCheck>>;
@@ -1335,6 +1351,30 @@ export const controlTowerWorkflow = inngest.createFunction(
 						reason: "Workflow terminated",
 						killSwitchTriggered: true,
 						requiresReview: false,
+					};
+				}
+
+				// Phase 1: Ghost Process Guard — check if a human has finalized
+				// this record since we started. If so, discard our results.
+				const currentLock = await getStateLockInfo(workflowId);
+				if (currentLock.version !== preLockState.version) {
+					console.warn(
+						`[ControlTower] Stream A: State collision detected — ` +
+							`expected v${preLockState.version}, found v${currentLock.version}. ` +
+							`Discarding procurement results.`
+					);
+					await handleStateCollision(workflowId, "stream-a-procurement", {
+						stream: "procurement",
+						expectedVersion: preLockState.version,
+						actualVersion: currentLock.version,
+						lockedBy: currentLock.lockedBy,
+					});
+					return {
+						cleared: false,
+						requiresReview: false,
+						killSwitchTriggered: false,
+						stateLockCollision: true,
+						reason: `State lock collision: human decision (v${currentLock.version}) overrides background data`,
 					};
 				}
 
@@ -1403,6 +1443,27 @@ export const controlTowerWorkflow = inngest.createFunction(
 				return { requested: false, reason: "Workflow terminated" };
 			}
 
+			// Phase 1: Ghost Process Guard — check if a human has finalized
+			// this record since we started. If so, don't request more documents.
+			const currentLock = await getStateLockInfo(workflowId);
+			if (currentLock.version !== preLockState.version) {
+				console.warn(
+					`[ControlTower] Stream B: State collision detected — ` +
+						`expected v${preLockState.version}, found v${currentLock.version}. ` +
+						`Skipping FICA document request.`
+				);
+				await handleStateCollision(workflowId, "stream-b-fica-and-ai", {
+					stream: "fica_and_ai",
+					expectedVersion: preLockState.version,
+					actualVersion: currentLock.version,
+					lockedBy: currentLock.lockedBy,
+				});
+				return {
+					requested: false,
+					reason: "State lock collision — human decision overrides",
+				};
+			}
+
 			await createWorkflowNotification({
 				workflowId,
 				applicantId,
@@ -1434,6 +1495,29 @@ export const controlTowerWorkflow = inngest.createFunction(
 				stage: 3,
 				reason: "Procurement check triggered kill switch",
 			};
+		}
+
+		// Phase 1: Check if a state lock collision was detected in the parallel streams.
+		// This means a human finalized the record while the background streams were running.
+		// The stale data has already been handled — log and continue gracefully.
+		if (procurementStreamResult.stateLockCollision) {
+			console.info(
+				`[ControlTower] State lock collision handled in Stream A for workflow ${workflowId}. ` +
+					`Human decision takes precedence. Continuing with manual review path.`
+			);
+
+			await step.run("log-state-collision-handled", async () => {
+				await logWorkflowEvent({
+					workflowId,
+					eventType: "stale_data_flagged",
+					payload: {
+						source: "parallel_stream_collision",
+						resolution: "human_decision_preserved",
+						collisionInStreams: ["stream-a-procurement"],
+						detectedAt: new Date().toISOString(),
+					},
+				});
+			});
 		}
 
 		// PARALLEL WAIT LOGIC
