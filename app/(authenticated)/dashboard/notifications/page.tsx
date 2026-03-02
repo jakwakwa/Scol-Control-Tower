@@ -12,6 +12,19 @@ import { DashboardLayout, DashboardSection, GlassCard } from "@/components/dashb
 import { Button } from "@/components/ui/button";
 import { applicants, notifications, workflows } from "@/db/schema";
 
+interface NotificationRow {
+	id: number;
+	workflowId: number | null;
+	type: string;
+	message: string;
+	read: boolean | null;
+	actionable: boolean | null;
+	createdAt: Date | null;
+	clientName: string | null;
+	severity: string | null;
+	groupKey: string | null;
+}
+
 async function markAsRead(formData: FormData) {
 	"use server";
 	const id = formData.get("id");
@@ -63,28 +76,43 @@ async function markAllAsRead() {
 	revalidatePath("/dashboard/notifications");
 }
 
-const MANUAL_PROCUREMENT_ALERT_TERMS = [
+const MANUAL_FALLBACK_ALERT_TERMS = [
 	"manual procurement check required",
 	"procurement_check_failed",
 	"procurecheck failed",
 	"procurement check failed",
+	"manual sanctions check required",
+	"sanctions_check_failed",
+	"automated sanctions checks failed",
 ];
 
-function isManualProcurementNotification(message: string): boolean {
+function isManualFallbackNotification(message: string): boolean {
 	const normalized = message.toLowerCase();
-	return MANUAL_PROCUREMENT_ALERT_TERMS.some(term => normalized.includes(term));
+	return MANUAL_FALLBACK_ALERT_TERMS.some(term => normalized.includes(term));
+}
+
+function isManualSanctionsNotification(message: string): boolean {
+	const normalized = message.toLowerCase();
+	return (
+		normalized.includes("manual sanctions check required") ||
+		normalized.includes("sanctions_check_failed") ||
+		normalized.includes("automated sanctions checks failed")
+	);
 }
 
 function formatNotificationMessage(message: string): string {
-	if (!isManualProcurementNotification(message)) {
+	if (!isManualFallbackNotification(message)) {
 		return message;
+	}
+	if (isManualSanctionsNotification(message)) {
+		return "Automated sanctions checks failed. Complete a full manual sanctions check in Risk Review and record the sanctions decision.";
 	}
 	return "Automated procurement checks failed. Complete a full manual procurement check in Risk Review and record the procurement decision.";
 }
 
 export default async function NotificationsPage() {
 	const db = getDatabaseClient();
-	let allNotifications: any[] = [];
+	let allNotifications: NotificationRow[] = [];
 
 	if (db) {
 		try {
@@ -189,7 +217,7 @@ export default async function NotificationsPage() {
 									<div>
 										<h4 className="font-medium flex items-center gap-2">
 											{notification.clientName || "Unknown Client"}
-											{isManualProcurementNotification(notification.message) && (
+											{isManualFallbackNotification(notification.message) && (
 												<span className="text-[10px] uppercase tracking-wide text-red-300 border border-red-500/30 bg-red-500/10 rounded px-1.5 py-0.5">
 													Manual Check
 												</span>

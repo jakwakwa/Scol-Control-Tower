@@ -26,8 +26,12 @@ const getNotificationRoute = (notification: WorkflowNotification): string => {
 		message.includes("procurement_check_failed") ||
 		message.includes("procurecheck failed") ||
 		message.includes("procurement review required");
+	const isSanctionsManualCheck =
+		message.includes("manual sanctions check required") ||
+		message.includes("sanctions_check_failed") ||
+		message.includes("automated sanctions checks failed");
 
-	if (isProcurementManualCheck) {
+	if (isProcurementManualCheck || isSanctionsManualCheck) {
 		return "/dashboard/risk-review";
 	}
 

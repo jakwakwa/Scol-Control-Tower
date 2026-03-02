@@ -7,7 +7,7 @@
 **In scope:**
 - `industryRegulator` (high-confidence): NCR, CFDC, SAICA, CIBA, FPI, FISA, RMI, PSIRA, SACE, DOE
 - `sanctionsEvidenceEnrichment`: OFAC, UN 1267, FIC TFS
-- `sanctionsPrimarySearch` (when `ENABLE_FIRECRAWL_SANCTIONS_PRIMARY=true`): Firecrawl agent scrapes UN consolidated XML, OFAC, FIC TFS; becomes primary sanctions path; Yente bypassed
+- `sanctionsPrimarySearch`: OpenSanctions `/match/sanctions` is primary; Firecrawl sanctions crawling (UN/OFAC/FIC) is fallback
 - `socialReputation`: HelloPeter
 - `mediumConfidenceRegulator`: FSCA, HPCSA, SAIPA, LPC
 
@@ -179,9 +179,9 @@ Normalized evidence record for sanctions and regulator checks.
 
 **Provider codes:** `HELLOPETER`
 
-### 2.4 Sanctions Primary Search (Firecrawl Agent)
+### 2.4 Sanctions Primary Search (OpenSanctions + Firecrawl Fallback)
 
-When `ENABLE_FIRECRAWL_SANCTIONS_PRIMARY=true` and `FIRECRAWL_API_KEY` is set, the Firecrawl agent becomes the **primary** sanctions screening path. Yente and mock fallbacks are bypassed until the Firecrawl path fails.
+OpenSanctions `/match/sanctions` is the **primary** sanctions screening path. If OpenSanctions fails, Firecrawl crawls UN consolidated XML, OFAC, and FIC TFS as the automated fallback.
 
 **Data sources (searched in parallel):**
 
@@ -203,11 +203,14 @@ When `ENABLE_FIRECRAWL_SANCTIONS_PRIMARY=true` and `FIRECRAWL_API_KEY` is set, t
 **Environment variables:**
 
 ```bash
-ENABLE_FIRECRAWL_SANCTIONS_PRIMARY=true   # Enable primary path
-FIRECRAWL_API_KEY=fc-...                  # Required for Firecrawl agent
+OPENSANCTIONS_API_URL=https://api.opensanctions.org
+OPENSANCTIONS_API_KEY=...
+OPENSANCTIONS_MATCH_DATASET=sanctions
+OPENSANCTIONS_MATCH_ALGORITHM=best
+FIRECRAWL_API_KEY=fc-...                  # Required for fallback crawling
 ```
 
-**Fallback:** On Firecrawl failure, falls back to Yente (if configured) or mock.
+**Fallback:** On OpenSanctions failure, falls back to Firecrawl sanctions-list crawling. If both fail, route to manual sanctions review with structured workflow error logging.
 
 ### 2.5 MediumConfidenceRegulatorCheckRequest / Result
 

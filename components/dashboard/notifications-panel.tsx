@@ -89,21 +89,36 @@ const notificationConfig = {
 	},
 };
 
-const MANUAL_PROCUREMENT_ALERT_TERMS = [
+const MANUAL_FALLBACK_ALERT_TERMS = [
 	"manual procurement check required",
 	"procurement_check_failed",
 	"procurecheck failed",
 	"procurement check failed",
+	"manual sanctions check required",
+	"sanctions_check_failed",
+	"automated sanctions checks failed",
 ];
 
-function isManualProcurementNotification(message: string): boolean {
+function isManualFallbackNotification(message: string): boolean {
 	const normalized = message.toLowerCase();
-	return MANUAL_PROCUREMENT_ALERT_TERMS.some(term => normalized.includes(term));
+	return MANUAL_FALLBACK_ALERT_TERMS.some(term => normalized.includes(term));
+}
+
+function isManualSanctionsNotification(message: string): boolean {
+	const normalized = message.toLowerCase();
+	return (
+		normalized.includes("manual sanctions check required") ||
+		normalized.includes("sanctions_check_failed") ||
+		normalized.includes("automated sanctions checks failed")
+	);
 }
 
 function formatNotificationMessage(message: string): string {
-	if (!isManualProcurementNotification(message)) {
+	if (!isManualFallbackNotification(message)) {
 		return message;
+	}
+	if (isManualSanctionsNotification(message)) {
+		return "Automated sanctions checks failed. Risk Manager must complete a full manual sanctions screening and record the sanctions outcome.";
 	}
 	return "Automated procurement checks failed. Risk Manager must complete a full manual procurement check and record a procurement decision.";
 }
@@ -225,7 +240,7 @@ export function NotificationsPanel({
 						const config =
 							notificationConfig[notification?.type] ?? notificationConfig.info;
 						const Icon = config.icon;
-						const isManualProcurementAlert = isManualProcurementNotification(
+						const isManualProcurementAlert = isManualFallbackNotification(
 							notification?.message || ""
 						);
 

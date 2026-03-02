@@ -7,10 +7,8 @@
  * - Adverse media scanning
  * - Regulatory watch list verification
  *
- * Primary: Firecrawl agent (when ENABLE_FIRECRAWL_SANCTIONS_PRIMARY=true)
- *   - Scrapes UN consolidated XML, OFAC, FIC TFS lists
- * Fallback: OpenSanctions yente (when YENTE_API_URL configured)
- * Fallback: Deterministic mock (when neither configured)
+ * Primary: OpenSanctions hosted matching API
+ * Fallback: Firecrawl sanctions-list crawling (UN, OFAC, FIC TFS)
  */
 
 import { z } from "zod";
@@ -22,25 +20,25 @@ import {
 } from "@/lib/services/firecrawl";
 
 // ============================================
-// OpenSanctions yente Configuration
+// OpenSanctions Configuration
 // ============================================
 
-const YENTE_CONFIG = {
-	apiUrl: process.env.YENTE_API_URL,
-	apiKey: process.env.OPENSANCTIONS_KEY,
-	threshold: parseFloat(process.env.YENTE_MATCH_THRESHOLD || "0.7"),
-	dataset: process.env.YENTE_DATASET || "default",
+const OPENSANCTIONS_CONFIG = {
+	apiUrl: process.env.OPENSANCTIONS_API_URL || "https://api.opensanctions.org",
+	apiKey: process.env.OPENSANCTIONS_API_KEY || process.env.OPENSANCTIONS_KEY,
+	algorithm: process.env.OPENSANCTIONS_MATCH_ALGORITHM || "best",
+	dataset: process.env.OPENSANCTIONS_MATCH_DATASET || "sanctions",
 };
 
-function isYenteConfigured(): boolean {
-	return !!YENTE_CONFIG.apiUrl;
+function isFirecrawlSanctionsFallbackConfigured(): boolean {
+	return isFirecrawlConfigured();
 }
 
 // ============================================
-// Yente API Response Types
+// OpenSanctions API Response Types
 // ============================================
 
-interface YenteMatchResult {
+interface OpenSanctionsMatchResult {
 	id: string;
 	caption: string;
 	schema: string;
@@ -56,15 +54,15 @@ interface YenteMatchResult {
 	match: boolean;
 }
 
-interface YenteQueryResponse {
+interface OpenSanctionsQueryResponse {
 	status: number;
-	results: YenteMatchResult[];
+	results: OpenSanctionsMatchResult[];
 	total: { value: number; relation: string };
 	query: Record<string, unknown>;
 }
 
-interface YenteMatchResponse {
-	responses: Record<string, YenteQueryResponse>;
+interface OpenSanctionsMatchResponse {
+	responses: Record<string, OpenSanctionsQueryResponse>;
 }
 
 const UN_SANCTIONS_DATASETS = ["un_sc_sanctions", "un_sc_consolidated"];
@@ -228,19 +226,24 @@ export interface SanctionsCheckInput {
 
 /**
  * Perform sanctions and compliance checks.
- * Primary: Firecrawl agent (UN, OFAC, FIC TFS) when ENABLE_FIRECRAWL_SANCTIONS_PRIMARY=true
- * Fallback: OpenSanctions yente when YENTE_API_URL configured
- * Throws error when neither configured or both fail.
+ * Primary: OpenSanctions matching API.
+ * Fallback: Firecrawl sanctions-list crawler.
  */
 export async function performSanctionsCheck(
 	input: SanctionsCheckInput
 ): Promise<SanctionsCheckResult> {
-	let lastError: Error | unknown;
+	let openSanctionsError: Error | unknown;
+	let firecrawlError: Error | unknown;
 
-	if (
-		process.env.ENABLE_FIRECRAWL_SANCTIONS_PRIMARY === "true" &&
-		isFirecrawlConfigured()
-	) {
+	try {
+		const result = await performOpenSanctionsCheck(input);
+		return result;
+	} catch (err) {
+		console.error("[SanctionsAgent] OpenSanctions match API failed:", err);
+		openSanctionsError = err;
+	}
+
+	if (isFirecrawlSanctionsFallbackConfigured()) {
 		try {
 			const combined = await runFirecrawlSanctionsSearch({
 				entityName: input.entityName,
@@ -249,38 +252,36 @@ export async function performSanctionsCheck(
 			});
 			return mapCombinedToSanctionsCheckResult(combined, input);
 		} catch (err) {
-			console.error("[SanctionsAgent] Firecrawl sanctions search failed:", err);
-			lastError = err;
+			console.error("[SanctionsAgent] Firecrawl sanctions crawler failed:", err);
+			firecrawlError = err;
 		}
 	}
 
-	if (isYenteConfigured()) {
-		try {
-			const result = await performYenteSanctionsCheck(input);
-			return result;
-		} catch (err) {
-			console.error("[SanctionsAgent] yente API failed:", err);
-			lastError = err;
-		}
+	const formatError = (err: Error | unknown): string =>
+		err instanceof Error ? err.message : String(err);
+
+	if (openSanctionsError || firecrawlError) {
+		const details = [
+			`openSanctions=${openSanctionsError ? formatError(openSanctionsError) : "not_attempted"}`,
+			`firecrawl=${firecrawlError ? formatError(firecrawlError) : "not_configured"}`,
+		].join("; ");
+
+		throw new Error(`Sanctions check failed across providers: ${details}`);
 	}
 
-	if (lastError) {
-		throw new Error(
-			`Sanctions check failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`
-		);
-	} else {
-		throw new Error("No sanctions checking service is configured (Firecrawl or Yente).");
-	}
+	throw new Error(
+		"Sanctions check failed: OpenSanctions unavailable and Firecrawl sanctions fallback not configured."
+	);
 }
 
 // ============================================
-// OpenSanctions yente Integration
+// OpenSanctions Match API Integration
 // ============================================
 
 /**
- * Build yente match queries for the entity and its directors.
+ * Build OpenSanctions match queries for the entity and its directors.
  */
-function buildYenteQueries(
+function buildOpenSanctionsQueries(
 	input: SanctionsCheckInput
 ): Record<string, Record<string, unknown>> {
 	const queries: Record<string, Record<string, unknown>> = {};
@@ -345,42 +346,46 @@ function isPepDataset(dataset: string): boolean {
 }
 
 /**
- * Call the yente /match endpoint and map results to SanctionsCheckResult.
+ * Call the OpenSanctions /match endpoint and map results to SanctionsCheckResult.
  */
-async function performYenteSanctionsCheck(
+async function performOpenSanctionsCheck(
 	input: SanctionsCheckInput
 ): Promise<SanctionsCheckResult> {
-	const queries = buildYenteQueries(input);
-	const apiKeyParam = YENTE_CONFIG.apiKey ? `&api_key=${YENTE_CONFIG.apiKey}` : "";
-	const url = `${YENTE_CONFIG.apiUrl}/match/${YENTE_CONFIG.dataset}?threshold=${YENTE_CONFIG.threshold}${apiKeyParam}`;
+	const queries = buildOpenSanctionsQueries(input);
+	const url = `${OPENSANCTIONS_CONFIG.apiUrl}/match/${OPENSANCTIONS_CONFIG.dataset}?algorithm=${OPENSANCTIONS_CONFIG.algorithm}`;
 
 	const response = await fetch(url, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
+		headers: {
+			"Content-Type": "application/json",
+			...(OPENSANCTIONS_CONFIG.apiKey
+				? { Authorization: `ApiKey ${OPENSANCTIONS_CONFIG.apiKey}` }
+				: {}),
+		},
 		body: JSON.stringify({ queries }),
 	});
 
 	if (!response.ok) {
 		const text = await response.text();
-		throw new Error(`yente API returned ${response.status}: ${text}`);
+		throw new Error(`OpenSanctions API returned ${response.status}: ${text}`);
 	}
 
-	const data = (await response.json()) as YenteMatchResponse;
+	const data = (await response.json()) as OpenSanctionsMatchResponse;
 
-	return mapYenteResponseToResult(input, data);
+	return mapOpenSanctionsResponseToResult(input, data);
 }
 
 /**
- * Map yente batch match response to our SanctionsCheckResult schema.
+ * Map OpenSanctions batch match response to our SanctionsCheckResult schema.
  */
-function mapYenteResponseToResult(
+function mapOpenSanctionsResponseToResult(
 	input: SanctionsCheckInput,
-	data: YenteMatchResponse
+	data: OpenSanctionsMatchResponse
 ): SanctionsCheckResult {
 	const now = new Date();
 	const checkId = `SCK-${input.workflowId}-${Date.now()}`;
 
-	const allMatches: YenteMatchResult[] = [];
+	const allMatches: OpenSanctionsMatchResult[] = [];
 	for (const queryResponse of Object.values(data.responses)) {
 		if (queryResponse.results) {
 			allMatches.push(...queryResponse.results.filter(r => r.match));
@@ -511,7 +516,7 @@ function mapYenteResponseToResult(
 			checkId,
 			checkedAt: now.toISOString(),
 			expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-			dataSource: `OpenSanctions yente (${YENTE_CONFIG.dataset})`,
+			dataSource: `OpenSanctions (${OPENSANCTIONS_CONFIG.dataset})`,
 		},
 	};
 }
