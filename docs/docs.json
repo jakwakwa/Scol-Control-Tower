@@ -57,6 +57,12 @@
             ]
           },
           {
+            "group": "Project",
+            "pages": [
+              "project/changelog-2026-03-02"
+            ]
+          },
+          {
             "group": "AI tools",
             "pages": [
               "ai-tools/cursor",
