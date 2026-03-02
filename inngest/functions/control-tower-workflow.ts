@@ -1672,7 +1672,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 			return { status: "timeout", stage: 3, reason: "FICA document upload timeout" };
 		}
 
-		if (ficaDocsReceived.data.source !== "stage2_documents_already_complete") {
+		if ("source" in ficaDocsReceived.data && ficaDocsReceived.data.source !== "stage2_documents_already_complete") {
 			await step.run("notify-am-fica-docs-uploaded", async () => {
 				await guardKillSwitch(workflowId, "notify-am-fica-docs-uploaded");
 				await createWorkflowNotification({

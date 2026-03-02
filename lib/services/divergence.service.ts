@@ -39,6 +39,7 @@ interface RecordFeedbackInput {
 	overrideSubcategory?: string;
 	overrideDetails?: string;
 	decidedBy: string;
+	relatedFailureEventId?: number;
 }
 
 interface AiAnalysisSnapshot {
@@ -157,6 +158,7 @@ export async function recordFeedbackLog(input: RecordFeedbackInput): Promise<{
 				divergenceWeight: divergence.divergenceWeight,
 				divergenceType: divergence.divergenceType,
 				decidedBy: input.decidedBy,
+				relatedFailureEventId: input.relatedFailureEventId,
 			})
 			.returning({ id: aiFeedbackLogs.id });
 

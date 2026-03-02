@@ -46,6 +46,9 @@ export async function GET(_request: NextRequest) {
 				contactName: applicants.contactName,
 				itcScore: applicants.itcScore,
 				riskLevel: applicants.riskLevel,
+				decisionType: workflows.decisionType,
+				targetResource: workflows.targetResource,
+				reviewTypeDb: workflows.reviewType,
 			})
 			.from(workflows)
 			.leftJoin(applicants, eq(workflows.applicantId, applicants.id))
@@ -181,9 +184,11 @@ export async function GET(_request: NextRequest) {
 					description: flag,
 				}));
 
-				// Map recommendation to stage-appropriate labels
-				const stageLabel = workflow.stage === 3 ? "Procurement & AI" : "Risk Review";
-				const reviewType = workflow.stage === 3 ? "procurement" : "general";
+				// Derive reviewType from DB metadata first, fall back to stage
+				const reviewType = workflow.reviewTypeDb || (workflow.stage === 3 ? "procurement" : "general");
+				const stageLabel = reviewType === "procurement" ? "Procurement & AI" : "Risk Review";
+				const decisionType = workflow.decisionType || (reviewType === "procurement" ? "procurement_review" : "risk_review");
+				const targetResource = workflow.targetResource || (reviewType === "procurement" ? "/api/risk-decision/procurement" : "/api/risk-decision");
 
 				return {
 					id: workflow.workflowId,
@@ -194,6 +199,8 @@ export async function GET(_request: NextRequest) {
 					stage: workflow.stage || 3,
 					stageName: stageLabel,
 					reviewType,
+					decisionType,
+					targetResource,
 					createdAt: workflow.startedAt
 						? new Date(workflow.startedAt).toISOString()
 						: new Date().toISOString(),

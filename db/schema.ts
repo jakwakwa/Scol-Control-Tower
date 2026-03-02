@@ -203,6 +203,8 @@ export const workflows = sqliteTable("workflows", {
 	stageName: text("stage_name"),
 	currentAgent: text("current_agent"),
 	reviewType: text("review_type"), // procurement or general
+	decisionType: text("decision_type"), // e.g. "procurement_review", "risk_review", "quote_approval", "final_approval"
+	targetResource: text("target_resource"), // API endpoint path, e.g. "/api/risk-decision/procurement"
 
 	// State Locking — Optimistic Concurrency Control (Phase 1: Ghost Process Prevention)
 	// Incremented atomically on every finalized state change (human decision, kill switch, etc.)
@@ -215,6 +217,9 @@ export const workflows = sqliteTable("workflows", {
 	metadata: text("metadata"),
 });
 
+export const NOTIFICATION_SEVERITIES = ["low", "medium", "high", "critical"] as const;
+export type NotificationSeverity = (typeof NOTIFICATION_SEVERITIES)[number];
+
 export const notifications = sqliteTable("notifications", {
 	id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
 	workflowId: integer("workflow_id").references(() => workflows.id),
@@ -224,6 +229,8 @@ export const notifications = sqliteTable("notifications", {
 	read: integer("read", { mode: "boolean" }).default(false),
 	createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 	actionable: integer("actionable", { mode: "boolean" }).default(false),
+	severity: text("severity").default("medium"), // low | medium | high | critical
+	groupKey: text("group_key"), // batch grouping key, e.g. "batch_failure:workflow:42"
 });
 
 export const workflowEvents = sqliteTable("workflow_events", {
@@ -273,6 +280,11 @@ export const aiFeedbackLogs = sqliteTable("ai_feedback_logs", {
 	decidedAt: integer("decided_at", { mode: "timestamp" })
 		.notNull()
 		.$defaultFn(() => new Date()),
+
+	// Data lineage: links this decision to the specific failure event that triggered manual review
+	relatedFailureEventId: integer("related_failure_event_id").references(
+		() => workflowEvents.id
+	),
 
 	// Retraining status
 	consumedForRetraining: integer("consumed_for_retraining", { mode: "boolean" }).default(
@@ -513,6 +525,10 @@ export const aiFeedbackLogsRelations = relations(aiFeedbackLogs, ({ one }) => ({
 	applicant: one(applicants, {
 		fields: [aiFeedbackLogs.applicantId],
 		references: [applicants.id],
+	}),
+	relatedFailureEvent: one(workflowEvents, {
+		fields: [aiFeedbackLogs.relatedFailureEventId],
+		references: [workflowEvents.id],
 	}),
 }));
 

@@ -625,6 +625,7 @@ export type Events = {
 				| "PROCUREMENT_DENIED"
 				| "COMPLIANCE_VIOLATION"
 				| "FRAUD_DETECTED"
+				| "TIMEOUT_TERMINATION"
 				| "MANUAL_TERMINATION";
 			decidedBy: string;
 			terminatedAt: string;

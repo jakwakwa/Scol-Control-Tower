@@ -37,6 +37,8 @@ export interface WorkflowNotification {
 	timestamp: Date;
 	read: boolean;
 	actionable?: boolean;
+	severity?: "low" | "medium" | "high" | "critical";
+	groupKey?: string;
 }
 
 const notificationConfig = {
@@ -216,21 +218,26 @@ export function NotificationsPanel({
 							<p className="mt-3 text-sm text-muted-foreground">No notifications yet</p>
 						</div>
 					) : (
-						notifications?.map(notification => {
-							const config =
-								notificationConfig[notification?.type] ?? notificationConfig.info;
-							const Icon = config.icon;
-							const isManualProcurementAlert = isManualProcurementNotification(
-								notification?.message || ""
-							);
+					notifications?.map(notification => {
+						const isHighSeverity =
+							notification?.severity === "high" || notification?.severity === "critical";
+						const isMediumGrouped = notification?.severity === "medium" && notification?.groupKey;
+						const config =
+							notificationConfig[notification?.type] ?? notificationConfig.info;
+						const Icon = config.icon;
+						const isManualProcurementAlert = isManualProcurementNotification(
+							notification?.message || ""
+						);
 
-							return (
-								<div
-									key={notification?.id}
-									className={cn(
-										"group relative flex gap-3 px-4 py-3 border-b border-secondary/5 transition-colors hover:bg-secondary/5",
-										!notification?.read && "bg-secondary/2"
-									)}>
+						return (
+							<div
+								key={notification?.id}
+								className={cn(
+									"group relative flex gap-3 px-4 py-3 border-b border-secondary/5 transition-colors hover:bg-secondary/5",
+									!notification?.read && "bg-secondary/2",
+									isHighSeverity && "bg-destructive text-destructive-foreground",
+									isMediumGrouped && "bg-warning/20 border-l-4 border-l-warning"
+								)}>
 									{/* Main Action Button */}
 									<button
 										type="button"

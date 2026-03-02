@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { inngest } from "@/inngest";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
+import { acquireStateLock } from "@/lib/services/state-lock.service";
 
 const RejectQuoteSchema = z.object({
 	reason: z.string().min(1, "Reason is required"),
@@ -88,6 +89,8 @@ export async function POST(
 				{ status: 400 }
 			);
 		}
+
+		await acquireStateLock(updatedQuote.workflowId, userId);
 
 		// Send rejection event to Inngest
 		await inngest.send({

@@ -21,6 +21,7 @@ import { aiAnalysisLogs, workflowEvents, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import { OVERRIDE_CATEGORIES } from "@/lib/constants/override-taxonomy";
 import { recordFeedbackLog } from "@/lib/services/divergence.service";
+import { acquireStateLock } from "@/lib/services/state-lock.service";
 
 // ============================================
 // Request Schema — Structured Override Data
@@ -29,6 +30,7 @@ import { recordFeedbackLog } from "@/lib/services/divergence.service";
 const RiskDecisionSchema = z.object({
 	workflowId: z.number().int().positive("Workflow ID is required"),
 	applicantId: z.number().int().positive("Applicant ID is required"),
+	relatedFailureEventId: z.number().int().positive().optional(),
 	decision: z.object({
 		outcome: z.enum(["APPROVED", "REJECTED", "REQUEST_MORE_INFO"]),
 		reason: z.string().optional(),
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const { workflowId, applicantId, decision } = validationResult.data;
+		const { workflowId, applicantId, decision, relatedFailureEventId } = validationResult.data;
 
 		// Verify workflow exists and is in awaiting_human state
 		const db = getDatabaseClient();
@@ -97,6 +99,9 @@ export async function POST(request: NextRequest) {
 			// Allow anyway - the Inngest event handler will determine if it's valid
 		}
 
+		// Acquire state lock to prevent ghost processes from overwriting this finalized decision
+		await acquireStateLock(workflowId, userId);
+
 		// Log the decision event to the database (legacy event log)
 		await db.insert(workflowEvents).values({
 			workflowId,
@@ -110,6 +115,7 @@ export async function POST(request: NextRequest) {
 				conditions: decision.conditions,
 				fromStage: workflow.stage,
 				toStage: workflow.stage,
+				relatedFailureEventId,
 			}),
 			actorId: userId,
 			actorType: "user",
@@ -124,6 +130,7 @@ export async function POST(request: NextRequest) {
 			overrideSubcategory: decision.overrideSubcategory,
 			overrideDetails: decision.overrideDetails,
 			decidedBy: userId,
+			relatedFailureEventId,
 		});
 
 		if (!feedbackResult.success) {

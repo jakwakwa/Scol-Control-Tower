@@ -16,6 +16,8 @@ const createWorkflowSchema = z.object({
 		.default("pending"),
 	currentAgent: z.string().optional(),
 	metadata: z.string().optional(),
+	decisionType: z.string().optional(),
+	targetResource: z.string().optional(),
 });
 
 /**
@@ -77,6 +79,8 @@ export async function POST(request: NextRequest) {
 				status: data.status,
 				currentAgent: data.currentAgent,
 				metadata: data.metadata,
+				decisionType: data.decisionType,
+				targetResource: data.targetResource,
 			} as any)
 			.returning();
 

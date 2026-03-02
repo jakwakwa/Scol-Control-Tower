@@ -4,6 +4,7 @@ import { getDatabaseClient } from "@/app/utils";
 import { quotes, workflows } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { inngest } from "@/inngest";
+import { acquireStateLock } from "@/lib/services/state-lock.service";
 
 /**
  * POST /api/quotes/[id]/approve
@@ -59,6 +60,8 @@ export async function POST(
 				{ status: 400 }
 			);
 		}
+
+		await acquireStateLock(updatedQuote.workflowId, "quote_approval");
 
 		await inngest.send({
 			name: "quote/approved",

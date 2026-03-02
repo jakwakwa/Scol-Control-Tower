@@ -1,11 +1,13 @@
 "use client";
 
 import {
+	RiAlertFill,
 	RiAlertLine,
 	RiArrowDownSLine,
 	RiArrowUpSLine,
 	RiCheckLine,
 	RiCloseLine,
+	RiErrorWarningFill,
 	RiFlowChart,
 	RiMore2Fill,
 	RiPauseCircleLine,
@@ -62,6 +64,12 @@ export interface WorkflowRow {
 	hasQuote?: boolean;
 	/** Review type for stage 3/4 routing */
 	reviewType?: "procurement" | "general";
+	/** Row-level alert severity from tiered notifications */
+	alertSeverity?: "low" | "medium" | "high" | "critical";
+	/** Decision type for routing */
+	decisionType?: string;
+	/** Target resource endpoint */
+	targetResource?: string;
 }
 
 /** V2 Workflow Stage Names (SOP-aligned) */
@@ -230,12 +238,26 @@ export const columns: ColumnDef<WorkflowRow>[] = [
 				)}
 			</Button>
 		),
-		cell: ({ row }) => (
-			<div className="flex flex-col">
-				<span className="font-medium text-foreground">{row.original.clientName}</span>
-				<span className="text-xs text-muted-foreground">#{row.original.id}</span>
-			</div>
-		),
+		cell: ({ row }) => {
+			const alert = row.original.alertSeverity;
+			return (
+				<div className="flex items-center gap-2">
+					{alert === "high" || alert === "critical" ? (
+						<Link href={`/dashboard/workflows/${row.original.id}`}>
+							<RiAlertFill className="h-4 w-4 text-destructive animate-bounce shrink-0" />
+						</Link>
+					) : alert === "low" || alert === "medium" ? (
+						<Link href={`/dashboard/workflows/${row.original.id}`}>
+							<RiErrorWarningFill className="h-4 w-4 text-warning-foreground animate-bounce shrink-0" />
+						</Link>
+					) : null}
+					<div className="flex flex-col">
+						<span className="font-medium text-foreground">{row.original.clientName}</span>
+						<span className="text-xs text-muted-foreground">#{row.original.id}</span>
+					</div>
+				</div>
+			);
+		},
 	},
 	{
 		accessorKey: "stage",

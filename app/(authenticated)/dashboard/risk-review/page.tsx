@@ -18,6 +18,7 @@ import {
 import type { OverrideData } from "@/components/dashboard/risk-review/risk-review-queue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getDecisionEndpoint } from "@/lib/utils";
 
 export default function RiskReviewPage() {
 	const [searchTerm, setSearchTerm] = useState("");
@@ -53,6 +54,13 @@ export default function RiskReviewPage() {
 		action: "approve" | "reject",
 		overrideData: OverrideData
 	) => {
+		const endpoint = getDecisionEndpoint({
+			decisionType: (item as any).decisionType,
+			targetResource: (item as any).targetResource,
+			reviewType: item.reviewType,
+			stage: item.stage,
+		});
+
 		if (isProcurementReview(item)) {
 			const procureCheckAnomalies =
 				item.anomalies && item.anomalies.length > 0
@@ -88,7 +96,7 @@ export default function RiskReviewPage() {
 				},
 			};
 
-			const procurementResponse = await fetch("/api/risk-decision/procurement", {
+			const procurementResponse = await fetch(endpoint, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(procurementPayload),
@@ -117,7 +125,7 @@ export default function RiskReviewPage() {
 			},
 		};
 
-		const generalResponse = await fetch("/api/risk-decision", {
+		const generalResponse = await fetch(endpoint, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(generalDecisionPayload),

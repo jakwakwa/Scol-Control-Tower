@@ -94,6 +94,7 @@ export async function escalateToManagement(
 			message: `ESCALATION [${escalationType.toUpperCase()}]: ${payload.reason}`,
 			actionable: true,
 			read: false,
+			severity: severity === "critical" ? "critical" : "high",
 		});
 
 		// Log the escalation as a workflow event

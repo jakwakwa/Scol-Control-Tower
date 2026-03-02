@@ -15,6 +15,7 @@ import { getDatabaseClient } from "@/app/utils";
 import { workflows, workflowEvents, applicants } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@clerk/nextjs/server";
+import { acquireStateLock } from "@/lib/services/state-lock.service";
 
 // ============================================
 // Request Schema
@@ -93,6 +94,9 @@ export async function POST(request: NextRequest) {
 				{ status: 404 }
 			);
 		}
+
+		// Acquire state lock to prevent ghost processes from overwriting finalized approval
+		await acquireStateLock(workflowId, userId);
 
 		// Log the approval event
 		await db.insert(workflowEvents).values({

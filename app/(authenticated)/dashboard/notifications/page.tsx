@@ -98,6 +98,8 @@ export default async function NotificationsPage() {
 					actionable: notifications.actionable,
 					createdAt: notifications.createdAt,
 					clientName: applicants.companyName,
+					severity: notifications.severity,
+					groupKey: notifications.groupKey,
 				})
 				.from(notifications)
 				.leftJoin(workflows, eq(notifications.workflowId, workflows.id))
@@ -145,22 +147,36 @@ export default async function NotificationsPage() {
 					</GlassCard>
 				) : (
 					<div className="space-y-3">
-						{allNotifications.map(notification => (
+						{allNotifications.map(notification => {
+							const isHighSeverity =
+								notification.severity === "high" || notification.severity === "critical";
+							const isMediumGrouped =
+								notification.severity === "medium" && notification.groupKey;
+
+							return (
 							<GlassCard
 								key={notification.id}
 								className={`flex items-start justify-between gap-4 ${
-									!notification.read ? "border-l-4 border-l-warning" : ""
+									isHighSeverity
+										? "bg-destructive text-destructive-foreground border-l-4 border-l-destructive"
+										: isMediumGrouped
+											? "bg-warning/20 border-l-4 border-l-warning"
+											: !notification.read
+												? "border-l-4 border-l-warning"
+												: ""
 								}`}>
 								<div className="flex items-start gap-4">
 									<div
 										className={`p-2 rounded-lg ${
-											notification.type === "error"
-												? "bg-red-500/10 text-red-400"
-												: notification.type === "warning"
-													? "bg-warning/50 text-warning-foreground"
-													: notification.type === "success"
-														? "bg-green-500/10 text-green-400"
-														: "bg-blue-500/10 text-blue-400"
+											isHighSeverity
+												? "bg-destructive/30 text-destructive-foreground"
+												: notification.type === "error"
+													? "bg-red-500/10 text-red-400"
+													: notification.type === "warning"
+														? "bg-warning/50 text-warning-foreground"
+														: notification.type === "success"
+															? "bg-green-500/10 text-green-400"
+															: "bg-blue-500/10 text-blue-400"
 										}`}>
 										{notification.type === "error" ? (
 											<RiAlertLine className="h-5 w-5" />
@@ -214,7 +230,8 @@ export default async function NotificationsPage() {
 									</form>
 								</div>
 							</GlassCard>
-						))}
+							);
+						})}
 					</div>
 				)}
 			</DashboardSection>
