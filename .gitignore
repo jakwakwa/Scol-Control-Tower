@@ -47,3 +47,4 @@ next-env.d.ts
 playwright/.clerk
 # Project uses Bun exclusively — prevent accidental npm lockfile
 package-lock.json
+playwright-report/index.html
