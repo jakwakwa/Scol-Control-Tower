@@ -196,6 +196,17 @@ export async function POST(request: NextRequest) {
 					},
 				});
 			}
+
+			if (formType === "ABSA_6995") {
+				await inngest.send({
+					name: "form/absa-6995.completed",
+					data: {
+						workflowId: formInstance.workflowId,
+						applicantId: formInstance.applicantId,
+						completedAt: new Date().toISOString(),
+					},
+				});
+			}
 		}
 
 		return NextResponse.json({

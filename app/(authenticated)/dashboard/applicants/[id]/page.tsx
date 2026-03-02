@@ -191,10 +191,20 @@ export default function ApplicantDetailPage() {
 	>(null);
 	const [preRiskReason, setPreRiskReason] = useState("");
 	const [preRiskMessage, setPreRiskMessage] = useState<string | null>(null);
+	const [workflowActionLoading, setWorkflowActionLoading] = useState<
+		"contract-review" | "financial-statements" | "kill-switch" | null
+	>(null);
+	const [workflowActionMessage, setWorkflowActionMessage] = useState<string | null>(
+		null
+	);
+	const [contractReviewNotes, setContractReviewNotes] = useState("");
+	const [financialStatementNotes, setFinancialStatementNotes] = useState("");
+	const [killSwitchNotes, setKillSwitchNotes] = useState("");
 
 	// Confirmation dialog state
 	const [retryDialogOpen, setRetryDialogOpen] = useState(false);
 	const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
+	const [killSwitchDialogOpen, setKillSwitchDialogOpen] = useState(false);
 
 	// Initialize edit values when quote loads or edit mode is enabled
 	useEffect(() => {
@@ -382,6 +392,103 @@ export default function ApplicantDetailPage() {
 		}
 	};
 
+	const handleContractDraftReviewed = async () => {
+		if (!(workflow?.id && applicant)) return;
+		setWorkflowActionLoading("contract-review");
+		setWorkflowActionMessage(null);
+		try {
+			const response = await fetch(`/api/workflows/${workflow.id}/contract/review`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					applicantId: applicant.id,
+					reviewNotes: contractReviewNotes.trim() || undefined,
+				}),
+			});
+			if (!response.ok) {
+				const payload = await response.json().catch(() => ({}));
+				throw new Error(payload?.error || "Failed to mark contract draft reviewed");
+			}
+			setWorkflowActionMessage("Contract draft review recorded. Workflow gate is unblocked.");
+			setContractReviewNotes("");
+			await refreshApplicantData();
+		} catch (actionError) {
+			setWorkflowActionMessage(
+				actionError instanceof Error
+					? actionError.message
+					: "Failed to mark contract draft reviewed"
+			);
+		} finally {
+			setWorkflowActionLoading(null);
+		}
+	};
+
+	const handleFinancialStatementsConfirmed = async () => {
+		if (!(workflow?.id && applicant)) return;
+		setWorkflowActionLoading("financial-statements");
+		setWorkflowActionMessage(null);
+		try {
+			const response = await fetch(
+				`/api/workflows/${workflow.id}/financial-statements/confirm`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						applicantId: applicant.id,
+						notes: financialStatementNotes.trim() || undefined,
+					}),
+				}
+			);
+			if (!response.ok) {
+				const payload = await response.json().catch(() => ({}));
+				throw new Error(payload?.error || "Failed to confirm financial statements");
+			}
+			setWorkflowActionMessage(
+				"Financial statements confirmation recorded. Workflow gate is unblocked."
+			);
+			setFinancialStatementNotes("");
+			await refreshApplicantData();
+		} catch (actionError) {
+			setWorkflowActionMessage(
+				actionError instanceof Error
+					? actionError.message
+					: "Failed to confirm financial statements"
+			);
+		} finally {
+			setWorkflowActionLoading(null);
+		}
+	};
+
+	const handleKillSwitch = async () => {
+		if (!(workflow?.id && applicant)) return;
+		setKillSwitchDialogOpen(false);
+		setWorkflowActionLoading("kill-switch");
+		setWorkflowActionMessage(null);
+		try {
+			const response = await fetch(`/api/workflows/${workflow.id}/kill-switch`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					reason: "MANUAL_TERMINATION",
+					notes: killSwitchNotes.trim() || undefined,
+				}),
+			});
+			if (!response.ok) {
+				const payload = await response.json().catch(() => ({}));
+				throw new Error(payload?.error || "Failed to activate kill switch");
+			}
+			setWorkflowActionMessage("Kill switch activated. Workflow has been terminated.");
+			setKillSwitchNotes("");
+			await refreshApplicantData();
+		} catch (actionError) {
+			setWorkflowActionMessage(
+				actionError instanceof Error ? actionError.message : "Failed to activate kill switch"
+			);
+		} finally {
+			setWorkflowActionLoading(null);
+		}
+	};
+
 	const handleDownloadDocument = (doc: ApplicantDocument) => {
 		if (doc.storageUrl) {
 			window.open(doc.storageUrl, "_blank");
@@ -559,6 +666,11 @@ export default function ApplicantDetailPage() {
 	}
 
 	const client = applicant;
+	const workflowStage = workflow?.stage ?? null;
+	const isWorkflowTerminated = workflow?.status === "terminated";
+	const canMarkContractReviewed = workflowStage === 5 && !isWorkflowTerminated;
+	const canConfirmFinancialStatements = workflowStage === 4 && !isWorkflowTerminated;
+	const canUseKillSwitch = Boolean(workflow?.id) && !isWorkflowTerminated;
 
 	return (
 		<>
@@ -573,6 +685,15 @@ export default function ApplicantDetailPage() {
 							onClick={() => setRetryDialogOpen(true)}
 							disabled={actionLoading || !workflow}>
 							{actionLoading ? "Retrying..." : "Retry Facility Submission"}
+						</Button>
+						<Button
+							size="sm"
+							variant="destructive"
+							onClick={() => setKillSwitchDialogOpen(true)}
+							disabled={workflowActionLoading !== null || !canUseKillSwitch}>
+							{workflowActionLoading === "kill-switch"
+								? "Terminating..."
+								: "Kill Switch"}
 						</Button>
 					</div>
 				}>
@@ -1141,6 +1262,48 @@ export default function ApplicantDetailPage() {
 										</p>
 									)}
 								</GlassCard>
+								<GlassCard>
+									<h4 className="text-sm font-bold uppercase text-muted-foreground mb-3">
+										Financial Statements Gate
+									</h4>
+									<p className="text-sm text-muted-foreground">
+										Use this when high-risk financial statements are received and
+										verified.
+									</p>
+									<Textarea
+										value={financialStatementNotes}
+										onChange={e => setFinancialStatementNotes(e.target.value)}
+										placeholder="Optional notes for audit trail"
+										className="mt-3 min-h-[88px]"
+										disabled={
+											workflowActionLoading !== null || !canConfirmFinancialStatements
+										}
+									/>
+									<div className="mt-3 flex flex-wrap gap-2">
+										<Button
+											onClick={handleFinancialStatementsConfirmed}
+											disabled={
+												workflowActionLoading !== null ||
+												!canConfirmFinancialStatements
+											}
+											className="gap-2">
+											{workflowActionLoading === "financial-statements" ? (
+												<RiLoader4Line className="h-4 w-4 animate-spin" />
+											) : (
+												<RiCheckLine className="h-4 w-4" />
+											)}
+											Confirm Financial Statements
+										</Button>
+									</div>
+									{workflowActionMessage ? (
+										<p className="mt-3 text-sm text-amber-700">{workflowActionMessage}</p>
+									) : null}
+									{!canConfirmFinancialStatements ? (
+										<p className="mt-2 text-xs text-muted-foreground">
+											Available during stage 4 while the workflow is active.
+										</p>
+									) : null}
+								</GlassCard>
 							</TabsContent>
 
 							<TabsContent value="reviews">
@@ -1160,6 +1323,47 @@ export default function ApplicantDetailPage() {
 											</Button>
 										)}
 									</div>
+									<GlassCard>
+										<p className="text-xs uppercase text-muted-foreground font-bold">
+											Contract Draft Review Gate
+										</p>
+										<p className="text-sm mt-1 text-foreground">
+											After reviewing or editing the AI-generated contract, record the
+											review to release stage 5.
+										</p>
+										<Textarea
+											value={contractReviewNotes}
+											onChange={e => setContractReviewNotes(e.target.value)}
+											placeholder="Optional notes on review changes"
+											className="mt-3 min-h-[88px]"
+											disabled={workflowActionLoading !== null || !canMarkContractReviewed}
+										/>
+										<div className="mt-3 flex flex-wrap gap-2">
+											<Button
+												onClick={handleContractDraftReviewed}
+												disabled={
+													workflowActionLoading !== null || !canMarkContractReviewed
+												}
+												className="gap-2">
+												{workflowActionLoading === "contract-review" ? (
+													<RiLoader4Line className="h-4 w-4 animate-spin" />
+												) : (
+													<RiCheckLine className="h-4 w-4" />
+												)}
+												Mark Contract Draft Reviewed
+											</Button>
+										</div>
+										{workflowActionMessage ? (
+											<p className="mt-3 text-sm text-amber-700">
+												{workflowActionMessage}
+											</p>
+										) : null}
+										{!canMarkContractReviewed ? (
+											<p className="mt-2 text-xs text-muted-foreground">
+												Available during stage 5 while the workflow is active.
+											</p>
+										) : null}
+									</GlassCard>
 									{workflow?.preRiskRequired ? (
 										<GlassCard className="border-l-4 border-l-amber-500">
 											<div className="space-y-4">
@@ -1549,6 +1753,31 @@ export default function ApplicantDetailPage() {
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction onClick={handleRetrySubmission}>Retry</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+
+			{/* Kill Switch Confirmation Dialog */}
+			<AlertDialog open={killSwitchDialogOpen} onOpenChange={setKillSwitchDialogOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Terminate Workflow</AlertDialogTitle>
+						<AlertDialogDescription>
+							This will execute the kill switch and stop the workflow immediately.
+							Pending form links may be revoked.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<Textarea
+						value={killSwitchNotes}
+						onChange={e => setKillSwitchNotes(e.target.value)}
+						placeholder="Optional termination notes"
+						className="min-h-[88px]"
+					/>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction variant="destructive" onClick={handleKillSwitch}>
+							Activate Kill Switch
+						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>

@@ -226,6 +226,17 @@ export async function POST(
 					},
 				});
 			}
+
+			if (formType === "absa_6995") {
+				await inngest.send({
+					name: "form/absa-6995.completed",
+					data: {
+						workflowId: workflowIdNum,
+						applicantId: workflow[0].applicantId,
+						completedAt: new Date().toISOString(),
+					},
+				});
+			}
 		}
 
 		return NextResponse.json({

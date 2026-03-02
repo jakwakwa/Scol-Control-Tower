@@ -2401,7 +2401,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 		const contractDecision = await step.waitForEvent("wait-contract-decision", {
 			event: "form/decision.responded",
 			timeout: REVIEW_TIMEOUT,
-			match: "data.workflowId",
+			if: `event.data.workflowId == async.data.workflowId && async.data.formType == 'STRATCOL_CONTRACT'`,
 		});
 
 		if (!contractDecision) {
@@ -2425,14 +2425,6 @@ export const controlTowerWorkflow = inngest.createFunction(
 				});
 			});
 			return { status: "timeout", stage: 5, reason: "Contract decision timeout" };
-		}
-
-		if (contractDecision.data.formType !== "STRATCOL_CONTRACT") {
-			return {
-				status: "failed",
-				stage: 5,
-				reason: "Received non-contract form decision while waiting for contract decision",
-			};
 		}
 
 		if (contractDecision.data.decision === "DECLINED") {

@@ -75,6 +75,17 @@ export async function POST(request: NextRequest) {
 		// 3. Emit Inngest event to advance workflow
 		if (formInstance.workflowId) {
 			await inngest.send({
+				name: "form/decision.responded",
+				data: {
+					workflowId: formInstance.workflowId,
+					applicantId: formInstance.applicantId,
+					formType: "STRATCOL_CONTRACT",
+					decision: "APPROVED",
+					respondedAt: new Date().toISOString(),
+				},
+			});
+
+			await inngest.send({
 				name: "contract/signed",
 				data: {
 					workflowId: formInstance.workflowId,
