@@ -17,14 +17,14 @@ import { GoogleGenAI } from "@google/genai";
  * - AI trust score calculation
  */
 export function getThinkingModel() {
-	return "gemini-3-flash";
+	return "gemini-2.5-flash";
 }
 
 /**
  * High-stakes model for risk and document verification.
  */
 export function getHighStakesModel() {
-	return "google/gemini-3-flash";
+	return "gemini-2.5-pro";
 }
 
 /**
@@ -33,7 +33,7 @@ export function getHighStakesModel() {
  * - Quick validation checks
  */
 export function getFastModel() {
-	return "google/gemini-2.5-flash-preview-09-2025";
+	return "gemini-2.5-flash-lite";
 }
 
 /**
