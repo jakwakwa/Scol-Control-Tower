@@ -51,6 +51,7 @@ After documents are ready, two independent paths run **in parallel**:
 
 - **ITC + sanctions check**: ITC provider check plus sanctions screening. If ITC provider is unavailable, the workflow records manual-required ITC and continues.
 - **AI validation/risk/sanctions analysis**: Gemini-powered analysis of uploaded documents, with fallback/manual-required envelopes when an agent call fails.
+- **PDF-native bank statement analysis**: When a bank statement PDF is present, Stage 3 forwards it directly as `application/pdf` document input so Gemini can use document understanding (layout/tables/context), not just extracted text.
 
 Both paths are joined before Reporter synthesis. Partial failures are retained and surfaced to Risk Review instead of terminating immediately.
 
@@ -68,6 +69,8 @@ Once ITC/sanctions and AI analysis complete, the **Reporter Agent** combines res
 The consolidated report is then sent to Stage 4 for a single mandatory Risk Manager decision. Stage 4 uses **reminder-based waiting** while items are in the queue and **does not auto-terminate** on review timeout; manual review remains mandatory.
 
 ### Stage 3 flow diagram
+
+If no usable bank statement PDF is available, Stage 3 keeps conservative/manual-review fallbacks for risk outputs.
 
 ```
                     ┌─ Stream A: Procurement evidence ─────────┐

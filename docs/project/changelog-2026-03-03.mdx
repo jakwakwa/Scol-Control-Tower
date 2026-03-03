@@ -16,10 +16,13 @@ description: "Stage 3 risk flow refactor: single human gate, degraded ITC handli
 - Added degraded/manual-required ITC behavior when provider config/auth is unavailable.
 - Reworked aggregated analysis joins to tolerate partial failures instead of hard-failing the whole synthesis.
 - Added fallback result envelopes for validation, risk, and sanctions when provider/agent execution fails.
+- Stage 3 now detects uploaded bank statement documents and passes PDF evidence into risk analysis using native document input.
 
 ## AI Output Quality
 
-- Switched high-stakes risk/document analysis paths to Gemini Pro (`google/gemini-3.1-pro-preview`).
+- Standardized Gemini client creation through project helpers with explicit `GOOGLE_GENAI_KEY` usage.
+- Migrated structured analysis calls to the Interactions/structured schema pattern where applicable.
+- Updated model IDs to supported stable variants for current endpoint compatibility.
 - Tightened validation and risk prompts to enforce evidence-only outputs and avoid inferred values.
 - Added conservative manual-review fallback when bank-statement evidence is missing.
 
