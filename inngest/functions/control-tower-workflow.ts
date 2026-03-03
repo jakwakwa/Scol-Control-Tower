@@ -5,8 +5,8 @@
  * Stage 2: Facility, Pre-Risk & Quote — Facility app → sales evaluation (+ optional pre-risk sanctions) → mandate mapping → AI quote → Manager review → signed quote → Mandate collection (7-day retry, max 8)
  * Stage 3: Procurement & AI     — Parallel: Procurement risk + FICA intake → ITC + sanctions (main check) → AI multi-agent analysis + Reporter Agent
  * Stage 4: Risk Review           — Risk Manager final review (no auto-approve bypass)
- * Stage 5: Contract              — Account Manager review/edit AI contract → Send contract + ABSA form
- * Stage 6: Final Approval        — Two-factor: Risk Manager + Account Manager → Onboarding complete
+ * Stage 5: Contract              — Account Manager review/edit AI contract + ABSA handoff gate
+ * Stage 6: Final Approval        — Two-factor: Risk Manager + Account Manager → Final contract sent
  *
  * Architecture:
  * - Kill Switch functionality for immediate workflow termination
@@ -2345,112 +2345,23 @@ export const controlTowerWorkflow = inngest.createFunction(
 			return { status: "timeout", stage: 5, reason: "Contract review timeout" };
 		}
 
-		// Step 5.2: Send contract and ABSA form to client
-		await step.run("send-final-docs", async () => {
-			await guardKillSwitch(workflowId, "send-final-docs");
-
-			const db = getDatabaseClient();
-			if (!db) throw new Error("Database connection failed");
-
-			const [applicant] = await db
-				.select()
-				.from(applicants)
-				.where(eq(applicants.id, applicantId));
-
-			if (!applicant) throw new Error(`Applicant ${applicantId} not found`);
-
-			const contractToken = await createFormInstance({
-				applicantId,
-				workflowId,
-				formType: "STRATCOL_CONTRACT" as FormType,
-			});
-
-			const absaToken = await createFormInstance({
-				applicantId,
-				workflowId,
-				formType: "ABSA_6995" as FormType,
-			});
-
-			await sendApplicantFormLinksEmail({
-				email: applicant.email,
-				contactName: applicant.contactName,
-				links: [
-					{
-						formType: "STRATCOL_CONTRACT",
-						url: `${getBaseUrl()}/forms/${contractToken.token}`,
-					},
-					{ formType: "ABSA_6995", url: `${getBaseUrl()}/forms/${absaToken.token}` },
-				],
-			});
-
+		// Step 5.2: Record that final contract delivery happens only after approvals
+		await step.run("notify-stage-5-gates", async () => {
+			await guardKillSwitch(workflowId, "notify-stage-5-gates");
 			await createWorkflowNotification({
 				workflowId,
 				applicantId,
 				type: "awaiting",
-				title: "Contract & ABSA Form Sent",
-				message: "Please sign the contract and complete the ABSA bank form",
-				actionable: false,
+				title: "Contract + ABSA Internal Gates",
+				message:
+					"Awaiting internal contract review and ABSA handoff completion. Final contract is sent to applicant only after two-factor final approval.",
+				actionable: true,
 			});
 		});
 
 		await step.run("stage-5-awaiting-docs", () =>
 			updateWorkflowStatus(workflowId, "awaiting_human", 5)
 		);
-
-		// Wait for applicant decision on contract
-		const contractDecision = await step.waitForEvent("wait-contract-decision", {
-			event: "form/decision.responded",
-			timeout: REVIEW_TIMEOUT,
-			if: `event.data.workflowId == async.data.workflowId && async.data.formType == 'STRATCOL_CONTRACT'`,
-		});
-
-		if (!contractDecision) {
-			await step.run("notify-am-contract-decision-timeout", async () => {
-				await guardKillSwitch(workflowId, "notify-am-contract-decision-timeout");
-				await createWorkflowNotification({
-					workflowId,
-					applicantId,
-					type: "warning",
-					title: "Delay: Contract Signature",
-					message: "Applicant failed to sign the contract within the expected timeframe.",
-					actionable: true,
-				});
-				await sendInternalAlertEmail({
-					title: "Delay: Contract Signature",
-					message: `Applicant has not signed the final contract within the ${REVIEW_TIMEOUT} timeout window. Please follow up.`,
-					workflowId,
-					applicantId,
-					type: "warning",
-					actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
-				});
-			});
-			return { status: "timeout", stage: 5, reason: "Contract decision timeout" };
-		}
-
-		if (contractDecision.data.decision === "DECLINED") {
-			await step.run("contract-declined-notify-applicant", async () => {
-				await notifyApplicantDecline({
-					applicantId,
-					workflowId,
-					subject: "Contract decision received",
-					heading: "Contract was declined",
-					message:
-						contractDecision.data.reason || "We have recorded your contract decline.",
-				});
-				const db = getDatabaseClient();
-				if (db) {
-					await db
-						.update(workflows)
-						.set({
-							applicantDecisionOutcome: "declined",
-							applicantDeclineReason:
-								contractDecision.data.reason || "Applicant declined contract",
-						})
-						.where(eq(workflows.id, workflowId));
-				}
-			});
-			return { status: "terminated", stage: 5, reason: "Applicant declined contract" };
-		}
 
 		// Wait for ABSA 6995 form completion
 		const absaCompleted = await step.waitForEvent("wait-absa-completed", {
@@ -2637,6 +2548,46 @@ export const controlTowerWorkflow = inngest.createFunction(
 					absaFormComplete: true,
 					timestamp: new Date().toISOString(),
 				},
+			});
+		});
+
+		await step.run("send-final-contract-to-applicant", async () => {
+			await guardKillSwitch(workflowId, "send-final-contract-to-applicant");
+
+			const db = getDatabaseClient();
+			if (!db) throw new Error("Database connection failed");
+
+			const [applicant] = await db
+				.select()
+				.from(applicants)
+				.where(eq(applicants.id, applicantId));
+			if (!applicant) throw new Error(`Applicant ${applicantId} not found`);
+
+			const contractToken = await createFormInstance({
+				applicantId,
+				workflowId,
+				formType: "STRATCOL_CONTRACT" as FormType,
+			});
+
+			await sendApplicantFormLinksEmail({
+				email: applicant.email,
+				contactName: applicant.contactName,
+				links: [
+					{
+						formType: "STRATCOL_CONTRACT",
+						url: `${getBaseUrl()}/forms/${contractToken.token}`,
+					},
+				],
+			});
+
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: "success",
+				title: "Final Contract Sent to Applicant",
+				message:
+					"Two-factor approvals are complete and the final contract link has been sent to the applicant.",
+				actionable: false,
 			});
 		});
 

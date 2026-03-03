@@ -18,6 +18,7 @@ import {
 	RiShieldCheckLine,
 	RiUploadCloud2Line,
 } from "@remixicon/react";
+import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardLayout, GlassCard } from "@/components/dashboard";
@@ -192,12 +193,11 @@ export default function ApplicantDetailPage() {
 	const [preRiskReason, setPreRiskReason] = useState("");
 	const [preRiskMessage, setPreRiskMessage] = useState<string | null>(null);
 	const [workflowActionLoading, setWorkflowActionLoading] = useState<
-		"contract-review" | "financial-statements" | "kill-switch" | null
+		"financial-statements" | "kill-switch" | null
 	>(null);
 	const [workflowActionMessage, setWorkflowActionMessage] = useState<string | null>(
 		null
 	);
-	const [contractReviewNotes, setContractReviewNotes] = useState("");
 	const [financialStatementNotes, setFinancialStatementNotes] = useState("");
 	const [killSwitchNotes, setKillSwitchNotes] = useState("");
 
@@ -389,37 +389,6 @@ export default function ApplicantDetailPage() {
 			setQuoteMessage("Failed to retry submission due to an unexpected error.");
 		} finally {
 			setActionLoading(false);
-		}
-	};
-
-	const handleContractDraftReviewed = async () => {
-		if (!(workflow?.id && applicant)) return;
-		setWorkflowActionLoading("contract-review");
-		setWorkflowActionMessage(null);
-		try {
-			const response = await fetch(`/api/workflows/${workflow.id}/contract/review`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					applicantId: applicant.id,
-					reviewNotes: contractReviewNotes.trim() || undefined,
-				}),
-			});
-			if (!response.ok) {
-				const payload = await response.json().catch(() => ({}));
-				throw new Error(payload?.error || "Failed to mark contract draft reviewed");
-			}
-			setWorkflowActionMessage("Contract draft review recorded. Workflow gate is unblocked.");
-			setContractReviewNotes("");
-			await refreshApplicantData();
-		} catch (actionError) {
-			setWorkflowActionMessage(
-				actionError instanceof Error
-					? actionError.message
-					: "Failed to mark contract draft reviewed"
-			);
-		} finally {
-			setWorkflowActionLoading(null);
 		}
 	};
 
@@ -668,7 +637,6 @@ export default function ApplicantDetailPage() {
 	const client = applicant;
 	const workflowStage = workflow?.stage ?? null;
 	const isWorkflowTerminated = workflow?.status === "terminated";
-	const canMarkContractReviewed = workflowStage === 5 && !isWorkflowTerminated;
 	const canConfirmFinancialStatements = workflowStage === 4 && !isWorkflowTerminated;
 	const canUseKillSwitch = Boolean(workflow?.id) && !isWorkflowTerminated;
 
@@ -679,6 +647,11 @@ export default function ApplicantDetailPage() {
 				description={`Registration: ${client.registrationNumber || "N/A"}`}
 				actions={
 					<div className="flex gap-2">
+						<Link href={`/dashboard/applicants/${id}/contract`}>
+							<Button size="sm" variant="outline">
+								Contract Review
+							</Button>
+						</Link>
 						<Button
 							size="sm"
 							className="bg-action hover:bg-action/85"
@@ -1323,47 +1296,6 @@ export default function ApplicantDetailPage() {
 											</Button>
 										)}
 									</div>
-									<GlassCard>
-										<p className="text-xs uppercase text-muted-foreground font-bold">
-											Contract Draft Review Gate
-										</p>
-										<p className="text-sm mt-1 text-foreground">
-											After reviewing or editing the AI-generated contract, record the
-											review to release stage 5.
-										</p>
-										<Textarea
-											value={contractReviewNotes}
-											onChange={e => setContractReviewNotes(e.target.value)}
-											placeholder="Optional notes on review changes"
-											className="mt-3 min-h-[88px]"
-											disabled={workflowActionLoading !== null || !canMarkContractReviewed}
-										/>
-										<div className="mt-3 flex flex-wrap gap-2">
-											<Button
-												onClick={handleContractDraftReviewed}
-												disabled={
-													workflowActionLoading !== null || !canMarkContractReviewed
-												}
-												className="gap-2">
-												{workflowActionLoading === "contract-review" ? (
-													<RiLoader4Line className="h-4 w-4 animate-spin" />
-												) : (
-													<RiCheckLine className="h-4 w-4" />
-												)}
-												Mark Contract Draft Reviewed
-											</Button>
-										</div>
-										{workflowActionMessage ? (
-											<p className="mt-3 text-sm text-amber-700">
-												{workflowActionMessage}
-											</p>
-										) : null}
-										{!canMarkContractReviewed ? (
-											<p className="mt-2 text-xs text-muted-foreground">
-												Available during stage 5 while the workflow is active.
-											</p>
-										) : null}
-									</GlassCard>
 									{workflow?.preRiskRequired ? (
 										<GlassCard className="border-l-4 border-l-amber-500">
 											<div className="space-y-4">
