@@ -5,6 +5,7 @@ import { quotes, workflows } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { inngest } from "@/inngest";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 /**
  * POST /api/quotes/[id]/approve
@@ -15,6 +16,11 @@ export async function POST(
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
+		const authResult = await requireAuth();
+		if (authResult instanceof NextResponse) {
+			return authResult;
+		}
+
 		const db = await getDatabaseClient();
 
 		if (!db) {

@@ -5,6 +5,7 @@ import { workflows } from "@/db/schema";
 import { eq, type InferSelectModel } from "drizzle-orm";
 import { z } from "zod";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
+import { requireAuthOrBearer } from "@/lib/auth/api-auth";
 
 // Flexible schema to handle both Quote and Approval payloads
 const approvalSchema = z.object({
@@ -34,6 +35,11 @@ const approvalSchema = z.object({
  */
 export async function POST(request: NextRequest) {
 	try {
+		const authResult = await requireAuthOrBearer(request);
+		if (authResult instanceof NextResponse) {
+			return authResult;
+		}
+
 		const rawBody = await request.text();
 		console.log(`[API] Applicant Approval/Callback Raw Body: ${rawBody}`);
 

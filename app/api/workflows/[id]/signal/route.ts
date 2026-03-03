@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { inngest } from "@/inngest";
 import { z } from "zod";
+import { requireAuthOrBearer } from "@/lib/auth/api-auth";
 
 // Schema for internal UI signals
 const uiSignalSchema = z.object({
@@ -37,6 +38,11 @@ export async function POST(
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
+		const authResult = await requireAuthOrBearer(request);
+		if (authResult instanceof NextResponse) {
+			return authResult;
+		}
+
 		const { id } = await params;
 		const workflowId = parseInt(id);
 
