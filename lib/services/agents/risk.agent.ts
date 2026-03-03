@@ -11,13 +11,9 @@
  * Real implementation will integrate with actual financial data sources.
  */
 
-import { generateObject } from "ai";
+import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { getHighStakesModel } from "@/lib/ai/models";
-
-const AI_CONFIG = {
-	ANALYSIS_TEMPERATURE: 0.2,
-};
 
 // ============================================
 // Types & Schemas
@@ -173,21 +169,22 @@ export async function analyzeFinancialRisk(
 			dataSource: "Manual Escalation - Insufficient Evidence",
 		};
 	}
+	const ai = new GoogleGenAI({});
 
 	const prompt = buildRiskPrompt(input);
 
 	try {
-		const { object } = await generateObject({
+		const response = await ai.models.generateContent({
 			model: getHighStakesModel(),
-			schema: RiskAnalysisResultSchema,
-			schemaName: "RiskAnalysis",
-			schemaDescription:
-				"Financial risk analysis based on bank statements and applicant data",
-			prompt,
-			temperature: AI_CONFIG.ANALYSIS_TEMPERATURE,
+			config: {
+				responseMimeType: "application/json",
+				responseJsonSchema: RiskAnalysisResultSchema,
+			},
+			contents: prompt,
 		});
 
-		return { ...object, dataSource: "Gemini AI" };
+		const analysis = RiskAnalysisResultSchema.parse(JSON.parse(response.text));
+		return analysis;
 	} catch (error) {
 		console.error("[RiskAgent] AI analysis failed:", error);
 		throw new Error(

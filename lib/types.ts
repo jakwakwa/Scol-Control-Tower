@@ -306,11 +306,10 @@ export const ITCCheckResultSchema = z.object({
 
 export type ITCCheckResult = z.infer<typeof ITCCheckResultSchema>;
 
-// ITC Score thresholds (adjusted for Mockaroo 0-400 range)
 export const ITC_THRESHOLDS = {
-	AUTO_APPROVE: 350, // Score >= 350: Fast-track approval
-	MANUAL_REVIEW: 200, // Score 200-349: Manual review required
-	AUTO_DECLINE: 100, // Score < 100: Automatic decline
+	AUTO_APPROVE: 500, // Score >= 500: Fast-track approval
+	MANUAL_REVIEW: 300, // Score 400-300: Manual review required
+	AUTO_DECLINE: 300, // Score < 100: Automatic decline
 } as const;
 
 // ============================================
@@ -356,7 +355,7 @@ export type FicaRiskFlag = z.infer<typeof FicaRiskFlagSchema>;
 
 /**
  * FICA Document Analysis - Structured AI output for bank statement analysis
- * Used with Vercel AI SDK generateObject() to extract structured data
+ * Used with Vercel AI SDK  ai.models.generateContent(() to extract structured data
  */
 export const FicaDocumentAnalysisSchema = z.object({
 	// Account Information (extracted from bank statement)
@@ -469,13 +468,13 @@ export const AccountantLetterAnalysisSchema = z.object({
 export type AccountantLetterAnalysis = z.infer<typeof AccountantLetterAnalysisSchema>;
 
 // ============================================
-// V24 Integration Types
+// agreementContract Integration Types
 // ============================================
 
 /**
- * V24 Client Profile - Data structure for V24 core system injection
+ * agreementContract Client Profile - Data structure for agreementContract core system injection
  */
-export const V24ClientProfileSchema = z.object({
+export const agreementContractClientProfileSchema = z.object({
 	/** Client reference (internal ID) */
 	clientRef: z.string(),
 	/** Company name */
@@ -513,20 +512,22 @@ export const V24ClientProfileSchema = z.object({
 	accountManager: z.string().optional(),
 });
 
-export type V24ClientProfile = z.infer<typeof V24ClientProfileSchema>;
+export type agreementContractClientProfile = z.infer<
+	typeof agreementContractClientProfileSchema
+>;
 
 /**
- * V24 API Response
+ * agreementContract API Response
  */
-export const V24ResponseSchema = z.object({
+export const agreementContractResponseSchema = z.object({
 	success: z.boolean(),
 	clientId: z.string().optional(),
-	v24Reference: z.string().optional(),
+	agreementContractReference: z.string().optional(),
 	message: z.string().optional(),
 	error: z.string().optional(),
 });
 
-export type V24Response = z.infer<typeof V24ResponseSchema>;
+export type agreementContractResponse = z.infer<typeof agreementContractResponseSchema>;
 
 // ============================================
 // Training Session
@@ -564,5 +565,5 @@ export interface OnboardingWorkflowContext {
 		decidedAt: Date;
 		reason?: string;
 	};
-	v24Result?: V24Response;
+	agreementContractResult?: agreementContractResponse;
 }

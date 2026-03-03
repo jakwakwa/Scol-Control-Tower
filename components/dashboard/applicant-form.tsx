@@ -69,25 +69,25 @@ export function ApplicantForm({
 		notes: initialData?.notes || "",
 	});
 
-	// Check if Mockaroo test mode is enabled
-	const isMockarooTestMode = process.env.NEXT_PUBLIC_USE_MOCKAROO_CREDIT_CHECK === "true";
+	// Check if test mode is enabled
+	const isTestMode = process.env.NEXT_PUBLIC_USE_TESTMODE_CHECK === "true";
 
-	// Fill form with test data for Mockaroo testing
+	// Fill form with test data for testing
 	const fillTestData = () => {
 		setFormData({
-			companyName: `${isMockarooTestMode ? "Jacob Kotzee T/a Doodles Digital" : "Test Company Inc"}`,
-			registrationNumber: `${isMockarooTestMode ? "0787173160001" : "2024/123456/07"}`,
-			contactName: `${isMockarooTestMode ? "Jacob Kotzee" : "John Test"}`,
-			idNumber: `${isMockarooTestMode ? "8501015009087" : ""}`,
-			email: `${isMockarooTestMode ? "jkotzee@icloud.com" : "john.test@testcompany.co.za"}`,
-			phone: `${isMockarooTestMode ? "+27 76 341 0291" : "+27 82 123 4567"}`,
+			companyName: `${isTestMode ? "Jacob Kotzee T/a Doodles Digital" : "Test Company Inc"}`,
+			registrationNumber: `${isTestMode ? "0787173160001" : "2024/123456/07"}`,
+			contactName: `${isTestMode ? "Jacob Kotzee" : "John Test"}`,
+			idNumber: `${isTestMode ? "8501015009087" : ""}`,
+			email: `${isTestMode ? "jkotzee@icloud.com" : "john.test@testcompany.co.za"}`,
+			phone: `${isTestMode ? "+27 76 341 0291" : "+27 82 123 4567"}`,
 			entityType: "company",
 			productType: "standard",
-			industry: `${isMockarooTestMode ? "Software Development" : "Financial Services"}`,
-			mandateType: `${isMockarooTestMode ? "Debit Order" : "debit_order"}`,
-			employeeCount: `${isMockarooTestMode ? "1" : "50"}`,
-			estimatedTransactionsPerMonth: `${isMockarooTestMode ? Math.floor(Math.random() * 5000) + 10 : "500"}`,
-			notes: "Mockaroo test applicant - auto-generated for credit check testing",
+			industry: `${isTestMode ? "Software Development" : "Financial Services"}`,
+			mandateType: `${isTestMode ? "Debit Order" : "debit_order"}`,
+			employeeCount: `${isTestMode ? "1" : "5"}`,
+			estimatedTransactionsPerMonth: `${isTestMode ? "5000" : "1500"}`,
+			notes: "test applicant input - auto-generated for credit check testing",
 		});
 	};
 
@@ -170,7 +170,7 @@ export function ApplicantForm({
 	return (
 		<form onSubmit={handleSubmit} className="space-y-8">
 			{/* Test Mode Banner */}
-			{isMockarooTestMode && (
+			{isTestMode && (
 				<div className="flex items-center justify-between p-4 rounded-lg border border-warning bg-warning/20 shadow-lg shadow-amber-800/5">
 					<div className="flex items-center gap-2">
 						<span className="text-warning-foreground animate-pulse text-sm font-medium">
@@ -359,9 +359,7 @@ export function ApplicantForm({
 								onChange={e => updateField("idNumber", e.target.value)}
 								placeholder="13-digit SA ID number"
 								maxLength={13}
-								className={cn(
-									errors.idNumber ? "border-red-500" : "border-input-border"
-								)}
+								className={cn(errors.idNumber ? "border-red-500" : "border-input-border")}
 							/>
 							{errors.idNumber && (
 								<p className="text-xs text-red-400">{errors.idNumber}</p>

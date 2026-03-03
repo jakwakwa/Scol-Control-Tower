@@ -1,15 +1,15 @@
 /**
- * Experian API Type Definitions
+ * ProcureCheck API Type Definitions
  *
- * Types for Experian Business Credit Check API responses.
- * Based on Experian Developer Portal documentation.
+ * Types for ProcureCheck Business Credit Check API responses.
+ * Based on ProcureCheck Developer Portal documentation.
  */
 
 // ============================================
 // Authentication
 // ============================================
 
-export interface ExperianTokenResponse {
+export interface ProcureCheckTokenResponse {
 	access_token: string;
 	token_type: "Bearer";
 	expires_in: number;
@@ -20,7 +20,7 @@ export interface ExperianTokenResponse {
 // Business Credit Request
 // ============================================
 
-export interface ExperianBusinessCreditRequest {
+export interface ProcureCheckBusinessCreditRequest {
 	/** South African company registration number */
 	registrationNumber: string;
 	/** Country code (ZA for South Africa) */
@@ -33,22 +33,22 @@ export interface ExperianBusinessCreditRequest {
 // Business Credit Response
 // ============================================
 
-export interface ExperianBusinessCreditResponse {
+export interface ProcureCheckBusinessCreditResponse {
 	/** Request reference ID */
 	requestId: string;
 	/** Company information */
-	business: ExperianBusinessInfo;
+	business: ProcureCheckBusinessInfo;
 	/** Credit score and risk assessment */
-	creditProfile: ExperianCreditProfile;
+	creditProfile: ProcureCheckCreditProfile;
 	/** Adverse listings (judgments, defaults) */
-	adverseListings: ExperianAdverseListing[];
+	adverseListings: ProcureCheckAdverseListing[];
 	/** Trade payment history */
-	tradePayments?: ExperianTradePayment[];
+	tradePayments?: ProcureCheckTradePayment[];
 	/** Response timestamp */
 	generatedAt: string;
 }
 
-export interface ExperianBusinessInfo {
+export interface ProcureCheckBusinessInfo {
 	/** Company registration number */
 	registrationNumber: string;
 	/** Company name */
@@ -65,8 +65,8 @@ export interface ExperianBusinessInfo {
 	vatNumber?: string;
 }
 
-export interface ExperianCreditProfile {
-	/** Experian commercial credit score (0-100) */
+export interface ProcureCheckCreditProfile {
+	/** ProcureCheck commercial credit score (0-100) */
 	score: number;
 	/** Score band description */
 	scoreBand: "Very Low" | "Low" | "Medium" | "Good" | "Excellent";
@@ -79,10 +79,10 @@ export interface ExperianCreditProfile {
 	/** Days beyond terms average */
 	avgDaysBeyondTerms?: number;
 	/** Score factors */
-	scoreFactors?: ExperianScoreFactor[];
+	scoreFactors?: ProcureCheckScoreFactor[];
 }
 
-export interface ExperianScoreFactor {
+export interface ProcureCheckScoreFactor {
 	/** Factor code */
 	code: string;
 	/** Factor description */
@@ -91,7 +91,7 @@ export interface ExperianScoreFactor {
 	impact: "positive" | "negative" | "neutral";
 }
 
-export interface ExperianAdverseListing {
+export interface ProcureCheckAdverseListing {
 	/** Type of adverse listing */
 	type: "Judgment" | "Default" | "Administration" | "Sequestration" | "Deregistration";
 	/** Amount in ZAR cents */
@@ -106,7 +106,7 @@ export interface ExperianAdverseListing {
 	status: "Active" | "Paid" | "Rescinded";
 }
 
-export interface ExperianTradePayment {
+export interface ProcureCheckTradePayment {
 	/** Creditor/supplier name */
 	creditor: string;
 	/** Credit limit with this creditor */
@@ -123,7 +123,7 @@ export interface ExperianTradePayment {
 // Error Responses
 // ============================================
 
-export interface ExperianErrorResponse {
+export interface ProcureCheckErrorResponse {
 	error: {
 		code: string;
 		message: string;
@@ -136,19 +136,19 @@ export interface ExperianErrorResponse {
 // ============================================
 
 /**
- * Map Experian score (0-100) to our ITC score range (300-850)
+ * Map ProcureCheck score (0-100) to our ITC score range (300-850)
  */
-export function mapExperianScore(experianScore: number): number {
-	// Experian uses 0-100, we use 300-850 range
+export function mapProcureCheckScore(procureCheckScore: number): number {
+	// ProcureCheck uses 0-100, we use 300-850 range
 	// Linear mapping: 0 -> 300, 100 -> 850
-	return Math.round(300 + (experianScore / 100) * 550);
+	return Math.round(300 + (procureCheckScore / 100) * 550);
 }
 
 /**
- * Map Experian risk category to our risk category
+ * Map ProcureCheck risk category to our risk category
  */
-export function mapExperianRiskCategory(
-	category: ExperianCreditProfile["riskCategory"]
+export function mapProcureCheckRiskCategory(
+	category: ProcureCheckCreditProfile["riskCategory"]
 ): "LOW" | "MEDIUM" | "HIGH" | "VERY_HIGH" {
 	switch (category) {
 		case "Very Low":

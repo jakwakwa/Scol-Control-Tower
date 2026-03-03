@@ -1,15 +1,13 @@
 /**
  * AI Models Configuration
  *
- * Uses Vercel AI SDK v6 with AI Gateway for centralized model access.
- * Requires AI_GATEWAY_API_KEY environment variable.
+ * Uses Vercel AI SDK v6 with AI GoogleGenAI for centralized model access.
+ * Requires GOOGLE_GENAI_KEY environment variable.
  *
- * Available models through the gateway:
+ * Available models through the GoogleGenAI:
  * - anthropic/claude-sonnet-4: Complex analysis, risk scoring
  * - google/gemini-2.0-flash: Fast document parsing
  */
-
-import { gateway } from "@ai-sdk/gateway";
 
 /**
  * Get thinking model for complex analysis tasks
@@ -18,14 +16,14 @@ import { gateway } from "@ai-sdk/gateway";
  * - AI trust score calculation
  */
 export function getThinkingModel() {
-	return gateway("google/gemini-3-flash");
+	return "gemini-3-flash";
 }
 
 /**
  * High-stakes model for risk and document verification.
  */
 export function getHighStakesModel() {
-	return gateway("google/gemini-3.1-pro-preview");
+	return "google/gemini-3-flash";
 }
 
 /**
@@ -34,7 +32,7 @@ export function getHighStakesModel() {
  * - Quick validation checks
  */
 export function getFastModel() {
-	return gateway("google/gemini-2.0-flash");
+	return "google/gemini-2.5-flash-preview-09-2025";
 }
 
 /**
@@ -48,7 +46,7 @@ export function getModel(complexity: "fast" | "thinking" = "thinking") {
  * Check if AI is configured
  */
 export function isAIConfigured(): boolean {
-	return !!process.env.AI_GATEWAY_API_KEY;
+	return !!process.env.GOOGLE_GENAI_KEY;
 }
 
 /**

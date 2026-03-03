@@ -427,48 +427,6 @@ export type Events = {
 		};
 	};
 
-	// ================================================================
-	// V24 Integration Events
-	// ================================================================
-
-	/** Client profile created in V24 */
-	"v24/client.created": {
-		data: {
-			workflowId: number;
-			applicantId: number;
-			v24Response: {
-				success: boolean;
-				clientId?: string;
-				v24Reference?: string;
-				error?: string;
-			};
-			timestamp: string;
-		};
-	};
-
-	/** Training session scheduled */
-	"v24/training.scheduled": {
-		data: {
-			workflowId: number;
-			applicantId: number;
-			session: {
-				sessionId: string;
-				scheduledDate: string;
-				meetingLink?: string;
-			};
-		};
-	};
-
-	/** Welcome pack sent to client */
-	"v24/welcome.sent": {
-		data: {
-			workflowId: number;
-			applicantId: number;
-			sentTo: string; // Email
-			timestamp: string;
-		};
-	};
-
 	// ============================================
 	// Form Submission Events
 	// ============================================

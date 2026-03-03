@@ -426,7 +426,7 @@ The `[inngest/events.ts](inngest/events.ts)` file defines **60+ typed events**. 
 - `onboarding/documents-verified`
 - `onboarding/validation-complete`
 - `onboarding/ai-analysis.completed`
-- `v24/client.created`, `v24/training.scheduled`, `v24/welcome.sent`
+- `agreementContract/client.created`, `agreementContract/training.scheduled`, `agreementContract/welcome.sent`
 - `agent/validation.completed`, `agent/risk.completed`
 - `quote/needs-update`, `quote/adjusted`, `quote/feedback.received`
 - `mandate/collection.expired`

@@ -1,7 +1,7 @@
 /**
- * ITC Credit Bureau Service
+ * ITC Service
  *
- * Integrates with Experian Business Credit API for real credit checks.
+ * Integrates with ProcureCheck Business Credit API for real credit checks.
  * Returns manual-required degraded results when provider is unavailable.
  *
  * Business Logic:
@@ -15,20 +15,20 @@ import { getDatabaseClient } from "@/app/utils";
 import { applicants } from "@/db/schema";
 import { ITC_THRESHOLDS, type ITCCheckResult } from "@/lib/types";
 import {
-	type ExperianBusinessCreditResponse,
-	type ExperianTokenResponse,
-	mapExperianRiskCategory,
-	mapExperianScore,
-} from "./experian.types";
+	mapProcureCheckRiskCategory,
+	mapProcureCheckScore,
+	type ProcureCheckBusinessCreditResponse,
+	type ProcureCheckTokenResponse,
+} from "./procure-check.types";
 
 // ============================================
 // Configuration
 // ============================================
 
-const EXPERIAN_CONFIG = {
-	clientId: process.env.EXPERIAN_CLIENT_ID,
-	clientSecret: process.env.EXPERIAN_CLIENT_SECRET,
-	apiUrl: process.env.EXPERIAN_API_URL || "https://us-api.experian.com",
+const PROCURECHECK_CONFIG = {
+	clientId: process.env.PROCURECHECK_USERNAME,
+	clientSecret: process.env.PROCURECHECK_PASSWORD,
+	apiUrl: process.env.PROCURECHECK_BASE_URL || "",
 };
 
 // Token cache
@@ -82,13 +82,13 @@ export async function performITCCheck(options: ITCCheckOptions): Promise<ITCChec
 		throw new Error(`[ITCService] Applicant ${applicantId} not found`);
 	}
 
-	// Check if Experian is configured
-	if (isExperianConfigured()) {
+	// Check if ProcureCheck is configured
+	if (isProcureCheckConfigured()) {
 		try {
 			const registrationNumber =
 				options.registrationNumber || extractRegistrationNumber(applicantData);
 			if (registrationNumber) {
-				return await performExperianCheck(registrationNumber, applicantId);
+				return await performProcureCheckCheck(registrationNumber, applicantId);
 			}
 			console.warn(
 				`[ITCService] Applicant ${applicantId} has no registration number. Returning manual-required ITC result.`
@@ -99,21 +99,21 @@ export async function performITCCheck(options: ITCCheckOptions): Promise<ITCChec
 				"registration_data"
 			);
 		} catch (err) {
-			console.error("[ITCService] Experian API failed:", err);
+			console.error("[ITCService] ProcureCheck API failed:", err);
 			return createManualRequiredResult(
 				applicantId,
-				`Experian API failed: ${err instanceof Error ? err.message : String(err)}`,
-				"experian"
+				`ProcureCheck API failed: ${err instanceof Error ? err.message : String(err)}`,
+				"procureCheck"
 			);
 		}
 	}
 
 	console.warn(
-		`[ITCService] Experian is not configured for applicant ${applicantId}. Returning manual-required ITC result.`
+		`[ITCService] ProcureCheck is not configured for applicant ${applicantId}. Returning manual-required ITC result.`
 	);
 	return createManualRequiredResult(
 		applicantId,
-		"Experian API is not configured",
+		"ProcureCheck API is not configured",
 		"configuration"
 	);
 }
@@ -121,7 +121,7 @@ export async function performITCCheck(options: ITCCheckOptions): Promise<ITCChec
 function createManualRequiredResult(
 	applicantId: number,
 	reason: string,
-	source: "experian" | "configuration" | "registration_data"
+	source: "procureCheck" | "configuration" | "registration_data"
 ): ITCCheckResult {
 	return {
 		creditScore: 0,
@@ -140,43 +140,43 @@ function createManualRequiredResult(
 }
 
 // ============================================
-// Experian Integration
+// ProcureCheck Integration
 // ============================================
 
 /**
- * Check if Experian API is configured
+ * Check if ProcureCheck API is configured
  */
-function isExperianConfigured(): boolean {
-	return !!(EXPERIAN_CONFIG.clientId && EXPERIAN_CONFIG.clientSecret);
+function isProcureCheckConfigured(): boolean {
+	return !!(PROCURECHECK_CONFIG.clientId && PROCURECHECK_CONFIG.clientSecret);
 }
 
 /**
- * Get Experian OAuth2 token
+ * Get ProcureCheck OAuth2 token
  */
-async function getExperianToken(): Promise<string> {
+async function getProcureCheckToken(): Promise<string> {
 	// Return cached token if valid
 	if (cachedToken && cachedToken.expiresAt > Date.now()) {
 		return cachedToken.token;
 	}
 
-	const response = await fetch(`${EXPERIAN_CONFIG.apiUrl}/oauth2/v1/token`, {
+	const response = await fetch(`${PROCURECHECK_CONFIG.apiUrl}/oauth2/v1/token`, {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/x-www-form-urlencoded",
 		},
 		body: new URLSearchParams({
 			grant_type: "client_credentials",
-			client_id: EXPERIAN_CONFIG.clientId!,
-			client_secret: EXPERIAN_CONFIG.clientSecret!,
+			client_id: PROCURECHECK_CONFIG.clientId!,
+			client_secret: PROCURECHECK_CONFIG.clientSecret!,
 		}),
 	});
 
 	if (!response.ok) {
 		const error = await response.text();
-		throw new Error(`Experian auth failed: ${response.status} - ${error}`);
+		throw new Error(`ProcureCheck auth failed: ${response.status} - ${error}`);
 	}
 
-	const data = (await response.json()) as ExperianTokenResponse;
+	const data = (await response.json()) as ProcureCheckTokenResponse;
 
 	// Cache token (with 5 minute buffer)
 	cachedToken = {
@@ -188,15 +188,15 @@ async function getExperianToken(): Promise<string> {
 }
 
 /**
- * Perform real Experian credit check
+ * Perform real ProcureCheck credit check
  */
-async function performExperianCheck(
+async function performProcureCheckCheck(
 	registrationNumber: string,
 	applicantId: number
 ): Promise<ITCCheckResult> {
-	const token = await getExperianToken();
+	const token = await getProcureCheckToken();
 
-	const response = await fetch(`${EXPERIAN_CONFIG.apiUrl}/business/v1/credit`, {
+	const response = await fetch(`${PROCURECHECK_CONFIG.apiUrl}/business/v1/credit`, {
 		method: "POST",
 		headers: {
 			Authorization: `Bearer ${token}`,
@@ -210,14 +210,14 @@ async function performExperianCheck(
 
 	if (!response.ok) {
 		const error = await response.text();
-		throw new Error(`Experian credit check failed: ${response.status} - ${error}`);
+		throw new Error(`ProcureCheck credit check failed: ${response.status} - ${error}`);
 	}
 
-	const data = (await response.json()) as ExperianBusinessCreditResponse;
+	const data = (await response.json()) as ProcureCheckBusinessCreditResponse;
 
-	// Map Experian response to our ITCCheckResult
-	const creditScore = mapExperianScore(data.creditProfile.score);
-	const riskCategory = mapExperianRiskCategory(data.creditProfile.riskCategory);
+	// Map ProcureCheck response to our ITCCheckResult
+	const creditScore = mapProcureCheckScore(data.creditProfile.score);
+	const riskCategory = mapProcureCheckRiskCategory(data.creditProfile.riskCategory);
 
 	const result: ITCCheckResult = {
 		creditScore,

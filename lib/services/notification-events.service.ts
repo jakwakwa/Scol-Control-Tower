@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
-import { notifications, workflowEvents } from "@/db/schema";
 import type { NotificationSeverity } from "@/db/schema";
+import { notifications, workflowEvents } from "@/db/schema";
 
 export interface CreateNotificationParams {
 	workflowId: number;
@@ -48,7 +48,7 @@ export interface LogEventParams {
 		| "procurement_decision"
 		| "ai_analysis_completed"
 		| "reporter_analysis_completed"
-		| "v24_integration_completed"
+		| "agreementContract_integration_completed"
 		| "workflow_completed"
 		| "kill_switch_executed"
 		| "kill_switch_handled"
@@ -108,10 +108,7 @@ export async function createWorkflowNotification(
 				.select()
 				.from(notifications)
 				.where(
-					and(
-						eq(notifications.groupKey, params.groupKey),
-						eq(notifications.read, false)
-					)
+					and(eq(notifications.groupKey, params.groupKey), eq(notifications.read, false))
 				)
 				.limit(1);
 
