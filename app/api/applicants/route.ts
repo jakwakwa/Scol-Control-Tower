@@ -3,6 +3,7 @@ import { getDatabaseClient } from "@/app/utils";
 import { applicants, workflows } from "@/db/schema";
 import { createApplicantSchema } from "@/lib/validations";
 import { inngest } from "@/inngest";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 /**
  * GET /api/applicants
@@ -10,6 +11,11 @@ import { inngest } from "@/inngest";
  */
 export async function GET() {
 	try {
+		const authResult = await requireAuth();
+		if (authResult instanceof NextResponse) {
+			return authResult;
+		}
+
 		const db = await getDatabaseClient();
 
 		if (!db) {
@@ -35,6 +41,11 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
 	try {
+		const authResult = await requireAuth();
+		if (authResult instanceof NextResponse) {
+			return authResult;
+		}
+
 		const db = await getDatabaseClient();
 
 		if (!db) {
