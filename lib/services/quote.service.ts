@@ -5,7 +5,12 @@
 import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants, quotes } from "@/db/schema";
-import { getGenAIClient, getThinkingModel, isAIConfigured } from "@/lib/ai/models";
+import {
+	AI_CONFIG,
+	getThinkingModel,
+	isAIConfigured,
+	runStructuredInteraction,
+} from "@/lib/ai/models";
 import type { QuoteGenerationResult } from "@/lib/validations/quotes";
 import { quoteGenerationSchema } from "@/lib/validations/quotes";
 
@@ -161,18 +166,12 @@ RULES:
 			"[QuoteService] AI is not configured. Set GOOGLE_GENAI_KEY to enable quote generation."
 		);
 	}
-	const ai = getGenAIClient();
-
-	const response = await ai.models.generateContent({
+	return runStructuredInteraction({
 		model: getThinkingModel(),
-		config: {
-			responseMimeType: "application/json",
-			responseJsonSchema: quoteGenerationSchema,
-		},
-		contents: prompt,
+		input: prompt,
+		schema: quoteGenerationSchema,
+		temperature: AI_CONFIG.ANALYSIS_TEMPERATURE,
 	});
-
-	return quoteGenerationSchema.parse(JSON.parse(response.text));
 }
 
 async function notifyQuoteGenerated({

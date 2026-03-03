@@ -12,7 +12,11 @@
  */
 
 import { z } from "zod";
-import { getGenAIClient, getHighStakesModel, isAIConfigured } from "@/lib/ai/models";
+import {
+	getHighStakesModel,
+	isAIConfigured,
+	runStructuredInteraction,
+} from "@/lib/ai/models";
 
 // ============================================
 // Types & Schemas
@@ -114,20 +118,14 @@ export async function validateDocument(
 			"[ValidationAgent] AI is not configured. Set GOOGLE_GENAI_KEY to enable document validation."
 		);
 	}
-	const ai = getGenAIClient();
-
 	const prompt = buildValidationPrompt(input);
 
 	try {
-		const response = await ai.models.generateContent({
+		const analysis = await runStructuredInteraction({
 			model: getHighStakesModel(),
-			config: {
-				responseMimeType: "application/json",
-				responseJsonSchema: ValidationResultSchema,
-			},
-			contents: prompt,
+			input: prompt,
+			schema: ValidationResultSchema,
 		});
-		const analysis = ValidationResultSchema.parse(JSON.parse(response.text));
 		return { ...analysis, dataSource: "Gemini AI" };
 	} catch (error) {
 		console.error("[ValidationAgent] AI generation failed:", error);

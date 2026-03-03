@@ -9,6 +9,7 @@
  * - google/gemini-2.0-flash: Fast document parsing
  */
 import { GoogleGenAI } from "@google/genai";
+import { z } from "zod";
 
 /**
  * Get thinking model for complex analysis tasks
@@ -62,6 +63,37 @@ export function getGenAIClient(): GoogleGenAI {
 	}
 
 	return new GoogleGenAI({ apiKey });
+}
+
+interface StructuredInteractionOptions<TSchema extends z.ZodTypeAny> {
+	model: string;
+	input: string;
+	schema: TSchema;
+	temperature?: number;
+}
+
+/**
+ * Run a structured Interactions API call and return validated JSON.
+ */
+export async function runStructuredInteraction<TSchema extends z.ZodTypeAny>(
+	options: StructuredInteractionOptions<TSchema>
+): Promise<z.infer<TSchema>> {
+	const ai = getGenAIClient();
+	const interaction = await ai.interactions.create({
+		model: options.model,
+		input: options.input,
+		response_format: z.toJSONSchema(options.schema),
+		...(options.temperature !== undefined
+			? { generation_config: { temperature: options.temperature } }
+			: {}),
+	});
+
+	const textOutput = interaction.outputs.find(output => output.type === "text");
+	if (!(textOutput && "text" in textOutput && typeof textOutput.text === "string")) {
+		throw new Error("Interactions API returned no text output for structured response.");
+	}
+
+	return options.schema.parse(JSON.parse(textOutput.text));
 }
 
 /**

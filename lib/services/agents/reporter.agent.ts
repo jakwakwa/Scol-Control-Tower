@@ -7,7 +7,7 @@
 
 import { execSync } from "node:child_process";
 import { z } from "zod";
-import { getGenAIClient, getHighStakesModel } from "@/lib/ai/models";
+import { getHighStakesModel, runStructuredInteraction } from "@/lib/ai/models";
 
 // ============================================
 // Types & Schemas
@@ -95,18 +95,12 @@ export async function generateReporterAnalysis(
     - Be objective and professional.
     - Highlight discrepancies between agents if any.
     `;
-	const ai = getGenAIClient();
-
 	try {
-		const response = await ai.models.generateContent({
+		const analysis = await runStructuredInteraction({
 			model: getHighStakesModel(),
-			config: {
-				responseMimeType: "application/json",
-				responseJsonSchema: ReporterOutputSchema,
-			},
-			contents: prompt,
+			input: prompt,
+			schema: ReporterOutputSchema,
 		});
-		const analysis = ReporterOutputSchema.parse(JSON.parse(response.text));
 		return {
 			...analysis,
 			dataSource: "Gemini AI",

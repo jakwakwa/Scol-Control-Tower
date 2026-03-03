@@ -12,7 +12,11 @@
  * - Multi-model strategy: Gemini 2.0 Flash for complex analysis
  */
 
-import { getGenAIClient, getThinkingModel, isAIConfigured } from "@/lib/ai/models";
+import {
+	getThinkingModel,
+	isAIConfigured,
+	runStructuredInteraction,
+} from "@/lib/ai/models";
 import {
 	type AccountantLetterAnalysis,
 	AccountantLetterAnalysisSchema,
@@ -126,17 +130,11 @@ ANALYSIS REQUIREMENTS:
 
 Be thorough but concise. Flag any concerning patterns immediately.`;
 
-	const ai = getGenAIClient();
-	const response = await ai.models.generateContent({
+	return runStructuredInteraction({
 		model: getThinkingModel(),
-		config: {
-			responseMimeType: "application/json",
-			responseJsonSchema: FicaDocumentAnalysisSchema,
-		},
-		contents: prompt,
+		input: prompt,
+		schema: FicaDocumentAnalysisSchema,
 	});
-
-	return FicaDocumentAnalysisSchema.parse(JSON.parse(response.text));
 }
 
 // ============================================
@@ -196,17 +194,11 @@ ANALYSIS REQUIREMENTS:
 8. List any concerns mentioned
 9. Determine verification confidence (0-100)`;
 
-	const ai = getGenAIClient();
-	const response = await ai.models.generateContent({
+	return runStructuredInteraction({
 		model: getThinkingModel(),
-		config: {
-			responseMimeType: "application/json",
-			responseJsonSchema: AccountantLetterAnalysisSchema,
-		},
-		contents: prompt,
+		input: prompt,
+		schema: AccountantLetterAnalysisSchema,
 	});
-
-	return AccountantLetterAnalysisSchema.parse(JSON.parse(response.text));
 }
 
 // ============================================

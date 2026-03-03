@@ -12,7 +12,7 @@
  */
 
 import { z } from "zod";
-import { getGenAIClient, getHighStakesModel } from "@/lib/ai/models";
+import { getHighStakesModel, runStructuredInteraction } from "@/lib/ai/models";
 
 // ============================================
 // Types & Schemas
@@ -168,21 +168,14 @@ export async function analyzeFinancialRisk(
 			dataSource: "Manual Escalation - Insufficient Evidence",
 		};
 	}
-	const ai = getGenAIClient();
-
 	const prompt = buildRiskPrompt(input);
 
 	try {
-		const response = await ai.models.generateContent({
+		const analysis = await runStructuredInteraction({
 			model: getHighStakesModel(),
-			config: {
-				responseMimeType: "application/json",
-				responseJsonSchema: RiskAnalysisResultSchema,
-			},
-			contents: prompt,
+			input: prompt,
+			schema: RiskAnalysisResultSchema,
 		});
-
-		const analysis = RiskAnalysisResultSchema.parse(JSON.parse(response.text));
 		return analysis;
 	} catch (error) {
 		console.error("[RiskAgent] AI analysis failed:", error);
