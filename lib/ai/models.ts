@@ -8,6 +8,7 @@
  * - anthropic/claude-sonnet-4: Complex analysis, risk scoring
  * - google/gemini-2.0-flash: Fast document parsing
  */
+import { GoogleGenAI } from "@google/genai";
 
 /**
  * Get thinking model for complex analysis tasks
@@ -47,6 +48,20 @@ export function getModel(complexity: "fast" | "thinking" = "thinking") {
  */
 export function isAIConfigured(): boolean {
 	return !!process.env.GOOGLE_GENAI_KEY;
+}
+
+/**
+ * Create a Google GenAI client using project-standard env key.
+ */
+export function getGenAIClient(): GoogleGenAI {
+	const apiKey = process.env.GOOGLE_GENAI_KEY;
+	if (!apiKey) {
+		throw new Error(
+			"GOOGLE_GENAI_KEY is required for AI operations. Add it to environment variables."
+		);
+	}
+
+	return new GoogleGenAI({ apiKey });
 }
 
 /**

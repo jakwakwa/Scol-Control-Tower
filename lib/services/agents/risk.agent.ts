@@ -11,9 +11,8 @@
  * Real implementation will integrate with actual financial data sources.
  */
 
-import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
-import { getHighStakesModel } from "@/lib/ai/models";
+import { getGenAIClient, getHighStakesModel } from "@/lib/ai/models";
 
 // ============================================
 // Types & Schemas
@@ -169,7 +168,7 @@ export async function analyzeFinancialRisk(
 			dataSource: "Manual Escalation - Insufficient Evidence",
 		};
 	}
-	const ai = new GoogleGenAI({});
+	const ai = getGenAIClient();
 
 	const prompt = buildRiskPrompt(input);
 

@@ -3,10 +3,9 @@
  */
 
 import { eq } from "drizzle-orm";
-import { GoogleGenAI } from "@google/genai";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants, quotes } from "@/db/schema";
-import { getThinkingModel, isAIConfigured } from "@/lib/ai/models";
+import { getGenAIClient, getThinkingModel, isAIConfigured } from "@/lib/ai/models";
 import type { QuoteGenerationResult } from "@/lib/validations/quotes";
 import { quoteGenerationSchema } from "@/lib/validations/quotes";
 
@@ -157,13 +156,12 @@ RULES:
 - If estimated transactions per month is missing, the AI may use a reasonable default for pricing context.
 - Keep adjustedFeePercent within 50-500 bps.
 - Use ITC score to adjust risk and pricing.`;
-	const ai = new GoogleGenAI({});
-
 	if (!isAIConfigured()) {
 		throw new Error(
-			"[QuoteService] AI is not configured. Set GOOGLE_GENERATIVE_AI_API_KEY to enable quote generation."
+			"[QuoteService] AI is not configured. Set GOOGLE_GENAI_KEY to enable quote generation."
 		);
 	}
+	const ai = getGenAIClient();
 
 	const response = await ai.models.generateContent({
 		model: getThinkingModel(),

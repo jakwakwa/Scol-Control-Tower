@@ -12,8 +12,7 @@
  * - Multi-model strategy: Gemini 2.0 Flash for complex analysis
  */
 
-import { GoogleGenAI } from "@google/genai";
-import { getThinkingModel, isAIConfigured } from "@/lib/ai/models";
+import { getGenAIClient, getThinkingModel, isAIConfigured } from "@/lib/ai/models";
 import {
 	type AccountantLetterAnalysis,
 	AccountantLetterAnalysisSchema,
@@ -127,7 +126,7 @@ ANALYSIS REQUIREMENTS:
 
 Be thorough but concise. Flag any concerning patterns immediately.`;
 
-	const ai = new GoogleGenAI({});
+	const ai = getGenAIClient();
 	const response = await ai.models.generateContent({
 		model: getThinkingModel(),
 		config: {
@@ -197,7 +196,7 @@ ANALYSIS REQUIREMENTS:
 8. List any concerns mentioned
 9. Determine verification confidence (0-100)`;
 
-	const ai = new GoogleGenAI({});
+	const ai = getGenAIClient();
 	const response = await ai.models.generateContent({
 		model: getThinkingModel(),
 		config: {

@@ -6,9 +6,8 @@
  */
 
 import { execSync } from "node:child_process";
-import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
-import { getHighStakesModel } from "@/lib/ai/models";
+import { getGenAIClient, getHighStakesModel } from "@/lib/ai/models";
 
 // ============================================
 // Types & Schemas
@@ -96,7 +95,7 @@ export async function generateReporterAnalysis(
     - Be objective and professional.
     - Highlight discrepancies between agents if any.
     `;
-	const ai = new GoogleGenAI({});
+	const ai = getGenAIClient();
 
 	try {
 		const response = await ai.models.generateContent({
