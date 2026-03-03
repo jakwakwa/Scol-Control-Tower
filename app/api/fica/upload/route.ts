@@ -17,6 +17,7 @@ import { z } from "zod";
 import { getDatabaseClient } from "@/app/utils";
 import { documents, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
+import { evaluateDocumentQuality } from "@/lib/services/document-quality.service";
 
 const UploadMetadataSchema = z.object({
 	workflowId: z.coerce.number().int().positive("Workflow ID is required"),
@@ -109,6 +110,18 @@ export async function POST(request: NextRequest) {
 			}
 
 			const arrayBuffer = await file.arrayBuffer();
+			const buffer = Buffer.from(arrayBuffer);
+			const quality = evaluateDocumentQuality(
+				file.name,
+				file.type,
+				buffer,
+				{
+					enforceRecency: metadata.documentType === "PROOF_OF_ADDRESS",
+				}
+			);
+			if (!quality.ok) {
+				continue;
+			}
 			const base64Content = Buffer.from(arrayBuffer).toString("base64");
 
 			const storageUrl = `/api/documents/download?applicantId=${metadata.applicantId}&type=${metadata.documentType}&fileName=${encodeURIComponent(file.name)}`;
@@ -137,6 +150,10 @@ export async function POST(request: NextRequest) {
 						storageUrl,
 						uploadedBy: userId || "client",
 						uploadedAt: new Date(),
+						notes:
+							quality.warnings.length > 0
+								? `[QUALITY_WARNING] ${quality.warnings.join("; ")}`
+								: undefined,
 					},
 				])
 				.returning();

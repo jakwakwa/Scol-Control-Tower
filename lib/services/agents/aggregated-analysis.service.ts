@@ -133,9 +133,15 @@ export async function performAggregatedAnalysis(
 	const agentsRun: ("validation" | "risk" | "sanctions")[] = [];
 	const flags: string[] = [];
 
-	// Run all agents in parallel
-	const [validationResult, riskResult, sanctionsResult] = await Promise.all([
-		// Validation Agent
+	const fallbackValidation = createValidationFallback(input.documents ?? []);
+	const fallbackRisk = createRiskFallback(
+		"Risk agent failed. Insufficient data for automated risk decision."
+	);
+	const fallbackSanctions = createSanctionsFallback(
+		"Sanctions providers unavailable. Manual sanctions review required."
+	);
+
+	const [validationSettled, riskSettled, sanctionsSettled] = await Promise.allSettled([
 		input.documents && input.documents.length > 0
 			? validateDocumentsBatch({
 					documents: input.documents,
@@ -146,13 +152,8 @@ export async function performAggregatedAnalysis(
 						address: input.applicantData.address,
 					},
 					workflowId: input.workflowId,
-				}).then(r => {
-					agentsRun.push("validation");
-					return r;
 				})
 			: Promise.resolve(undefined),
-
-		// Risk Agent
 		analyzeFinancialRisk({
 			applicantId: input.applicantId,
 			workflowId: input.workflowId,
@@ -163,13 +164,8 @@ export async function performAggregatedAnalysis(
 				industry: input.applicantData.industry,
 				employeeCount: input.applicantData.employeeCount,
 			},
-		}).then(r => {
-			agentsRun.push("risk");
-			return r;
 		}),
-
-		// Sanctions Agent (or pre-computed sanctions result)
-		(input.sanctionsOverride
+		input.sanctionsOverride
 			? Promise.resolve(input.sanctionsOverride)
 			: performSanctionsCheck({
 					applicantId: input.applicantId,
@@ -180,12 +176,35 @@ export async function performAggregatedAnalysis(
 					contactName: input.applicantData.contactName,
 					registrationNumber: input.applicantData.registrationNumber,
 					directors: input.directors,
-				})
-		).then(r => {
-			agentsRun.push("sanctions");
-			return r;
-		}),
+				}),
 	]);
+
+	const validationResult =
+		validationSettled.status === "fulfilled"
+			? validationSettled.value
+			: input.documents && input.documents.length > 0
+				? fallbackValidation
+				: undefined;
+	const riskResult =
+		riskSettled.status === "fulfilled" ? riskSettled.value : fallbackRisk;
+	const sanctionsResult =
+		sanctionsSettled.status === "fulfilled"
+			? sanctionsSettled.value
+			: fallbackSanctions;
+
+	if (validationResult) agentsRun.push("validation");
+	if (riskSettled.status === "fulfilled") agentsRun.push("risk");
+	if (sanctionsSettled.status === "fulfilled") agentsRun.push("sanctions");
+
+	if (validationSettled.status === "rejected") {
+		flags.push("Validation agent unavailable - manual document review required");
+	}
+	if (riskSettled.status === "rejected") {
+		flags.push("Risk agent unavailable - manual risk review required");
+	}
+	if (sanctionsSettled.status === "rejected") {
+		flags.push("Sanctions providers unavailable - manual sanctions review required");
+	}
 
 	// Calculate scores
 	const validationScore = validationResult
@@ -296,13 +315,13 @@ export async function performAggregatedAnalysis(
 		risk: riskResult,
 		sanctions: sanctionsResult,
 		agents: {
-			validation: validationResult
+		validation: validationResult
 				? {
 						totalDocuments: validationResult.summary.totalDocuments,
 						passed: validationResult.summary.passed,
 						failed: validationResult.summary.failed,
 						recommendation: validationResult.summary.overallRecommendation,
-						dataSource: validationResult.results[0]?.dataSource || "skipped",
+						dataSource: validationResult.results[0]?.validation?.dataSource || "skipped",
 					}
 				: { status: "skipped", reason: "No documents provided" },
 			risk: {
@@ -357,6 +376,132 @@ export async function performAggregatedAnalysis(
 		reporterResult.promptVersionId
 	);
 	return result;
+}
+
+function createValidationFallback(
+	documents: Array<{ id: string; type: string }>
+): BatchValidationResult {
+	return {
+		results: documents.map(doc => ({
+			documentId: doc.id,
+			documentType: doc.type,
+			validation: {
+				isAuthentic: false,
+				authenticityScore: 0,
+				authenticityFlags: ["Validation service unavailable"],
+				dataIntegrityPassed: false,
+				dataIntegrityIssues: ["Validation service unavailable"],
+				dateValid: false,
+				dateIssues: ["Could not validate document date"],
+				crossReferenceVerified: false,
+				crossReferenceDetails: {
+					nameMatch: false,
+					addressMatch: false,
+				},
+				overallValid: false,
+				overallScore: 0,
+				recommendation: "REVIEW",
+				reasoning:
+					"Validation service unavailable. Manual review is required for this document.",
+				dataSource: "Validation Error - Manual Escalation",
+			},
+		})),
+		summary: {
+			totalDocuments: documents.length,
+			passed: 0,
+			requiresReview: documents.length,
+			failed: 0,
+			overallRecommendation: "REVIEW_REQUIRED",
+		},
+	};
+}
+
+function createRiskFallback(reason: string): RiskAnalysisResult {
+	return {
+		bankAnalysis: {
+			accountType: "UNKNOWN",
+			bankName: "UNKNOWN",
+			averageBalance: 0,
+			minimumBalance: 0,
+			maximumBalance: 0,
+			volatilityScore: 0,
+		},
+		cashFlow: {
+			totalCredits: 0,
+			totalDebits: 0,
+			netCashFlow: 0,
+			regularIncomeDetected: false,
+			incomeFrequency: "UNKNOWN",
+			consistencyScore: 0,
+		},
+		stability: {
+			overallScore: 0,
+			debtIndicators: [],
+			gamblingIndicators: [],
+			loanRepayments: 0,
+			hasBounced: false,
+			bouncedCount: 0,
+			bouncedAmount: 0,
+		},
+		creditRisk: {
+			riskCategory: "HIGH",
+			riskScore: 95,
+			affordabilityRatio: 0,
+			redFlags: [reason],
+			positiveIndicators: [],
+		},
+		overall: {
+			score: 10,
+			recommendation: "MANUAL_REVIEW",
+			reasoning: reason,
+			conditions: [
+				"Manual risk-manager verification required due to unavailable automated risk analysis",
+			],
+		},
+		dataSource: "Risk Error - Manual Escalation",
+	};
+}
+
+function createSanctionsFallback(reason: string): SanctionsCheckResult {
+	const now = new Date();
+	return {
+		unSanctions: {
+			checked: false,
+			matchFound: false,
+			matchDetails: [],
+			lastChecked: now.toISOString(),
+		},
+		pepScreening: {
+			checked: false,
+			isPEP: false,
+			familyAssociates: [],
+		},
+		adverseMedia: {
+			checked: false,
+			alertsFound: 0,
+			alerts: [],
+		},
+		watchLists: {
+			checked: false,
+			listsChecked: [],
+			matchesFound: 0,
+			matches: [],
+		},
+		overall: {
+			riskLevel: "MEDIUM",
+			passed: false,
+			requiresEDD: true,
+			recommendation: "MANUAL_REVIEW",
+			reasoning: reason,
+			reviewRequired: true,
+		},
+		metadata: {
+			checkId: `SCK-FALLBACK-${Date.now()}`,
+			checkedAt: now.toISOString(),
+			expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+			dataSource: "Sanctions Error - Manual Escalation",
+		},
+	};
 }
 
 /**
@@ -564,7 +709,7 @@ async function runExternalCheckStubs(
 	let industryRegulatorResult: {
 		status: "live" | "offline";
 		result: Record<string, unknown> | undefined;
-	};
+	} = { status: "offline", result: undefined };
 	if (process.env.ENABLE_FIRECRAWL_INDUSTRY_REG === "true" && isFirecrawlConfigured()) {
 		try {
 			const fcResult = await runIndustryRegulatorCheck({
@@ -634,7 +779,7 @@ async function runExternalCheckStubs(
 	let socialReputationResult: {
 		status: "live" | "offline";
 		result: Record<string, unknown> | undefined;
-	};
+	} = { status: "offline", result: undefined };
 
 	if (process.env.ENABLE_FIRECRAWL_SOCIAL_REP === "true" && isFirecrawlConfigured()) {
 		try {

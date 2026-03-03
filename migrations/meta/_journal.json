@@ -36,6 +36,20 @@
       "when": 1772363275834,
       "tag": "0004_wealthy_starjammers",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1772499118281,
+      "tag": "0005_spotty_scourge",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1772499248838,
+      "tag": "0006_jazzy_argent",
+      "breakpoints": true
     }
   ]
 }

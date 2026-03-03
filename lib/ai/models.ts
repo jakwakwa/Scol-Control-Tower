@@ -22,6 +22,13 @@ export function getThinkingModel() {
 }
 
 /**
+ * High-stakes model for risk and document verification.
+ */
+export function getHighStakesModel() {
+	return gateway("google/gemini-3.1-pro-preview");
+}
+
+/**
  * Get fast model for simple extraction tasks
  * - Document metadata extraction
  * - Quick validation checks

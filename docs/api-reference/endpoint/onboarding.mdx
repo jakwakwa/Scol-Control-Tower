@@ -11,3 +11,7 @@
   <SegmentTitle>POST /api/leads</SegmentTitle>
   <SegmentDescription>Manually create a lead (used by external forms).</SegmentDescription>
 </Segment>
+
+## Document uploads (FICA / onboarding)
+
+Document upload endpoints used in onboarding (e.g. FICA, proof-of-residence) apply the same **quality checks** (legibility, dimensions, low-detail detection) and **recency validation** as the Documents API; poor-quality submissions may be rejected or flagged with warnings/quality metadata.

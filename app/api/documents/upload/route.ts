@@ -8,6 +8,7 @@ import {
 	getFormInstanceByToken,
 	markFormInstanceStatus,
 } from "@/lib/services/form.service";
+import { evaluateDocumentQuality } from "@/lib/services/document-quality.service";
 import { DocumentCategorySchema, DocumentTypeSchema } from "@/lib/types";
 
 const UploadSchema = z.object({
@@ -91,6 +92,21 @@ export async function POST(request: NextRequest) {
 			}
 
 			const arrayBuffer = await file.arrayBuffer();
+			const buffer = Buffer.from(arrayBuffer);
+			const quality = evaluateDocumentQuality(
+				file.name,
+				file.type,
+				buffer,
+				{
+					enforceRecency:
+						validation.data.documentType === "PROOF_OF_ADDRESS" ||
+						validation.data.documentType === "PROPRIETOR_RESIDENCE",
+				}
+			);
+			if (!quality.ok) {
+				rejected.push({ name: file.name, reason: quality.reasons.join("; ") });
+				continue;
+			}
 			const base64Content = Buffer.from(arrayBuffer).toString("base64");
 
 			const storageUrl = `/api/documents/download?applicantId=${formInstance.applicantId}&type=${validation.data.documentType}&fileName=${encodeURIComponent(file.name)}`;
@@ -110,6 +126,10 @@ export async function POST(request: NextRequest) {
 						storageUrl,
 						uploadedBy: "client",
 						uploadedAt: new Date(),
+						notes:
+							quality.warnings.length > 0
+								? `[QUALITY_WARNING] ${quality.warnings.join("; ")}`
+								: undefined,
 					},
 				])
 				.returning();

@@ -20,7 +20,7 @@ Each workflow moves through six stages:
 
 1. **Initiation**: applicant intake and facility application dispatch
 2. **Facility, Pre-Risk & Quote**: facility form, sales evaluation, optional pre-risk clearance, and quotation flow
-3. **Procurement & AI Verification**: parallel procurement review and document verification (FICA upload, accountant letter, ITC/sanctions, AI validation agent), followed by Reporter Agent synthesis
+3. **Procurement & AI Verification**: parallel procurement evidence collection and document verification (FICA upload, ITC/sanctions, AI validation agent), followed by Reporter Agent synthesis
 4. **Risk Review**: mandatory Risk Manager review
 5. **Contract**: contract draft review plus contract/ABSA collection
 6. **Final Approval**: dual approval from Risk Manager and Account Manager
@@ -29,57 +29,56 @@ Sanctions screening always runs either during pre-risk (when sales flags issues)
 
 ## Stage 3: Procurement & AI verification
 
-Stage 3 runs two independent streams in parallel after the applicant signs the quote and submits their mandate documents.
+Stage 3 runs checks in parallel after the applicant signs the quote and submits required documents.
 
-### Parallel wait gate
+### Input wait gate
 
-Before any checks begin, the workflow waits for **all required inputs** to arrive. These can arrive in any order:
+Before checks begin, Stage 3 waits for required document readiness:
 
 | Input | Event | Required |
 | :--- | :--- | :--- |
 | FICA documents (bank statement, ID, proof of residence) | `upload/fica.received` | Always |
-| Procurement decision | `risk/procurement.completed` | When procurement review is required |
 
-The workflow only proceeds once all applicable inputs have been received.
+Procurement outcomes are collected as evidence in Stage 3 but are no longer a separate blocking wait gate before analysis.
 
 ### Stream A: Procurement risk assessment
 
-ProcureCheck runs against the applicant. Per SOP, the result always goes to a Risk Manager for manual review regardless of the automated score. If procurement fails to execute (e.g. API error), the Risk Manager performs a full manual procurement check instead.
+ProcureCheck runs against the applicant. If procurement fails to execute (for example API auth/provider errors), the workflow records a manual-required procurement status and continues with the remaining Stage 3 checks.
 
 ### Stream B: Document verification and AI analysis
 
-After all documents and forms are received, two independent checks run **in parallel**:
+After documents are ready, two independent paths run **in parallel**:
 
-- **ITC + sanctions check**: credit check via XDS/ITC and sanctions screening against UN, OFAC, and FIC TFS lists.
-- **AI Validation Agent**: Gemini-powered analysis of all uploaded documents (bank statements, ID, proof of residence, and optional accountant letter when provided). Runs validation, risk, and sanctions agents internally.
+- **ITC + sanctions check**: ITC provider check plus sanctions screening. If ITC provider is unavailable, the workflow records manual-required ITC and continues.
+- **AI validation/risk/sanctions analysis**: Gemini-powered analysis of uploaded documents, with fallback/manual-required envelopes when an agent call fails.
 
-Both paths must complete before the workflow continues.
+Both paths are joined before Reporter synthesis. Partial failures are retained and surfaced to Risk Review instead of terminating immediately.
 
 ### Reporter Agent synthesis
 
-Once ITC and AI analysis are both complete, the **Reporter Agent** combines the results into a single consolidated report. This report includes:
+Once ITC/sanctions and AI analysis complete, the **Reporter Agent** combines results into a single consolidated report. This report includes:
 
 - Validation summary from the AI agent
 - Risk assessment from the AI agent
 - Sanctions results from both ITC and AI paths
-- ITC credit score and recommendation
+- ITC status (live or manual-required degraded mode)
 - Combined flags (e.g. `ITC_SANCTIONS_BLOCKED`, `ITC_CHECK_FAILED`)
 - Overall recommendation and aggregated trust score
 
-The consolidated report is then sent to Stage 4 for Risk Manager review.
+The consolidated report is then sent to Stage 4 for a single mandatory Risk Manager decision. Stage 4 uses **reminder-based waiting** while items are in the queue and **does not auto-terminate** on review timeout; manual review remains mandatory.
 
 ### Stage 3 flow diagram
 
 ```
-                    ┌─ Stream A: Procurement → manual review ─┐
-Wait FICA docs  ─┬──┤                                          ├── all resolve
-Wait acct letter ─┘  └─────────────────────────────────────────┘
-                      ┌─ ITC + Sanctions check ────────────────┐
-                      │                                         ├── both green
-                      └─ AI Validation Agent ──────────────────┘
+                    ┌─ Stream A: Procurement evidence ─────────┐
+Wait FICA docs  ─┬──┤                                           ├── all resolve
+                 │  └───────────────────────────────────────────┘
+                 │   ┌─ ITC + Sanctions check (degraded ok) ───┐
+                 └───┤                                           ├── join results
+                     └─ AI Validation/Risk/Sanctions ───────────┘
                                         │
-                              Reporter Agent synthesizes
-                              ITC + AI results → Stage 4
+                              Reporter Agent synthesizes all available results
+                              → Stage 4 Risk Manager decision
 ```
 
 ## Workflow statuses
@@ -105,7 +104,7 @@ You will be prompted to confirm the action before it is sent.
 
 ### Structured override decisions
 
-Approval and rejection decisions now use a **structured override dialog** instead of free-text reasons. You select a category, optional subcategory, and can add notes. This data feeds the AI retraining pipeline. See [Risk review](/user-guides/risk-review) for full details.
+Approval and rejection decisions use a **structured override dialog** instead of free-text reasons. You select a category, optional subcategory, and can add notes. This data feeds the AI retraining pipeline. See [Risk review](/user-guides/risk-review) for full details.
 
 ## Sales evaluation (Stage 2)
 

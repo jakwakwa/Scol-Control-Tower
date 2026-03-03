@@ -1,0 +1,35 @@
+---
+title: "Changelog — 3 March 2026"
+description: "Stage 3 risk flow refactor: single human gate, degraded ITC handling, partial-failure synthesis, grounded AI outputs, and upload quality checks."
+---
+
+# Changelog: 3 March 2026
+
+## Workflow and Risk Review
+
+- Refactored Stage 3/4 to a **single risk-manager decision gate** after analysis artifacts are available.
+- Removed Stage 3 procurement-decision blocking behavior before AI/ITC execution.
+- Updated risk-review queue behavior to focus on Stage 4 human decisions and expose check-level status context.
+
+## Stage 3 Reliability
+
+- Added degraded/manual-required ITC behavior when provider config/auth is unavailable.
+- Reworked aggregated analysis joins to tolerate partial failures instead of hard-failing the whole synthesis.
+- Added fallback result envelopes for validation, risk, and sanctions when provider/agent execution fails.
+
+## AI Output Quality
+
+- Switched high-stakes risk/document analysis paths to Gemini Pro (`google/gemini-3.1-pro-preview`).
+- Tightened validation and risk prompts to enforce evidence-only outputs and avoid inferred values.
+- Added conservative manual-review fallback when bank-statement evidence is missing.
+
+## Document Intake Quality Gates
+
+- Added upload-time quality checks for documents (legibility heuristics, image dimensions, entropy-based low-detail detection).
+- Added recency validation hooks for proof-of-residence uploads (with warnings/quality metadata where applicable).
+- Updated upload endpoints to reject or route poor-quality submissions earlier.
+
+## Operational Policy Alignment
+
+- Stage 4 risk-manager checkpoint now uses reminder-based waiting and no auto-termination on review timeout.
+- Manual review remains mandatory for final risk decisions.

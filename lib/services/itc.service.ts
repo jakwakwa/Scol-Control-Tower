@@ -2,7 +2,7 @@
  * ITC Credit Bureau Service
  *
  * Integrates with Experian Business Credit API for real credit checks.
- * Falls back to mock implementation when credentials not configured.
+ * Returns manual-required degraded results when provider is unavailable.
  *
  * Business Logic:
  * - Score >= AUTO_APPROVE: fast-track approval
@@ -90,16 +90,53 @@ export async function performITCCheck(options: ITCCheckOptions): Promise<ITCChec
 			if (registrationNumber) {
 				return await performExperianCheck(registrationNumber, applicantId);
 			}
-			throw new Error("[ITCService] No registration number found");
+			console.warn(
+				`[ITCService] Applicant ${applicantId} has no registration number. Returning manual-required ITC result.`
+			);
+			return createManualRequiredResult(
+				applicantId,
+				"No registration number found for ITC lookup",
+				"registration_data"
+			);
 		} catch (err) {
 			console.error("[ITCService] Experian API failed:", err);
-			throw new Error(
-				`Experian API failed: ${err instanceof Error ? err.message : String(err)}`
+			return createManualRequiredResult(
+				applicantId,
+				`Experian API failed: ${err instanceof Error ? err.message : String(err)}`,
+				"experian"
 			);
 		}
 	}
 
-	throw new Error("Experian API is not configured");
+	console.warn(
+		`[ITCService] Experian is not configured for applicant ${applicantId}. Returning manual-required ITC result.`
+	);
+	return createManualRequiredResult(
+		applicantId,
+		"Experian API is not configured",
+		"configuration"
+	);
+}
+
+function createManualRequiredResult(
+	applicantId: number,
+	reason: string,
+	source: "experian" | "configuration" | "registration_data"
+): ITCCheckResult {
+	return {
+		creditScore: 0,
+		riskCategory: "HIGH",
+		passed: false,
+		recommendation: "MANUAL_REVIEW",
+		adverseListings: [],
+		checkedAt: new Date(),
+		referenceNumber: `ITC-MANUAL-${applicantId}-${Date.now()}`,
+		rawResponse: {
+			status: "manual_required",
+			source,
+			reason,
+		},
+	};
 }
 
 // ============================================

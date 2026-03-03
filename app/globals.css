@@ -288,6 +288,7 @@
   
 .glass-card {
   position: relative;
+  
   border-radius: 25px !important;
   background: var(--color-card) !important;
   /* box-shadow:  10px 3px 0px -2px rgba(163, 222, 213, 0.058),  0 10px 30px 1px rgba(4, 3, 3, 0.394); */
@@ -304,6 +305,8 @@
   position: relative;
   inset: -1;
   z-index: 2;
+  padding-bottom: 19px !important;
+  margin-bottom: 20px !important;
   overflow: hidden;
   border-radius: 15px !important;
   box-shadow: inset 2px 2px 3px -2px hsla(30, 41%, 59%, 0.263), inset 0.5px 3px 1px -2px hsla(27, 36%, 39%, 0.965), inset 0 -1px 30px 0px rgba(42, 43, 44, 0.109), 0.5px 11px 21px 1px rgba(10, 10, 12, 0.731) !important;
@@ -543,11 +546,11 @@ label {
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus,
   input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 1000px rgb(52, 27, 13) inset !important;
+    -webkit-box-shadow: 0 0 0 1000px rgb(165, 216, 206) inset !important;
     background-image: #03232a20 !important;
     transition: background-color 50000s ease-in-out 0s; /* Prevents transition flash */
-    -webkit-text-fill-color: #e2d5b9; /* Desired text color (gray-900 in Tailwind) */
-    mix-blend-mode: screen !important;
+    -webkit-text-fill-color: #262011;
+    /* mix-blend-mode: screen !important; */
     outline: #895f0b;
     border: #f7753d;
     color: lab(98.78% -2.25 -1.88) !important;

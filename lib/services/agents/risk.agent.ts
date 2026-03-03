@@ -13,7 +13,7 @@
 
 import { generateObject } from "ai";
 import { z } from "zod";
-import { getThinkingModel } from "@/lib/ai/models";
+import { getHighStakesModel } from "@/lib/ai/models";
 
 const AI_CONFIG = {
 	ANALYSIS_TEMPERATURE: 0.2,
@@ -127,11 +127,58 @@ export async function analyzeFinancialRisk(
 		throw new Error("No input data provided for risk analysis");
 	}
 
+	if (!input.bankStatementText?.trim()) {
+		return {
+			bankAnalysis: {
+				accountType: "UNKNOWN",
+				bankName: "UNKNOWN",
+				averageBalance: 0,
+				minimumBalance: 0,
+				maximumBalance: 0,
+				volatilityScore: 0,
+			},
+			cashFlow: {
+				totalCredits: 0,
+				totalDebits: 0,
+				netCashFlow: 0,
+				regularIncomeDetected: false,
+				incomeFrequency: "UNKNOWN",
+				consistencyScore: 0,
+			},
+			stability: {
+				overallScore: 0,
+				debtIndicators: [],
+				gamblingIndicators: [],
+				loanRepayments: 0,
+				hasBounced: false,
+				bouncedCount: 0,
+				bouncedAmount: 0,
+			},
+			creditRisk: {
+				riskCategory: "HIGH",
+				riskScore: 95,
+				affordabilityRatio: 0,
+				redFlags: ["No bank statement evidence provided for automated assessment"],
+				positiveIndicators: [],
+			},
+			overall: {
+				score: 10,
+				recommendation: "MANUAL_REVIEW",
+				reasoning:
+					"Automated risk analysis cannot be completed without readable bank statement evidence.",
+				conditions: [
+					"Provide readable recent bank statements and complete manual risk review",
+				],
+			},
+			dataSource: "Manual Escalation - Insufficient Evidence",
+		};
+	}
+
 	const prompt = buildRiskPrompt(input);
 
 	try {
 		const { object } = await generateObject({
-			model: getThinkingModel(),
+			model: getHighStakesModel(),
 			schema: RiskAnalysisResultSchema,
 			schemaName: "RiskAnalysis",
 			schemaDescription:
@@ -189,6 +236,11 @@ Follow the exact required output schema.
 For all monetary amounts, output in CENTS (e.g., R 1,000.00 = 100000).
 Ensure the rationale clearly justifies your scoring and recommendations.
 If data is sparse, default to conservative scoring and recommend MANUAL_REVIEW.
+
+GROUNDING RULES (CRITICAL):
+- Use only data explicitly present in the provided statement/applicant context.
+- Do NOT infer or invent requested mandate values, addresses, balances, transaction details, or business facts.
+- If a value cannot be proven from the evidence, set it to 0/UNKNOWN and include a red flag explaining missing evidence.
 `;
 }
 

@@ -13,7 +13,7 @@
 
 import { generateObject } from "ai";
 import { z } from "zod";
-import { AI_CONFIG, getThinkingModel, isAIConfigured } from "@/lib/ai/models";
+import { AI_CONFIG, getHighStakesModel, isAIConfigured } from "@/lib/ai/models";
 
 // ============================================
 // Types & Schemas
@@ -120,7 +120,7 @@ export async function validateDocument(
 
 	try {
 		const { object } = await generateObject({
-			model: getThinkingModel(),
+			model: getHighStakesModel(),
 			schema: ValidationResultSchema,
 			schemaName: "DocumentValidation",
 			schemaDescription: "Document authenticity and validation analysis",
@@ -214,6 +214,12 @@ SCORING GUIDELINES:
 - 70-89: Minor issues but acceptable
 - 50-69: Significant concerns, manual review required
 - Below 50: Major issues, likely reject or request new document
+
+GROUNDING RULES (CRITICAL):
+- Use only evidence that is explicitly present in the document content or applicant context.
+- Do NOT invent names, addresses, account details, dates, mandate amounts, or any missing field.
+- If a field cannot be verified from evidence, mark the related checks as failed/review and explain why evidence is insufficient.
+- For unreadable, blurry, or corrupted content, set recommendation to REVIEW or REQUEST_NEW_DOCUMENT.
 
 Be thorough but fair. Not all minor formatting inconsistencies indicate fraud.`;
 }

@@ -78,6 +78,8 @@ export interface RiskReviewItem {
 	// V2 Workflow - Review Type (Phase 3)
 	/** Review type: "procurement" for Stage 3, "general" for Stage 4 */
 	reviewType?: "procurement" | "general";
+	decisionType?: string;
+	targetResource?: string;
 	/** Procurement-specific: ProcureCheck risk score */
 	procurementScore?: number;
 	/** Procurement-specific: Has anomalies detected */
@@ -101,6 +103,13 @@ export interface RiskReviewItem {
 	escalationTier?: number;
 	/** Data source indicator (mock vs live) */
 	dataSource?: string | null;
+	checkStatuses?: {
+		procurement: "available" | "manual_required";
+		validation: "available" | "manual_required";
+		risk: "available" | "manual_required";
+		sanctions: "available" | "manual_required";
+		itc: "available" | "manual_required";
+	};
 }
 
 interface RiskReviewCardProps {
@@ -471,6 +480,24 @@ export function RiskReviewCard({
 					{item.summary && (
 						<div className="mt-4 p-3 rounded-lg bg-secondary/5 border border-secondary/10">
 							<p className="text-xs text-muted-foreground">{item.summary}</p>
+						</div>
+					)}
+
+					{item.checkStatuses && (
+						<div className="mt-3 flex flex-wrap gap-1.5">
+							{Object.entries(item.checkStatuses).map(([check, status]) => (
+								<Badge
+									key={check}
+									variant="outline"
+									className={cn(
+										"text-[10px]",
+										status === "manual_required"
+											? "bg-warning/50 text-warning-foreground border-warning"
+											: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+									)}>
+									{check}: {status === "manual_required" ? "manual" : "ok"}
+								</Badge>
+							))}
 						</div>
 					)}
 

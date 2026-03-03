@@ -1,5 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import { and, desc, eq, gte, or } from "drizzle-orm";
+import { and, desc, eq, gte } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants, riskAssessments, workflowEvents, workflows } from "@/db/schema";
@@ -28,10 +28,7 @@ export async function GET(_request: NextRequest) {
 
 		const baseConditions = showHistory
 			? gte(workflows.stage, 3)
-			: and(
-					eq(workflows.status, "awaiting_human"),
-					or(eq(workflows.stage, 3), eq(workflows.stage, 4))
-				);
+			: and(eq(workflows.status, "awaiting_human"), eq(workflows.stage, 4));
 
 		// Fetch workflows awaiting human review at Stage 3 or Stage 4 (or all if history)
 		const riskReviewWorkflows = await db
@@ -45,6 +42,7 @@ export async function GET(_request: NextRequest) {
 				companyName: applicants.companyName,
 				contactName: applicants.contactName,
 				itcScore: applicants.itcScore,
+				itcStatus: applicants.itcStatus,
 				riskLevel: applicants.riskLevel,
 				decisionType: workflows.decisionType,
 				targetResource: workflows.targetResource,
@@ -184,11 +182,31 @@ export async function GET(_request: NextRequest) {
 					description: flag,
 				}));
 
-				// Derive reviewType from DB metadata first, fall back to stage
-				const reviewType = workflow.reviewTypeDb || (workflow.stage === 3 ? "procurement" : "general");
-				const stageLabel = reviewType === "procurement" ? "Procurement & AI" : "Risk Review";
-				const decisionType = workflow.decisionType || (reviewType === "procurement" ? "procurement_review" : "risk_review");
-				const targetResource = workflow.targetResource || (reviewType === "procurement" ? "/api/risk-decision/procurement" : "/api/risk-decision");
+				const reviewType = "general";
+				const stageLabel = "Risk Review";
+				const decisionType = workflow.decisionType || "risk_review";
+				const targetResource = workflow.targetResource || "/api/risk-decision";
+				const agentSummary = (aiAnalysis?.agents as Record<string, Record<string, unknown>>) || {};
+				const checkStatuses = {
+					procurement: procurementCheckFailed ? "manual_required" : "available",
+					validation:
+						(agentSummary.validation?.dataSource as string) ===
+						"Validation Error - Manual Escalation"
+							? "manual_required"
+							: "available",
+					risk:
+						(agentSummary.risk?.dataSource as string) === "Risk Error - Manual Escalation"
+							? "manual_required"
+							: "available",
+					sanctions:
+						(agentSummary.sanctions?.dataSource as string)?.includes("Manual")
+							? "manual_required"
+							: "available",
+					itc:
+						(workflow.itcStatus || "").toString().toUpperCase() === "MANUAL_REVIEW"
+							? "manual_required"
+							: "available",
+				};
 
 				return {
 					id: workflow.workflowId,
@@ -201,6 +219,7 @@ export async function GET(_request: NextRequest) {
 					reviewType,
 					decisionType,
 					targetResource,
+					checkStatuses,
 					createdAt: workflow.startedAt
 						? new Date(workflow.startedAt).toISOString()
 						: new Date().toISOString(),
@@ -251,7 +270,6 @@ export async function GET(_request: NextRequest) {
 		let filteredItems = itemsWithAnalysis;
 		if (!showHistory) {
 			filteredItems = itemsWithAnalysis.filter(item => {
-				if (item.stage === 3 && item.procurementDecisionMade) return false;
 				if (item.stage === 4 && item.riskManagerDecisionMade) return false;
 				return true;
 			});

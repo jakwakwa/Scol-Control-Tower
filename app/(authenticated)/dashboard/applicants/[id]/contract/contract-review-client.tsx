@@ -1,6 +1,11 @@
 "use client";
 
-import { RiArrowLeftLine, RiCheckLine, RiLoader4Line, RiSendPlaneLine } from "@remixicon/react";
+import {
+	RiArrowLeftLine,
+	RiCheckLine,
+	RiLoader4Line,
+	RiSendPlaneLine,
+} from "@remixicon/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardLayout, GlassCard } from "@/components/dashboard";
@@ -83,17 +88,22 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 		setActionLoading("contract-review");
 		setActionMessage(null);
 		try {
-			const response = await fetch(`/api/workflows/${payload.workflow.id}/contract/review`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					applicantId: payload.applicant.id,
-					reviewNotes: contractReviewNotes.trim() || undefined,
-				}),
-			});
+			const response = await fetch(
+				`/api/workflows/${payload.workflow.id}/contract/review`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						applicantId: payload.applicant.id,
+						reviewNotes: contractReviewNotes.trim() || undefined,
+					}),
+				}
+			);
 			if (!response.ok) {
 				const responsePayload = await response.json().catch(() => ({}));
-				throw new Error(responsePayload?.error || "Failed to mark contract draft reviewed");
+				throw new Error(
+					responsePayload?.error || "Failed to mark contract draft reviewed"
+				);
 			}
 			setActionMessage("Contract draft review recorded. Workflow contract gate updated.");
 			setContractReviewNotes("");
@@ -166,15 +176,17 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 					</Button>
 				</Link>
 			}>
-			<div className="space-y-4">
+			<div className="flex flex-col gap-3">
 				<GlassCard>
-					<p className="text-sm text-foreground">{contractReviewContent.description}</p>
+					<p className="text-base text-amber-300/80 pb-6 leading-0">
+						{contractReviewContent.description}
+					</p>
 				</GlassCard>
-				<GlassCard className="space-y-3">
-					<p className="text-xs uppercase text-muted-foreground font-bold">
+				<GlassCard className="flex flex-col pb-8">
+					<p className="text-base uppercase text-secondary-foreground font-medium">
 						{contractReviewContent.contractGate.label}
 					</p>
-					<p className="text-sm text-foreground">
+					<p className="text-base my-3 text-stone-300/70">
 						{contractReviewContent.contractGate.description}
 					</p>
 					<Textarea
@@ -197,10 +209,10 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 					</Button>
 				</GlassCard>
 				<GlassCard className="space-y-3">
-					<p className="text-xs uppercase text-muted-foreground font-bold">
+					<p className="text-base uppercase text-secondary-foreground font-medium">
 						{contractReviewContent.absaMockGate.label}
 					</p>
-					<p className="text-sm text-foreground">
+					<p className="text-stone-300/70">
 						{contractReviewContent.absaMockGate.description}
 					</p>
 					<Textarea

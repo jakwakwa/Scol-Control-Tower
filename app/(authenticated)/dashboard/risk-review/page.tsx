@@ -29,7 +29,7 @@ export default function RiskReviewPage() {
 	const [showHistory, setShowHistory] = useState(false);
 
 	const isProcurementReview = (item: RiskReviewItem): boolean =>
-		item.reviewType === "procurement" || item.stage === 3;
+		item.reviewType === "procurement";
 
 	const normalizeProcurementRecommendation = (
 		recommendation?: string
@@ -55,8 +55,8 @@ export default function RiskReviewPage() {
 		overrideData: OverrideData
 	) => {
 		const endpoint = getDecisionEndpoint({
-			decisionType: (item as any).decisionType,
-			targetResource: (item as any).targetResource,
+			decisionType: item.decisionType,
+			targetResource: item.targetResource,
 			reviewType: item.reviewType,
 			stage: item.stage,
 		});

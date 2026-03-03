@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants, documentUploads, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
+import { evaluateDocumentQuality } from "@/lib/services/document-quality.service";
 
 /**
  * POST /api/onboarding/documents/upload
@@ -91,7 +92,30 @@ export async function POST(request: NextRequest) {
 		const storageKey = `${workflowId}/${category}/${crypto.randomUUID()}.${fileExtension}`;
 
 		const fileBuffer = await file.arrayBuffer();
+		const quality = evaluateDocumentQuality(
+			file.name,
+			file.type,
+			Buffer.from(fileBuffer),
+			{
+				enforceRecency:
+					documentType.toUpperCase() === "PROOF_OF_ADDRESS" ||
+					documentType.toUpperCase() === "PROPRIETOR_RESIDENCE",
+			}
+		);
+		if (!quality.ok) {
+			return NextResponse.json(
+				{ error: `Document quality checks failed: ${quality.reasons.join("; ")}` },
+				{ status: 400 }
+			);
+		}
 		const base64Content = Buffer.from(fileBuffer).toString("base64");
+		const combinedMetadata =
+			quality.warnings.length > 0
+				? JSON.stringify({
+						clientMetadata: metadata || null,
+						qualityWarnings: quality.warnings,
+					})
+				: metadata || undefined;
 
 		const document = await db.transaction(async tx => {
 			const [inserted] = await tx
@@ -113,7 +137,7 @@ export async function POST(request: NextRequest) {
 					storageKey,
 					storageUrl: `/api/documents/download?documentUploadId=PLACEHOLDER&storageKey=${encodeURIComponent(storageKey)}`,
 					verificationStatus: "pending",
-					metadata: metadata || undefined,
+					metadata: combinedMetadata,
 					uploadedBy: userId || undefined,
 				})
 				.returning();

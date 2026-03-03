@@ -59,7 +59,15 @@
           {
             "group": "Project",
             "pages": [
-              "project/changelog-2026-03-02"
+              "project/exec-summary",
+              "project/changelog-2026-03-02",
+              "project/changelog-2026-03-03"
+            ]
+          },
+          {
+            "group": "Issues",
+            "pages": [
+              "issues/2026-03-01-feat-harden-procurement-fallback-plan"
             ]
           },
           {

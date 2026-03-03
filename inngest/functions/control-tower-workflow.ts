@@ -1626,71 +1626,33 @@ export const controlTowerWorkflow = inngest.createFunction(
 			});
 		}
 
-		// PARALLEL WAIT LOGIC
-		// Stream A: Procurement Review Decision (if required)
-		// Stream B: FICA Documents + Accountant Letter (if required) — both must arrive before AI runs
-		// These streams run independently and can complete in ANY order.
+		// Stage 3 now has a single manual gate after reporter synthesis.
+		// Procurement always contributes evidence but does not block downstream checks.
 		if (procurementStreamResult.requiresReview) {
-			await step.run("stage-3-awaiting-procurement-review", async () => {
-				await updateWorkflowStatus(workflowId, "awaiting_human", 3);
-
+			await step.run("stage-3-log-procurement-result", async () => {
 				if (procurementStreamResult.result) {
 					const procureResult = procurementStreamResult.result;
 					await createWorkflowNotification({
 						workflowId,
 						applicantId,
 						type: "warning",
-						title: "Procurement Review Required",
-						message: `ProcureCheck score: ${procureResult.riskScore}. Action: ${procureResult.recommendedAction}. Anomalies: ${procureResult.anomalies.join(", ") || "None"}`,
-						actionable: true,
-					});
-
-					await sendInternalAlertEmail({
-						title: "Procurement Review Required",
-						message: `Applicant requires Risk Manager procurement review.\nRisk Score: ${procureResult.riskScore}\nRecommended: ${procureResult.recommendedAction}\nAnomalies: ${procureResult.anomalies.join(", ") || "None"}`,
-						workflowId,
-						applicantId,
-						type: "warning",
-						actionUrl: `${getBaseUrl()}/dashboard/risk-review`,
+						title: "Procurement Result Added To Risk Review",
+						message: `ProcureCheck score: ${procureResult.riskScore}. Action: ${procureResult.recommendedAction}. Included in final Stage 4 review bundle.`,
+						actionable: false,
 					});
 				} else if (procurementStreamResult.error) {
-					const errorMessage = procurementStreamResult.error;
 					await createWorkflowNotification({
 						workflowId,
 						applicantId,
-						type: "error",
-						title: "Manual Procurement Check Required",
+						type: "warning",
+						title: "Procurement Automation Offline",
 						message:
-							"Automated ProcureCheck failed to execute. Continue reviewing available Stage 3 outputs and complete a full manual procurement check.",
-						actionable: true,
-					});
-
-					await sendInternalAlertEmail({
-						title: "Manual Procurement Check Required",
-						message: `Automated ProcureCheck failed for this workflow.\nError: ${errorMessage}\nRequired Action: Complete a full manual procurement check and record a procurement decision in Risk Review.\nNote: Other Stage 3 checks continue and should still be reviewed.`,
-						workflowId,
-						applicantId,
-						type: "error",
-						details: {
-							context: "procurement_check_failed",
-							stage: 3,
-							manualReviewRequired: true,
-						},
-						actionUrl: `${getBaseUrl()}/dashboard/risk-review`,
+							"Automated ProcureCheck failed. Workflow continues with manual procurement evidence required at final risk review.",
+						actionable: false,
 					});
 				}
 			});
-		} else {
-			context.procurementCleared = true;
 		}
-
-		const procurePromise = procurementStreamResult.requiresReview
-			? step.waitForEvent("wait-procurement-decision", {
-					event: "risk/procurement.completed",
-					timeout: REVIEW_TIMEOUT,
-					match: "data.workflowId",
-				})
-			: Promise.resolve(null);
 
 		const ficaPromise = mandateVerified.documentsComplete
 			? Promise.resolve({
@@ -1706,52 +1668,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 					match: "data.workflowId",
 				});
 
-		const [procurementDecision, ficaDocsReceived] = await Promise.all([
-			procurePromise,
-			ficaPromise,
-		]);
-
-		// Handle Procurement Decision
-		if (procurementStreamResult.requiresReview) {
-			if (!procurementDecision) {
-				await step.run("notify-am-procurement-timeout", async () => {
-					await guardKillSwitch(workflowId, "notify-am-procurement-timeout");
-					await createWorkflowNotification({
-						workflowId,
-						applicantId,
-						type: "error",
-						title: "Delay: Procurement Review",
-						message: "Procurement review timed out. Workflow will be terminated.",
-						actionable: false,
-					});
-					await sendInternalAlertEmail({
-						title: "Workflow Terminated: Procurement Timeout",
-						message: `The procurement review timed out after the ${REVIEW_TIMEOUT} period. The workflow has been automatically terminated via kill switch.`,
-						workflowId,
-						applicantId,
-						type: "error",
-						actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
-					});
-				});
-				await executeKillSwitch({
-					workflowId,
-					applicantId,
-					reason: "PROCUREMENT_DENIED",
-					decidedBy: "system_timeout",
-					notes: "Procurement review timed out after 7 days",
-				});
-				return { status: "terminated", stage: 3, reason: "Procurement review timeout" };
-			}
-
-			if (procurementDecision.data.decision.outcome === "DENIED") {
-				return {
-					status: "terminated",
-					stage: 3,
-					reason: "Procurement denied by Risk Manager",
-				};
-			}
-			context.procurementCleared = true;
-		}
+		const ficaDocsReceived = await ficaPromise;
 
 		// Handle FICA Docs
 		if (!ficaDocsReceived) {
@@ -2129,40 +2046,39 @@ export const controlTowerWorkflow = inngest.createFunction(
 			updateWorkflowStatus(workflowId, "awaiting_human", 4)
 		);
 
-		const riskDecision = await step.waitForEvent("wait-risk-decision", {
+		let riskDecision = await step.waitForEvent("wait-risk-decision", {
 			event: "risk/decision.received",
-			timeout: REVIEW_TIMEOUT,
+			timeout: "30d",
 			match: "data.workflowId",
 		});
-
-		if (!riskDecision) {
-			await step.run("notify-am-risk-review-timeout", async () => {
-				await guardKillSwitch(workflowId, "notify-am-risk-review-timeout");
+		while (!riskDecision) {
+			await step.run("notify-am-risk-review-reminder", async () => {
+				await guardKillSwitch(workflowId, "notify-am-risk-review-reminder");
 				await createWorkflowNotification({
 					workflowId,
 					applicantId,
-					type: "error",
-					title: "Delay: Risk Review",
-					message: "Risk management review timed out. Workflow will be terminated.",
-					actionable: false,
+					type: "warning",
+					title: "Risk Review Pending",
+					message:
+						"Risk manager review is still pending. Workflow remains open until a manual decision is recorded.",
+					actionable: true,
 				});
 				await sendInternalAlertEmail({
-					title: "Workflow Terminated: Risk Review Timeout",
-					message: `The risk management review timed out after the ${REVIEW_TIMEOUT} period. The workflow has been automatically terminated via kill switch.`,
+					title: "Risk Review Reminder",
+					message:
+						"Risk management review is still pending after 30 days. Workflow stays active and awaits a manual decision.",
 					workflowId,
 					applicantId,
-					type: "error",
-					actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
+					type: "warning",
+					actionUrl: `${getBaseUrl()}/dashboard/risk-review`,
 				});
 			});
-			await executeKillSwitch({
-				workflowId,
-				applicantId,
-				reason: "TIMEOUT_TERMINATION",
-				decidedBy: "system_timeout",
-				notes: "Risk review timed out",
+
+			riskDecision = await step.waitForEvent("wait-risk-decision-reminder-loop", {
+				event: "risk/decision.received",
+				timeout: "30d",
+				match: "data.workflowId",
 			});
-			return { status: "timeout", stage: 4, reason: "Risk review timeout" };
 		}
 
 		if (riskDecision.data.decision.outcome === "REJECTED") {

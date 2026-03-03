@@ -1,6 +1,6 @@
 ---
-title: "summary"
-description: 'is a "Zero-Middleware" onboarding automation platform designed to manage applicant lifecycles, risk assessment, and contract workflows.'
+title: "Executive Summary"
+description: "StratCol Control Tower is a Zero-Middleware onboarding automation platform for applicant lifecycles, risk assessment, and contract workflows."
 ---
 
 ## Overview
@@ -15,6 +15,7 @@ The system has recently transitioned from a Zapier-dependent architecture to a d
 - **AI Feedback Pipeline**: Every human override creates a structured feedback log (category, subcategory, divergence type) that feeds the AI retraining pipeline.
 - **Direct Applicant Capture**: Secure HTTP endpoints (`/api/webhooks/lead-capture`) handle form submissions directly.
 - **Real-time Dashboard**: A comprehensive UI built with Shadcn/UI for monitoring agents, applicants, and workflow statuses.
+- **Document quality gates**: Upload-time checks (legibility, dimensions, low-detail detection) and recency validation for proof-of-residence; high-stakes risk and document analysis use Gemini Pro with evidence-only outputs.
 
 ## Tech Stack
 
