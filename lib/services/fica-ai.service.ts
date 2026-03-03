@@ -12,8 +12,8 @@
  * - Multi-model strategy: Gemini 2.0 Flash for complex analysis
  */
 
-import { generateText, Output } from "ai";
-import { AI_CONFIG, getThinkingModel, isAIConfigured } from "@/lib/ai/models";
+import { GoogleGenAI } from "@google/genai";
+import { getThinkingModel, isAIConfigured } from "@/lib/ai/models";
 import {
 	type AccountantLetterAnalysis,
 	AccountantLetterAnalysisSchema,
@@ -127,16 +127,17 @@ ANALYSIS REQUIREMENTS:
 
 Be thorough but concise. Flag any concerning patterns immediately.`;
 
-	const { experimental_output: object } = await generateText({
+	const ai = new GoogleGenAI({});
+	const response = await ai.models.generateContent({
 		model: getThinkingModel(),
-		prompt,
-		experimental_output: Output.object({
-			schema: FicaDocumentAnalysisSchema,
-		}),
-		temperature: AI_CONFIG.ANALYSIS_TEMPERATURE,
+		config: {
+			responseMimeType: "application/json",
+			responseJsonSchema: FicaDocumentAnalysisSchema,
+		},
+		contents: prompt,
 	});
 
-	return object;
+	return FicaDocumentAnalysisSchema.parse(JSON.parse(response.text));
 }
 
 // ============================================
@@ -196,16 +197,17 @@ ANALYSIS REQUIREMENTS:
 8. List any concerns mentioned
 9. Determine verification confidence (0-100)`;
 
-	const { experimental_output: object } = await generateText({
+	const ai = new GoogleGenAI({});
+	const response = await ai.models.generateContent({
 		model: getThinkingModel(),
-		prompt,
-		experimental_output: Output.object({
-			schema: AccountantLetterAnalysisSchema,
-		}),
-		temperature: AI_CONFIG.ANALYSIS_TEMPERATURE,
+		config: {
+			responseMimeType: "application/json",
+			responseJsonSchema: AccountantLetterAnalysisSchema,
+		},
+		contents: prompt,
 	});
 
-	return object;
+	return AccountantLetterAnalysisSchema.parse(JSON.parse(response.text));
 }
 
 // ============================================

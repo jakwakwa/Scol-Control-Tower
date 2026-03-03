@@ -1,11 +1,12 @@
 /**
  * Quote service - quote generation operations
  */
-import { generateObject } from "ai";
+
 import { eq } from "drizzle-orm";
+import { GoogleGenAI } from "@google/genai";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants, quotes } from "@/db/schema";
-import { AI_CONFIG, getThinkingModel, isAIConfigured } from "@/lib/ai/models";
+import { getThinkingModel, isAIConfigured } from "@/lib/ai/models";
 import type { QuoteGenerationResult } from "@/lib/validations/quotes";
 import { quoteGenerationSchema } from "@/lib/validations/quotes";
 
@@ -156,6 +157,7 @@ RULES:
 - If estimated transactions per month is missing, the AI may use a reasonable default for pricing context.
 - Keep adjustedFeePercent within 50-500 bps.
 - Use ITC score to adjust risk and pricing.`;
+	const ai = new GoogleGenAI({});
 
 	if (!isAIConfigured()) {
 		throw new Error(
@@ -163,16 +165,16 @@ RULES:
 		);
 	}
 
-	const { object } = await generateObject({
+	const response = await ai.models.generateContent({
 		model: getThinkingModel(),
-		schema: quoteGenerationSchema,
-		schemaName: "QuoteGeneration",
-		schemaDescription: "Generated pricing for StratCol merchant services",
-		prompt,
-		temperature: AI_CONFIG.ANALYSIS_TEMPERATURE,
+		config: {
+			responseMimeType: "application/json",
+			responseJsonSchema: quoteGenerationSchema,
+		},
+		contents: prompt,
 	});
 
-	return object;
+	return quoteGenerationSchema.parse(JSON.parse(response.text));
 }
 
 async function notifyQuoteGenerated({

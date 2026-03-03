@@ -11,9 +11,9 @@
  * Uses Gemini AI for intelligent document analysis.
  */
 
-import { generateObject } from "ai";
+import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
-import { AI_CONFIG, getHighStakesModel, isAIConfigured } from "@/lib/ai/models";
+import { getHighStakesModel, isAIConfigured } from "@/lib/ai/models";
 
 // ============================================
 // Types & Schemas
@@ -115,19 +115,21 @@ export async function validateDocument(
 			"[ValidationAgent] AI is not configured. Set GOOGLE_GENERATIVE_AI_API_KEY to enable document validation."
 		);
 	}
+	const ai = new GoogleGenAI({});
 
 	const prompt = buildValidationPrompt(input);
 
 	try {
-		const { object } = await generateObject({
+		const response = await ai.models.generateContent({
 			model: getHighStakesModel(),
-			schema: ValidationResultSchema,
-			schemaName: "DocumentValidation",
-			schemaDescription: "Document authenticity and validation analysis",
-			prompt,
-			temperature: AI_CONFIG.ANALYSIS_TEMPERATURE,
+			config: {
+				responseMimeType: "application/json",
+				responseJsonSchema: ValidationResultSchema,
+			},
+			contents: prompt,
 		});
-		return { ...object, dataSource: "Gemini AI" };
+		const analysis = ValidationResultSchema.parse(JSON.parse(response.text));
+		return { ...analysis, dataSource: "Gemini AI" };
 	} catch (error) {
 		console.error("[ValidationAgent] AI generation failed:", error);
 		return {

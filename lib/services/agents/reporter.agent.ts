@@ -6,9 +6,9 @@
  */
 
 import { execSync } from "node:child_process";
-import { generateObject } from "ai";
+import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
-import { getThinkingModel } from "@/lib/ai/models";
+import { getHighStakesModel } from "@/lib/ai/models";
 
 // ============================================
 // Types & Schemas
@@ -68,7 +68,6 @@ function getPromptVersionId(): string {
 // ============================================
 // Agent Logic
 // ============================================
-
 export async function generateReporterAnalysis(
 	input: ReporterInput
 ): Promise<ReporterOutput & { promptVersionId: string }> {
@@ -93,21 +92,24 @@ export async function generateReporterAnalysis(
        - Paragraph 2: Justification for the recommendation, highlighting specific risks or mitigations.
     
     CONSTRAINTS:
-    - Narrative MUST be exactly 2 paragraphs.
+    - Narrative MUST be exactly 3 paragraphs.
     - Be objective and professional.
     - Highlight discrepancies between agents if any.
     `;
+	const ai = new GoogleGenAI({});
 
 	try {
-		const { object } = await generateObject({
-			model: getThinkingModel(),
-			schema: ReporterOutputSchema,
-			prompt,
-			temperature: 0.2, // Low temperature for consistent reporting
+		const response = await ai.models.generateContent({
+			model: getHighStakesModel(),
+			config: {
+				responseMimeType: "application/json",
+				responseJsonSchema: ReporterOutputSchema,
+			},
+			contents: prompt,
 		});
-
+		const analysis = ReporterOutputSchema.parse(JSON.parse(response.text));
 		return {
-			...object,
+			...analysis,
 			dataSource: "Gemini AI",
 			promptVersionId,
 		};
