@@ -17,6 +17,7 @@ interface AgreementFormProps {
 	token: string;
 	applicantId: number;
 	workflowId: number | null;
+	defaultValues?: Partial<AgreementFormValues>;
 }
 
 const ENTITY_TYPES = [
@@ -83,16 +84,30 @@ const TEST_DATA: AgreementFormValues = {
 	signatureDate: new Date().toISOString().split("T")[0],
 };
 
-export default function AgreementForm({ token, applicantId }: AgreementFormProps) {
+export default function AgreementForm({
+	token,
+	applicantId,
+	defaultValues: prefilled,
+}: AgreementFormProps) {
 	const [submitted, setSubmitted] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
 
+	const emptyOwner = {
+		name: "",
+		idNumber: "",
+		address: "",
+		position: "",
+	};
+	const mergedDefaults = {
+		...prefilled,
+		beneficialOwners:
+			prefilled?.beneficialOwners?.length ? prefilled.beneficialOwners : [emptyOwner],
+		consentAccepted: false,
+	} as FieldValues;
+
 	const form = useForm<FieldValues>({
 		resolver: zodResolver(stratcolAgreementSchema) as unknown as Resolver<FieldValues>,
-		defaultValues: {
-			beneficialOwners: [{}],
-			consentAccepted: false,
-		},
+		defaultValues: mergedDefaults,
 	});
 
 	const {

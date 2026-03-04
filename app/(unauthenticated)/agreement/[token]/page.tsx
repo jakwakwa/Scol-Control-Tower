@@ -1,8 +1,12 @@
+import { eq } from "drizzle-orm";
+import { getDatabaseClient } from "@/app/utils";
 import ExternalStatusCard from "@/components/forms/external/external-status-card";
+import { applicantSubmissions, applicants } from "@/db/schema";
 import {
 	getFormInstanceByToken,
 	markFormInstanceStatus,
 } from "@/lib/services/form.service";
+import { buildAgreementDefaults } from "@/lib/utils/agreement-defaults";
 import AgreementForm from "./agreement-form";
 
 interface ContractPageProps {
@@ -53,11 +57,35 @@ export default async function ContractPage({ params }: ContractPageProps) {
 		await markFormInstanceStatus(formInstance.id, "viewed");
 	}
 
+	let defaultValues: ReturnType<typeof buildAgreementDefaults> = {};
+	const db = await getDatabaseClient();
+	if (db) {
+		const [applicantRow] = await db
+			.select()
+			.from(applicants)
+			.where(eq(applicants.id, formInstance.applicantId));
+		const submissionRows = await db
+			.select()
+			.from(applicantSubmissions)
+			.where(eq(applicantSubmissions.applicantId, formInstance.applicantId));
+
+		if (applicantRow) {
+			const facility = submissionRows.find(s => s.formType === "FACILITY_APPLICATION");
+			const absa = submissionRows.find(s => s.formType === "ABSA_6995");
+			defaultValues = buildAgreementDefaults({
+				applicant: applicantRow,
+				facilitySubmission: facility ?? null,
+				absaSubmission: absa ?? null,
+			});
+		}
+	}
+
 	return (
 		<AgreementForm
 			token={token}
 			applicantId={formInstance.applicantId}
 			workflowId={formInstance.workflowId}
+			defaultValues={defaultValues}
 		/>
 	);
 }

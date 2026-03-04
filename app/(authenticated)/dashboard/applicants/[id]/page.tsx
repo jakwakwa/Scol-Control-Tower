@@ -40,6 +40,7 @@ import { RiskBadge, StageBadge, StatusBadge } from "@/components/ui/status-badge
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { retryFacilitySubmission } from "@/lib/actions/workflow.actions";
+import { buildAgreementPreviewEntries } from "@/lib/utils/agreement-defaults";
 
 interface ApplicantDetail {
 	id: number;
@@ -1278,6 +1279,32 @@ export default function ApplicantDetailPage() {
 
 							<TabsContent value="reviews">
 								<div className="space-y-3">
+									{(() => {
+										const previewEntries = buildAgreementPreviewEntries(
+											applicant,
+											applicantSubmissions
+										);
+										return previewEntries.length > 0 ? (
+											<GlassCard className="mb-6">
+												<h3 className="font-bold text-lg mb-4">Contract Preview</h3>
+												<p className="text-sm text-muted-foreground mb-4">
+													Applicant details for contract prefill (key/value).
+												</p>
+												<div className="grid grid-cols-2 gap-2">
+													{previewEntries.map(({ label, value }) => (
+														<div
+															key={label}
+															className="flex flex-col p-4 justify-start gap-1 bg-card text-foreground/60 shadow-lg shadow-secondary/10 rounded-lg border border-border/60">
+															<span className="capitalize font-bold">{label}</span>
+															<span className="font-medium capitalize font-sans text-muted-foreground/80">
+																{value}
+															</span>
+														</div>
+													))}
+												</div>
+											</GlassCard>
+										) : null;
+									})()}
 									<div className="flex items-center justify-between">
 										<h3 className="font-bold text-slate-300 text-3xl mt-4 pt-4 pl-4">
 											Quote Review
