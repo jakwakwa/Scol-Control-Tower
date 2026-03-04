@@ -203,6 +203,16 @@ export type Events = {
 				mandateType: "EFT" | "DEBIT_ORDER" | "CASH" | "MIXED";
 				businessType: string;
 				annualTurnover?: number;
+				facilityApplicationData?: Record<string, unknown>;
+				ficaComparisonContext?: {
+					companyName?: string;
+					tradingName?: string;
+					registrationNumber?: string;
+					idNumber?: string;
+					contactName?: string;
+					email?: string;
+					phone?: string;
+				};
 			};
 			submittedAt: string;
 		};
@@ -863,7 +873,7 @@ export type Events = {
 		data: {
 			workflowId: number;
 			applicantId: number;
-			formType: "SIGNED_QUOTATION" | "STRATCOL_CONTRACT" | "CALL_CENTRE_APPLICATION";
+			formType: "SIGNED_QUOTATION" | "AGREEMENT_CONTRACT" | "CALL_CENTRE_APPLICATION";
 			decision: "APPROVED" | "DECLINED";
 			reason?: string;
 			respondedAt: string;

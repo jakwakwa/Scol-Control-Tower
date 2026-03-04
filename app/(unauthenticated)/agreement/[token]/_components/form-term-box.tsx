@@ -1,10 +1,8 @@
 function TermBlock({ title, children }) {
 	return (
-		<div className="mb-4">
-			<h4 className="font-bold text-gray-800 mb-2">{title}</h4>
-			<div className="space-y-2 text-gray-700 pl-4 border-l-2 border-gray-200">
-				{children}
-			</div>
+		<div className="stratcol-term-wrapper">
+			<h4 className="stratcol-term-title">{title}</h4>
+			<div className="stratcol-term-content">{children}</div>
 		</div>
 	);
 }

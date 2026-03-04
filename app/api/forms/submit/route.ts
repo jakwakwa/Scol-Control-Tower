@@ -25,7 +25,7 @@ const formSubmissionSchema = z.object({
 	formType: z.enum([
 		"FACILITY_APPLICATION",
 		"SIGNED_QUOTATION",
-		"STRATCOL_CONTRACT",
+		"AGREEMENT_CONTRACT",
 		"ABSA_6995",
 		"CALL_CENTRE_APPLICATION",
 	]),
@@ -35,14 +35,14 @@ const formSubmissionSchema = z.object({
 const formSchemaMap: Record<FormType, z.ZodSchema> = {
 	FACILITY_APPLICATION: facilityApplicationSchema,
 	SIGNED_QUOTATION: signedQuotationSchema,
-	STRATCOL_CONTRACT: stratcolAgreementSchema,
+	AGREEMENT_CONTRACT: stratcolAgreementSchema,
 	ABSA_6995: absa6995Schema,
 	CALL_CENTRE_APPLICATION: callCentreApplicationSchema,
 	DOCUMENT_UPLOADS: z.any(),
 };
 
 const extractSubmittedBy = (formType: FormType, data: Record<string, unknown>) => {
-	if (formType === "SIGNED_QUOTATION" || formType === "STRATCOL_CONTRACT") {
+	if (formType === "SIGNED_QUOTATION" || formType === "AGREEMENT_CONTRACT") {
 		return typeof data.signatureName === "string" ? data.signatureName : undefined;
 	}
 
@@ -52,6 +52,62 @@ const extractSubmittedBy = (formType: FormType, data: Record<string, unknown>) =
 	}
 
 	return undefined;
+};
+
+const toNumber = (value: unknown): number => {
+	if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+	if (typeof value === "string") {
+		const parsed = Number(value.replace(/[R,\s]/g, ""));
+		return Number.isFinite(parsed) ? parsed : 0;
+	}
+	return 0;
+};
+
+const deriveMandateType = (
+	serviceTypes: string[] | undefined
+): "EFT" | "DEBIT_ORDER" | "CASH" | "MIXED" => {
+	const normalizedServiceTypes = serviceTypes ?? [];
+	const hasDebicheck = normalizedServiceTypes.includes("DebiCheck");
+	const hasEft = normalizedServiceTypes.some(type => type !== "DebiCheck");
+	if (hasDebicheck && hasEft) return "MIXED";
+	if (hasDebicheck) return "DEBIT_ORDER";
+	return "EFT";
+};
+
+const buildFacilitySubmissionFormData = (facilityData: FacilityApplicationForm) => {
+	const legacyServiceTypes = facilityData.serviceTypes || [];
+	const nestedServiceTypes = facilityData.facilitySelection?.serviceTypes || [];
+	const serviceTypes = nestedServiceTypes.length > 0 ? nestedServiceTypes : legacyServiceTypes;
+
+	const nestedMaxRandValue = facilityData.volumeMetrics?.limitsAppliedFor?.maxRandValue;
+	const legacyMaxRandValue = facilityData.maxRandValue;
+	const mandateVolume = toNumber(nestedMaxRandValue ?? legacyMaxRandValue) * 100;
+
+	const forecastVolume =
+		facilityData.volumeMetrics?.predictedGrowth?.forecastVolume ?? facilityData.forecastVolume;
+	const forecastAverageValue =
+		facilityData.volumeMetrics?.predictedGrowth?.forecastAverageValue ??
+		facilityData.forecastAverageValue;
+
+	const applicantDetails = facilityData.applicantDetails ?? {};
+	const registrationOrIdNumber = applicantDetails.registrationOrIdNumber;
+
+	return {
+		mandateVolume,
+		mandateType: deriveMandateType(serviceTypes),
+		businessType: "Unknown",
+		annualTurnover: toNumber(forecastVolume) * toNumber(forecastAverageValue) * 12,
+		facilityApplicationData: facilityData as unknown as Record<string, unknown>,
+		ficaComparisonContext: {
+			companyName: applicantDetails.registeredName,
+			tradingName: applicantDetails.tradingName,
+			registrationNumber: registrationOrIdNumber,
+			idNumber: registrationOrIdNumber,
+			contactName: applicantDetails.contactPerson,
+			email: applicantDetails.email,
+			phone: applicantDetails.telephone,
+		},
+	};
 };
 
 export async function POST(request: NextRequest) {
@@ -149,21 +205,7 @@ export async function POST(request: NextRequest) {
 
 			if (formType === "FACILITY_APPLICATION") {
 				const facilityData = validation.data as FacilityApplicationForm;
-				const serviceTypes = facilityData.serviceTypes || [];
-
-				let mandateType: "EFT" | "DEBIT_ORDER" | "CASH" | "MIXED" = "EFT";
-				const hasDebicheck = serviceTypes.includes("DebiCheck");
-				// Consider other service types as EFT for now
-				const hasEft = serviceTypes.some(type => type !== "DebiCheck");
-
-				if (hasDebicheck && hasEft) {
-					mandateType = "MIXED";
-				} else if (hasDebicheck) {
-					mandateType = "DEBIT_ORDER";
-				}
-
-				// Assuming maxRandValue is in Rands, convert to cents
-				const mandateVolume = (facilityData.maxRandValue || 0) * 100;
+				const mappedFormData = buildFacilitySubmissionFormData(facilityData);
 
 				await inngest.send({
 					name: "form/facility.submitted",
@@ -171,15 +213,7 @@ export async function POST(request: NextRequest) {
 						workflowId: formInstance.workflowId,
 						applicantId: formInstance.applicantId,
 						submissionId: submission.id,
-						formData: {
-							mandateVolume,
-							mandateType,
-							businessType: "Unknown",
-							annualTurnover:
-								(facilityData.forecastVolume || 0) *
-								(facilityData.forecastAverageValue || 0) *
-								12,
-						},
+						formData: mappedFormData,
 						submittedAt: new Date().toISOString(),
 					},
 				});

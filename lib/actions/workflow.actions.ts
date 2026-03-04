@@ -6,6 +6,26 @@ import { internalForms, internalSubmissions, workflows } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import type { FacilityApplicationForm } from "@/lib/validations/forms";
 
+const toNumber = (value: unknown): number => {
+	if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+	if (typeof value === "string") {
+		const parsed = Number(value.replace(/[R,\s]/g, ""));
+		return Number.isFinite(parsed) ? parsed : 0;
+	}
+	return 0;
+};
+
+const deriveMandateType = (
+	serviceTypes: string[] | undefined
+): "EFT" | "DEBIT_ORDER" | "CASH" | "MIXED" => {
+	const normalizedServiceTypes = serviceTypes ?? [];
+	const hasDebicheck = normalizedServiceTypes.includes("DebiCheck");
+	const hasEft = normalizedServiceTypes.some(type => type !== "DebiCheck");
+	if (hasDebicheck && hasEft) return "MIXED";
+	if (hasDebicheck) return "DEBIT_ORDER";
+	return "EFT";
+};
+
 export async function retryFacilitySubmission(workflowId: number) {
 	const db = getDatabaseClient();
 	if (!db) {
@@ -63,19 +83,21 @@ export async function retryFacilitySubmission(workflowId: number) {
 		}
 
 		// 5. Construct the event payload (same logic as in the route handler)
-		const serviceTypes = formData.serviceTypes || [];
-
-		let mandateType: "EFT" | "DEBIT_ORDER" | "CASH" | "MIXED" = "EFT";
-		const hasDebicheck = serviceTypes.includes("DebiCheck");
-		const hasEft = serviceTypes.some(type => type !== "DebiCheck");
-
-		if (hasDebicheck && hasEft) {
-			mandateType = "MIXED";
-		} else if (hasDebicheck) {
-			mandateType = "DEBIT_ORDER";
-		}
-
-		const mandateVolume = (formData.maxRandValue || 0) * 100;
+		const serviceTypes =
+			formData.facilitySelection?.serviceTypes?.length
+				? formData.facilitySelection.serviceTypes
+				: formData.serviceTypes || [];
+		const mandateType = deriveMandateType(serviceTypes);
+		const mandateVolume =
+			toNumber(
+				formData.volumeMetrics?.limitsAppliedFor?.maxRandValue ?? formData.maxRandValue
+			) * 100;
+		const forecastVolume =
+			formData.volumeMetrics?.predictedGrowth?.forecastVolume ?? formData.forecastVolume;
+		const forecastAverageValue =
+			formData.volumeMetrics?.predictedGrowth?.forecastAverageValue ??
+			formData.forecastAverageValue;
+		const registrationOrIdNumber = formData.applicantDetails?.registrationOrIdNumber;
 
 		// 6. Send the event
 		await inngest.send({
@@ -88,8 +110,17 @@ export async function retryFacilitySubmission(workflowId: number) {
 					mandateVolume,
 					mandateType,
 					businessType: "Unknown",
-					annualTurnover:
-						(formData.forecastVolume || 0) * (formData.forecastAverageValue || 0) * 12,
+					annualTurnover: toNumber(forecastVolume) * toNumber(forecastAverageValue) * 12,
+					facilityApplicationData: formData as unknown as Record<string, unknown>,
+					ficaComparisonContext: {
+						companyName: formData.applicantDetails?.registeredName,
+						tradingName: formData.applicantDetails?.tradingName,
+						registrationNumber: registrationOrIdNumber,
+						idNumber: registrationOrIdNumber,
+						contactName: formData.applicantDetails?.contactPerson,
+						email: formData.applicantDetails?.email,
+						phone: formData.applicantDetails?.telephone,
+					},
 				},
 				submittedAt: new Date().toISOString(),
 			},

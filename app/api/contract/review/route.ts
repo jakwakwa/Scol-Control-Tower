@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 			applicantMagiclinkFormId: formInstance.id,
 			applicantId: formInstance.applicantId,
 			workflowId: formInstance.workflowId,
-			formType: "STRATCOL_CONTRACT",
+			formType: "AGREEMENT_CONTRACT",
 			data: data as unknown as Record<string, unknown>,
 			submittedBy: data.authorisedRepresentative?.name || "external",
 		});
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
 				data: {
 					workflowId: formInstance.workflowId,
 					applicantId: formInstance.applicantId,
-					formType: "STRATCOL_CONTRACT",
+					formType: "AGREEMENT_CONTRACT",
 					decision: "APPROVED",
 					respondedAt: new Date().toISOString(),
 				},

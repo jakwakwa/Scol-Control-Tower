@@ -47,7 +47,24 @@ export const FormFacilitySubmittedSchema = z.object({
 	workflowId: z.number().int().positive(),
 	applicantId: z.number().int().positive(),
 	submissionId: z.number().int().positive(),
-	formData: z.record(z.string(), z.unknown()),
+	formData: z.object({
+		mandateVolume: z.number(),
+		mandateType: z.enum(["EFT", "DEBIT_ORDER", "CASH", "MIXED"]),
+		businessType: z.string(),
+		annualTurnover: z.number().optional(),
+		facilityApplicationData: z.record(z.string(), z.unknown()).optional(),
+		ficaComparisonContext: z
+			.object({
+				companyName: z.string().optional(),
+				tradingName: z.string().optional(),
+				registrationNumber: z.string().optional(),
+				idNumber: z.string().optional(),
+				contactName: z.string().optional(),
+				email: z.string().optional(),
+				phone: z.string().optional(),
+			})
+			.optional(),
+	}),
 	submittedAt: z.string().datetime(),
 });
 
@@ -196,7 +213,7 @@ export type FormAbsa6995Completed = z.infer<typeof FormAbsa6995CompletedSchema>;
 export const FormDecisionRespondedSchema = z.object({
 	workflowId: z.number().int().positive(),
 	applicantId: z.number().int().positive(),
-	formType: z.enum(["SIGNED_QUOTATION", "STRATCOL_CONTRACT", "CALL_CENTRE_APPLICATION"]),
+	formType: z.enum(["SIGNED_QUOTATION", "AGREEMENT_CONTRACT", "CALL_CENTRE_APPLICATION"]),
 	decision: z.enum(["APPROVED", "DECLINED"]),
 	reason: z.string().optional(),
 	respondedAt: z.string().datetime(),

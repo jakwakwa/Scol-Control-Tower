@@ -36,11 +36,11 @@ const FORMS: FormEntry[] = [
 		color: "#8b5cf6",
 	},
 	{
-		type: "STRATCOL_CONTRACT",
+		type: "AGREEMENT_CONTRACT",
 		title: "StratCol Contract",
 		description:
 			"Branded agreement form matching the PDF — entity details, banking, beneficial owners, declaration.",
-		route: "/contract",
+		route: "/agreement",
 		sections: 6,
 		color: "#c9a356",
 	},

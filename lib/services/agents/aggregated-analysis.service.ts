@@ -52,6 +52,20 @@ export interface AggregatedAnalysisInput {
 	}>;
 	requestedAmount?: number;
 	sanctionsOverride?: SanctionsCheckResult;
+	facilityApplicationData?: Record<string, unknown>;
+	ficaComparisonContext?: {
+		companyName?: string;
+		tradingName?: string;
+		registrationNumber?: string;
+		idNumber?: string;
+		contactName?: string;
+		email?: string;
+		phone?: string;
+		accountNumber?: string;
+		bankName?: string;
+		branchCode?: string;
+		address?: string;
+	};
 }
 
 export interface AggregatedAnalysisResult {
@@ -152,6 +166,7 @@ export async function performAggregatedAnalysis(
 						registrationNumber: input.applicantData.registrationNumber,
 						address: input.applicantData.address,
 					},
+					ficaComparisonContext: input.ficaComparisonContext,
 					workflowId: input.workflowId,
 				})
 			: Promise.resolve(undefined),
@@ -274,6 +289,7 @@ export async function performAggregatedAnalysis(
 	);
 
 	// Run Reporter Agent
+	const validationFicaComparison = summarizeFicaComparisons(validationResult);
 	const reporterResult = await generateReporterAnalysis({
 		applicantData: {
 			companyName: input.applicantData.companyName,
@@ -287,6 +303,7 @@ export async function performAggregatedAnalysis(
 					total: validationResult.summary.totalDocuments,
 				}
 			: { passed: 0, failed: 0, total: 0 },
+		ficaComparisonSummary: validationFicaComparison,
 		riskSummary: {
 			score: riskResult.overall.score,
 			category: riskResult.creditRisk.riskCategory,
@@ -317,13 +334,14 @@ export async function performAggregatedAnalysis(
 		risk: riskResult,
 		sanctions: sanctionsResult,
 		agents: {
-		validation: validationResult
+			validation: validationResult
 				? {
 						totalDocuments: validationResult.summary.totalDocuments,
 						passed: validationResult.summary.passed,
 						failed: validationResult.summary.failed,
 						recommendation: validationResult.summary.overallRecommendation,
 						dataSource: validationResult.results[0]?.validation?.dataSource || "skipped",
+						ficaComparisonSummary: validationFicaComparison,
 					}
 				: { status: "skipped", reason: "No documents provided" },
 			risk: {
@@ -405,6 +423,16 @@ function createValidationFallback(
 				recommendation: "REVIEW",
 				reasoning:
 					"Validation service unavailable. Manual review is required for this document.",
+				ficaComparison: {
+					documentType: doc.type,
+					fields: {},
+					summary: {
+						overallStatus: "INSUFFICIENT_DATA",
+						mismatchCount: 0,
+						criticalMismatchCount: 0,
+						keyDiscrepancies: ["Validation service unavailable"],
+					},
+				},
 				dataSource: "Validation Error - Manual Escalation",
 			},
 		})),
@@ -415,6 +443,48 @@ function createValidationFallback(
 			failed: 0,
 			overallRecommendation: "REVIEW_REQUIRED",
 		},
+	};
+}
+
+function summarizeFicaComparisons(validation: BatchValidationResult | undefined): {
+	totalMismatches: number;
+	criticalMismatches: number;
+	documentsWithMismatches: number;
+	keyDiscrepancies: string[];
+} {
+	if (!validation) {
+		return {
+			totalMismatches: 0,
+			criticalMismatches: 0,
+			documentsWithMismatches: 0,
+			keyDiscrepancies: [],
+		};
+	}
+
+	let totalMismatches = 0;
+	let criticalMismatches = 0;
+	let documentsWithMismatches = 0;
+	const keyDiscrepancies = new Set<string>();
+
+	for (const result of validation.results) {
+		const summary = result.validation.ficaComparison?.summary;
+		if (!summary) continue;
+
+		totalMismatches += summary.mismatchCount;
+		criticalMismatches += summary.criticalMismatchCount;
+		if (summary.mismatchCount > 0) {
+			documentsWithMismatches += 1;
+		}
+		for (const discrepancy of summary.keyDiscrepancies) {
+			keyDiscrepancies.add(discrepancy);
+		}
+	}
+
+	return {
+		totalMismatches,
+		criticalMismatches,
+		documentsWithMismatches,
+		keyDiscrepancies: Array.from(keyDiscrepancies).slice(0, 8),
 	};
 }
 

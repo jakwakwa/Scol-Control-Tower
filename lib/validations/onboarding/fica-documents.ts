@@ -206,6 +206,54 @@ export interface DocumentRequirement {
 	maxSizeMb: number;
 }
 
+// ============================================
+// FICA Comparison Output Schemas (AI Verification)
+// ============================================
+
+export const ficaComparisonFieldStatusSchema = z.enum([
+	"match",
+	"mismatch",
+	"not_provided",
+	"not_found",
+	"uncertain",
+]);
+
+export const ficaComparisonFieldSchema = z.object({
+	status: ficaComparisonFieldStatusSchema,
+	expectedValue: z.string().optional(),
+	foundValue: z.string().optional(),
+	notes: z.string().optional(),
+	confidence: z.number().min(0).max(100).optional(),
+});
+
+export const ficaFieldGroupSchema = z.object({
+	accountHolderName: ficaComparisonFieldSchema.optional(),
+	accountNumber: ficaComparisonFieldSchema.optional(),
+	bankName: ficaComparisonFieldSchema.optional(),
+	branchCode: ficaComparisonFieldSchema.optional(),
+	idNumber: ficaComparisonFieldSchema.optional(),
+	personName: ficaComparisonFieldSchema.optional(),
+	companyName: ficaComparisonFieldSchema.optional(),
+	tradingName: ficaComparisonFieldSchema.optional(),
+	registrationNumber: ficaComparisonFieldSchema.optional(),
+	address: ficaComparisonFieldSchema.optional(),
+});
+
+export const ficaComparisonSummarySchema = z.object({
+	overallStatus: z.enum(["MATCHED", "PARTIAL_MATCH", "MISMATCHED", "INSUFFICIENT_DATA"]),
+	mismatchCount: z.number().int().min(0),
+	criticalMismatchCount: z.number().int().min(0),
+	keyDiscrepancies: z.array(z.string()).default([]),
+});
+
+export const ficaComparisonResultSchema = z.object({
+	documentType: z.string(),
+	fields: ficaFieldGroupSchema.default({}),
+	summary: ficaComparisonSummarySchema,
+});
+
+export type FicaComparisonResult = z.infer<typeof ficaComparisonResultSchema>;
+
 export const DOCUMENT_REQUIREMENTS: DocumentRequirement[] = [
 	// Standard
 	{

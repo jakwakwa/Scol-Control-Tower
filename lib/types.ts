@@ -36,7 +36,7 @@ export const MANDATE_TYPE_LABELS: Record<MandateType, string> = {
 export const FormTypeSchema = z.enum([
 	"FACILITY_APPLICATION",
 	"SIGNED_QUOTATION",
-	"STRATCOL_CONTRACT",
+	"AGREEMENT_CONTRACT",
 	"ABSA_6995",
 	"DOCUMENT_UPLOADS",
 	"CALL_CENTRE_APPLICATION",
@@ -60,7 +60,7 @@ export type FormDecisionOutcome = z.infer<typeof FormDecisionOutcomeSchema>;
 
 export const DecisionEnabledFormTypeSchema = z.enum([
 	"SIGNED_QUOTATION",
-	"STRATCOL_CONTRACT",
+	"AGREEMENT_CONTRACT",
 	"CALL_CENTRE_APPLICATION",
 ]);
 export type DecisionEnabledFormType = z.infer<typeof DecisionEnabledFormTypeSchema>;

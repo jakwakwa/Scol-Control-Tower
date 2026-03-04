@@ -195,9 +195,7 @@ export default function ApplicantDetailPage() {
 	const [workflowActionLoading, setWorkflowActionLoading] = useState<
 		"financial-statements" | "kill-switch" | null
 	>(null);
-	const [workflowActionMessage, setWorkflowActionMessage] = useState<string | null>(
-		null
-	);
+	const [workflowActionMessage, setWorkflowActionMessage] = useState<string | null>(null);
 	const [financialStatementNotes, setFinancialStatementNotes] = useState("");
 	const [killSwitchNotes, setKillSwitchNotes] = useState("");
 
@@ -451,7 +449,9 @@ export default function ApplicantDetailPage() {
 			await refreshApplicantData();
 		} catch (actionError) {
 			setWorkflowActionMessage(
-				actionError instanceof Error ? actionError.message : "Failed to activate kill switch"
+				actionError instanceof Error
+					? actionError.message
+					: "Failed to activate kill switch"
 			);
 		} finally {
 			setWorkflowActionLoading(null);
@@ -647,7 +647,7 @@ export default function ApplicantDetailPage() {
 				description={`Registration: ${client.registrationNumber || "N/A"}`}
 				actions={
 					<div className="flex gap-2">
-						<Link href={`/dashboard/applicants/${id}/contract`}>
+						<Link href={`/dashboard/applicants/${id}/agreement-form`}>
 							<Button size="sm" variant="outline">
 								Contract Review
 							</Button>
@@ -664,9 +664,7 @@ export default function ApplicantDetailPage() {
 							variant="destructive"
 							onClick={() => setKillSwitchDialogOpen(true)}
 							disabled={workflowActionLoading !== null || !canUseKillSwitch}>
-							{workflowActionLoading === "kill-switch"
-								? "Terminating..."
-								: "Kill Switch"}
+							{workflowActionLoading === "kill-switch" ? "Terminating..." : "Kill Switch"}
 						</Button>
 					</div>
 				}>
@@ -1256,8 +1254,7 @@ export default function ApplicantDetailPage() {
 										<Button
 											onClick={handleFinancialStatementsConfirmed}
 											disabled={
-												workflowActionLoading !== null ||
-												!canConfirmFinancialStatements
+												workflowActionLoading !== null || !canConfirmFinancialStatements
 											}
 											className="gap-2">
 											{workflowActionLoading === "financial-statements" ? (
@@ -1695,8 +1692,8 @@ export default function ApplicantDetailPage() {
 					<AlertDialogHeader>
 						<AlertDialogTitle>Terminate Workflow</AlertDialogTitle>
 						<AlertDialogDescription>
-							This will execute the kill switch and stop the workflow immediately.
-							Pending form links may be revoked.
+							This will execute the kill switch and stop the workflow immediately. Pending
+							form links may be revoked.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<Textarea

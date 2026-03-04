@@ -394,9 +394,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 					metadata: {
 						checkId: `SCK-MANUAL-${workflowId}-${Date.now()}`,
 						checkedAt: fallbackCheckedAt,
-						expiresAt: new Date(
-							Date.now() + 7 * 24 * 60 * 60 * 1000
-						).toISOString(),
+						expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
 						dataSource: "Manual Fallback (OpenSanctions + Firecrawl failed)",
 					},
 				};
@@ -810,6 +808,10 @@ export const controlTowerWorkflow = inngest.createFunction(
 			await guardKillSwitch(workflowId, "determine-mandate");
 
 			const formData = facilitySubmission.data.formData;
+			const facilityApplicationData = (formData as { facilityApplicationData?: unknown })
+				.facilityApplicationData as Record<string, unknown> | undefined;
+			const facilityFormData =
+				facilityApplicationData ?? (formData as Record<string, unknown>);
 
 			const db = getDatabaseClient();
 			let applicantEntityType: string | null = null;
@@ -825,7 +827,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 
 			const businessType = resolveBusinessType(
 				applicantEntityType,
-				determineBusinessType(formData as Record<string, unknown>)
+				determineBusinessType(facilityFormData)
 			);
 			const docRequirements = getDocumentRequirements(
 				businessType,
@@ -1695,7 +1697,10 @@ export const controlTowerWorkflow = inngest.createFunction(
 			return { status: "timeout", stage: 3, reason: "FICA document upload timeout" };
 		}
 
-		if ("source" in ficaDocsReceived.data && ficaDocsReceived.data.source !== "stage2_documents_already_complete") {
+		if (
+			"source" in ficaDocsReceived.data &&
+			ficaDocsReceived.data.source !== "stage2_documents_already_complete"
+		) {
 			await step.run("notify-am-fica-docs-uploaded", async () => {
 				await guardKillSwitch(workflowId, "notify-am-fica-docs-uploaded");
 				await createWorkflowNotification({
@@ -1833,6 +1838,14 @@ export const controlTowerWorkflow = inngest.createFunction(
 				documents: aiDocuments.length > 0 ? aiDocuments : undefined,
 				bankStatementBase64: bankStatementDoc?.content,
 				requestedAmount: mandateInfo.mandateVolume,
+				facilityApplicationData: (
+					facilitySubmission.data.formData as { facilityApplicationData?: Record<string, unknown> }
+				).facilityApplicationData,
+				ficaComparisonContext: (
+					facilitySubmission.data.formData as {
+						ficaComparisonContext?: Record<string, unknown>;
+					}
+				).ficaComparisonContext,
 			});
 
 			return result;
@@ -2487,7 +2500,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 			const contractToken = await createFormInstance({
 				applicantId,
 				workflowId,
-				formType: "STRATCOL_CONTRACT" as FormType,
+				formType: "AGREEMENT_CONTRACT" as FormType,
 			});
 
 			await sendApplicantFormLinksEmail({
@@ -2495,7 +2508,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 				contactName: applicant.contactName,
 				links: [
 					{
-						formType: "STRATCOL_CONTRACT",
+						formType: "AGREEMENT_CONTRACT",
 						url: `${getBaseUrl()}/forms/${contractToken.token}`,
 					},
 				],
@@ -2511,6 +2524,74 @@ export const controlTowerWorkflow = inngest.createFunction(
 				actionable: false,
 			});
 		});
+
+		// ================================================================
+		// AWAIT CONTRACT SIGNATURE
+		// ================================================================
+
+		// Wait for the applicant to sign the AGREEMENT_CONTRACT.
+		// Uses `if` CEL expression (not `match`) so only a form/decision.responded
+		// event with formType == 'AGREEMENT_CONTRACT' can satisfy this wait.
+		// A bare match on workflowId alone would allow a response from any
+		// other decision-enabled form (e.g. CALL_CENTRE_APPLICATION) to
+		// prematurely advance or error the run.
+		await step.run("stage-6-awaiting-contract-signature", () =>
+			updateWorkflowStatus(workflowId, "awaiting_human", 6)
+		);
+
+		const contractDecision = await step.waitForEvent("wait-contract-decision", {
+			event: "form/decision.responded",
+			timeout: REVIEW_TIMEOUT,
+			if: "event.data.workflowId == async.data.workflowId && async.data.formType == 'AGREEMENT_CONTRACT'",
+		});
+
+		if (!contractDecision) {
+			await step.run("notify-am-contract-signature-timeout", async () => {
+				await guardKillSwitch(workflowId, "notify-am-contract-signature-timeout");
+				await createWorkflowNotification({
+					workflowId,
+					applicantId,
+					type: "warning",
+					title: "Delay: Contract Signature",
+					message:
+						"Applicant has not signed the final contract within the expected timeframe.",
+					actionable: true,
+				});
+				await sendInternalAlertEmail({
+					title: "Delay: Contract Signature",
+					message: `Applicant has not signed the final contract within the ${REVIEW_TIMEOUT} timeout window. Please follow up.`,
+					workflowId,
+					applicantId,
+					type: "warning",
+					actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
+				});
+			});
+			return { status: "timeout", stage: 6, reason: "Contract signature timeout" };
+		}
+
+		if (contractDecision.data.decision === "DECLINED") {
+			await step.run("contract-declined-notify", async () => {
+				await createWorkflowNotification({
+					workflowId,
+					applicantId,
+					type: "warning",
+					title: "Contract Declined by Applicant",
+					message:
+						contractDecision.data.reason ||
+						"Applicant declined to sign the final contract.",
+					actionable: true,
+				});
+				await sendInternalAlertEmail({
+					title: "Contract Declined by Applicant",
+					message: `Applicant declined the final contract${contractDecision.data.reason ? `: ${contractDecision.data.reason}` : "."}`,
+					workflowId,
+					applicantId,
+					type: "warning",
+					actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
+				});
+			});
+			return { status: "terminated", stage: 6, reason: "Applicant declined contract" };
+		}
 
 		// ================================================================
 		// COMPLETION

@@ -503,7 +503,7 @@ const handleMockAbsaSend = async () =>
 ## File: app/(authenticated)/dashboard/applicants/[id]/contract/page.tsx
 ```typescript
 import ContractReviewClient from "./contract-review-client";
-export default async function ApplicantContractPage({
+export default async function ApplicantAgreementContractPage({
 	params,
 }: {
 	params: Promise<{ id: string }>;
@@ -5253,7 +5253,7 @@ export type Events = {
 		data: {
 			workflowId: number;
 			applicantId: number;
-			formType: "SIGNED_QUOTATION" | "STRATCOL_CONTRACT" | "CALL_CENTRE_APPLICATION";
+			formType: "SIGNED_QUOTATION" | "AGREEMENT_CONTRACT" | "CALL_CENTRE_APPLICATION";
 			decision: "APPROVED" | "DECLINED";
 			reason?: string;
 			respondedAt: string;

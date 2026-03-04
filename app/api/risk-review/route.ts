@@ -187,6 +187,15 @@ export async function GET(_request: NextRequest) {
 				const decisionType = workflow.decisionType || "risk_review";
 				const targetResource = workflow.targetResource || "/api/risk-decision";
 				const agentSummary = (aiAnalysis?.agents as Record<string, Record<string, unknown>>) || {};
+				const validationAgentSummary = agentSummary.validation || {};
+				const ficaComparisonSummary = validationAgentSummary.ficaComparisonSummary as
+					| {
+							totalMismatches?: number;
+							criticalMismatches?: number;
+							documentsWithMismatches?: number;
+							keyDiscrepancies?: string[];
+					  }
+					| undefined;
 				const checkStatuses = {
 					procurement: procurementCheckFailed ? "manual_required" : "available",
 					validation:
@@ -241,6 +250,15 @@ export async function GET(_request: NextRequest) {
 					dataSource: dataSource || undefined,
 					// Full Reporter Agent payload for detail view
 					reporterAgentOutput: aiAnalysis,
+					ficaComparison: ficaComparisonSummary
+						? {
+								totalMismatches: ficaComparisonSummary.totalMismatches || 0,
+								criticalMismatches: ficaComparisonSummary.criticalMismatches || 0,
+								documentsWithMismatches:
+									ficaComparisonSummary.documentsWithMismatches || 0,
+								keyDiscrepancies: ficaComparisonSummary.keyDiscrepancies || [],
+						  }
+						: undefined,
 					// Assessment fields
 					cashFlowConsistency: assessment?.cashFlowConsistency || undefined,
 					dishonouredPayments: assessment?.dishonouredPayments || undefined,

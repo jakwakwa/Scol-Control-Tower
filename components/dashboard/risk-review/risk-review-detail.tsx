@@ -645,6 +645,61 @@ export function RiskReviewDetail({
 							</div>
 						)}
 
+						{item.ficaComparison && (
+							<div className="p-4 rounded-lg bg-secondary/5 border border-secondary/10">
+								<h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+									<RiFileTextLine className="h-4 w-4 text-primary" />
+									FICA Field Verification
+								</h4>
+								<div className="grid grid-cols-3 gap-3 mb-3">
+									<MetricCard
+										icon={RiAlertLine}
+										label="Total Mismatches"
+										value={item.ficaComparison.totalMismatches}
+										status={
+											item.ficaComparison.totalMismatches > 0 ? "warning" : "good"
+										}
+									/>
+									<MetricCard
+										icon={RiAlertLine}
+										label="Critical Mismatches"
+										value={item.ficaComparison.criticalMismatches}
+										status={
+											item.ficaComparison.criticalMismatches > 0 ? "danger" : "good"
+										}
+									/>
+									<MetricCard
+										icon={RiCheckLine}
+										label="Docs Impacted"
+										value={item.ficaComparison.documentsWithMismatches}
+										status={
+											item.ficaComparison.documentsWithMismatches > 0
+												? "warning"
+												: "good"
+										}
+									/>
+								</div>
+								{item.ficaComparison.keyDiscrepancies.length > 0 ? (
+									<div className="space-y-2">
+										<p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+											Key Discrepancies
+										</p>
+										{item.ficaComparison.keyDiscrepancies.map((discrepancy, idx) => (
+											<div
+												key={`${discrepancy}-${idx}`}
+												className="text-xs text-muted-foreground bg-background/40 p-2 rounded border border-secondary/10">
+												{discrepancy}
+											</div>
+										))}
+									</div>
+								) : (
+									<p className="text-xs text-emerald-400">
+										No FICA field discrepancies were flagged.
+									</p>
+								)}
+							</div>
+						)}
+
 						{/* Recommendation */}
 						<div className="p-4 rounded-lg bg-secondary/5 border border-secondary/10">
 							<h4 className="text-sm font-semibold mb-2">Recommendation</h4>
