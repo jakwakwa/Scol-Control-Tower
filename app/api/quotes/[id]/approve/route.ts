@@ -20,6 +20,7 @@ export async function POST(
 		if (authResult instanceof NextResponse) {
 			return authResult;
 		}
+		const { userId } = authResult;
 
 		const db = await getDatabaseClient();
 
@@ -67,7 +68,7 @@ export async function POST(
 			);
 		}
 
-		await acquireStateLock(updatedQuote.workflowId, "quote_approval");
+		await acquireStateLock(updatedQuote.workflowId, userId);
 
 		await inngest.send({
 			name: "quote/approved",
