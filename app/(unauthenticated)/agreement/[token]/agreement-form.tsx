@@ -213,7 +213,7 @@ export default function AgreementForm({
 					</div>
 				</div>
 				<div className="contract-logo-placeholder">
-					<img src={`/stratcol-logo.svg`} width={240} height={80} alt=""></img>
+					<img src="/stratcol-logo.svg" width={240} height={80} alt="StratCol logo" />
 				</div>
 			</div>
 
