@@ -10,23 +10,18 @@ interface SignatureBoxProps {
 
 function SignatureBox({ label, type = "text", name, value, onChange }: SignatureBoxProps) {
 	return (
-		<div className="flex flex-col">
+		<div className="stratcol-sig-wrapper">
+			<label className="stratcol-sig-label">{label}</label>
 			{type === "date" ? (
-				<label className="text-sm font-bold text-gray-500 mb-2">
-					{label}
-
-					<input
-						type="date"
-						name={name}
-						value={value}
-						onChange={onChange}
-						className="border-b-2 border-gray-400 bg-transparent outline-none p-1 uppercase"
-					/>
-				</label>
+				<input
+					type="date"
+					name={name}
+					value={value}
+					onChange={onChange}
+					className="stratcol-sig-date"
+				/>
 			) : (
-				<div className="border-b-2 border-red-400 h-10 bg-red-200/90 flex items-end pb-1 px-2 italic text-red-400 text-sm">
-					enter a date first
-				</div>
+				<div className="stratcol-sig-box">Sign here...</div>
 			)}
 		</div>
 	);

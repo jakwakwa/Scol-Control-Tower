@@ -45,6 +45,13 @@ export function getModel(complexity: "fast" | "thinking" = "thinking") {
 }
 
 /**
+ * Model for company profile screening (broad web research with tool calling).
+ */
+export function getCompanyScreeningModel() {
+	return "gemini-3.1-pro-preview";
+}
+
+/**
  * Check if AI is configured
  */
 export function isAIConfigured(): boolean {

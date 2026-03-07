@@ -34,10 +34,137 @@ export const formContent: Record<
 		schema: facilityApplicationSchema,
 		submitLabel: "Submit facility application",
 		defaultValues: {
+			applicantDetails: {
+				registeredName: "",
+				tradingName: "",
+				registrationOrIdNumber: "",
+				contactPerson: "",
+				telephone: "",
+				email: "",
+				industry: "",
+				subIndustry: "",
+				businessDescription: "",
+				marketingMethod: "",
+			},
+			insuranceDetails: {
+				isInsuranceClient: false,
+			},
 			serviceTypes: [],
 			additionalServices: [],
 		},
 		sections: [
+			{
+				title: "Applicant Details",
+				description:
+					"Capture the legal entity and contact context used across downstream verification checks.",
+				fields: [
+					{
+						name: "applicantDetails.registeredName",
+						label: "Registered name / surname",
+						type: "text",
+						required: true,
+					},
+					{
+						name: "applicantDetails.tradingName",
+						label: "Trading name",
+						type: "text",
+					},
+					{
+						name: "applicantDetails.registrationOrIdNumber",
+						label: "Registration no. / ID no.",
+						type: "text",
+					},
+					{
+						name: "applicantDetails.contactPerson",
+						label: "Contact person",
+						type: "text",
+					},
+					{
+						name: "applicantDetails.telephone",
+						label: "Telephone",
+						type: "tel",
+					},
+					{
+						name: "applicantDetails.email",
+						label: "Email address",
+						type: "email",
+					},
+					{
+						name: "applicantDetails.industry",
+						label: "Industry",
+						type: "text",
+					},
+					{
+						name: "applicantDetails.subIndustry",
+						label: "Sub-industry",
+						type: "text",
+					},
+					{
+						name: "applicantDetails.businessDescription",
+						label: "Description of business",
+						type: "textarea",
+						colSpan: 2,
+					},
+					{
+						name: "applicantDetails.marketingMethod",
+						label: "How will product be marketed",
+						type: "textarea",
+						colSpan: 2,
+					},
+				],
+			},
+			{
+				title: "Insurance (Only if Applicable)",
+				description: "Complete this section only if you are an insurance client.",
+				fields: [
+					{
+						name: "insuranceDetails.isInsuranceClient",
+						label: "This applicant is an insurance client",
+						type: "checkbox",
+					},
+					{
+						name: "insuranceDetails.noneFscaRegulatedCollections",
+						label: "None FSCA regulated collections",
+						type: "select",
+						options: [
+							{ label: "Yes", value: "yes" },
+							{ label: "No", value: "no" },
+						],
+					},
+					{
+						name: "insuranceDetails.fscaCollections.shortTermInsurance",
+						label: "FSCA: Short term insurance",
+						type: "select",
+						options: [
+							{ label: "Yes", value: "yes" },
+							{ label: "No", value: "no" },
+						],
+					},
+					{
+						name: "insuranceDetails.fscaCollections.riskOnlyPolicies",
+						label: "FSCA: Risk-only policies",
+						type: "select",
+						options: [
+							{ label: "Yes", value: "yes" },
+							{ label: "No", value: "no" },
+						],
+					},
+					{
+						name: "insuranceDetails.rolePlayers.isInsurer",
+						label: "Role player: Insurer",
+						type: "select",
+						options: [
+							{ label: "Yes", value: "yes" },
+							{ label: "No", value: "no" },
+						],
+					},
+					{
+						name: "insuranceDetails.rolePlayers.insurerNames",
+						label: "Insurer names",
+						type: "text",
+					},
+				],
+			},
 			{
 				title: "Facility Selection",
 				description: "Select the services required for your collections facility.",
@@ -161,6 +288,22 @@ export const formContent: Record<
 			},
 		],
 		testData: {
+			"applicantDetails.registeredName": "Test Company (Pty) Ltd",
+			"applicantDetails.tradingName": "Test Trading",
+			"applicantDetails.registrationOrIdNumber": "2024/123456/07",
+			"applicantDetails.contactPerson": "John Smith",
+			"applicantDetails.telephone": "0111234567",
+			"applicantDetails.email": "john@testcompany.co.za",
+			"applicantDetails.industry": "Insurance",
+			"applicantDetails.subIndustry": "Funeral",
+			"applicantDetails.businessDescription": "Provides funeral policy administration.",
+			"applicantDetails.marketingMethod": "Call centre and direct agents.",
+			"insuranceDetails.isInsuranceClient": true,
+			"insuranceDetails.noneFscaRegulatedCollections": "no",
+			"insuranceDetails.fscaCollections.shortTermInsurance": "yes",
+			"insuranceDetails.fscaCollections.riskOnlyPolicies": "yes",
+			"insuranceDetails.rolePlayers.isInsurer": "yes",
+			"insuranceDetails.rolePlayers.insurerNames": "ABC Life",
 			serviceTypes: ["EFT", "DebiCheck"],
 			additionalServices: ["Integration", "E-Mandate"],
 			currentProvider: "Previous Provider Ltd",
@@ -236,7 +379,7 @@ export const formContent: Record<
 			},
 		],
 	},
-	STRATCOL_CONTRACT: {
+	AGREEMENT_CONTRACT: {
 		title: "StratCol Contract",
 		description: "Provide entity details and confirm the StratCol agreement.",
 		schema: stratcolAgreementSchema,

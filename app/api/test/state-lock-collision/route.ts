@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-	if (!ensureTestMode()) {
+	if (!ensureTestMode(request)) {
 		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 

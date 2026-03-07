@@ -13,8 +13,8 @@ describe("decision contracts", () => {
 		expect(DecisionEnabledFormTypeSchema.parse("SIGNED_QUOTATION")).toBe(
 			"SIGNED_QUOTATION"
 		);
-		expect(DecisionEnabledFormTypeSchema.parse("STRATCOL_CONTRACT")).toBe(
-			"STRATCOL_CONTRACT"
+		expect(DecisionEnabledFormTypeSchema.parse("AGREEMENT_CONTRACT")).toBe(
+			"AGREEMENT_CONTRACT"
 		);
 		expect(DecisionEnabledFormTypeSchema.parse("CALL_CENTRE_APPLICATION")).toBe(
 			"CALL_CENTRE_APPLICATION"
@@ -24,7 +24,7 @@ describe("decision contracts", () => {
 
 	it("keeps decision metadata defined for every decision-enabled applicant form", () => {
 		expect(formContent.SIGNED_QUOTATION.decision?.enabled).toBe(true);
-		expect(formContent.STRATCOL_CONTRACT.decision?.enabled).toBe(true);
+		expect(formContent.AGREEMENT_CONTRACT.decision?.enabled).toBe(true);
 		expect(formContent.CALL_CENTRE_APPLICATION.decision?.enabled).toBe(true);
 	});
 });

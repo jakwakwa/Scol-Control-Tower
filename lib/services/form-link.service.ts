@@ -1,5 +1,5 @@
-import { createFormInstance } from "@/lib/services/form.service";
 import { sendApplicantFormLinksEmail } from "@/lib/services/email.service";
+import { createFormInstance } from "@/lib/services/form.service";
 import type { FormType } from "@/lib/types";
 
 export interface FormLink {
@@ -20,7 +20,7 @@ export async function generateFormLinks(options: {
 	const formTypes: FormType[] = [
 		"FACILITY_APPLICATION",
 		"SIGNED_QUOTATION",
-		"STRATCOL_CONTRACT",
+		"AGREEMENT_CONTRACT",
 		"ABSA_6995",
 		"DOCUMENT_UPLOADS",
 	];
@@ -50,17 +50,17 @@ export async function sendFormLinksEmail(options: {
 	contactName?: string;
 	links: FormLink[];
 }) {
-    // Adapter to match the format expected by the email service if needed,
-    // though here the types are compatible enough for a direct call or simple map.
-    // The FormLink type in email.service accepts {formType: string, url: string}
-    // Our local FormLink has formType as enum.
-    
-    return await sendApplicantFormLinksEmail({
-        email: options.email,
-        contactName: options.contactName,
-        links: options.links.map(l => ({
-            formType: l.formType,
-            url: l.url
-        }))
-    });
+	// Adapter to match the format expected by the email service if needed,
+	// though here the types are compatible enough for a direct call or simple map.
+	// The FormLink type in email.service accepts {formType: string, url: string}
+	// Our local FormLink has formType as enum.
+
+	return await sendApplicantFormLinksEmail({
+		email: options.email,
+		contactName: options.contactName,
+		links: options.links.map(l => ({
+			formType: l.formType,
+			url: l.url,
+		})),
+	});
 }

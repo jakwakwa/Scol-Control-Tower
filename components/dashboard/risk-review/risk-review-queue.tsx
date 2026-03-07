@@ -70,6 +70,12 @@ export interface RiskReviewItem {
 	summary?: string;
 	reasoning?: string; // AI's detailed reasoning for the score
 	analysisConfidence?: number; // AI confidence in the analysis (0-100)
+	ficaComparison?: {
+		totalMismatches: number;
+		criticalMismatches: number;
+		documentsWithMismatches: number;
+		keyDiscrepancies: string[];
+	};
 	// Document Status
 	bankStatementVerified?: boolean;
 	accountantLetterVerified?: boolean;

@@ -1,6 +1,6 @@
 import ContractReviewClient from "./contract-review-client";
 
-export default async function ApplicantContractPage({
+export default async function ApplicantAgreementContractPage({
 	params,
 }: {
 	params: Promise<{ id: string }>;

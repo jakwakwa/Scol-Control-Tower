@@ -205,10 +205,47 @@ export async function POST(
 			// For facility_application, also send the specific event for V2 workflow
 			if (formType === "facility_application") {
 				// Extract mandate info from form data
-				const mandateVolume = formData.mandateVolume ?? formData.mandate_volume ?? 0;
-				const mandateType = formData.mandateType ?? formData.mandate_type ?? "EFT";
+				const toNumber = (value: unknown): number => {
+					if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+					if (typeof value === "string") {
+						const parsed = Number(value.replace(/[R,\s]/g, ""));
+						return Number.isFinite(parsed) ? parsed : 0;
+					}
+					return 0;
+				};
+				const nestedMaxRandValue =
+					formData.volumeMetrics?.limitsAppliedFor?.maxRandValue ??
+					formData.maxRandValue ??
+					formData.max_rand_value;
+				const mandateVolume =
+					formData.mandateVolume ??
+					formData.mandate_volume ??
+					toNumber(nestedMaxRandValue) * 100;
+				const serviceTypes = Array.isArray(formData.facilitySelection?.serviceTypes)
+					? formData.facilitySelection.serviceTypes
+					: Array.isArray(formData.serviceTypes)
+						? formData.serviceTypes
+						: [];
+				const hasDebicheck = serviceTypes.includes("DebiCheck");
+				const hasEft = serviceTypes.some((type: string) => type !== "DebiCheck");
+				const derivedMandateType =
+					hasDebicheck && hasEft ? "MIXED" : hasDebicheck ? "DEBIT_ORDER" : "EFT";
+				const mandateType =
+					formData.mandateType ?? formData.mandate_type ?? derivedMandateType;
 				const businessType = formData.businessType ?? formData.business_type ?? "Unknown";
-				const annualTurnover = formData.annualTurnover ?? formData.annual_turnover;
+				const annualTurnover =
+					formData.annualTurnover ??
+					formData.annual_turnover ??
+					toNumber(
+						formData.volumeMetrics?.predictedGrowth?.forecastVolume ??
+							formData.forecastVolume
+					) *
+						toNumber(
+							formData.volumeMetrics?.predictedGrowth?.forecastAverageValue ??
+								formData.forecastAverageValue
+						) *
+						12;
+				const registrationOrIdNumber = formData.applicantDetails?.registrationOrIdNumber;
 
 				await inngest.send({
 					name: "form/facility.submitted",
@@ -221,6 +258,16 @@ export async function POST(
 							mandateType: mandateType as "EFT" | "DEBIT_ORDER" | "CASH" | "MIXED",
 							businessType: String(businessType),
 							annualTurnover: annualTurnover ? (typeof annualTurnover === "number" ? annualTurnover : parseInt(annualTurnover)) : undefined,
+							facilityApplicationData: formData as Record<string, unknown>,
+							ficaComparisonContext: {
+								companyName: formData.applicantDetails?.registeredName,
+								tradingName: formData.applicantDetails?.tradingName,
+								registrationNumber: registrationOrIdNumber,
+								idNumber: registrationOrIdNumber,
+								contactName: formData.applicantDetails?.contactPerson,
+								email: formData.applicantDetails?.email,
+								phone: formData.applicantDetails?.telephone,
+							},
 						},
 						submittedAt: new Date().toISOString(),
 					},

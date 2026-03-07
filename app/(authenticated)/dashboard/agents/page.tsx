@@ -83,7 +83,7 @@ export default async function AgentsPage({
 		{
 			id: "5",
 			agentId: "xt_sync_agent_v1",
-			name: "agreementContract/V27 Sync",
+			name: "agreementContract_sync",
 			taskType: "data_sync",
 			status: "inactive" as const,
 			lastCallbackAt: undefined,

@@ -46,24 +46,27 @@ export const documentAggregator = inngest.createFunction(
 			return result[0];
 		});
 
-		// 2. Check for required documents
-		// Dynamically fetch requirements based on applicant context
-		let requirements: string[] = ["BANK_STATEMENT_3_MONTH"]; // Fallback
-
-		if (applicantInfo) {
-			// Resolve business type using the service logic (preferring saved businessType)
-			const businessType = resolveBusinessType(
-				applicantInfo.entityType,
-				applicantInfo.businessType
+		// 2. Guard: applicant must exist to determine requirements
+		if (!applicantInfo) {
+			throw new Error(
+				`Applicant record not found for applicantId=${applicantId}. Cannot determine document requirements.`
 			);
-
-			const docReqs = getDocumentRequirements(
-				businessType,
-				applicantInfo.industry ?? undefined
-			);
-
-			requirements = docReqs.documents.filter(req => req.required).map(req => req.id);
 		}
+
+		// 3. Resolve requirements from applicant context
+		const businessType = resolveBusinessType(
+			applicantInfo.entityType,
+			applicantInfo.businessType
+		);
+
+		const docReqs = getDocumentRequirements(
+			businessType,
+			applicantInfo.industry ?? undefined
+		);
+
+		const requirements = docReqs.documents
+			.filter(req => req.required)
+			.map(req => req.id);
 
 		const uploadedTypes = applicantDocs.map(d => d.type);
 

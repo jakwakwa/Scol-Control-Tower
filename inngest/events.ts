@@ -203,6 +203,16 @@ export type Events = {
 				mandateType: "EFT" | "DEBIT_ORDER" | "CASH" | "MIXED";
 				businessType: string;
 				annualTurnover?: number;
+				facilityApplicationData?: Record<string, unknown>;
+				ficaComparisonContext?: {
+					companyName?: string;
+					tradingName?: string;
+					registrationNumber?: string;
+					idNumber?: string;
+					contactName?: string;
+					email?: string;
+					phone?: string;
+				};
 			};
 			submittedAt: string;
 		};
@@ -586,6 +596,19 @@ export type Events = {
 				| "COMPLIANCE_VIOLATION"
 				| "FRAUD_DETECTED"
 				| "TIMEOUT_TERMINATION"
+				| "STAGE2_FACILITY_TIMEOUT"
+				| "STAGE2_PRE_RISK_APPROVAL_TIMEOUT"
+				| "STAGE2_PRE_RISK_EVAL_TIMEOUT"
+				| "STAGE2_QUOTE_APPROVAL_TIMEOUT"
+				| "VALIDATION_ERROR_INGEST"
+				| "STAGE2_QUOTE_RESPONSE_TIMEOUT"
+				| "STAGE3_FICA_UPLOAD_TIMEOUT"
+				| "STAGE4_FINANCIAL_STATEMENTS_TIMEOUT"
+				| "STAGE5_CONTRACT_REVIEW_TIMEOUT"
+				| "STAGE5_ABSA_FORM_TIMEOUT"
+				| "STAGE6_RISK_MANAGER_TIMEOUT"
+				| "STAGE6_ACCOUNT_MANAGER_TIMEOUT"
+				| "STAGE6_CONTRACT_SIGNATURE_TIMEOUT"
 				| "MANUAL_TERMINATION";
 			decidedBy: string;
 			terminatedAt: string;
@@ -863,7 +886,7 @@ export type Events = {
 		data: {
 			workflowId: number;
 			applicantId: number;
-			formType: "SIGNED_QUOTATION" | "STRATCOL_CONTRACT" | "CALL_CENTRE_APPLICATION";
+			formType: "SIGNED_QUOTATION" | "AGREEMENT_CONTRACT" | "CALL_CENTRE_APPLICATION";
 			decision: "APPROVED" | "DECLINED";
 			reason?: string;
 			respondedAt: string;

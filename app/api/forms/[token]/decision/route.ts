@@ -18,7 +18,7 @@ const decisionSchema = z.object({
 
 const DECISION_ENABLED_FORMS: DecisionEnabledFormType[] = [
 	"SIGNED_QUOTATION",
-	"STRATCOL_CONTRACT",
+	"AGREEMENT_CONTRACT",
 	"CALL_CENTRE_APPLICATION",
 ];
 
@@ -173,7 +173,7 @@ export async function POST(
 				},
 			});
 
-			if (formInstance.formType === "STRATCOL_CONTRACT" && decision === "APPROVED") {
+			if (formInstance.formType === "AGREEMENT_CONTRACT" && decision === "APPROVED") {
 				await inngest.send({
 					name: "contract/signed",
 					data: {

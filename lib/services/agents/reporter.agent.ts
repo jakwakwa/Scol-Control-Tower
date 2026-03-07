@@ -23,6 +23,12 @@ export interface ReporterInput {
 		failed: number;
 		total: number;
 	};
+	ficaComparisonSummary?: {
+		totalMismatches: number;
+		criticalMismatches: number;
+		documentsWithMismatches: number;
+		keyDiscrepancies: string[];
+	};
 	riskSummary: {
 		score: number;
 		category: string;
@@ -80,6 +86,8 @@ export async function generateReporterAnalysis(
     - Applicant: ${input.applicantData.companyName} (${input.applicantData.industry || "Unknown Industry"})
     - Aggregated Score: ${input.aggregatedScore}/100
     - Validation Agent: ${input.validationSummary.passed}/${input.validationSummary.total} docs passed.
+    - FICA Field Comparison: total mismatches ${input.ficaComparisonSummary?.totalMismatches ?? 0}, critical mismatches ${input.ficaComparisonSummary?.criticalMismatches ?? 0}, documents impacted ${input.ficaComparisonSummary?.documentsWithMismatches ?? 0}.
+    - FICA Key Discrepancies: ${input.ficaComparisonSummary?.keyDiscrepancies?.join(", ") || "None"}.
     - Risk Agent: Score ${input.riskSummary.score}, Category ${input.riskSummary.category}. Flags: ${input.riskSummary.flags.join(", ") || "None"}.
     - Sanctions Agent: Blocked: ${input.sanctionsSummary.isBlocked}. Flags: ${input.sanctionsSummary.flags.join(", ") || "None"}.
 
@@ -89,6 +97,7 @@ export async function generateReporterAnalysis(
     3. Write a strictly formatted 2-paragraph narrative:
        - Paragraph 1: Summary of the applicant's profile and key strengths/weaknesses.
        - Paragraph 2: Justification for the recommendation, highlighting specific risks or mitigations.
+    4. If FICA critical mismatches are present (bank details, identity, registration, or address), treat this as a major adverse signal.
     
     CONSTRAINTS:
     - Narrative MUST be exactly 3 paragraphs.

@@ -17,6 +17,7 @@ import {
 	getHighStakesModel,
 	isAIConfigured,
 } from "@/lib/ai/models";
+import { ficaComparisonResultSchema } from "@/lib/validations/onboarding/fica-documents";
 
 // ============================================
 // Types & Schemas
@@ -82,6 +83,9 @@ export const ValidationResultSchema = z.object({
 		.enum(["ACCEPT", "REVIEW", "REJECT", "REQUEST_NEW_DOCUMENT"])
 		.describe("Recommended action"),
 	reasoning: z.string().describe("Detailed reasoning for the validation result"),
+	ficaComparison: ficaComparisonResultSchema
+		.optional()
+		.describe("Structured comparison between document evidence and applicant-provided FICA-relevant fields"),
 });
 
 export type ValidationResult = z.infer<typeof ValidationResultSchema> & {
@@ -99,6 +103,19 @@ export interface ValidationInput {
 		registrationNumber?: string;
 		address?: string;
 		accountNumber?: string;
+	};
+	ficaComparisonContext?: {
+		companyName?: string;
+		tradingName?: string;
+		registrationNumber?: string;
+		idNumber?: string;
+		contactName?: string;
+		email?: string;
+		phone?: string;
+		accountNumber?: string;
+		bankName?: string;
+		branchCode?: string;
+		address?: string;
 	};
 	workflowId: number;
 }
@@ -163,6 +180,16 @@ export async function validateDocument(
 			recommendation: "REVIEW",
 			reasoning:
 				"AI Verification Failed. Manual review is required due to system error processing document.",
+			ficaComparison: {
+				documentType: input.documentType,
+				fields: {},
+				summary: {
+					overallStatus: "INSUFFICIENT_DATA",
+					mismatchCount: 0,
+					criticalMismatchCount: 0,
+					keyDiscrepancies: ["Validation service unavailable"],
+				},
+			},
 			dataSource: "AI Error — Manual Escalation",
 		};
 	}
@@ -172,7 +199,7 @@ export async function validateDocument(
  * Build the AI prompt for document validation
  */
 function buildValidationPrompt(input: ValidationInput): string {
-	const { documentType, documentContent, applicantData } = input;
+	const { documentType, documentContent, applicantData, ficaComparisonContext } = input;
 	const documentContentForPrompt =
 		input.contentType === "base64"
 			? "[PDF provided as inline document data. Analyze the attached document.]"
@@ -191,12 +218,31 @@ ${applicantData.accountNumber ? `- Account Number: ${applicantData.accountNumber
 `;
 	}
 
+	let ficaContext = "";
+	if (ficaComparisonContext) {
+		ficaContext = `
+FICA COMPARISON CONTEXT (APPLICANT-ENTERED DATA):
+${ficaComparisonContext.companyName ? `- Company Name: ${ficaComparisonContext.companyName}` : ""}
+${ficaComparisonContext.tradingName ? `- Trading Name: ${ficaComparisonContext.tradingName}` : ""}
+${ficaComparisonContext.registrationNumber ? `- Registration Number: ${ficaComparisonContext.registrationNumber}` : ""}
+${ficaComparisonContext.idNumber ? `- ID Number: ${ficaComparisonContext.idNumber}` : ""}
+${ficaComparisonContext.contactName ? `- Contact Name: ${ficaComparisonContext.contactName}` : ""}
+${ficaComparisonContext.email ? `- Email: ${ficaComparisonContext.email}` : ""}
+${ficaComparisonContext.phone ? `- Telephone: ${ficaComparisonContext.phone}` : ""}
+${ficaComparisonContext.accountNumber ? `- Account Number: ${ficaComparisonContext.accountNumber}` : ""}
+${ficaComparisonContext.bankName ? `- Bank Name: ${ficaComparisonContext.bankName}` : ""}
+${ficaComparisonContext.branchCode ? `- Branch Code: ${ficaComparisonContext.branchCode}` : ""}
+${ficaComparisonContext.address ? `- Address: ${ficaComparisonContext.address}` : ""}
+`;
+	}
+
 	return `You are a document verification specialist for StratCol, a financial services company.
 Your task is to validate the authenticity and accuracy of submitted documents.
 
 DOCUMENT TYPE: ${documentType}
 
 ${applicantContext}
+${ficaContext}
 
 DOCUMENT CONTENT:
 ${documentContentForPrompt}
@@ -222,6 +268,16 @@ VALIDATION REQUIREMENTS:
 4. CROSS-REFERENCE:
    - Compare names, addresses, and account numbers against applicant data
    - Flag any discrepancies
+
+6. FICA-SPECIFIC COMPARISON OUTPUT (MANDATORY):
+   - Return a structured ficaComparison object.
+   - Compare only fields relevant to this document type:
+     - Bank statements: account holder, account number, bank name, branch code, company/trading name
+     - ID docs: person name, ID number
+     - Proof of address: address and person/company identifiers
+     - Registration/corporate docs: company name and registration number
+   - Use statuses: match, mismatch, not_provided, not_found, uncertain
+   - Populate keyDiscrepancies with concrete mismatch statements.
 
 5. PROOF OF RESIDENCE (if applicable):
    - Verify this is an acceptable proof of residence document
@@ -259,6 +315,7 @@ export interface BatchValidationInput {
 		contentType: "text" | "base64";
 	}>;
 	applicantData?: ValidationInput["applicantData"];
+	ficaComparisonContext?: ValidationInput["ficaComparisonContext"];
 	workflowId: number;
 }
 
@@ -292,6 +349,7 @@ export async function validateDocumentsBatch(
 				documentContent: doc.content,
 				contentType: doc.contentType,
 				applicantData: input.applicantData,
+				ficaComparisonContext: input.ficaComparisonContext,
 				workflowId: input.workflowId,
 			}),
 		}))

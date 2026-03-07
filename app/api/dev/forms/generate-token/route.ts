@@ -79,8 +79,8 @@ export async function POST(request: NextRequest) {
 
 		// Determine the correct URL path based on form type
 		let basePath: string;
-		if (formType === "STRATCOL_CONTRACT") {
-			basePath = "/contract";
+		if (formType === "AGREEMENT_CONTRACT") {
+			basePath = "/agreement";
 		} else if (formType === "DOCUMENT_UPLOADS") {
 			basePath = "/uploads";
 		} else {

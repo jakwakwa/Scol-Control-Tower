@@ -40,6 +40,7 @@ import { RiskBadge, StageBadge, StatusBadge } from "@/components/ui/status-badge
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { retryFacilitySubmission } from "@/lib/actions/workflow.actions";
+import { buildAgreementPreviewEntries } from "@/lib/utils/agreement-defaults";
 
 interface ApplicantDetail {
 	id: number;
@@ -195,9 +196,7 @@ export default function ApplicantDetailPage() {
 	const [workflowActionLoading, setWorkflowActionLoading] = useState<
 		"financial-statements" | "kill-switch" | null
 	>(null);
-	const [workflowActionMessage, setWorkflowActionMessage] = useState<string | null>(
-		null
-	);
+	const [workflowActionMessage, setWorkflowActionMessage] = useState<string | null>(null);
 	const [financialStatementNotes, setFinancialStatementNotes] = useState("");
 	const [killSwitchNotes, setKillSwitchNotes] = useState("");
 
@@ -451,7 +450,9 @@ export default function ApplicantDetailPage() {
 			await refreshApplicantData();
 		} catch (actionError) {
 			setWorkflowActionMessage(
-				actionError instanceof Error ? actionError.message : "Failed to activate kill switch"
+				actionError instanceof Error
+					? actionError.message
+					: "Failed to activate kill switch"
 			);
 		} finally {
 			setWorkflowActionLoading(null);
@@ -647,7 +648,7 @@ export default function ApplicantDetailPage() {
 				description={`Registration: ${client.registrationNumber || "N/A"}`}
 				actions={
 					<div className="flex gap-2">
-						<Link href={`/dashboard/applicants/${id}/contract`}>
+						<Link href={`/dashboard/applicants/${id}/agreement-form`}>
 							<Button size="sm" variant="outline">
 								Contract Review
 							</Button>
@@ -664,9 +665,7 @@ export default function ApplicantDetailPage() {
 							variant="destructive"
 							onClick={() => setKillSwitchDialogOpen(true)}
 							disabled={workflowActionLoading !== null || !canUseKillSwitch}>
-							{workflowActionLoading === "kill-switch"
-								? "Terminating..."
-								: "Kill Switch"}
+							{workflowActionLoading === "kill-switch" ? "Terminating..." : "Kill Switch"}
 						</Button>
 					</div>
 				}>
@@ -804,6 +803,27 @@ export default function ApplicantDetailPage() {
 
 							<TabsContent value="overview">
 								<GlassCard className="mb-0">
+									{isWorkflowTerminated ? (
+										<div className="mb-6 p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive-foreground">
+											<div className="flex items-center gap-2 font-bold mb-1">
+												⚠️ Workflow Terminated
+											</div>
+											<p className="text-sm">
+												Reason:{" "}
+												{(workflow as any)?.terminationReason ||
+													"No termination reason provided."}
+											</p>
+											{(workflow as any)?.terminatedAt && (
+												<p className="text-xs mt-1 opacity-80">
+													Terminated at {formatDateTime((workflow as any).terminatedAt)}
+													{(workflow as any)?.terminatedBy
+														? ` by ${(workflow as any).terminatedBy}`
+														: ""}
+												</p>
+											)}
+										</div>
+									) : null}
+
 									<h3 className="font-bold text-lg mb-4">Application Summary</h3>
 									<p className="text-sm text-muted-foreground mb-6">
 										Application initiated on{" "}
@@ -1256,8 +1276,7 @@ export default function ApplicantDetailPage() {
 										<Button
 											onClick={handleFinancialStatementsConfirmed}
 											disabled={
-												workflowActionLoading !== null ||
-												!canConfirmFinancialStatements
+												workflowActionLoading !== null || !canConfirmFinancialStatements
 											}
 											className="gap-2">
 											{workflowActionLoading === "financial-statements" ? (
@@ -1281,6 +1300,32 @@ export default function ApplicantDetailPage() {
 
 							<TabsContent value="reviews">
 								<div className="space-y-3">
+									{(() => {
+										const previewEntries = buildAgreementPreviewEntries(
+											applicant,
+											applicantSubmissions
+										);
+										return previewEntries.length > 0 ? (
+											<GlassCard className="mb-6">
+												<h3 className="font-bold text-lg mb-4">Contract Preview</h3>
+												<p className="text-sm text-muted-foreground mb-4">
+													Applicant details for contract prefill (key/value).
+												</p>
+												<div className="grid grid-cols-2 gap-2">
+													{previewEntries.map(({ label, value }) => (
+														<div
+															key={label}
+															className="flex flex-col p-4 justify-start gap-1 bg-card text-foreground/60 shadow-lg shadow-secondary/10 rounded-lg border border-border/60">
+															<span className="capitalize font-bold">{label}</span>
+															<span className="font-medium capitalize font-sans text-muted-foreground/80">
+																{value}
+															</span>
+														</div>
+													))}
+												</div>
+											</GlassCard>
+										) : null;
+									})()}
 									<div className="flex items-center justify-between">
 										<h3 className="font-bold text-slate-300 text-3xl mt-4 pt-4 pl-4">
 											Quote Review
@@ -1695,8 +1740,8 @@ export default function ApplicantDetailPage() {
 					<AlertDialogHeader>
 						<AlertDialogTitle>Terminate Workflow</AlertDialogTitle>
 						<AlertDialogDescription>
-							This will execute the kill switch and stop the workflow immediately.
-							Pending form links may be revoked.
+							This will execute the kill switch and stop the workflow immediately. Pending
+							form links may be revoked.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<Textarea

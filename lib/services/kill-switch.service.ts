@@ -35,6 +35,19 @@ export type KillSwitchReason =
 	| "COMPLIANCE_VIOLATION"
 	| "FRAUD_DETECTED"
 	| "TIMEOUT_TERMINATION"
+	| "STAGE2_FACILITY_TIMEOUT"
+	| "STAGE2_PRE_RISK_APPROVAL_TIMEOUT"
+	| "STAGE2_PRE_RISK_EVAL_TIMEOUT"
+	| "STAGE2_QUOTE_APPROVAL_TIMEOUT"
+	| "VALIDATION_ERROR_INGEST"
+	| "STAGE2_QUOTE_RESPONSE_TIMEOUT"
+	| "STAGE3_FICA_UPLOAD_TIMEOUT"
+	| "STAGE4_FINANCIAL_STATEMENTS_TIMEOUT"
+	| "STAGE5_CONTRACT_REVIEW_TIMEOUT"
+	| "STAGE5_ABSA_FORM_TIMEOUT"
+	| "STAGE6_RISK_MANAGER_TIMEOUT"
+	| "STAGE6_ACCOUNT_MANAGER_TIMEOUT"
+	| "STAGE6_CONTRACT_SIGNATURE_TIMEOUT"
 	| "MANUAL_TERMINATION";
 
 export interface KillSwitchResult {
@@ -259,6 +272,21 @@ function getReasonMessage(reason: KillSwitchReason): string {
 		COMPLIANCE_VIOLATION: "Compliance violation detected",
 		FRAUD_DETECTED: "Potential fraud detected",
 		TIMEOUT_TERMINATION: "Terminated automatically due to timeout",
+		STAGE2_FACILITY_TIMEOUT: "Facility application not submitted within deadline",
+		STAGE2_PRE_RISK_APPROVAL_TIMEOUT: "Pre-risk approval not received within deadline",
+		STAGE2_PRE_RISK_EVAL_TIMEOUT: "Pre-risk evaluation not completed within deadline",
+		STAGE2_QUOTE_APPROVAL_TIMEOUT: "Quote approval not received within deadline",
+		VALIDATION_ERROR_INGEST: "Workflow terminated due to invalid event data payload",
+		STAGE2_QUOTE_RESPONSE_TIMEOUT: "Applicant did not respond to quote within deadline",
+		STAGE3_FICA_UPLOAD_TIMEOUT: "FICA documents not uploaded within deadline",
+		STAGE4_FINANCIAL_STATEMENTS_TIMEOUT:
+			"Financial statements not confirmed within deadline",
+		STAGE5_CONTRACT_REVIEW_TIMEOUT: "Contract review not completed within deadline",
+		STAGE5_ABSA_FORM_TIMEOUT: "ABSA 6995 form not completed within deadline",
+		STAGE6_RISK_MANAGER_TIMEOUT: "Risk Manager approval not received within deadline",
+		STAGE6_ACCOUNT_MANAGER_TIMEOUT:
+			"Account Manager approval not received within deadline",
+		STAGE6_CONTRACT_SIGNATURE_TIMEOUT: "Contract not signed within deadline",
 		MANUAL_TERMINATION: "Manually terminated by administrator",
 	};
 	return messages[reason];

@@ -45,14 +45,17 @@
 }
 
 .contract-logo-placeholder {
-	width: 120px;
+	width: 240px;
 	height: 80px;
-	border: 2px dashed #c9a356;
+	/* border: 2px dashed #946506; */
+	/* background-size: 120px 80px; */
+	z-index: 2;
+	position: relative;
 	border-radius: 8px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: #c9a356;
+	/* color: #c9a356; */
 	font-size: 0.65rem;
 	font-weight: 600;
 	text-align: center;
@@ -76,6 +79,7 @@
 .contract-master-id label {
 	font-weight: 700;
 	white-space: nowrap;
+	
 }
 
 .contract-master-id span {
@@ -186,12 +190,15 @@
 .contract-field input,
 .contract-field select,
 .contract-field textarea {
+	margin: 5px 0px;
+
 	border: 1px solid #d1d5db;
 	border-radius: 6px;
 	padding: 0.5rem 0.75rem;
 	font-size: 0.85rem;
 	color: #1f2937;
 	background: #fafbfc;
+	width: 100%;
 	transition: border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -201,6 +208,20 @@
 	outline: none;
 	border-color: #c9a356;
 	box-shadow: 0 0 0 3px rgba(201, 163, 86, 0.15);
+}
+
+
+
+.stratcol-term-title,
+.stratcol-term-content {
+font-size: 11px;
+	color:rgba(123, 124, 132, 0.96);
+}
+
+.stratcol-term-title {
+	font-weight: 700;
+	color:rgba(185, 125, 61, 0.96);
+
 }
 
 .contract-field input::placeholder {
