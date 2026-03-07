@@ -3,6 +3,7 @@ import { getDatabaseClient } from "@/app/utils";
 import { workflows } from "@/db/schema";
 import { z } from "zod";
 import { inngest } from "@/inngest";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 // Schema for creating a workflow (define locally if not available in validations yet)
 const createWorkflowSchema = z.object({
@@ -16,6 +17,8 @@ const createWorkflowSchema = z.object({
 		.default("pending"),
 	currentAgent: z.string().optional(),
 	metadata: z.string().optional(),
+	decisionType: z.string().optional(),
+	targetResource: z.string().optional(),
 });
 
 /**
@@ -24,6 +27,11 @@ const createWorkflowSchema = z.object({
  */
 export async function GET() {
 	try {
+		const authResult = await requireAuth();
+		if (authResult instanceof NextResponse) {
+			return authResult;
+		}
+
 		const db = await getDatabaseClient();
 
 		if (!db) {
@@ -46,6 +54,11 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
 	try {
+		const authResult = await requireAuth();
+		if (authResult instanceof NextResponse) {
+			return authResult;
+		}
+
 		const db = await getDatabaseClient();
 
 		if (!db) {
@@ -77,6 +90,8 @@ export async function POST(request: NextRequest) {
 				status: data.status,
 				currentAgent: data.currentAgent,
 				metadata: data.metadata,
+				decisionType: data.decisionType,
+				targetResource: data.targetResource,
 			} as any)
 			.returning();
 

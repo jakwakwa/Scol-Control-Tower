@@ -4,41 +4,40 @@
  * Export all agent services for the onboarding workflow
  */
 
-// Validation Agent (Real Implementation)
+// Aggregated Analysis Service
 export {
-	validateDocument,
-	validateDocumentsBatch,
-	type ValidationResult,
-	type ValidationInput,
-	type BatchValidationInput,
-	type BatchValidationResult,
-} from "./validation.agent";
+	type AggregatedAnalysisInput,
+	type AggregatedAnalysisResult,
+	performAggregatedAnalysis,
+} from "./aggregated-analysis.service";
 
 // Risk Agent (Mock Implementation - Phase 1)
 export {
 	analyzeFinancialRisk,
 	canAutoApprove as canAutoApproveRisk,
-	requiresManualReview as requiresManualRiskReview,
 	RISK_THRESHOLDS,
-	type RiskAnalysisResult,
 	type RiskAnalysisInput,
+	type RiskAnalysisResult,
+	requiresManualReview as requiresManualRiskReview,
 } from "./risk.agent";
 
 // Sanctions Agent (Mock Implementation - Phase 1)
 export {
-	performSanctionsCheck,
-	performBatchSanctionsCheck,
-	canAutoApprove as canAutoApproveSanctions,
-	isBlocked as isSanctionsBlocked,
-	type SanctionsCheckResult,
-	type SanctionsCheckInput,
 	type BatchSanctionsInput,
 	type BatchSanctionsResult,
+	canAutoApprove as canAutoApproveSanctions,
+	isBlocked as isSanctionsBlocked,
+	performBatchSanctionsCheck,
+	performSanctionsCheck,
+	type SanctionsCheckInput,
+	type SanctionsCheckResult,
 } from "./sanctions.agent";
-
-// Aggregated Analysis Service
+// Validation Agent (Real Implementation)
 export {
-	performAggregatedAnalysis,
-	type AggregatedAnalysisInput,
-	type AggregatedAnalysisResult,
-} from "./aggregated-analysis.service";
+	type BatchValidationInput,
+	type BatchValidationResult,
+	type ValidationInput,
+	type ValidationResult,
+	validateDocument,
+	validateDocumentsBatch,
+} from "./validation.agent";

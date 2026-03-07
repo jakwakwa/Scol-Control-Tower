@@ -1,14 +1,15 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { inngest } from "@/inngest";
-import { getDatabaseClient, getBaseUrl } from "@/app/utils";
+import { getDatabaseClient } from "@/app/utils";
 import { documents } from "@/db/schema";
-import { DocumentCategorySchema, DocumentTypeSchema } from "@/lib/types";
+import { inngest } from "@/inngest/client";
 import {
 	getFormInstanceByToken,
 	markFormInstanceStatus,
 } from "@/lib/services/form.service";
+import { evaluateDocumentQuality } from "@/lib/services/document-quality.service";
+import { DocumentCategorySchema, DocumentTypeSchema } from "@/lib/types";
 
 const UploadSchema = z.object({
 	token: z.string().min(10),
@@ -67,23 +68,49 @@ export async function POST(request: NextRequest) {
 			"application/msword",
 			"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 			"image/jpeg",
+			"image/jpg",
 			"image/png",
 			"image/webp",
+			"image/heic",
+			"image/heif",
+			"application/rtf",
 		];
 
+		const maxSize = 10 * 1024 * 1024;
 		const uploadedDocuments = [];
+		const rejected: { name: string; reason: string }[] = [];
 
 		for (const file of files) {
 			if (!allowedTypes.includes(file.type)) {
+				rejected.push({ name: file.name, reason: "File type not allowed" });
 				continue;
 			}
 
-			const maxSize = 10 * 1024 * 1024;
 			if (file.size > maxSize) {
+				rejected.push({ name: file.name, reason: "File size exceeds 10MB limit" });
 				continue;
 			}
 
-			const storageUrl = await mockUploadFile(file, formInstance.workflowId ?? 0);
+			const arrayBuffer = await file.arrayBuffer();
+			const buffer = Buffer.from(arrayBuffer);
+			const quality = evaluateDocumentQuality(
+				file.name,
+				file.type,
+				buffer,
+				{
+					enforceRecency:
+						validation.data.documentType === "PROOF_OF_ADDRESS" ||
+						validation.data.documentType === "PROPRIETOR_RESIDENCE",
+				}
+			);
+			if (!quality.ok) {
+				rejected.push({ name: file.name, reason: quality.reasons.join("; ") });
+				continue;
+			}
+			const base64Content = Buffer.from(arrayBuffer).toString("base64");
+
+			const storageUrl = `/api/documents/download?applicantId=${formInstance.applicantId}&type=${validation.data.documentType}&fileName=${encodeURIComponent(file.name)}`;
+
 			const [inserted] = await db
 				.insert(documents)
 				.values([
@@ -94,9 +121,15 @@ export async function POST(request: NextRequest) {
 						source: "client",
 						status: "uploaded",
 						fileName: file.name,
+						fileContent: base64Content,
+						mimeType: file.type,
 						storageUrl,
 						uploadedBy: "client",
 						uploadedAt: new Date(),
+						notes:
+							quality.warnings.length > 0
+								? `[QUALITY_WARNING] ${quality.warnings.join("; ")}`
+								: undefined,
 					},
 				])
 				.returning();
@@ -122,7 +155,10 @@ export async function POST(request: NextRequest) {
 
 		if (uploadedDocuments.length === 0) {
 			return NextResponse.json(
-				{ error: "No valid files were uploaded" },
+				{
+					error: "No valid files were uploaded",
+					rejected: rejected.length > 0 ? rejected : undefined,
+				},
 				{ status: 400 }
 			);
 		}
@@ -135,18 +171,10 @@ export async function POST(request: NextRequest) {
 			success: true,
 			message: `${uploadedDocuments.length} document(s) uploaded successfully`,
 			documents: uploadedDocuments,
+			...(rejected.length > 0 && { rejected }),
 		});
 	} catch (error) {
-		console.error("[DocumentUpload] Error:", error);
 		const message = error instanceof Error ? error.message : "Unexpected error";
 		return NextResponse.json({ error: message }, { status: 500 });
 	}
-}
-
-async function mockUploadFile(file: File, workflowId: number): Promise<string> {
-	await new Promise(resolve => setTimeout(resolve, 100));
-	const timestamp = Date.now();
-	const safeFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-	const baseUrl = getBaseUrl();
-	return `${baseUrl}/uploads/workflows/${workflowId}/${timestamp}-${safeFilename}`;
 }

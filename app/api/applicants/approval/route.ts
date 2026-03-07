@@ -4,6 +4,8 @@ import { getDatabaseClient } from "@/app/utils";
 import { workflows } from "@/db/schema";
 import { eq, type InferSelectModel } from "drizzle-orm";
 import { z } from "zod";
+import { acquireStateLock } from "@/lib/services/state-lock.service";
+import { requireAuthOrBearer } from "@/lib/auth/api-auth";
 
 // Flexible schema to handle both Quote and Approval payloads
 const approvalSchema = z.object({
@@ -17,6 +19,8 @@ const approvalSchema = z.object({
 	approved: z.boolean().optional(),
 	approver: z.string().optional(),
 	comments: z.string().optional(),
+	// Decision routing metadata — preferred over stage inference
+	decisionType: z.string().optional(),
 });
 
 /**
@@ -31,6 +35,11 @@ const approvalSchema = z.object({
  */
 export async function POST(request: NextRequest) {
 	try {
+		const authResult = await requireAuthOrBearer(request);
+		if (authResult instanceof NextResponse) {
+			return authResult;
+		}
+
 		const rawBody = await request.text();
 		console.log(`[API] Applicant Approval/Callback Raw Body: ${rawBody}`);
 
@@ -82,25 +91,24 @@ export async function POST(request: NextRequest) {
 		}
 
 		// DECISION LOGIC:
-		// 1. If explicit 'quoteId' is present, send QUOTE event.
-		// 2. If 'approved' is explicitly true, send QUALITY GATE event.
-		// 3. Fallback: Check workflow status.
-		//    - Stage 2 + 'processing' -> Quote
-		//    - Stage 2 + 'awaiting_human' -> Quality Gate
+		// 1. If explicit decisionType is provided, use it to route (preferred, stage-decoupled).
+		// 2. If explicit 'quoteId' is present, send QUOTE event.
+		// 3. If 'approved' is explicitly true, send QUALITY GATE event.
+		// 4. Fallback: Infer from workflow decisionType metadata, then stage/status.
 
 		let eventName = "";
 		let eventData: any = { workflowId, applicantId: data.applicantId };
 
-		if (data.quoteId || data.amount) {
-			// Case: Quote Generated
+		const resolvedDecisionType = data.decisionType || workflow?.decisionType;
+
+		if (resolvedDecisionType === "quote_approval" || data.quoteId || data.amount) {
 			eventName = "onboarding/quote-generated";
 			eventData.quote = {
 				quoteId: data.quoteId || "generated-via-external",
 				amount: data.amount || 0,
 				terms: data.terms || "Standard terms",
 			};
-		} else if (data.approved === true) {
-			// Case: Explicit Approval
+		} else if (resolvedDecisionType === "quality_gate" || data.approved === true) {
 			eventName = "onboarding/quality-gate-passed";
 			eventData.result = {
 				approved: true,
@@ -109,10 +117,9 @@ export async function POST(request: NextRequest) {
 				timestamp: new Date().toISOString(),
 			};
 		} else {
-			// Ambiguous or missing specific fields. Infer from Status.
+			// Legacy fallback: infer from stage/status
 			if (workflow?.stage === 2) {
 				if (workflow.status === "processing") {
-					// Likely waiting for Quote (Stage 2 processing)
 					eventName = "onboarding/quote-generated";
 					eventData.quote = {
 						quoteId: "inferred-via-external",
@@ -121,7 +128,6 @@ export async function POST(request: NextRequest) {
 					};
 					console.log("[API] Inferred QUOTE event based on workflow status");
 				} else if (workflow.status === "awaiting_human") {
-					// Likely waiting for Quality Gate
 					eventName = "onboarding/quality-gate-passed";
 					eventData.result = {
 						approved: true,
@@ -134,11 +140,6 @@ export async function POST(request: NextRequest) {
 			}
 
 			if (!eventName) {
-				// Final Fallback if we can't infer: assume Approved if it's "applicants/approval" endpoint?
-				// But user log showed "timeout" waiting for quote.
-				// So if we are here, we really should default to whatever unblocks the user.
-
-				// Revert to lenient approval check as last resort
 				if (data.approved !== false) {
 					eventName = "onboarding/quality-gate-passed";
 					eventData.result = {
@@ -149,7 +150,7 @@ export async function POST(request: NextRequest) {
 					};
 				} else {
 					return NextResponse.json(
-						{ error: "Ambiguous payload. Provide quoteId or approved:true" },
+						{ error: "Ambiguous payload. Provide decisionType, quoteId, or approved:true" },
 						{ status: 400 }
 					);
 				}
@@ -157,6 +158,8 @@ export async function POST(request: NextRequest) {
 		}
 
 		if (workflowId && eventName) {
+			await acquireStateLock(workflowId, data.approver || "external_callback");
+
 			await inngest.send({
 				name: eventName as any,
 				data: eventData,

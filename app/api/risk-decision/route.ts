@@ -4,33 +4,42 @@
  * Allows the Risk Manager to approve/reject a client application.
  * Sends the 'risk/decision.received' event to Inngest to resume the Saga.
  *
+ * V2: Captures structured override data for AI retraining pipeline.
+ * Every human decision creates a structured feedback log that maps
+ * directly to how the AI failed, enabling programmatic retraining.
+ *
  * POST /api/risk-decision
- * Body: { workflowId, applicantId, decision: { outcome, reason?, conditions? } }
+ * Body: { workflowId, applicantId, decision: { outcome, overrideCategory, ... } }
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { inngest } from "@/inngest/client";
-import { getDatabaseClient } from "@/app/utils";
-import { workflows, workflowEvents } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { auth } from "@clerk/nextjs/server";
+import { and, desc, eq } from "drizzle-orm";
+import { type NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { getDatabaseClient } from "@/app/utils";
+import { aiAnalysisLogs, workflowEvents, workflows } from "@/db/schema";
+import { inngest } from "@/inngest/client";
+import { OVERRIDE_CATEGORIES } from "@/lib/constants/override-taxonomy";
+import { recordFeedbackLog } from "@/lib/services/divergence.service";
+import { acquireStateLock } from "@/lib/services/state-lock.service";
 
 // ============================================
-// Request Schema
+// Request Schema — Structured Override Data
 // ============================================
 
 const RiskDecisionSchema = z.object({
 	workflowId: z.number().int().positive("Workflow ID is required"),
 	applicantId: z.number().int().positive("Applicant ID is required"),
+	relatedFailureEventId: z.number().int().positive().optional(),
 	decision: z.object({
 		outcome: z.enum(["APPROVED", "REJECTED", "REQUEST_MORE_INFO"]),
 		reason: z.string().optional(),
+		overrideCategory: z.enum(OVERRIDE_CATEGORIES),
+		overrideSubcategory: z.string().optional(),
+		overrideDetails: z.string().max(500).optional(),
 		conditions: z.array(z.string()).optional(),
 	}),
 });
-
-type RiskDecisionInput = z.infer<typeof RiskDecisionSchema>;
 
 // ============================================
 // POST Handler
@@ -61,12 +70,7 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const { workflowId, applicantId, decision } = validationResult.data;
-
-		console.log(`[RiskDecision] Processing decision for workflow ${workflowId}:`, {
-			outcome: decision.outcome,
-			decidedBy: userId,
-		});
+		const { workflowId, applicantId, decision, relatedFailureEventId } = validationResult.data;
 
 		// Verify workflow exists and is in awaiting_human state
 		const db = getDatabaseClient();
@@ -95,20 +99,67 @@ export async function POST(request: NextRequest) {
 			// Allow anyway - the Inngest event handler will determine if it's valid
 		}
 
-		// Log the decision event to the database
+		// Acquire state lock to prevent ghost processes from overwriting this finalized decision
+		await acquireStateLock(workflowId, userId);
+
+		// Log the decision event to the database (legacy event log)
 		await db.insert(workflowEvents).values({
 			workflowId,
 			eventType: "human_override",
 			payload: JSON.stringify({
 				decision: decision.outcome,
 				reason: decision.reason,
+				overrideCategory: decision.overrideCategory,
+				overrideSubcategory: decision.overrideSubcategory,
+				overrideDetails: decision.overrideDetails,
 				conditions: decision.conditions,
 				fromStage: workflow.stage,
-				toStage: workflow.stage, // No stage change implied yet
+				toStage: workflow.stage,
+				relatedFailureEventId,
 			}),
 			actorId: userId,
 			actorType: "user",
 		});
+
+		// Record structured feedback log for AI retraining pipeline
+		const feedbackResult = await recordFeedbackLog({
+			workflowId,
+			applicantId,
+			humanOutcome: decision.outcome,
+			overrideCategory: decision.overrideCategory,
+			overrideSubcategory: decision.overrideSubcategory,
+			overrideDetails: decision.overrideDetails,
+			decidedBy: userId,
+			relatedFailureEventId,
+		});
+
+		if (!feedbackResult.success) {
+			console.warn("[RiskDecision] Failed to record feedback log:", feedbackResult.error);
+		}
+
+		if (decision.reason && decision.reason.trim().length > 0) {
+			const latestAnalysis = await db
+				.select()
+				.from(aiAnalysisLogs)
+				.where(
+					and(
+						eq(aiAnalysisLogs.workflowId, workflowId),
+						eq(aiAnalysisLogs.agentName, "reporter")
+					)
+				)
+				.orderBy(desc(aiAnalysisLogs.createdAt))
+				.limit(1);
+
+			if (latestAnalysis.length > 0) {
+				const logId = latestAnalysis[0].id;
+				const category = decision.overrideCategory || "CONTEXT";
+
+				await db
+					.update(aiAnalysisLogs)
+					.set({ humanOverrideReason: category })
+					.where(eq(aiAnalysisLogs.id, logId));
+			}
+		}
 
 		// Send the event to Inngest to resume the workflow
 		await inngest.send({
@@ -119,14 +170,14 @@ export async function POST(request: NextRequest) {
 				decision: {
 					outcome: decision.outcome,
 					decidedBy: userId,
-					reason: decision.reason,
+					overrideCategory: decision.overrideCategory,
+					overrideSubcategory: decision.overrideSubcategory,
+					overrideDetails: decision.overrideDetails,
 					conditions: decision.conditions,
 					timestamp: new Date().toISOString(),
 				},
 			},
 		});
-
-		console.log(`[RiskDecision] Event sent to Inngest for workflow ${workflowId}`);
 
 		// Return success response
 		return NextResponse.json({
@@ -136,8 +187,13 @@ export async function POST(request: NextRequest) {
 			applicantId,
 			decision: {
 				outcome: decision.outcome,
+				overrideCategory: decision.overrideCategory,
 				decidedBy: userId,
 				timestamp: new Date().toISOString(),
+			},
+			feedback: {
+				feedbackLogId: feedbackResult.feedbackLogId,
+				isDivergent: feedbackResult.isDivergent,
 			},
 		});
 	} catch (error) {
@@ -157,7 +213,7 @@ export async function POST(request: NextRequest) {
 // GET Handler - Retrieve pending decisions
 // ============================================
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
 	try {
 		const { userId } = await auth();
 		if (!userId) {

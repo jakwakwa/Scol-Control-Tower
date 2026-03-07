@@ -7,6 +7,13 @@ import { GlassCard } from "@/components/dashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -14,13 +21,14 @@ interface ApplicantFormData {
 	companyName: string;
 	registrationNumber: string;
 	contactName: string;
+	idNumber: string;
 	email: string;
 	phone: string;
 	entityType: string;
 	productType: string;
 	industry: string;
 	employeeCount: string;
-	estimatedVolume: string;
+	estimatedTransactionsPerMonth: string;
 	mandateType: string;
 	notes: string;
 }
@@ -46,6 +54,7 @@ export function ApplicantForm({
 		companyName: initialData?.companyName || "",
 		registrationNumber: initialData?.registrationNumber || "",
 		contactName: initialData?.contactName || "",
+		idNumber: initialData?.idNumber || "",
 		email: initialData?.email || "",
 		phone: initialData?.phone || "",
 		entityType: initialData?.entityType || "",
@@ -53,28 +62,32 @@ export function ApplicantForm({
 		industry: initialData?.industry || "",
 		mandateType: initialData?.mandateType || "",
 		employeeCount: initialData?.employeeCount || "",
-		estimatedVolume: initialData?.estimatedVolume || "",
+		estimatedTransactionsPerMonth:
+			initialData?.estimatedTransactionsPerMonth != null
+				? String(initialData.estimatedTransactionsPerMonth)
+				: "",
 		notes: initialData?.notes || "",
 	});
 
-	// Check if Mockaroo test mode is enabled
-	const isMockarooTestMode = process.env.NEXT_PUBLIC_USE_MOCKAROO_CREDIT_CHECK === "true";
+	// Check if test mode is enabled
+	const isTestMode = process.env.NEXT_PUBLIC_USE_TESTMODE_CHECK === "true";
 
-	// Fill form with test data for Mockaroo testing
+	// Fill form with test data for testing
 	const fillTestData = () => {
 		setFormData({
-			companyName: `${isMockarooTestMode ? "Jacob Kotzee T/a Doodles Digital" : "Test Company Inc"}`,
-			registrationNumber: `${isMockarooTestMode ? "0787173160001" : "2024/123456/07"}`,
-			contactName: `${isMockarooTestMode ? "Jacob Kotzee" : "John Test"}`,
-			email: `${isMockarooTestMode ? "jkotzee@icloud.com" : "john.test@testcompany.co.za"}`,
-			phone: `${isMockarooTestMode ? "+27 76 341 0291" : "+27 82 123 4567"}`,
+			companyName: `${isTestMode ? "Jacob Kotzee T/a Doodles Digital" : "Test Company Inc"}`,
+			registrationNumber: `${isTestMode ? "0787173160001" : "2024/123456/07"}`,
+			contactName: `${isTestMode ? "Jacob Kotzee" : "John Test"}`,
+			idNumber: `${isTestMode ? "8501015009087" : ""}`,
+			email: `${isTestMode ? "jkotzee@icloud.com" : "john.test@testcompany.co.za"}`,
+			phone: `${isTestMode ? "+27 76 341 0291" : "+27 82 123 4567"}`,
 			entityType: "company",
 			productType: "standard",
-			industry: `${isMockarooTestMode ? "Software Development" : "Financial Services"}`,
-			mandateType: `${isMockarooTestMode ? "Debit Order" : "debit_order"}`,
-			employeeCount: `${isMockarooTestMode ? "1" : "50"}`,
-			estimatedVolume: `${isMockarooTestMode ? `R ${Math.floor(Math.random() * 100000)}` : "R500,000"}`,
-			notes: "Mockaroo test applicant - auto-generated for credit check testing",
+			industry: `${isTestMode ? "Software Development" : "Financial Services"}`,
+			mandateType: `${isTestMode ? "Debit Order" : "debit_order"}`,
+			employeeCount: `${isTestMode ? "1" : "5"}`,
+			estimatedTransactionsPerMonth: `${isTestMode ? "5000" : "1500"}`,
+			notes: "test applicant input - auto-generated for credit check testing",
 		});
 	};
 
@@ -100,6 +113,9 @@ export function ApplicantForm({
 		} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
 			newErrors.email = "Invalid email address";
 		}
+		if (formData.idNumber.trim() && !/^\d{13}$/.test(formData.idNumber.trim())) {
+			newErrors.idNumber = "ID number must be exactly 13 digits";
+		}
 
 		setErrors(newErrors);
 		return Object.keys(newErrors).length === 0;
@@ -122,8 +138,12 @@ export function ApplicantForm({
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						...formData,
+						idNumber: formData.idNumber.trim() || undefined,
 						employeeCount: formData.employeeCount
 							? parseInt(formData.employeeCount, 10)
+							: undefined,
+						estimatedTransactionsPerMonth: formData.estimatedTransactionsPerMonth
+							? Math.round(Number(formData.estimatedTransactionsPerMonth)) || undefined
 							: undefined,
 					}),
 				});
@@ -150,11 +170,11 @@ export function ApplicantForm({
 	return (
 		<form onSubmit={handleSubmit} className="space-y-8">
 			{/* Test Mode Banner */}
-			{isMockarooTestMode && (
-				<div className="flex items-center justify-between p-4 rounded-lg border border-warning bg-warning shadow-lg shadow-amber-800/10">
+			{isTestMode && (
+				<div className="flex items-center justify-between p-4 rounded-lg border border-warning bg-warning/20 shadow-lg shadow-amber-800/5">
 					<div className="flex items-center gap-2">
 						<span className="text-warning-foreground animate-pulse text-sm font-medium">
-						<RiTestTubeLine className="h-8 w-8 animate-pulse" /> Test Mode
+							<RiTestTubeLine className="h-8 w-8 animate-pulse" /> Test Mode
 						</span>
 					</div>
 					<Button
@@ -169,178 +189,212 @@ export function ApplicantForm({
 			)}
 
 			{/* Company Information */}
-			<GlassCard>
-				<h3 className="text-lg font-semibold mb-6">Company Information</h3>
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-					<div className="space-y-2">
-						<Label htmlFor="companyName">Company Name *</Label>
-						<Input
-							id="companyName"
-							value={formData.companyName}
-							onChange={e => updateField("companyName", e.target.value)}
-							placeholder="Enter company name"
-							className={cn(
-								errors.companyName ? "border-red-500" : "border-input-border"
+			<div className="glass-card-container-form">
+				<GlassCard>
+					<h3 className="text-lg font-semibold mb-6">Company Information</h3>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+						<div className="space-y-2">
+							<Label htmlFor="companyName">Company Name *</Label>
+							<Input
+								id="companyName"
+								value={formData.companyName}
+								autoComplete={"companyName"}
+								onChange={e => updateField("companyName", e.target.value)}
+								placeholder="Enter company name"
+								className={cn(
+									errors.companyName ? "border-red-500" : "border-input-border"
+								)}
+							/>
+							{errors.companyName && (
+								<p className="text-xs text-red-400">{errors.companyName}</p>
 							)}
-						/>
-						{errors.companyName && (
-							<p className="text-xs text-red-400">{errors.companyName}</p>
-						)}
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="registrationNumber">CIPC Registration Number</Label>
+							<Input
+								className="border-input-border"
+								id="registrationNumber"
+								autoComplete={"registrationNumber"}
+								value={formData.registrationNumber}
+								onChange={e => updateField("registrationNumber", e.target.value)}
+								placeholder="e.g., 2024/123456/07"
+							/>
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="entityType">Entity Type</Label>
+							<Select
+								value={formData.entityType}
+								onValueChange={v => updateField("entityType", v)}>
+								<SelectTrigger id="entityType" className="w-full">
+									<SelectValue placeholder="Select Entity Type" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="proprietor">Proprietor</SelectItem>
+									<SelectItem value="company">Company (Pty Ltd)</SelectItem>
+									<SelectItem value="close_corporation">Close Corporation</SelectItem>
+									<SelectItem value="partnership">Partnership</SelectItem>
+									<SelectItem value="npo">NPO</SelectItem>
+									<SelectItem value="trust">Trust</SelectItem>
+									<SelectItem value="body_corporate">Body Corporate</SelectItem>
+									<SelectItem value="other">Other</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="productType">Product Type</Label>
+							<Select
+								value={formData.productType}
+								onValueChange={v => updateField("productType", v)}>
+								<SelectTrigger id="productType" className="w-full">
+									<SelectValue placeholder="Select Product Type" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="standard">Standard</SelectItem>
+									<SelectItem value="premium_collections">Premium Collections</SelectItem>
+									<SelectItem value="call_centre">Call Centre</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="industry">Industry</Label>
+							<Input
+								className="border-input-border"
+								id="industry"
+								autoComplete={"industry"}
+								value={formData.industry}
+								onChange={e => updateField("industry", e.target.value)}
+								placeholder="e.g., Financial Services, Mining"
+							/>
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="employeeCount">Employee Count</Label>
+							<Input
+								className="border-input-border"
+								id="employeeCount"
+								type="number"
+								value={formData.employeeCount}
+								onChange={e => updateField("employeeCount", e.target.value)}
+								placeholder="e.g., 250"
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="estimatedTransactionsPerMonth">
+								Estimated Volume (transactions per month)
+							</Label>
+							<Input
+								className="border-input-border"
+								id="estimatedTransactionsPerMonth"
+								type="number"
+								min={1}
+								autoComplete="estimatedTransactionsPerMonth"
+								value={formData.estimatedTransactionsPerMonth}
+								onChange={e =>
+									updateField("estimatedTransactionsPerMonth", e.target.value)
+								}
+								placeholder="e.g., 500"
+							/>
+						</div>
 					</div>
 
+					<div className="space-y-2 mt-4">
+						<Label htmlFor="mandateType">Mandate Type</Label>
+						<Select
+							value={formData.mandateType}
+							onValueChange={v => updateField("mandateType", v)}>
+							<SelectTrigger id="mandateType" className="w-full">
+								<SelectValue placeholder="Select Mandate Type" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="debit_order">Debit Order</SelectItem>
+								<SelectItem value="eft_collection">EFT Collection</SelectItem>
+								<SelectItem value="realtime_clearing">Realtime Clearing</SelectItem>
+								<SelectItem value="managed_collection">Managed Collection</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
+				</GlassCard>
+			</div>
+			<div className="glass-card-container-form">
+				{/* Contact Information */}
+				<GlassCard>
+					<h3 className="text-lg font-semibold mb-6">Contact Information</h3>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+						<div className="space-y-2">
+							<Label htmlFor="contactName">Contact Name *</Label>
+							<Input
+								id="contactName"
+								value={formData.contactName}
+								onChange={e => updateField("contactName", e.target.value)}
+								placeholder="Enter contact name"
+								className={cn(errors.contactName && "border-red-500")}
+							/>
+							{errors.contactName && (
+								<p className="text-xs text-red-400">{errors.contactName}</p>
+							)}
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="email">Email Address *</Label>
+							<Input
+								id="email"
+								type="email"
+								value={formData.email}
+								onChange={e => updateField("email", e.target.value)}
+								placeholder="contact@company.co.za"
+								className={cn(errors.email && "border-red-500")}
+							/>
+							{errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="idNumber">SA ID Number</Label>
+							<Input
+								id="idNumber"
+								value={formData.idNumber}
+								onChange={e => updateField("idNumber", e.target.value)}
+								placeholder="13-digit SA ID number"
+								maxLength={13}
+								className={cn(errors.idNumber ? "border-red-500" : "border-input-border")}
+							/>
+							{errors.idNumber && (
+								<p className="text-xs text-red-400">{errors.idNumber}</p>
+							)}
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="phone">Phone Number</Label>
+							<Input
+								id="phone"
+								type="tel"
+								value={formData.phone}
+								onChange={e => updateField("phone", e.target.value)}
+								placeholder="+27 XX XXX XXXX"
+							/>
+						</div>
+					</div>
+				</GlassCard>
+			</div>
+			<div className="glass-card-container-form">
+				{/* Additional Notes */}
+				<GlassCard>
+					<h3 className="text-lg font-semibold mb-6">Additional Notes</h3>
 					<div className="space-y-2">
-						<Label htmlFor="registrationNumber">CIPC Registration Number</Label>
-						<Input
-							className="border-input-border"
-							id="registrationNumber"
-							value={formData.registrationNumber}
-							onChange={e => updateField("registrationNumber", e.target.value)}
-							placeholder="e.g., 2024/123456/07"
+						<Label htmlFor="notes">Notes</Label>
+						<Textarea
+							id="notes"
+							value={formData.notes}
+							onChange={e => updateField("notes", e.target.value)}
+							placeholder="Add any relevant notes about this applicant..."
+							rows={4}
 						/>
 					</div>
-
-					<div className="space-y-2">
-						<Label htmlFor="entityType">Entity Type</Label>
-						<select
-							id="entityType"
-							value={formData.entityType}
-							onChange={e => updateField("entityType", e.target.value)}
-							className="flex h-10 w-full rounded-md border border-input-border bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-							<option value="">Select Entity Type</option>
-							<option value="proprietor">Proprietor</option>
-							<option value="company">Company (Pty Ltd)</option>
-							<option value="close_corporation">Close Corporation</option>
-							<option value="partnership">Partnership</option>
-							<option value="npo">NPO</option>
-							<option value="trust">Trust</option>
-							<option value="body_corporate">Body Corporate</option>
-							<option value="other">Other</option>
-						</select>
-					</div>
-
-					<div className="space-y-2">
-						<Label htmlFor="productType">Product Type</Label>
-						<select
-							id="productType"
-							value={formData.productType}
-							onChange={e => updateField("productType", e.target.value)}
-							className="flex h-10 w-full rounded-md border border-input-border bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-							<option value="">Select Product Type</option>
-							<option value="standard">Standard</option>
-							<option value="premium_collections">Premium Collections</option>
-							<option value="call_centre">Call Centre</option>
-						</select>
-					</div>
-
-					<div className="space-y-2">
-						<Label htmlFor="industry">Industry</Label>
-						<Input
-							className="border-input-border"
-							id="industry"
-							value={formData.industry}
-							onChange={e => updateField("industry", e.target.value)}
-							placeholder="e.g., Financial Services, Mining"
-						/>
-					</div>
-
-					<div className="space-y-2">
-						<Label htmlFor="employeeCount">Employee Count</Label>
-						<Input
-							className="border-input-border"
-							id="employeeCount"
-							type="number"
-							value={formData.employeeCount}
-							onChange={e => updateField("employeeCount", e.target.value)}
-							placeholder="e.g., 250"
-						/>
-					</div>
-					<div className="space-y-2">
-						<Label htmlFor="estimatedVolume">Estimated Volume</Label>
-					<Input
-						className="border-input-border"
-						id="estimatedVolume"
-						value={formData.estimatedVolume}
-						onChange={e => updateField("estimatedVolume", e.target.value)}
-							placeholder="e.g., R500,000"
-						/>
-					</div>
-				</div>
-
-				<div className="space-y-2 mt-4">
-					<Label htmlFor="mandateType">Mandate Type</Label>
-					<select
-						id="mandateType"
-						value={formData.mandateType}
-						onChange={e => updateField("mandateType", e.target.value)}
-						className="flex h-10 w-full rounded-md border border-input-border bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-						<option value="">Select Mandate Type</option>
-						<option value="debit_order">Debit Order</option>
-						<option value="eft_collection">EFT Collection</option>
-						<option value="realtime_clearing">Realtime Clearing</option>
-						<option value="managed_collection">Managed Collection</option>
-					</select>
-				</div>
-			</GlassCard>
-
-			{/* Contact Information */}
-			<GlassCard>
-				<h3 className="text-lg font-semibold mb-6">Contact Information</h3>
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-					<div className="space-y-2">
-						<Label htmlFor="contactName">Contact Name *</Label>
-						<Input
-							id="contactName"
-							value={formData.contactName}
-							onChange={e => updateField("contactName", e.target.value)}
-							placeholder="Enter contact name"
-							className={cn(errors.contactName && "border-red-500")}
-						/>
-						{errors.contactName && (
-							<p className="text-xs text-red-400">{errors.contactName}</p>
-						)}
-					</div>
-
-					<div className="space-y-2">
-						<Label htmlFor="email">Email Address *</Label>
-						<Input
-							id="email"
-							type="email"
-							value={formData.email}
-							onChange={e => updateField("email", e.target.value)}
-							placeholder="contact@company.co.za"
-							className={cn(errors.email && "border-red-500")}
-						/>
-						{errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
-					</div>
-
-					<div className="space-y-2 md:col-span-2">
-						<Label htmlFor="phone">Phone Number</Label>
-						<Input
-							id="phone"
-							type="tel"
-							value={formData.phone}
-							onChange={e => updateField("phone", e.target.value)}
-							placeholder="+27 XX XXX XXXX"
-						/>
-					</div>
-				</div>
-			</GlassCard>
-
-			{/* Additional Notes */}
-			<GlassCard>
-				<h3 className="text-lg font-semibold mb-6">Additional Notes</h3>
-				<div className="space-y-2">
-					<Label htmlFor="notes">Notes</Label>
-					<Textarea
-						id="notes"
-						value={formData.notes}
-						onChange={e => updateField("notes", e.target.value)}
-						placeholder="Add any relevant notes about this applicant..."
-						rows={4}
-					/>
-				</div>
-			</GlassCard>
-
+				</GlassCard>
+			</div>
 			{/* Actions */}
 			<div className="flex items-center justify-end gap-4">
 				<Button

@@ -1,9 +1,38 @@
 "use client";
 
+import {
+	RiAlertLine,
+	RiArrowDownSLine,
+	RiArrowRightSLine,
+	RiBankLine,
+	RiBuilding2Line,
+	RiCheckLine,
+	RiCloseLine,
+	RiExternalLinkLine,
+	RiEyeLine,
+	RiFileTextLine,
+	RiHistoryLine,
+	RiLoader4Line,
+	RiPercentLine,
+	RiQuestionLine,
+	RiShieldCheckLine,
+	RiShoppingBag3Line,
+	RiUserLine,
+} from "@remixicon/react";
 import * as React from "react";
-import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DataSourceBadge } from "@/components/ui/data-source-badge";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import {
 	Sheet,
 	SheetContent,
@@ -12,37 +41,27 @@ import {
 	SheetTitle,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import {
-	RiShieldCheckLine,
-	RiAlertLine,
-	RiUserLine,
-	RiTimeLine,
-	RiCheckLine,
-	RiCloseLine,
-	RiFileTextLine,
-	RiBankLine,
-	RiBuilding2Line,
-	RiPercentLine,
-	RiDownloadLine,
-	RiExternalLinkLine,
-	RiHistoryLine,
-	RiEyeLine,
-	RiLoader4Line,
-	RiShoppingBag3Line,
-} from "@remixicon/react";
+	OVERRIDE_CATEGORIES,
+	OVERRIDE_CATEGORY_LABELS,
+	type OverrideCategory,
+} from "@/lib/constants/override-taxonomy";
+import { cn } from "@/lib/utils";
 import type { RiskReviewItem } from "./risk-review-queue";
 
 // ============================================
 // Types
 // ============================================
 
+import type { OverrideData } from "./risk-review-queue";
+
 interface RiskReviewDetailProps {
 	item: RiskReviewItem | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onApprove: (id: number, reason?: string) => Promise<void>;
-	onReject: (id: number, reason: string) => Promise<void>;
+	onApprove: (id: number, overrideData: OverrideData) => Promise<void>;
+	onReject: (id: number, overrideData: OverrideData) => Promise<void>;
 }
 
 interface TimelineEvent {
@@ -254,6 +273,59 @@ export function RiskReviewDetail({
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
 	const [actionType, setActionType] = React.useState<"approve" | "reject" | null>(null);
 
+	// Override modal state (SOP v3.1.0 — "Why" modal)
+	const [showOverrideModal, setShowOverrideModal] = React.useState(false);
+	const [pendingAction, setPendingAction] = React.useState<"approve" | "reject" | null>(
+		null
+	);
+	const [overrideCategory, setOverrideCategory] = React.useState<OverrideCategory | null>(
+		null
+	);
+	const [overrideReason, setOverrideReason] = React.useState("");
+
+	// Collapsible section state (SOP v3.1.0 — auto-collapse low-risk)
+	const [collapsedSections, setCollapsedSections] = React.useState<
+		Record<string, boolean>
+	>({});
+
+	/**
+	 * Determine if a decision disagrees with the AI recommendation.
+	 * If AI says APPROVE and user clicks Reject, or AI says DECLINE and user clicks Approve.
+	 */
+	const isOverride = React.useCallback(
+		(action: "approve" | "reject"): boolean => {
+			if (!item?.recommendation) return false;
+			const rec = item.recommendation.toUpperCase();
+			if (action === "approve" && (rec === "DECLINE" || rec === "REJECT")) return true;
+			if (action === "reject" && rec === "APPROVE") return true;
+			return false;
+		},
+		[item?.recommendation]
+	);
+
+	const toggleSection = React.useCallback((sectionId: string) => {
+		setCollapsedSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
+	}, []);
+
+	/**
+	 * Initialize collapsed state based on risk flag severity.
+	 * HIGH/CRITICAL → expanded, LOW/MEDIUM → collapsed.
+	 */
+	React.useEffect(() => {
+		if (!item?.riskFlags) return;
+		const initial: Record<string, boolean> = {};
+		item.riskFlags.forEach((flag, idx) => {
+			const key = `flag_${idx}`;
+			// Collapse LOW/MEDIUM, expand HIGH/CRITICAL
+			initial[key] = flag.severity === "LOW" || flag.severity === "MEDIUM";
+		});
+		// Collapse "documents" section if all docs are verified
+		if (item.bankStatementVerified && item.accountantLetterVerified) {
+			initial.documents_section = true;
+		}
+		setCollapsedSections(initial);
+	}, [item?.riskFlags, item?.bankStatementVerified, item?.accountantLetterVerified]);
+
 	/**
 	 * Determine review type based on workflow stage (V2 Workflow Phase 3)
 	 * Stage 3 = Procurement review, Stage 4 = General/Final review
@@ -271,14 +343,23 @@ export function RiskReviewDetail({
 	};
 
 	/**
-	 * Handle approve action with appropriate API routing
+	 * Handle approve action — intercept if overriding AI recommendation
+	 * Uses AI_ALIGNED category as default since detail view doesn't have the full dialog
 	 */
 	const handleApprove = async () => {
 		if (!item) return;
+		if (isOverride("approve")) {
+			setPendingAction("approve");
+			setShowOverrideModal(true);
+			return;
+		}
 		setIsSubmitting(true);
 		setActionType("approve");
 		try {
-			await onApprove(item.id, `Approved via ${reviewType} review`);
+			await onApprove(item.id, {
+				overrideCategory: "AI_ALIGNED",
+				overrideDetails: `Approved via ${reviewType} review`,
+			});
 			onOpenChange(false);
 		} finally {
 			setIsSubmitting(false);
@@ -287,14 +368,52 @@ export function RiskReviewDetail({
 	};
 
 	/**
-	 * Handle reject action with appropriate API routing
+	 * Handle reject action — intercept if overriding AI recommendation
+	 * Defaults to OTHER category from detail view
+	 * Full structured rejection should go through the RiskDecisionDialog
 	 */
 	const handleReject = async () => {
 		if (!item) return;
+		if (isOverride("reject")) {
+			setPendingAction("reject");
+			setShowOverrideModal(true);
+			return;
+		}
 		setIsSubmitting(true);
 		setActionType("reject");
 		try {
-			await onReject(item.id, `Rejected via ${reviewType} review`);
+			await onReject(item.id, {
+				overrideCategory: "OTHER",
+				overrideDetails: `Rejected via ${reviewType} review`,
+			});
+			onOpenChange(false);
+		} finally {
+			setIsSubmitting(false);
+			setActionType(null);
+		}
+	};
+
+	/**
+	 * Submit override after selecting category and reason in the modal
+	 */
+	const handleOverrideSubmit = async () => {
+		if (!(item && pendingAction && overrideCategory && overrideReason.trim())) return;
+		setIsSubmitting(true);
+		setActionType(pendingAction);
+		try {
+			const overrideData: OverrideData = {
+				overrideCategory: overrideCategory,
+				overrideDetails: `[${overrideCategory}] ${overrideReason}`,
+			};
+			if (pendingAction === "approve") {
+				await onApprove(item.id, overrideData);
+			} else {
+				await onReject(item.id, overrideData);
+			}
+			setShowOverrideModal(false);
+			setPendingAction(null);
+			setOverrideCategory(null);
+			setOverrideReason("");
 			onOpenChange(false);
 		} finally {
 			setIsSubmitting(false);
@@ -325,7 +444,7 @@ export function RiskReviewDetail({
 					id: "3",
 					type: "stage_change",
 					title: "FICA Documents Received",
-					description: "Bank statement and accountant letter uploaded",
+					description: "Required documents uploaded",
 					timestamp: new Date(item.createdAt.getTime() + 3600000),
 				},
 				{
@@ -359,12 +478,13 @@ export function RiskReviewDetail({
 								<RiBuilding2Line className="h-3.5 w-3.5 text-white" />
 								{item.companyName}
 								<span className="text-muted">•</span>
-								<Badge variant="secondary" className=" bg-white/10 text-[10px] text-white/90">
+								<Badge
+									variant="secondary"
+									className=" bg-white/10 text-[10px] text-white/90">
 									WF-{item.workflowId}
 								</Badge>
 								{/* Review Type Badge (Phase 3) */}
 								<Badge
-								
 									className={cn(
 										"text-[13px] gap-2 h-8",
 										reviewType === "procurement"
@@ -383,6 +503,8 @@ export function RiskReviewDetail({
 										</span>
 									)}
 								</Badge>
+								{/* Data source badge (mock vs live) */}
+								<DataSourceBadge dataSource={item.dataSource} />
 							</SheetDescription>
 						</div>
 						<div
@@ -394,9 +516,8 @@ export function RiskReviewDetail({
 										? "bg-warning"
 										: "bg-destructive-foreground/70"
 							)}>
-								<p className="text-[10px] text-white">AI Score</p>
+							<p className="text-[10px] text-white">AI Score</p>
 							<p className="text-xl font-bold text-white">{item.aiTrustScore || "N/A"}</p>
-							
 						</div>
 					</div>
 				</SheetHeader>
@@ -524,6 +645,61 @@ export function RiskReviewDetail({
 							</div>
 						)}
 
+						{item.ficaComparison && (
+							<div className="p-4 rounded-lg bg-secondary/5 border border-secondary/10">
+								<h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+									<RiFileTextLine className="h-4 w-4 text-primary" />
+									FICA Field Verification
+								</h4>
+								<div className="grid grid-cols-3 gap-3 mb-3">
+									<MetricCard
+										icon={RiAlertLine}
+										label="Total Mismatches"
+										value={item.ficaComparison.totalMismatches}
+										status={
+											item.ficaComparison.totalMismatches > 0 ? "warning" : "good"
+										}
+									/>
+									<MetricCard
+										icon={RiAlertLine}
+										label="Critical Mismatches"
+										value={item.ficaComparison.criticalMismatches}
+										status={
+											item.ficaComparison.criticalMismatches > 0 ? "danger" : "good"
+										}
+									/>
+									<MetricCard
+										icon={RiCheckLine}
+										label="Docs Impacted"
+										value={item.ficaComparison.documentsWithMismatches}
+										status={
+											item.ficaComparison.documentsWithMismatches > 0
+												? "warning"
+												: "good"
+										}
+									/>
+								</div>
+								{item.ficaComparison.keyDiscrepancies.length > 0 ? (
+									<div className="space-y-2">
+										<p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+											Key Discrepancies
+										</p>
+										{item.ficaComparison.keyDiscrepancies.map((discrepancy, idx) => (
+											<div
+												key={`${discrepancy}-${idx}`}
+												className="text-xs text-muted-foreground bg-background/40 p-2 rounded border border-secondary/10">
+												{discrepancy}
+											</div>
+										))}
+									</div>
+								) : (
+									<p className="text-xs text-emerald-400">
+										No FICA field discrepancies were flagged.
+									</p>
+								)}
+							</div>
+						)}
+
 						{/* Recommendation */}
 						<div className="p-4 rounded-lg bg-secondary/5 border border-secondary/10">
 							<h4 className="text-sm font-semibold mb-2">Recommendation</h4>
@@ -546,13 +722,13 @@ export function RiskReviewDetail({
 						<DocumentCard
 							name="Bank Statement - Jan to Mar 2026"
 							type="Bank Statement"
-							verified={item.bankStatementVerified || false}
+							verified={item.bankStatementVerified}
 							uploadDate={item.createdAt}
 						/>
 						<DocumentCard
 							name="Accountant Letter"
 							type="Verification Letter"
-							verified={item.accountantLetterVerified || false}
+							verified={item.accountantLetterVerified}
 							uploadDate={item.createdAt}
 						/>
 						<DocumentCard
@@ -563,32 +739,96 @@ export function RiskReviewDetail({
 						/>
 					</TabsContent>
 
-					{/* Risk Flags Tab */}
+					{/* Risk Flags Tab — Collapsible sections (SOP v3.1.0) */}
 					<TabsContent value="risks" className="mt-0 space-y-3">
 						{item.riskFlags && item.riskFlags.length > 0 ? (
-							item.riskFlags.map((flag, idx) => (
-								<div
-									key={idx}
-									className="p-4 rounded-lg bg-secondary/5 border border-secondary/10">
-									<div className="flex items-start justify-between gap-3">
-										<div className="flex-1">
-											<div className="flex items-center gap-2">
-												<Badge
-													variant="outline"
-													className={cn("text-[10px]", getSeverityColor(flag.severity))}>
-													{flag.severity}
-												</Badge>
-												<h4 className="text-sm font-semibold">
-													{flag.type.replace(/_/g, " ")}
-												</h4>
-											</div>
-											<p className="text-sm text-muted-foreground mt-2">
-												{flag.description}
-											</p>
-										</div>
-									</div>
+							<>
+								{/* Summary bar */}
+								<div className="flex items-center justify-between p-3 rounded-lg bg-secondary/5 border border-secondary/10">
+									<span className="text-xs text-muted-foreground">
+										{
+											item.riskFlags.filter(
+												f => f.severity === "HIGH" || f.severity === "CRITICAL"
+											).length
+										}{" "}
+										critical/high •{" "}
+										{
+											item.riskFlags.filter(
+												f => f.severity === "LOW" || f.severity === "MEDIUM"
+											).length
+										}{" "}
+										low/medium
+									</span>
+									<Button
+										variant="ghost"
+										size="sm"
+										className="text-xs h-7"
+										onClick={() => {
+											const allExpanded = Object.values(collapsedSections).every(v => !v);
+											const next: Record<string, boolean> = {};
+											item.riskFlags?.forEach((_, idx) => {
+												next[`flag_${idx}`] = !allExpanded;
+											});
+											setCollapsedSections(next);
+										}}>
+										{Object.values(collapsedSections).every(v => !v)
+											? "Collapse All"
+											: "Expand All"}
+									</Button>
 								</div>
-							))
+
+								{item.riskFlags.map((flag, idx) => {
+									const sectionKey = `flag_${idx}`;
+									const isCollapsed = collapsedSections[sectionKey] ?? false;
+									const isHighSeverity =
+										flag.severity === "HIGH" || flag.severity === "CRITICAL";
+
+									return (
+										<div
+											key={idx}
+											className={cn(
+												"rounded-lg border transition-all duration-200",
+												isHighSeverity
+													? "bg-red-500/5 border-red-500/20"
+													: "bg-secondary/5 border-secondary/10"
+											)}>
+											{/* Clickable header */}
+											<button
+												type="button"
+												className="flex items-center justify-between gap-3 w-full p-4 text-left"
+												onClick={() => toggleSection(sectionKey)}>
+												<div className="flex items-center gap-2">
+													<Badge
+														variant="outline"
+														className={cn(
+															"text-[10px]",
+															getSeverityColor(flag.severity)
+														)}>
+														{flag.severity}
+													</Badge>
+													<h4 className="text-sm font-semibold">
+														{flag.type.replace(/_/g, " ")}
+													</h4>
+												</div>
+												{isCollapsed ? (
+													<RiArrowRightSLine className="h-4 w-4 text-muted-foreground shrink-0" />
+												) : (
+													<RiArrowDownSLine className="h-4 w-4 text-muted-foreground shrink-0" />
+												)}
+											</button>
+
+											{/* Collapsible content */}
+											{!isCollapsed && (
+												<div className="px-4 pb-4">
+													<p className="text-sm text-muted-foreground">
+														{flag.description}
+													</p>
+												</div>
+											)}
+										</div>
+									);
+								})}
+							</>
 						) : (
 							<div className="flex flex-col items-center justify-center py-12 text-center">
 								<div className="p-3 rounded-full bg-emerald-500/10 mb-3">
@@ -631,6 +871,43 @@ export function RiskReviewDetail({
 							</>
 						)}
 					</p>
+
+					{reviewType === "procurement" && item.procurementCheckFailed && (
+						<div className="mt-2 pt-2 border-t border-red-500/20">
+							<div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 space-y-2">
+								<p className="text-[10px] font-semibold uppercase tracking-wide text-red-300">
+									Manual Procurement Check Required
+								</p>
+								<p className="text-xs text-muted-foreground">
+									{item.procurementFailureGuidance ||
+										"Automated ProcureCheck execution failed. Risk Manager must perform a complete manual procurement check before finalizing this stage."}
+								</p>
+								{item.procurementFailureReason && (
+									<p className="text-xs text-red-200">
+										Failure reason: {item.procurementFailureReason}
+									</p>
+								)}
+								<div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+									<div>
+										<span className="uppercase text-[10px] text-muted-foreground/70">
+											Source
+										</span>
+										<p className="text-foreground/90">
+											{item.procurementFailureSource || "procurecheck"}
+										</p>
+									</div>
+									<div>
+										<span className="uppercase text-[10px] text-muted-foreground/70">
+											Recommended
+										</span>
+										<p className="text-foreground/90">
+											{item.procurementRecommendedAction || "MANUAL_REVIEW"}
+										</p>
+									</div>
+								</div>
+							</div>
+						</div>
+					)}
 
 					{/* Procurement-specific data display */}
 					{reviewType === "procurement" && item.procurementScore !== undefined && (
@@ -709,6 +986,95 @@ export function RiskReviewDetail({
 						Approve
 					</Button>
 				</div>
+
+				{/* Override "Why" Modal (SOP v3.1.0) */}
+				<Dialog
+					open={showOverrideModal}
+					onOpenChange={open => {
+						setShowOverrideModal(open);
+						if (!open) {
+							setPendingAction(null);
+							setOverrideCategory(null);
+							setOverrideReason("");
+						}
+					}}>
+					<DialogContent className="sm:max-w-md">
+						<DialogHeader>
+							<DialogTitle className="flex items-center gap-2">
+								<RiQuestionLine className="h-5 w-5 text-amber-500" />
+								Why are you overriding the AI recommendation?
+							</DialogTitle>
+							<DialogDescription>
+								The AI recommended <strong>{item.recommendation || "—"}</strong> but you
+								are choosing to <strong>{pendingAction}</strong>. Please select a reason
+								category and provide a justification.
+							</DialogDescription>
+						</DialogHeader>
+
+						<div className="space-y-4 py-2">
+							{/* Category selection */}
+							<div className="space-y-2">
+								<Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+									Override Category <span className="text-destructive">*</span>
+								</Label>
+								<div className="grid gap-2">
+									{OVERRIDE_CATEGORIES.filter(c => c !== "AI_ALIGNED").map(cat => (
+										<button
+											key={cat}
+											type="button"
+											className={cn(
+												"flex flex-col items-start p-3 rounded-lg border text-left transition-all duration-150",
+												overrideCategory === cat
+													? "border-primary bg-primary/10 ring-1 ring-primary/30"
+													: "border-secondary/20 hover:border-secondary/40 hover:bg-secondary/5"
+											)}
+											onClick={() => setOverrideCategory(cat)}>
+											<span className="text-sm font-medium">
+												{OVERRIDE_CATEGORY_LABELS[cat]}
+											</span>
+										</button>
+									))}
+								</div>
+							</div>
+
+							{/* Reason text */}
+							<div className="space-y-1.5">
+								<Label htmlFor="overrideReason" className="text-xs font-medium">
+									Justification <span className="text-destructive">*</span>
+								</Label>
+								<Textarea
+									id="overrideReason"
+									placeholder="Explain why you are overriding the AI recommendation..."
+									value={overrideReason}
+									onChange={e => setOverrideReason(e.target.value)}
+									rows={3}
+								/>
+							</div>
+						</div>
+
+						<DialogFooter className="gap-2">
+							<Button
+								variant="outline"
+								onClick={() => setShowOverrideModal(false)}
+								disabled={isSubmitting}>
+								Cancel
+							</Button>
+							<Button
+								onClick={handleOverrideSubmit}
+								disabled={isSubmitting || !overrideCategory || !overrideReason.trim()}
+								className={cn(
+									pendingAction === "approve"
+										? "bg-emerald-600 hover:bg-emerald-700"
+										: "bg-destructive hover:bg-destructive/90"
+								)}>
+								{isSubmitting ? (
+									<RiLoader4Line className="h-4 w-4 mr-2 animate-spin" />
+								) : null}
+								Confirm Override & {pendingAction === "approve" ? "Approve" : "Reject"}
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
 			</SheetContent>
 		</Sheet>
 	);

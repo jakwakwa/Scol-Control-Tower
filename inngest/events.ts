@@ -1,3 +1,5 @@
+import type { DocumentType } from "@/lib/types";
+
 // ============================================
 // Form Types for Events
 // ============================================
@@ -114,6 +116,18 @@ export type Events = {
 		};
 	};
 
+	/** Applicant explicitly responded to quote (approve/decline) */
+	"quote/responded": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			quoteId: number;
+			decision: "APPROVED" | "DECLINED";
+			reason?: string;
+			respondedAt: string;
+		};
+	};
+
 	/** Applicant feedback received on quote */
 	"quote/feedback.received": {
 		data: {
@@ -158,16 +172,6 @@ export type Events = {
 		};
 	};
 
-	/** Accountant letter form submitted */
-	"form/accountant-letter.submitted": {
-		data: {
-			workflowId: number;
-			applicantId: number;
-			submissionId: number;
-			submittedAt: string;
-		};
-	};
-
 	/** Call centre application form submitted */
 	"form/call-centre.submitted": {
 		data: {
@@ -199,8 +203,49 @@ export type Events = {
 				mandateType: "EFT" | "DEBIT_ORDER" | "CASH" | "MIXED";
 				businessType: string;
 				annualTurnover?: number;
+				facilityApplicationData?: Record<string, unknown>;
+				ficaComparisonContext?: {
+					companyName?: string;
+					tradingName?: string;
+					registrationNumber?: string;
+					idNumber?: string;
+					contactName?: string;
+					email?: string;
+					phone?: string;
+				};
 			};
 			submittedAt: string;
+		};
+	};
+
+	/** Sales evaluation started after facility application submission */
+	"sales/evaluation.started": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			startedAt: string;
+		};
+	};
+
+	/** Sales evaluation found issues requiring pre-risk path */
+	"sales/evaluation.issues_found": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			issues: string[];
+			flaggedBy: "account_manager" | "ai" | "system";
+			requiresPreRiskEvaluation: boolean;
+			detectedAt: string;
+		};
+	};
+
+	/** Sales evaluation approved and ready to continue */
+	"sales/evaluation.approved": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			approvedBy: string;
+			approvedAt: string;
 		};
 	};
 
@@ -262,7 +307,7 @@ export type Events = {
 			workflowId: number;
 			applicantId: number;
 			documents: Array<{
-				type: "BANK_STATEMENT" | "ACCOUNTANT_LETTER" | "ID_DOCUMENT" | "PROOF_OF_ADDRESS";
+				type: DocumentType;
 				filename: string;
 				url: string;
 				uploadedAt: string;
@@ -307,6 +352,35 @@ export type Events = {
 				decidedBy: string; // Risk Manager email/ID
 				reason?: string;
 				conditions?: string[];
+				timestamp: string;
+			};
+		};
+	};
+
+	/** Pre-risk approval decision before quote is sent */
+	"risk/pre-approval.decided": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			decision: {
+				outcome: "APPROVED" | "REJECTED";
+				decidedBy: string;
+				reason?: string;
+				requiresPreRiskEvaluation?: boolean;
+				timestamp: string;
+			};
+		};
+	};
+
+	/** Optional pre-risk evaluation decision */
+	"risk/pre-evaluation.decided": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			decision: {
+				outcome: "APPROVED" | "REJECTED";
+				decidedBy: string;
+				reason?: string;
 				timestamp: string;
 			};
 		};
@@ -360,48 +434,6 @@ export type Events = {
 				uploadedAt: string;
 			}>;
 			allRequiredDocsReceived: boolean;
-		};
-	};
-
-	// ================================================================
-	// V24 Integration Events
-	// ================================================================
-
-	/** Client profile created in V24 */
-	"v24/client.created": {
-		data: {
-			workflowId: number;
-			applicantId: number;
-			v24Response: {
-				success: boolean;
-				clientId?: string;
-				v24Reference?: string;
-				error?: string;
-			};
-			timestamp: string;
-		};
-	};
-
-	/** Training session scheduled */
-	"v24/training.scheduled": {
-		data: {
-			workflowId: number;
-			applicantId: number;
-			session: {
-				sessionId: string;
-				scheduledDate: string;
-				meetingLink?: string;
-			};
-		};
-	};
-
-	/** Welcome pack sent to client */
-	"v24/welcome.sent": {
-		data: {
-			workflowId: number;
-			applicantId: number;
-			sentTo: string; // Email
-			timestamp: string;
 		};
 	};
 
@@ -559,7 +591,25 @@ export type Events = {
 		data: {
 			workflowId: number;
 			applicantId: number;
-			reason: "PROCUREMENT_DENIED" | "COMPLIANCE_VIOLATION" | "FRAUD_DETECTED" | "MANUAL_TERMINATION";
+			reason:
+				| "PROCUREMENT_DENIED"
+				| "COMPLIANCE_VIOLATION"
+				| "FRAUD_DETECTED"
+				| "TIMEOUT_TERMINATION"
+				| "STAGE2_FACILITY_TIMEOUT"
+				| "STAGE2_PRE_RISK_APPROVAL_TIMEOUT"
+				| "STAGE2_PRE_RISK_EVAL_TIMEOUT"
+				| "STAGE2_QUOTE_APPROVAL_TIMEOUT"
+				| "VALIDATION_ERROR_INGEST"
+				| "STAGE2_QUOTE_RESPONSE_TIMEOUT"
+				| "STAGE3_FICA_UPLOAD_TIMEOUT"
+				| "STAGE4_FINANCIAL_STATEMENTS_TIMEOUT"
+				| "STAGE5_CONTRACT_REVIEW_TIMEOUT"
+				| "STAGE5_ABSA_FORM_TIMEOUT"
+				| "STAGE6_RISK_MANAGER_TIMEOUT"
+				| "STAGE6_ACCOUNT_MANAGER_TIMEOUT"
+				| "STAGE6_CONTRACT_SIGNATURE_TIMEOUT"
+				| "MANUAL_TERMINATION";
 			decidedBy: string;
 			terminatedAt: string;
 			notes?: string;
@@ -587,7 +637,14 @@ export type Events = {
 		data: {
 			workflowId: number;
 			applicantId: number;
-			businessType: "NPO" | "PROPRIETOR" | "COMPANY" | "TRUST" | "BODY_CORPORATE" | "PARTNERSHIP" | "CLOSE_CORPORATION";
+			businessType:
+				| "NPO"
+				| "PROPRIETOR"
+				| "COMPANY"
+				| "TRUST"
+				| "BODY_CORPORATE"
+				| "PARTNERSHIP"
+				| "CLOSE_CORPORATION";
 			requiredDocuments: string[];
 			optionalDocuments: string[];
 		};
@@ -603,6 +660,42 @@ export type Events = {
 			businessType: string;
 			documentsRequested: string[];
 			sentAt: string;
+		};
+	};
+
+	// ================================================================
+	// Sanction Clearance Events (SOP v3.1.0)
+	// ================================================================
+
+	/** Sanction hit cleared by compliance officer */
+	"sanction/cleared": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			officerId: string;
+			reason: string;
+			clearedAt: string;
+		};
+	};
+
+	/** Sanction hit confirmed as true positive */
+	"sanction/confirmed": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			officerId: string;
+			confirmedAt: string;
+		};
+	};
+
+	/** Escalation tier changed (Document Collection) */
+	"escalation/tier.changed": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			newTier: number; // 1, 2, 3
+			reason: string;
+			changedAt: string;
 		};
 	};
 
@@ -665,7 +758,11 @@ export type Events = {
 			canAutoApprove: boolean;
 			requiresManualReview: boolean;
 			isBlocked: boolean;
-			recommendation: "AUTO_APPROVE" | "PROCEED_WITH_CONDITIONS" | "MANUAL_REVIEW" | "BLOCK";
+			recommendation:
+				| "AUTO_APPROVE"
+				| "PROCEED_WITH_CONDITIONS"
+				| "MANUAL_REVIEW"
+				| "BLOCK";
 			flags: string[];
 		};
 	};
@@ -728,7 +825,11 @@ export type Events = {
 				validationSummary: Record<string, unknown>;
 				riskSummary: Record<string, unknown>;
 				sanctionsSummary: Record<string, unknown>;
-				overallRecommendation: "APPROVE" | "CONDITIONAL_APPROVE" | "MANUAL_REVIEW" | "DECLINE";
+				overallRecommendation:
+					| "APPROVE"
+					| "CONDITIONAL_APPROVE"
+					| "MANUAL_REVIEW"
+					| "DECLINE";
 				aggregatedScore: number;
 				flags: string[];
 			};
@@ -780,6 +881,18 @@ export type Events = {
 		};
 	};
 
+	/** Generic applicant decision response on a decision-enabled form */
+	"form/decision.responded": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			formType: "SIGNED_QUOTATION" | "AGREEMENT_CONTRACT" | "CALL_CENTRE_APPLICATION";
+			decision: "APPROVED" | "DECLINED";
+			reason?: string;
+			respondedAt: string;
+		};
+	};
+
 	/** Procurement docs completeness verified */
 	"procurement/docs.complete": {
 		data: {
@@ -787,6 +900,25 @@ export type Events = {
 			applicantId: number;
 			documentsVerified: string[];
 			completedAt: string;
+		};
+	};
+
+	// ================================================================
+	// AI Feedback & Retraining Events
+	// ================================================================
+
+	/** Human decision diverged from AI recommendation — signal for retraining */
+	"ai/feedback.divergence_detected": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			feedbackLogId: number;
+			divergenceType: "false_positive" | "false_negative" | "severity_mismatch";
+			divergenceWeight: number;
+			overrideCategory: string;
+			overrideSubcategory?: string;
+			aiOutcome: string;
+			humanOutcome: string;
 		};
 	};
 };

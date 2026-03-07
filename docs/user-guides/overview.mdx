@@ -19,6 +19,7 @@ Use the left sidebar to move between sections:
 - **Overview**: dashboard summary, active workflows, recent activity
 - **Applicants**: manage applicants and start onboarding
 - **Workflows**: track all workflows, take action, and view details
+- **Risk Review**: review AI risk assessments and make structured override decisions
 - **Agents**: monitor your external agent fleet
 
 ## Dashboard sections at a glance
@@ -39,7 +40,7 @@ You will see cards for:
 The table shows key workflow details:
 
 - **Client** and workflow ID
-- **Stage** (1–4) with a progress indicator
+- **Stage** (1–6) with a progress indicator
 - **Status** (pending, in progress, awaiting human, completed, failed, timeout, paused)
 - **Current Agent** processing the workflow
 - **Started** time for the workflow
@@ -57,12 +58,20 @@ This feed lists the latest workflow events, including:
 
 ## Workflow stages
 
-The onboarding process follows a consistent 4-stage path:
+The onboarding process follows a 6-stage path:
 
 1. **Applicant Capture**: record basic client details and start the workflow
-2. **Quotation**: collect core agreement data and service configuration
+2. **Quotation**: sales evaluation, pre-risk checks, AI quote generation, and client approval
 3. **Verification**: complete bank assessment and FICA document checks
-4. **Integration**: final handover and operational readiness
+4. **Integration**: handover and operational readiness
+5. **Contract**: StratCol agreement and call centre application with client approval
+6. **Final Approval**: two-factor sign-off by Risk Manager and Account Manager
+
+## AI feedback pipeline
+
+Human override decisions on risk assessments are captured as structured data and fed into an AI retraining pipeline. When a reviewer's decision diverges from the AI recommendation, the system flags the divergence with a category, weight, and type. This enables prioritised model retraining.
+
+For details, see [AI feedback pipeline](/user-guides/ai-feedback-pipeline).
 
 ## Notifications
 

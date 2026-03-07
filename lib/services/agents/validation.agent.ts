@@ -11,9 +11,13 @@
  * Uses Gemini AI for intelligent document analysis.
  */
 
-import { generateObject } from "ai";
 import { z } from "zod";
-import { getThinkingModel, isAIConfigured, AI_CONFIG } from "@/lib/ai/models";
+import {
+	getGenAIClient,
+	getHighStakesModel,
+	isAIConfigured,
+} from "@/lib/ai/models";
+import { ficaComparisonResultSchema } from "@/lib/validations/onboarding/fica-documents";
 
 // ============================================
 // Types & Schemas
@@ -27,13 +31,13 @@ export const ValidationResultSchema = z.object({
 		.min(0)
 		.max(100)
 		.describe("Confidence score for authenticity (0-100)"),
-	authenticityFlags: z
-		.array(z.string())
-		.describe("Any red flags regarding authenticity"),
+	authenticityFlags: z.array(z.string()).describe("Any red flags regarding authenticity"),
 
 	// Data Integrity
 	dataIntegrityPassed: z.boolean().describe("Whether data integrity checks passed"),
-	dataIntegrityIssues: z.array(z.string()).describe("List of data integrity issues found"),
+	dataIntegrityIssues: z
+		.array(z.string())
+		.describe("List of data integrity issues found"),
 
 	// Date Validation
 	documentDate: z.string().optional().describe("Date found on document (YYYY-MM-DD)"),
@@ -79,9 +83,14 @@ export const ValidationResultSchema = z.object({
 		.enum(["ACCEPT", "REVIEW", "REJECT", "REQUEST_NEW_DOCUMENT"])
 		.describe("Recommended action"),
 	reasoning: z.string().describe("Detailed reasoning for the validation result"),
+	ficaComparison: ficaComparisonResultSchema
+		.optional()
+		.describe("Structured comparison between document evidence and applicant-provided FICA-relevant fields"),
 });
 
-export type ValidationResult = z.infer<typeof ValidationResultSchema>;
+export type ValidationResult = z.infer<typeof ValidationResultSchema> & {
+	dataSource: string;
+};
 
 export interface ValidationInput {
 	documentType: string;
@@ -94,6 +103,19 @@ export interface ValidationInput {
 		registrationNumber?: string;
 		address?: string;
 		accountNumber?: string;
+	};
+	ficaComparisonContext?: {
+		companyName?: string;
+		tradingName?: string;
+		registrationNumber?: string;
+		idNumber?: string;
+		contactName?: string;
+		email?: string;
+		phone?: string;
+		accountNumber?: string;
+		bankName?: string;
+		branchCode?: string;
+		address?: string;
 	};
 	workflowId: number;
 }
@@ -108,34 +130,68 @@ export interface ValidationInput {
 export async function validateDocument(
 	input: ValidationInput
 ): Promise<ValidationResult> {
-	console.log(
-		`[ValidationAgent] Validating ${input.documentType} for workflow ${input.workflowId}`
-	);
-
 	if (!isAIConfigured()) {
-		console.log("[ValidationAgent] AI not configured, using mock validation");
-		return generateMockValidation(input);
+		throw new Error(
+			"[ValidationAgent] AI is not configured. Set GOOGLE_GENAI_KEY to enable document validation."
+		);
 	}
+	const prompt = buildValidationPrompt(input);
+	const ai = getGenAIClient();
 
 	try {
-		const prompt = buildValidationPrompt(input);
-
-		const { object } = await generateObject({
-			model: getThinkingModel(),
-			schema: ValidationResultSchema,
-			schemaName: "DocumentValidation",
-			schemaDescription: "Document authenticity and validation analysis",
-			prompt,
-			temperature: AI_CONFIG.ANALYSIS_TEMPERATURE,
+		const response = await ai.models.generateContent({
+			model: getHighStakesModel(),
+			config: {
+				responseMimeType: "application/json",
+				responseJsonSchema: ValidationResultSchema,
+			},
+			contents:
+				input.contentType === "base64"
+					? [
+							{ text: prompt },
+							{
+								inlineData: {
+									mimeType: "application/pdf",
+									data: normalizeBase64Pdf(input.documentContent),
+								},
+							},
+						]
+					: prompt,
 		});
-
-		console.log(
-			`[ValidationAgent] Validation complete - Overall score: ${object.overallScore}`
-		);
-		return object;
+		const analysis = ValidationResultSchema.parse(JSON.parse(response.text));
+		return { ...analysis, dataSource: "Gemini AI" };
 	} catch (error) {
-		console.error("[ValidationAgent] AI validation failed:", error);
-		return generateMockValidation(input);
+		console.error("[ValidationAgent] AI generation failed:", error);
+		return {
+			isAuthentic: false,
+			authenticityScore: 0,
+			authenticityFlags: ["AI Verification Failed"],
+			dataIntegrityPassed: false,
+			dataIntegrityIssues: ["System Error processing document"],
+			dateValid: false,
+			dateIssues: ["Could not verify date"],
+			crossReferenceVerified: false,
+			crossReferenceDetails: {
+				nameMatch: false,
+				addressMatch: false,
+			},
+			overallValid: false,
+			overallScore: 0,
+			recommendation: "REVIEW",
+			reasoning:
+				"AI Verification Failed. Manual review is required due to system error processing document.",
+			ficaComparison: {
+				documentType: input.documentType,
+				fields: {},
+				summary: {
+					overallStatus: "INSUFFICIENT_DATA",
+					mismatchCount: 0,
+					criticalMismatchCount: 0,
+					keyDiscrepancies: ["Validation service unavailable"],
+				},
+			},
+			dataSource: "AI Error — Manual Escalation",
+		};
 	}
 }
 
@@ -143,7 +199,11 @@ export async function validateDocument(
  * Build the AI prompt for document validation
  */
 function buildValidationPrompt(input: ValidationInput): string {
-	const { documentType, documentContent, applicantData } = input;
+	const { documentType, documentContent, applicantData, ficaComparisonContext } = input;
+	const documentContentForPrompt =
+		input.contentType === "base64"
+			? "[PDF provided as inline document data. Analyze the attached document.]"
+			: documentContent;
 
 	let applicantContext = "";
 	if (applicantData) {
@@ -158,15 +218,34 @@ ${applicantData.accountNumber ? `- Account Number: ${applicantData.accountNumber
 `;
 	}
 
+	let ficaContext = "";
+	if (ficaComparisonContext) {
+		ficaContext = `
+FICA COMPARISON CONTEXT (APPLICANT-ENTERED DATA):
+${ficaComparisonContext.companyName ? `- Company Name: ${ficaComparisonContext.companyName}` : ""}
+${ficaComparisonContext.tradingName ? `- Trading Name: ${ficaComparisonContext.tradingName}` : ""}
+${ficaComparisonContext.registrationNumber ? `- Registration Number: ${ficaComparisonContext.registrationNumber}` : ""}
+${ficaComparisonContext.idNumber ? `- ID Number: ${ficaComparisonContext.idNumber}` : ""}
+${ficaComparisonContext.contactName ? `- Contact Name: ${ficaComparisonContext.contactName}` : ""}
+${ficaComparisonContext.email ? `- Email: ${ficaComparisonContext.email}` : ""}
+${ficaComparisonContext.phone ? `- Telephone: ${ficaComparisonContext.phone}` : ""}
+${ficaComparisonContext.accountNumber ? `- Account Number: ${ficaComparisonContext.accountNumber}` : ""}
+${ficaComparisonContext.bankName ? `- Bank Name: ${ficaComparisonContext.bankName}` : ""}
+${ficaComparisonContext.branchCode ? `- Branch Code: ${ficaComparisonContext.branchCode}` : ""}
+${ficaComparisonContext.address ? `- Address: ${ficaComparisonContext.address}` : ""}
+`;
+	}
+
 	return `You are a document verification specialist for StratCol, a financial services company.
 Your task is to validate the authenticity and accuracy of submitted documents.
 
 DOCUMENT TYPE: ${documentType}
 
 ${applicantContext}
+${ficaContext}
 
 DOCUMENT CONTENT:
-${documentContent}
+${documentContentForPrompt}
 
 VALIDATION REQUIREMENTS:
 1. AUTHENTICITY CHECK:
@@ -190,6 +269,16 @@ VALIDATION REQUIREMENTS:
    - Compare names, addresses, and account numbers against applicant data
    - Flag any discrepancies
 
+6. FICA-SPECIFIC COMPARISON OUTPUT (MANDATORY):
+   - Return a structured ficaComparison object.
+   - Compare only fields relevant to this document type:
+     - Bank statements: account holder, account number, bank name, branch code, company/trading name
+     - ID docs: person name, ID number
+     - Proof of address: address and person/company identifiers
+     - Registration/corporate docs: company name and registration number
+   - Use statuses: match, mismatch, not_provided, not_found, uncertain
+   - Populate keyDiscrepancies with concrete mismatch statements.
+
 5. PROOF OF RESIDENCE (if applicable):
    - Verify this is an acceptable proof of residence document
    - Acceptable: utility bills, bank statements, official government correspondence
@@ -201,89 +290,17 @@ SCORING GUIDELINES:
 - 50-69: Significant concerns, manual review required
 - Below 50: Major issues, likely reject or request new document
 
+GROUNDING RULES (CRITICAL):
+- Use only evidence that is explicitly present in the document content or applicant context.
+- Do NOT invent names, addresses, account details, dates, mandate amounts, or any missing field.
+- If a field cannot be verified from evidence, mark the related checks as failed/review and explain why evidence is insufficient.
+- For unreadable, blurry, or corrupted content, set recommendation to REVIEW or REQUEST_NEW_DOCUMENT.
+
 Be thorough but fair. Not all minor formatting inconsistencies indicate fraud.`;
 }
 
-/**
- * Generate mock validation result when AI is not available
- */
-function generateMockValidation(input: ValidationInput): ValidationResult {
-	// Generate deterministic but realistic mock results
-	const hash = simpleHash(input.documentContent + input.documentType);
-	const baseScore = 70 + (hash % 25); // Score between 70-94
-
-	const isProofOfAddress = input.documentType
-		.toLowerCase()
-		.includes("address");
-	const isBankStatement = input.documentType
-		.toLowerCase()
-		.includes("bank");
-
-	return {
-		isAuthentic: baseScore > 75,
-		authenticityScore: baseScore,
-		authenticityFlags:
-			baseScore < 80
-				? ["Document quality could be improved", "Some fields partially obscured"]
-				: [],
-
-		dataIntegrityPassed: baseScore > 70,
-		dataIntegrityIssues:
-			baseScore < 75
-				? ["Minor formatting inconsistencies detected"]
-				: [],
-
-		documentDate: new Date(
-			Date.now() - (hash % 60) * 24 * 60 * 60 * 1000
-		).toISOString().split("T")[0],
-		dateValid: (hash % 60) < 45, // Valid if less than 45 days old
-		dateIssues:
-			(hash % 60) >= 45
-				? ["Document may be older than 3 months"]
-				: [],
-
-		crossReferenceVerified: baseScore > 72,
-		crossReferenceDetails: {
-			nameMatch: baseScore > 70,
-			addressMatch: baseScore > 72,
-			accountMatch: isBankStatement ? baseScore > 75 : undefined,
-			idMatch: baseScore > 78,
-		},
-
-		isValidProofOfResidence: isProofOfAddress ? baseScore > 75 : undefined,
-		addressExtractionConfidence: isProofOfAddress ? baseScore : undefined,
-		extractedAddress: isProofOfAddress
-			? {
-					street: "123 Example Street",
-					city: "Johannesburg",
-					province: "Gauteng",
-					postalCode: "2000",
-				}
-			: undefined,
-
-		overallValid: baseScore > 70,
-		overallScore: baseScore,
-		recommendation:
-			baseScore >= 80
-				? "ACCEPT"
-				: baseScore >= 60
-					? "REVIEW"
-					: "REQUEST_NEW_DOCUMENT",
-		reasoning: `Mock validation completed. Document ${input.documentType} scored ${baseScore}/100 based on standard validation criteria. ${baseScore >= 70 ? "Document appears acceptable." : "Document requires further review or replacement."}`,
-	};
-}
-
-/**
- * Simple hash function for deterministic mock results
- */
-function simpleHash(str: string): number {
-	let hash = 0;
-	for (let i = 0; i < Math.min(str.length, 100); i++) {
-		const char = str.charCodeAt(i);
-		hash = (hash << 5) - hash + char;
-		hash = hash & hash;
-	}
-	return Math.abs(hash);
+function normalizeBase64Pdf(raw: string): string {
+	return raw.replace(/^data:application\/pdf;base64,/, "").trim();
 }
 
 // ============================================
@@ -298,6 +315,7 @@ export interface BatchValidationInput {
 		contentType: "text" | "base64";
 	}>;
 	applicantData?: ValidationInput["applicantData"];
+	ficaComparisonContext?: ValidationInput["ficaComparisonContext"];
 	workflowId: number;
 }
 
@@ -322,10 +340,6 @@ export interface BatchValidationResult {
 export async function validateDocumentsBatch(
 	input: BatchValidationInput
 ): Promise<BatchValidationResult> {
-	console.log(
-		`[ValidationAgent] Batch validating ${input.documents.length} documents for workflow ${input.workflowId}`
-	);
-
 	const results = await Promise.all(
 		input.documents.map(async doc => ({
 			documentId: doc.id,
@@ -335,6 +349,7 @@ export async function validateDocumentsBatch(
 				documentContent: doc.content,
 				contentType: doc.contentType,
 				applicantData: input.applicantData,
+				ficaComparisonContext: input.ficaComparisonContext,
 				workflowId: input.workflowId,
 			}),
 		}))

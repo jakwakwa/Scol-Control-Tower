@@ -1,24 +1,24 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { DashboardLayout } from "@/components/dashboard";
-import { GlassCard } from "@/components/dashboard";
 import {
-	RiShieldCheckLine,
 	RiAlertLine,
-	RiTimeLine,
-	RiSearchLine,
 	RiFilter3Line,
 	RiRefreshLine,
+	RiSearchLine,
+	RiTimeLine,
 } from "@remixicon/react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { DashboardLayout } from "@/components/dashboard";
 import {
-	RiskReviewQueue,
 	RiskReviewDetail,
 	type RiskReviewItem,
+	RiskReviewQueue,
 } from "@/components/dashboard/risk-review";
-import { toast } from "sonner";
+import type { OverrideData } from "@/components/dashboard/risk-review/risk-review-queue";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { getDecisionEndpoint } from "@/lib/utils";
 
 export default function RiskReviewPage() {
 	const [searchTerm, setSearchTerm] = useState("");
@@ -26,11 +26,125 @@ export default function RiskReviewPage() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [selectedItem, setSelectedItem] = useState<RiskReviewItem | null>(null);
 	const [isDetailOpen, setIsDetailOpen] = useState(false);
+	const [showHistory, setShowHistory] = useState(false);
+
+	const isProcurementReview = (item: RiskReviewItem): boolean =>
+		item.reviewType === "procurement";
+
+	const normalizeProcurementRecommendation = (
+		recommendation?: string
+	): "APPROVE" | "MANUAL_REVIEW" | "DECLINE" => {
+		const value = recommendation?.toUpperCase();
+		if (value === "APPROVE" || value === "APPROVED" || value === "CLEARED") {
+			return "APPROVE";
+		}
+		if (
+			value === "DECLINE" ||
+			value === "REJECT" ||
+			value === "REJECTED" ||
+			value === "DENIED"
+		) {
+			return "DECLINE";
+		}
+		return "MANUAL_REVIEW";
+	};
+
+	const submitDecision = async (
+		item: RiskReviewItem,
+		action: "approve" | "reject",
+		overrideData: OverrideData
+	) => {
+		const endpoint = getDecisionEndpoint({
+			decisionType: item.decisionType,
+			targetResource: item.targetResource,
+			reviewType: item.reviewType,
+			stage: item.stage,
+		});
+
+		if (isProcurementReview(item)) {
+			const procureCheckAnomalies =
+				item.anomalies && item.anomalies.length > 0
+					? item.anomalies
+					: item.procurementCheckFailed
+						? [
+								"Automated ProcureCheck execution failed - manual human procurement check required",
+							]
+						: [];
+
+			const procurementPayload = {
+				workflowId: item.id,
+				applicantId: item.applicantId,
+				procureCheckResult: {
+					riskScore: Math.min(100, Math.max(0, item.procurementScore ?? 50)),
+					anomalies: procureCheckAnomalies,
+					recommendedAction: normalizeProcurementRecommendation(
+						item.procurementRecommendedAction || item.recommendation
+					),
+					rawData: {
+						procurementCheckFailed: item.procurementCheckFailed,
+						procurementFailureReason: item.procurementFailureReason,
+						procurementFailureSource: item.procurementFailureSource,
+						procurementFailureGuidance: item.procurementFailureGuidance,
+						reviewType: item.reviewType || "procurement",
+					},
+				},
+				decision: {
+					outcome: action === "approve" ? "CLEARED" : "DENIED",
+					overrideCategory: overrideData.overrideCategory,
+					overrideSubcategory: overrideData.overrideSubcategory,
+					overrideDetails: overrideData.overrideDetails,
+				},
+			};
+
+			const procurementResponse = await fetch(endpoint, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(procurementPayload),
+			});
+
+			if (!procurementResponse.ok) {
+				const errorData = await procurementResponse.json().catch(() => ({}));
+				throw new Error(
+					errorData.message ||
+						errorData.error ||
+						`Failed to ${action === "approve" ? "clear" : "deny"} procurement review`
+				);
+			}
+
+			return;
+		}
+
+		const generalDecisionPayload = {
+			workflowId: item.id,
+			applicantId: item.applicantId,
+			decision: {
+				outcome: action === "approve" ? "APPROVED" : "REJECTED",
+				overrideCategory: overrideData.overrideCategory,
+				overrideSubcategory: overrideData.overrideSubcategory,
+				overrideDetails: overrideData.overrideDetails,
+			},
+		};
+
+		const generalResponse = await fetch(endpoint, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(generalDecisionPayload),
+		});
+
+		if (!generalResponse.ok) {
+			const errorData = await generalResponse.json().catch(() => ({}));
+			throw new Error(
+				errorData.message ||
+					errorData.error ||
+					`Failed to ${action === "approve" ? "approve" : "reject"}`
+			);
+		}
+	};
 
 	const fetchRiskReviewItems = useCallback(async () => {
 		setIsLoading(true);
 		try {
-			const response = await fetch("/api/risk-review");
+			const response = await fetch(`/api/risk-review?showHistory=${showHistory}`);
 			if (!response.ok) {
 				throw new Error("Failed to fetch risk review items");
 			}
@@ -49,13 +163,13 @@ export default function RiskReviewPage() {
 		} finally {
 			setIsLoading(false);
 		}
-	}, []);
+	}, [showHistory]);
 
 	useEffect(() => {
 		fetchRiskReviewItems();
 	}, [fetchRiskReviewItems]);
 
-	const handleApprove = async (id: number, reason?: string) => {
+	const handleApprove = async (id: number, overrideData: OverrideData) => {
 		const item = items.find(i => i.id === id);
 		if (!item) {
 			toast.error("Workflow not found");
@@ -63,25 +177,7 @@ export default function RiskReviewPage() {
 		}
 
 		try {
-			const response = await fetch("/api/risk-decision", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					workflowId: id,
-					applicantId: item.applicantId,
-					decision: {
-						outcome: "APPROVED",
-						decidedBy: "staff",
-						reason: reason || "Approved after manual review",
-						timestamp: new Date().toISOString(),
-					},
-				}),
-			});
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				throw new Error(errorData.message || errorData.error || "Failed to approve");
-			}
+			await submitDecision(item, "approve", overrideData);
 
 			// Refresh the list
 			await fetchRiskReviewItems();
@@ -94,7 +190,7 @@ export default function RiskReviewPage() {
 		}
 	};
 
-	const handleReject = async (id: number, reason: string) => {
+	const handleReject = async (id: number, overrideData: OverrideData) => {
 		const item = items.find(i => i.id === id);
 		if (!item) {
 			toast.error("Workflow not found");
@@ -102,25 +198,7 @@ export default function RiskReviewPage() {
 		}
 
 		try {
-			const response = await fetch("/api/risk-decision", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					workflowId: id,
-					applicantId: item.applicantId,
-					decision: {
-						outcome: "REJECTED",
-						decidedBy: "staff",
-						reason,
-						timestamp: new Date().toISOString(),
-					},
-				}),
-			});
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				throw new Error(errorData.message || errorData.error || "Failed to reject");
-			}
+			await submitDecision(item, "reject", overrideData);
 
 			// Refresh the list
 			await fetchRiskReviewItems();
@@ -161,6 +239,12 @@ export default function RiskReviewPage() {
 						disabled={isLoading}>
 						<RiRefreshLine className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
 						Refresh
+					</Button>
+					<Button
+						variant={showHistory ? "default" : "outline"}
+						className="gap-2"
+						onClick={() => setShowHistory(!showHistory)}>
+						{showHistory ? "Hide History" : "Show History"}
 					</Button>
 					<Button variant="outline" className="gap-2">
 						<RiFilter3Line className="h-4 w-4" />
@@ -206,12 +290,12 @@ export default function RiskReviewPage() {
 				item={selectedItem}
 				open={isDetailOpen}
 				onOpenChange={setIsDetailOpen}
-				onApprove={async (id, reason) => {
-					await handleApprove(id, reason);
+				onApprove={async (id, overrideData) => {
+					await handleApprove(id, overrideData);
 					setIsDetailOpen(false);
 				}}
-				onReject={async (id, reason) => {
-					await handleReject(id, reason);
+				onReject={async (id, overrideData) => {
+					await handleReject(id, overrideData);
 					setIsDetailOpen(false);
 				}}
 			/>

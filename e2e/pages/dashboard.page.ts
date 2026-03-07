@@ -3,7 +3,7 @@
  *
  * Encapsulates dashboard page interactions for cleaner tests.
  */
-import type { Page, Locator } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 export class DashboardPage {
 	readonly page: Page;

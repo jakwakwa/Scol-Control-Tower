@@ -1,14 +1,28 @@
+import { and, eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
+import type { NotificationSeverity } from "@/db/schema";
 import { notifications, workflowEvents } from "@/db/schema";
 
 export interface CreateNotificationParams {
 	workflowId: number;
 	applicantId: number;
-	type: "awaiting" | "completed" | "failed" | "timeout" | "paused" | "error" | "warning" | "success" | "info" | "terminated";
+	type:
+		| "awaiting"
+		| "completed"
+		| "failed"
+		| "timeout"
+		| "paused"
+		| "error"
+		| "warning"
+		| "success"
+		| "info"
+		| "terminated";
 	title: string;
 	message: string;
 	actionable?: boolean;
 	errorDetails?: object;
+	severity?: NotificationSeverity;
+	groupKey?: string;
 }
 
 export interface LogEventParams {
@@ -34,7 +48,7 @@ export interface LogEventParams {
 		| "procurement_decision"
 		| "ai_analysis_completed"
 		| "reporter_analysis_completed"
-		| "v24_integration_completed"
+		| "agreementContract_integration_completed"
 		| "workflow_completed"
 		| "kill_switch_executed"
 		| "kill_switch_handled"
@@ -42,6 +56,7 @@ export interface LogEventParams {
 		| "documents_requested"
 		| "validation_completed"
 		| "sanctions_completed"
+		| "sanction_cleared"
 		| "risk_analysis_completed"
 		| "risk_manager_review"
 		| "financial_statements_confirmed"
@@ -51,14 +66,21 @@ export interface LogEventParams {
 		| "two_factor_approval_risk_manager"
 		| "two_factor_approval_account_manager"
 		| "final_approval"
-		| "management_escalation";
+		| "management_escalation"
+		| "stale_data_flagged"
+		| "state_lock_acquired";
 	payload: object;
 	actorType?: "user" | "agent" | "platform";
 	actorId?: string;
 }
 
 /**
- * Create a notification in the Control Tower UI
+ * Create a notification in the Control Tower UI.
+ *
+ * Tiered behaviour:
+ * - low severity: no notification created (log-only via caller)
+ * - medium severity with groupKey: upserts into an existing group summary
+ * - high/critical severity: always creates a new notification
  */
 export async function createWorkflowNotification(
 	params: CreateNotificationParams
@@ -69,16 +91,51 @@ export async function createWorkflowNotification(
 		return;
 	}
 
+	const severity = params.severity ?? "medium";
+
+	// Low severity: no dashboard notification — caller should log only
+	if (severity === "low") {
+		console.info(
+			`[NotificationEvents] Low severity — skipping notification: ${params.title}`
+		);
+		return;
+	}
+
 	try {
+		// Medium severity with groupKey: batch into a single summary notification
+		if (severity === "medium" && params.groupKey) {
+			const existing = await db
+				.select()
+				.from(notifications)
+				.where(
+					and(eq(notifications.groupKey, params.groupKey), eq(notifications.read, false))
+				)
+				.limit(1);
+
+			if (existing.length > 0) {
+				const current = existing[0];
+				const updatedMessage = `${current.message}\n• ${params.message}`;
+				await db
+					.update(notifications)
+					.set({
+						message: updatedMessage,
+						createdAt: new Date(),
+					})
+					.where(eq(notifications.id, current.id));
+				return;
+			}
+		}
+
 		await db.insert(notifications).values([
 			{
 				workflowId: params.workflowId,
 				applicantId: params.applicantId,
 				type: params.type,
-				// Title doesn't exist in schema, combining with message
 				message: `${params.title}: ${params.message}`,
 				actionable: params.actionable ?? true,
 				read: false,
+				severity,
+				groupKey: params.groupKey,
 			},
 		]);
 	} catch (error) {

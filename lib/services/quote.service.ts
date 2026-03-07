@@ -1,13 +1,18 @@
 /**
  * Quote service - quote generation operations
  */
-import { generateObject } from "ai";
+
+import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants, quotes } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { getThinkingModel, isAIConfigured, AI_CONFIG } from "@/lib/ai/models";
-import { quoteGenerationSchema } from "@/lib/validations/quotes";
+import {
+	AI_CONFIG,
+	getThinkingModel,
+	isAIConfigured,
+	runStructuredInteraction,
+} from "@/lib/ai/models";
 import type { QuoteGenerationResult } from "@/lib/validations/quotes";
+import { quoteGenerationSchema } from "@/lib/validations/quotes";
 
 type ApplicantRow = typeof applicants.$inferSelect;
 
@@ -37,12 +42,8 @@ export interface QuoteResult {
  */
 export async function generateQuote(
 	applicantId: number,
-	workflowId: number,
+	workflowId: number
 ): Promise<QuoteResult> {
-	console.log(
-		`[QuoteService] Generating Quote for Applicant ${applicantId}, Workflow ${workflowId}`,
-	);
-
 	const db = getDatabaseClient();
 	if (!db) {
 		return {
@@ -136,18 +137,15 @@ export async function generateQuote(
 
 async function generateQuoteWithAI(
 	applicantData: ApplicantRow,
-	workflowId: number,
+	_workflowId: number
 ): Promise<QuoteGenerationResult> {
-	console.log(
-		`[QuoteService] Running AI quote generation for workflow ${workflowId}`,
-	);
 	const prompt = `You are a pricing analyst generating a merchant services quote for StratCol.
 
 APPLICANT DETAILS:
 - Company: ${applicantData.companyName}
 - Industry: ${applicantData.industry || "Not provided"}
 - Employee count: ${applicantData.employeeCount ?? "Not provided"}
-- Mandate volume (cents): ${applicantData.mandateVolume ?? "Not provided"}
+- Estimated transactions per month: ${applicantData.estimatedTransactionsPerMonth ?? "Not provided"}
 - ITC score: ${applicantData.itcScore ?? "Not provided"}
 - Mandate type: ${applicantData.mandateType ?? "Not provided"}
 
@@ -160,47 +158,20 @@ OUTPUT REQUIREMENTS:
 - recommendation: STANDARD, PREMIUM, or HIGH_RISK
 
 RULES:
-- If mandate volume is missing, assume 5,000,000 cents (R50,000).
+- If estimated transactions per month is missing, the AI may use a reasonable default for pricing context.
 - Keep adjustedFeePercent within 50-500 bps.
 - Use ITC score to adjust risk and pricing.`;
-
-	if (isAIConfigured()) {
-		try {
-			const { object } = await generateObject({
-				model: getThinkingModel(),
-				schema: quoteGenerationSchema,
-				schemaName: "QuoteGeneration",
-				schemaDescription: "Generated pricing for StratCol merchant services",
-				prompt,
-				temperature: AI_CONFIG.ANALYSIS_TEMPERATURE,
-			});
-
-			return object;
-		} catch (error) {
-			console.error("[QuoteService] AI quote generation failed:", error);
-		}
+	if (!isAIConfigured()) {
+		throw new Error(
+			"[QuoteService] AI is not configured. Set GOOGLE_GENAI_KEY to enable quote generation."
+		);
 	}
-
-	return generateMockQuote(applicantData);
-}
-
-function generateMockQuote(applicantData: ApplicantRow): QuoteGenerationResult {
-	const mandateVolume = applicantData.mandateVolume ?? 5_000_000;
-	const baseFeePercent = 150;
-	const itcScore = applicantData.itcScore ?? 700;
-	const riskAdjustment = itcScore < 650 ? 50 : itcScore < 700 ? 25 : 0;
-	const adjustedFeePercent = Math.min(baseFeePercent + riskAdjustment, 500);
-
-	return {
-		amount: mandateVolume,
-		baseFeePercent,
-		adjustedFeePercent,
-		rationale:
-			"Pricing is based on the stated mandate volume and industry norms. A base fee of 1.5% is applied with a modest risk adjustment based on credit profile. The final rate reflects expected processing volume and compliance overhead.",
-		riskFactors:
-			itcScore < 650 ? ["Lower ITC score indicates elevated credit risk."] : [],
-		recommendation: itcScore < 650 ? "HIGH_RISK" : "STANDARD",
-	};
+	return runStructuredInteraction({
+		model: getThinkingModel(),
+		input: prompt,
+		schema: quoteGenerationSchema,
+		temperature: AI_CONFIG.ANALYSIS_TEMPERATURE,
+	});
 }
 
 async function notifyQuoteGenerated({
@@ -234,7 +205,7 @@ async function notifyQuoteGenerated({
 			console.warn(
 				"[QuoteService] Callback returned non-200:",
 				response.status,
-				response.statusText,
+				response.statusText
 			);
 		}
 	} catch (error) {

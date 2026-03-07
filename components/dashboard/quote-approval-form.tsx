@@ -1,19 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import {
 	RiAi,
-	RiLoader4Line,
-	RiCloseLine,
 	RiAlertLine,
+	RiCloseLine,
 	RiErrorWarningLine,
+	RiLoader4Line,
 } from "@remixicon/react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
+import { useMemo, useState } from "react";
 import { GlassCard } from "@/components/dashboard";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
@@ -22,6 +19,9 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 /** Overlimit threshold in cents (R500,000 = 50,000,000 cents) */
 const OVERLIMIT_THRESHOLD = 50000000;
@@ -224,7 +224,7 @@ export function QuoteApprovalForm({
 										: currentStatus === "pending_signature"
 											? "text-blue-600 bg-blue-100 border-blue-500/40"
 											: currentStatus === "approved"
-												? "text-emerald-800 bg-emerald-100 border-emerald-500/40"
+												? "text-emerald-800 bg-emerald-100/40 border-emerald-500/40"
 												: "text-foreground"
 							}`}>
 							{currentStatus}

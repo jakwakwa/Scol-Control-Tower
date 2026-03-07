@@ -2,24 +2,22 @@
  * FICA Upload API
  *
  * Handles file uploads for FICA documents (bank statements, accountant letters).
+ * Stores file content as base64 in the database for AI verification.
  * Triggers the 'upload/fica.received' event to resume the workflow.
  *
  * POST /api/fica/upload
  * Body: FormData with files and metadata
  */
 
+import { auth } from "@clerk/nextjs/server";
+import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { inngest } from "@/inngest/client";
-import { getDatabaseClient, getBaseUrl } from "@/app/utils";
+import { getDatabaseClient } from "@/app/utils";
 import { documents, workflows } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { auth } from "@clerk/nextjs/server";
-
-// ============================================
-// Types
-// ============================================
+import { inngest } from "@/inngest/client";
+import { evaluateDocumentQuality } from "@/lib/services/document-quality.service";
 
 const UploadMetadataSchema = z.object({
 	workflowId: z.coerce.number().int().positive("Workflow ID is required"),
@@ -46,24 +44,16 @@ const documentCategoryMap: Record<UploadedDocument["type"], string> = {
 	PROOF_OF_ADDRESS: "fica_individual",
 };
 
-// ============================================
-// POST Handler
-// ============================================
-
 export async function POST(request: NextRequest) {
 	try {
-		// Authenticate (optional for client uploads via magic link)
 		const { userId } = await auth();
 
-		// Parse multipart form data
 		const formData = await request.formData();
 
-		// Extract metadata
 		const workflowId = formData.get("workflowId");
 		const applicantId = formData.get("applicantId");
 		const documentType = formData.get("documentType");
 
-		// Validate metadata
 		const metadataResult = UploadMetadataSchema.safeParse({
 			workflowId,
 			applicantId,
@@ -82,18 +72,12 @@ export async function POST(request: NextRequest) {
 
 		const metadata = metadataResult.data;
 
-		// Get uploaded files
 		const files = formData.getAll("files") as File[];
 
 		if (files.length === 0) {
 			return NextResponse.json({ error: "No files uploaded" }, { status: 400 });
 		}
 
-		console.log(
-			`[FicaUpload] Processing ${files.length} file(s) for workflow ${metadata.workflowId}`
-		);
-
-		// Verify workflow exists
 		const db = getDatabaseClient();
 		if (!db) {
 			return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
@@ -111,31 +95,38 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Process and store files
-		// In production, this would upload to S3/Cloudflare R2/etc.
+		const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+		const maxSize = 10 * 1024 * 1024;
+
 		const uploadedDocuments: UploadedDocument[] = [];
 
 		for (const file of files) {
-			// Validate file type
-			const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
-
 			if (!allowedTypes.includes(file.type)) {
-				console.warn(`[FicaUpload] Invalid file type: ${file.type}`);
 				continue;
 			}
 
-			// Validate file size (max 10MB)
-			const maxSize = 10 * 1024 * 1024;
 			if (file.size > maxSize) {
-				console.warn(`[FicaUpload] File too large: ${file.size} bytes`);
 				continue;
 			}
 
-			// Generate storage URL (mock for now)
-			// In production: await uploadToStorage(file)
-			const storageUrl = await mockUploadFile(file, metadata.workflowId);
+			const arrayBuffer = await file.arrayBuffer();
+			const buffer = Buffer.from(arrayBuffer);
+			const quality = evaluateDocumentQuality(
+				file.name,
+				file.type,
+				buffer,
+				{
+					enforceRecency: metadata.documentType === "PROOF_OF_ADDRESS",
+				}
+			);
+			if (!quality.ok) {
+				continue;
+			}
+			const base64Content = Buffer.from(arrayBuffer).toString("base64");
 
-			const uploadedDocument = {
+			const storageUrl = `/api/documents/download?applicantId=${metadata.applicantId}&type=${metadata.documentType}&fileName=${encodeURIComponent(file.name)}`;
+
+			const uploadedDocument: UploadedDocument = {
 				type: metadata.documentType,
 				filename: file.name,
 				url: storageUrl,
@@ -154,9 +145,15 @@ export async function POST(request: NextRequest) {
 						category: documentCategoryMap[metadata.documentType],
 						source: "client",
 						fileName: file.name,
+						fileContent: base64Content,
+						mimeType: file.type,
 						storageUrl,
 						uploadedBy: userId || "client",
 						uploadedAt: new Date(),
+						notes:
+							quality.warnings.length > 0
+								? `[QUALITY_WARNING] ${quality.warnings.join("; ")}`
+								: undefined,
 					},
 				])
 				.returning();
@@ -174,8 +171,6 @@ export async function POST(request: NextRequest) {
 					},
 				});
 			}
-
-			console.log(`[FicaUpload] Uploaded: ${file.name} -> ${storageUrl}`);
 		}
 
 		if (uploadedDocuments.length === 0) {
@@ -185,7 +180,6 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Send event to Inngest to resume workflow
 		await inngest.send({
 			name: "upload/fica.received",
 			data: {
@@ -196,8 +190,6 @@ export async function POST(request: NextRequest) {
 			},
 		});
 
-		console.log(`[FicaUpload] Event sent to Inngest for workflow ${metadata.workflowId}`);
-
 		return NextResponse.json({
 			success: true,
 			message: `${uploadedDocuments.length} document(s) uploaded successfully`,
@@ -205,8 +197,6 @@ export async function POST(request: NextRequest) {
 			documents: uploadedDocuments,
 		});
 	} catch (error) {
-		console.error("[FicaUpload] Error processing upload:", error);
-
 		return NextResponse.json(
 			{
 				error: "Internal server error",
@@ -217,29 +207,6 @@ export async function POST(request: NextRequest) {
 	}
 }
 
-// ============================================
-// Mock File Upload
-// ============================================
-
-/**
- * Mock file upload - in production, replace with actual storage
- */
-async function mockUploadFile(file: File, workflowId: number): Promise<string> {
-	// Simulate upload delay
-	await new Promise(resolve => setTimeout(resolve, 100));
-
-	// Generate a mock URL
-	const timestamp = Date.now();
-	const safeFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-	const baseUrl = getBaseUrl();
-
-	return `${baseUrl}/uploads/workflows/${workflowId}/${timestamp}-${safeFilename}`;
-}
-
-// ============================================
-// GET Handler - Check upload status
-// ============================================
-
 export async function GET(request: NextRequest) {
 	const { searchParams } = new URL(request.url);
 	const workflowId = searchParams.get("workflowId");
@@ -248,13 +215,37 @@ export async function GET(request: NextRequest) {
 		return NextResponse.json({ error: "workflowId is required" }, { status: 400 });
 	}
 
-	// In production, query the documents table
+	const db = getDatabaseClient();
+	if (!db) {
+		return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
+	}
+
+	const [workflow] = await db
+		.select({ applicantId: workflows.applicantId })
+		.from(workflows)
+		.where(eq(workflows.id, parseInt(workflowId)))
+		.limit(1);
+
+	if (!workflow) {
+		return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
+	}
+
+	const docs = await db
+		.select({
+			id: documents.id,
+			type: documents.type,
+			fileName: documents.fileName,
+			status: documents.status,
+			mimeType: documents.mimeType,
+			uploadedAt: documents.uploadedAt,
+			storageUrl: documents.storageUrl,
+		})
+		.from(documents)
+		.where(eq(documents.applicantId, workflow.applicantId));
+
 	return NextResponse.json({
 		workflowId: parseInt(workflowId),
-		status: "pending",
-		requiredDocuments: [
-			{ type: "BANK_STATEMENT", required: true, uploaded: false },
-			{ type: "ACCOUNTANT_LETTER", required: true, uploaded: false },
-		],
+		status: docs.length > 0 ? "uploaded" : "pending",
+		documents: docs,
 	});
 }

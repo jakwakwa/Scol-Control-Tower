@@ -1,9 +1,123 @@
 import { z } from "zod";
 
+const yesNoEnumSchema = z.enum(["yes", "no"]);
+
+const applicantDetailsSchema = z.object({
+	registeredName: z.string().optional(),
+	tradingName: z.string().optional(),
+	registrationOrIdNumber: z.string().optional(),
+	contactPerson: z.string().optional(),
+	telephone: z.string().optional(),
+	email: z.string().email().optional().or(z.literal("")),
+	industry: z.string().optional(),
+	subIndustry: z.string().optional(),
+	fspLicenseNumber: z.string().optional(),
+	igfGuaranteeNumber: z.string().optional(),
+	regulatingBody: z.string().optional(),
+	membershipNumber: z.string().optional(),
+	professionalAffiliation: z.string().optional(),
+	professionalMembershipNumber: z.string().optional(),
+	businessDescription: z.string().optional(),
+	marketingMethod: z.string().optional(),
+});
+
+const insuranceDetailsSchema = z.object({
+	isInsuranceClient: z.boolean().optional(),
+	noneFscaRegulatedCollections: yesNoEnumSchema.optional(),
+	fscaCollections: z
+		.object({
+			funeralPoliciesUpTo30000: yesNoEnumSchema.optional(),
+			shortTermInsurance: yesNoEnumSchema.optional(),
+			riskOnlyPolicies: yesNoEnumSchema.optional(),
+			riskAndSavingsGuaranteed: yesNoEnumSchema.optional(),
+			savingsAndInvestmentsWithoutGuarantees: yesNoEnumSchema.optional(),
+			retirementAnnuitiesAndPreservationFunds: yesNoEnumSchema.optional(),
+			pensionsOnGroupBasis: yesNoEnumSchema.optional(),
+			unitTrust: yesNoEnumSchema.optional(),
+		})
+		.optional(),
+	rolePlayers: z
+		.object({
+			isInsurer: yesNoEnumSchema.optional(),
+			insurerNames: z.string().optional(),
+			isUma: yesNoEnumSchema.optional(),
+			umaName: z.string().optional(),
+			isCallCaptiveOwner: yesNoEnumSchema.optional(),
+			callCaptiveOwnerName: z.string().optional(),
+			isVapProductOwner: yesNoEnumSchema.optional(),
+			vapProductsOrServices: z.string().optional(),
+			isIntermediaryFsp: yesNoEnumSchema.optional(),
+			intermediaryInsurerNames: z.string().optional(),
+			intermediaryUmaName: z.string().optional(),
+			intermediaryCallCaptiveOwnerName: z.string().optional(),
+			intermediaryProductOwners: z.string().optional(),
+			isJuristicRepresentative: yesNoEnumSchema.optional(),
+			juristicOperatingFsp: z.string().optional(),
+		})
+		.optional(),
+});
+
 export const facilityApplicationSchema = z.object({
+	applicantDetails: applicantDetailsSchema.optional(),
+	insuranceDetails: insuranceDetailsSchema.optional(),
+	facilitySelection: z
+		.object({
+			serviceTypes: z
+				.array(
+					z.enum(["EFT", "DebiCheck", "3rd Party Payments", "Pay@", "Card Payments"])
+				)
+				.min(1, "Select at least one service type"),
+			additionalServices: z
+				.array(
+					z.enum([
+						"Integration",
+						"E-Mandate",
+						"Account Verification",
+						"ID Verification",
+						"Bulk SMS",
+					])
+				)
+				.optional()
+				.default([]),
+		})
+		.optional(),
+	volumeMetrics: z
+		.object({
+			history: z
+				.object({
+					currentProvider: z.string().optional(),
+					previousProvider: z.string().optional(),
+					amountsOwed: z.string().optional(),
+				})
+				.optional(),
+			statistics: z
+				.object({
+					averageTransactionsPerMonth: z.coerce.number().min(0).optional(),
+					unpaidTransactionsCount: z.coerce.number().min(0).optional(),
+					unpaidTransactionsValue: z.coerce.number().min(0).optional(),
+					disputedTransactionsCount: z.coerce.number().min(0).optional(),
+					disputedTransactionsValue: z.coerce.number().min(0).optional(),
+				})
+				.optional(),
+			predictedGrowth: z
+				.object({
+					forecastVolume: z.coerce.number().min(0).optional(),
+					forecastAverageValue: z.coerce.number().min(0).optional(),
+				})
+				.optional(),
+			limitsAppliedFor: z
+				.object({
+					maxTransactionsPerMonth: z.coerce.number().min(0).optional(),
+					maxRandValue: z.coerce.number().min(0).optional(),
+					highestSingleTransaction: z.coerce.number().min(0).optional(),
+				})
+				.optional(),
+		})
+		.optional(),
 	serviceTypes: z
 		.array(z.enum(["EFT", "DebiCheck", "3rd Party Payments", "Pay@", "Card Payments"]))
-		.min(1, "Select at least one service type"),
+		.optional()
+		.default([]),
 	additionalServices: z
 		.array(
 			z.enum([
@@ -28,11 +142,24 @@ export const facilityApplicationSchema = z.object({
 	maxTransactionsPerMonth: z.coerce.number().min(0).optional(),
 	maxRandValue: z.coerce.number().min(0).optional(),
 	highestSingleTransaction: z.coerce.number().min(0).optional(),
+}).superRefine((value, ctx) => {
+	const hasLegacyServiceTypes = Array.isArray(value.serviceTypes) && value.serviceTypes.length > 0;
+	const hasNestedServiceTypes =
+		Array.isArray(value.facilitySelection?.serviceTypes) &&
+		value.facilitySelection.serviceTypes.length > 0;
+
+	if (!(hasLegacyServiceTypes || hasNestedServiceTypes)) {
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			path: ["serviceTypes"],
+			message: "Select at least one service type",
+		});
+	}
 });
 
 export type FacilityApplicationForm = z.infer<typeof facilityApplicationSchema>;
 
-export const stratcolContractSchema = z.object({
+export const stratcolAgreementSchema = z.object({
 	registeredName: z.string().min(2),
 	proprietorName: z.string().optional(),
 	tradingName: z.string().min(2),
@@ -44,6 +171,7 @@ export const stratcolContractSchema = z.object({
 		"Partnership",
 		"Other",
 	]),
+	telephone: z.string().optional(),
 	businessAddress: z.object({
 		address: z.string().min(2),
 		postalCode: z.string().min(2),
@@ -54,6 +182,14 @@ export const stratcolContractSchema = z.object({
 	}),
 	durationAtAddress: z.string().optional(),
 	industryTenure: z.string().optional(),
+	companyResolution: z
+		.object({
+			cityTown: z.string().min(1),
+			date: z.string().min(1),
+			resolvedName: z.string().min(2),
+			resolvedIdNumber: z.string().min(6),
+		})
+		.optional(),
 	authorisedRepresentative: z.object({
 		name: z.string().min(2),
 		idNumber: z.string().min(6),
@@ -91,7 +227,7 @@ export const stratcolContractSchema = z.object({
 	signatureDate: z.string().min(2),
 });
 
-export type StratcolContractForm = z.infer<typeof stratcolContractSchema>;
+export type StratcolAgreementForm = z.infer<typeof stratcolAgreementSchema>;
 
 export const signedQuotationSchema = z.object({
 	quoteReference: z.string().optional(),
@@ -245,25 +381,6 @@ export const absa6995Schema = z.object({
 });
 
 export type Absa6995Form = z.infer<typeof absa6995Schema>;
-
-// ============================================
-// Accountant Letter Form
-// ============================================
-
-export const accountantLetterSchema = z.object({
-	businessName: z.string().min(2, "Business name is required"),
-	physicalAddress: z.string().min(5, "Physical address is required"),
-	accountantName: z.string().min(2, "Accountant name is required"),
-	practiceNumber: z.string().min(2, "Practice number is required"),
-	confirmLegitimate: z.literal(true, {
-		message:
-			"You must confirm the business is legitimate and you are not aware of any investigation",
-	}),
-	signatureName: z.string().min(2, "Signature is required"),
-	signatureDate: z.string().min(2, "Signature date is required"),
-});
-
-export type AccountantLetterForm = z.infer<typeof accountantLetterSchema>;
 
 // ============================================
 // Call Centre Application Form

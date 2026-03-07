@@ -7,8 +7,8 @@ import { z } from "zod";
 import {
 	addressSchema,
 	bankingDetailsSchema,
-	saIdNumberSchema,
 	registrationNumberSchema,
+	saIdNumberSchema,
 	signatureSchema,
 } from "./common";
 
@@ -41,7 +41,7 @@ export const beneficialOwnerSchema = z.object({
 		.refine(
 			val => {
 				const num = parseFloat(val);
-				return !isNaN(num) && num >= 5 && num <= 100;
+				return !Number.isNaN(num) && num >= 5 && num <= 100;
 			},
 			{ message: "Shareholding must be between 5% and 100%" }
 		),

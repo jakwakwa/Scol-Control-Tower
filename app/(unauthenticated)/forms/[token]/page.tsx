@@ -1,11 +1,11 @@
 import FormShell from "@/components/forms/form-shell";
-import FormView from "./form-view";
-import { formContent } from "./content";
-import type { FormType } from "@/lib/types";
 import {
 	getFormInstanceByToken,
 	markFormInstanceStatus,
 } from "@/lib/services/form.service";
+import type { FormType } from "@/lib/types";
+import { formContent } from "./content";
+import FormView from "./form-view";
 
 interface FormPageProps {
 	params: Promise<{ token: string }>;
@@ -70,7 +70,13 @@ export default async function FormPage({ params }: FormPageProps) {
 
 	return (
 		<FormShell title={content.title} description={content.description}>
-			<FormView token={token} formType={formType} />
+			<FormView
+				token={token}
+				formType={formType}
+				initialFormStatus={formInstance.status}
+				initialDecisionStatus={formInstance.decisionStatus ?? null}
+				initialDecisionOutcome={formInstance.decisionOutcome ?? null}
+			/>
 		</FormShell>
 	);
 }

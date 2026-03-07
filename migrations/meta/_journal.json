@@ -1,61 +1,54 @@
 {
   "version": "7",
-  "dialect": "turso",
+  "dialect": "sqlite",
   "entries": [
     {
       "idx": 0,
       "version": "6",
-      "when": 1769781606723,
-      "tag": "0000_dry_invisible_woman",
+      "when": 1771537817252,
+      "tag": "0000_fuzzy_calypso",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "6",
-      "when": 1769829686264,
-      "tag": "0001_graceful_stark_industries",
+      "when": 1771975598432,
+      "tag": "0001_burly_magik",
       "breakpoints": true
     },
     {
       "idx": 2,
       "version": "6",
-      "when": 1770186086522,
-      "tag": "0002_wandering_marvel_boy",
+      "when": 1772056908484,
+      "tag": "0002_silky_echo",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "6",
-      "when": 1770207166823,
-      "tag": "0003_glorious_toad_men",
+      "when": 1772100305334,
+      "tag": "0003_pretty_gideon",
       "breakpoints": true
     },
     {
       "idx": 4,
       "version": "6",
-      "when": 1770209446539,
-      "tag": "0004_curvy_fabian_cortez",
+      "when": 1772363275834,
+      "tag": "0004_wealthy_starjammers",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "6",
-      "when": 1770370455052,
-      "tag": "0005_yummy_talisman",
+      "when": 1772499118281,
+      "tag": "0005_spotty_scourge",
       "breakpoints": true
     },
     {
       "idx": 6,
       "version": "6",
-      "when": 1770417628630,
-      "tag": "0006_milky_mentor",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "6",
-      "when": 1770580611890,
-      "tag": "0007_fuzzy_ezekiel_stane",
+      "when": 1772499248838,
+      "tag": "0006_jazzy_argent",
       "breakpoints": true
     }
   ]

@@ -1,15 +1,17 @@
 "use client";
 
-import type * as React from "react";
+import { RiArrowRightSLine, RiCheckLine } from "@remixicon/react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
-
+import type * as React from "react";
 import { cn } from "@/lib/utils";
-import { RiCheckLine, RiArrowRightSLine } from "@remixicon/react";
 
 function DropdownMenu({
+	modal = false,
 	...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
-	return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />;
+	return (
+		<DropdownMenuPrimitive.Root data-slot="dropdown-menu" modal={modal} {...props} />
+	);
 }
 
 function DropdownMenuPortal({
@@ -19,9 +21,16 @@ function DropdownMenuPortal({
 }
 
 function DropdownMenuTrigger({
+	className,
 	...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Trigger>) {
-	return <DropdownMenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props} />;
+	return (
+		<DropdownMenuPrimitive.Trigger
+			data-slot="dropdown-menu-trigger"
+			className={cn("select-none", className)}
+			{...props}
+		/>
+	);
 }
 
 function DropdownMenuContent({

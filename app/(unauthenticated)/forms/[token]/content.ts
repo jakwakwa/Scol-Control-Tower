@@ -1,13 +1,12 @@
+import type { ZodTypeAny } from "zod";
 import type { FormSectionDefinition } from "@/components/forms/types";
 import type { FormType } from "@/lib/types";
-import type { ZodTypeAny } from "zod";
 import {
 	absa6995Schema,
-	accountantLetterSchema,
 	callCentreApplicationSchema,
 	facilityApplicationSchema,
 	signedQuotationSchema,
-	stratcolContractSchema,
+	stratcolAgreementSchema,
 } from "@/lib/validations/forms";
 
 export const formContent: Record<
@@ -20,6 +19,12 @@ export const formContent: Record<
 		submitLabel: string;
 		defaultValues: Record<string, unknown>;
 		testData?: Record<string, unknown>;
+		decision?: {
+			enabled: boolean;
+			approveLabel: string;
+			declineLabel: string;
+			requiresDeclineReason?: boolean;
+		};
 	}
 > = {
 	FACILITY_APPLICATION: {
@@ -29,10 +34,137 @@ export const formContent: Record<
 		schema: facilityApplicationSchema,
 		submitLabel: "Submit facility application",
 		defaultValues: {
+			applicantDetails: {
+				registeredName: "",
+				tradingName: "",
+				registrationOrIdNumber: "",
+				contactPerson: "",
+				telephone: "",
+				email: "",
+				industry: "",
+				subIndustry: "",
+				businessDescription: "",
+				marketingMethod: "",
+			},
+			insuranceDetails: {
+				isInsuranceClient: false,
+			},
 			serviceTypes: [],
 			additionalServices: [],
 		},
 		sections: [
+			{
+				title: "Applicant Details",
+				description:
+					"Capture the legal entity and contact context used across downstream verification checks.",
+				fields: [
+					{
+						name: "applicantDetails.registeredName",
+						label: "Registered name / surname",
+						type: "text",
+						required: true,
+					},
+					{
+						name: "applicantDetails.tradingName",
+						label: "Trading name",
+						type: "text",
+					},
+					{
+						name: "applicantDetails.registrationOrIdNumber",
+						label: "Registration no. / ID no.",
+						type: "text",
+					},
+					{
+						name: "applicantDetails.contactPerson",
+						label: "Contact person",
+						type: "text",
+					},
+					{
+						name: "applicantDetails.telephone",
+						label: "Telephone",
+						type: "tel",
+					},
+					{
+						name: "applicantDetails.email",
+						label: "Email address",
+						type: "email",
+					},
+					{
+						name: "applicantDetails.industry",
+						label: "Industry",
+						type: "text",
+					},
+					{
+						name: "applicantDetails.subIndustry",
+						label: "Sub-industry",
+						type: "text",
+					},
+					{
+						name: "applicantDetails.businessDescription",
+						label: "Description of business",
+						type: "textarea",
+						colSpan: 2,
+					},
+					{
+						name: "applicantDetails.marketingMethod",
+						label: "How will product be marketed",
+						type: "textarea",
+						colSpan: 2,
+					},
+				],
+			},
+			{
+				title: "Insurance (Only if Applicable)",
+				description: "Complete this section only if you are an insurance client.",
+				fields: [
+					{
+						name: "insuranceDetails.isInsuranceClient",
+						label: "This applicant is an insurance client",
+						type: "checkbox",
+					},
+					{
+						name: "insuranceDetails.noneFscaRegulatedCollections",
+						label: "None FSCA regulated collections",
+						type: "select",
+						options: [
+							{ label: "Yes", value: "yes" },
+							{ label: "No", value: "no" },
+						],
+					},
+					{
+						name: "insuranceDetails.fscaCollections.shortTermInsurance",
+						label: "FSCA: Short term insurance",
+						type: "select",
+						options: [
+							{ label: "Yes", value: "yes" },
+							{ label: "No", value: "no" },
+						],
+					},
+					{
+						name: "insuranceDetails.fscaCollections.riskOnlyPolicies",
+						label: "FSCA: Risk-only policies",
+						type: "select",
+						options: [
+							{ label: "Yes", value: "yes" },
+							{ label: "No", value: "no" },
+						],
+					},
+					{
+						name: "insuranceDetails.rolePlayers.isInsurer",
+						label: "Role player: Insurer",
+						type: "select",
+						options: [
+							{ label: "Yes", value: "yes" },
+							{ label: "No", value: "no" },
+						],
+					},
+					{
+						name: "insuranceDetails.rolePlayers.insurerNames",
+						label: "Insurer names",
+						type: "text",
+					},
+				],
+			},
 			{
 				title: "Facility Selection",
 				description: "Select the services required for your collections facility.",
@@ -156,6 +288,22 @@ export const formContent: Record<
 			},
 		],
 		testData: {
+			"applicantDetails.registeredName": "Test Company (Pty) Ltd",
+			"applicantDetails.tradingName": "Test Trading",
+			"applicantDetails.registrationOrIdNumber": "2024/123456/07",
+			"applicantDetails.contactPerson": "John Smith",
+			"applicantDetails.telephone": "0111234567",
+			"applicantDetails.email": "john@testcompany.co.za",
+			"applicantDetails.industry": "Insurance",
+			"applicantDetails.subIndustry": "Funeral",
+			"applicantDetails.businessDescription": "Provides funeral policy administration.",
+			"applicantDetails.marketingMethod": "Call centre and direct agents.",
+			"insuranceDetails.isInsuranceClient": true,
+			"insuranceDetails.noneFscaRegulatedCollections": "no",
+			"insuranceDetails.fscaCollections.shortTermInsurance": "yes",
+			"insuranceDetails.fscaCollections.riskOnlyPolicies": "yes",
+			"insuranceDetails.rolePlayers.isInsurer": "yes",
+			"insuranceDetails.rolePlayers.insurerNames": "ABC Life",
 			serviceTypes: ["EFT", "DebiCheck"],
 			additionalServices: ["Integration", "E-Mandate"],
 			currentProvider: "Previous Provider Ltd",
@@ -176,7 +324,13 @@ export const formContent: Record<
 		title: "Signed Quotation",
 		description: "Review and accept the quotation provided by StratCol.",
 		schema: signedQuotationSchema,
-		submitLabel: "Accept quotation",
+		submitLabel: "Submit quotation details",
+		decision: {
+			enabled: true,
+			approveLabel: "Approve quotation",
+			declineLabel: "Decline quotation",
+			requiresDeclineReason: true,
+		},
 		defaultValues: {
 			consentAccepted: false,
 		},
@@ -225,11 +379,17 @@ export const formContent: Record<
 			},
 		],
 	},
-	STRATCOL_CONTRACT: {
+	AGREEMENT_CONTRACT: {
 		title: "StratCol Contract",
 		description: "Provide entity details and confirm the StratCol agreement.",
-		schema: stratcolContractSchema,
-		submitLabel: "Submit contract",
+		schema: stratcolAgreementSchema,
+		submitLabel: "Submit contract details",
+		decision: {
+			enabled: true,
+			approveLabel: "Approve contract",
+			declineLabel: "Decline contract",
+			requiresDeclineReason: true,
+		},
 		defaultValues: {
 			beneficialOwners: [{}],
 			consentAccepted: false,
@@ -1184,99 +1344,18 @@ export const formContent: Record<
 			"businessMetrics.complianceConcerns": "no",
 		},
 	},
-	ACCOUNTANT_LETTER: {
-		title: "Confirmation of Accounting Officer Letter",
-		description:
-			"This letter confirms the legitimacy of the business and the accounting officer's professional standing. Please complete all fields below.",
-		schema: accountantLetterSchema,
-		submitLabel: "Submit accountant letter",
-		defaultValues: {
-			confirmLegitimate: false,
-		},
-		sections: [
-			{
-				title: "Business Information",
-				description:
-					"The accounting officer confirms the following details for the business applying for a StratCol collections facility.",
-				fields: [
-					{
-						name: "businessName",
-						label: "Business name",
-						type: "text",
-						required: true,
-						colSpan: 2,
-					},
-					{
-						name: "physicalAddress",
-						label: "Physical business address",
-						type: "textarea",
-						required: true,
-						colSpan: 2,
-					},
-				],
-			},
-			{
-				title: "Accounting Officer Details",
-				description: "Provide the details of the accounting officer or auditor.",
-				fields: [
-					{
-						name: "accountantName",
-						label: "Full name of accounting officer / auditor",
-						type: "text",
-						required: true,
-					},
-					{
-						name: "practiceNumber",
-						label: "Practice registration number",
-						type: "text",
-						required: true,
-					},
-				],
-			},
-			{
-				title: "Confirmation & Signature",
-				description:
-					"By signing below, you confirm that the above business is legitimate, operating as a going concern, and you are not aware of any investigation or pending legal action against the business.",
-				fields: [
-					{
-						name: "confirmLegitimate",
-						label:
-							"I confirm the business is legitimate and I am not aware of any investigation or pending legal action against the business.",
-						type: "checkbox",
-						required: true,
-						colSpan: 2,
-					},
-					{
-						name: "signatureName",
-						label: "Typed signature",
-						type: "signature",
-						required: true,
-					},
-					{
-						name: "signatureDate",
-						label: "Signature date",
-						type: "date",
-						required: true,
-					},
-				],
-			},
-		],
-		testData: {
-			businessName: "Test Company (Pty) Ltd",
-			physicalAddress: "123 Test Street, Sandton, 2196",
-			accountantName: "John Accountant",
-			practiceNumber: "PR-12345",
-			confirmLegitimate: true,
-			signatureName: "John Accountant",
-			signatureDate: new Date().toISOString().split("T")[0],
-		},
-	},
 	CALL_CENTRE_APPLICATION: {
 		title: "Call Centre Application",
 		description:
 			"Complete this application if your business will use call centre collections. All sections are required.",
 		schema: callCentreApplicationSchema,
-		submitLabel: "Submit call centre application",
+		submitLabel: "Submit call centre details",
+		decision: {
+			enabled: true,
+			approveLabel: "Approve call centre application",
+			declineLabel: "Decline call centre application",
+			requiresDeclineReason: true,
+		},
 		defaultValues: {
 			serviceAgreementAccepted: false,
 		},

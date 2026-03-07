@@ -77,11 +77,15 @@ export async function createTestVendor(vendorData: {
 }) {
 	const token = await getJwt();
 
+	if (!vendorData.registrationNumber) {
+		throw new Error("ProcureCheck requires a registration number");
+	}
+
 	// Sandbox specific: Use the GUID from screenshots for South Africa / Test
 	// nationality_Id: "153A0FB2-CC8D-4805-80D2-5F996720FED9"
 	const payload = {
 		vendor_Name: vendorData.vendorName,
-		vendor_RegNum: vendorData.registrationNumber || "2019/015639/07", // Fallback for sandboxing if empty
+		vendor_RegNum: vendorData.registrationNumber,
 		vendorExternalID: `STC-${vendorData.applicantId}`, // Unique ID for our system
 		nationality_Id: "153A0FB2-CC8D-4805-80D2-5F996720FED9",
 		processBeeInfo: false,

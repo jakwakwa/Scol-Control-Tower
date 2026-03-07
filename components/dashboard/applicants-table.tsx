@@ -1,8 +1,11 @@
 "use client";
 
+import { RiArrowDownSLine, RiArrowUpSLine, RiMoreLine } from "@remixicon/react";
+import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DataTable } from "@/components/ui/data-table";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -12,9 +15,6 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { RiArrowDownSLine, RiArrowUpSLine, RiMoreLine } from "@remixicon/react";
-import type { ColumnDef } from "@tanstack/react-table";
-import { DataTable } from "@/components/ui/data-table";
 
 // --- Types ---
 
@@ -92,7 +92,13 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 				)}
 			</Button>
 		),
-		cell: ({ row }) => <div className="font-medium">{row.original.companyName}</div>,
+		cell: ({ row }) => (
+			<Link
+				href={`/dashboard/applicants/${row.original.id}`}
+				className="font-medium text-foreground hover:text-primary hover:underline">
+				{row.original.companyName}
+			</Link>
+		),
 	},
 	{
 		accessorKey: "contactName",

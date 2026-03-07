@@ -10,18 +10,79 @@ Open **Workflows** from the sidebar to see all active and completed workflows.
 ### What you can do
 
 - Sort by client, status, agent, or start time
-- View a workflow’s detail page
+- View a workflow's detail page
 - Open the workflow payload for deeper inspection
 - Approve or reject workflows awaiting human input
 
 ## Workflow stages
 
-Each workflow moves through four stages:
+Each workflow moves through six stages:
 
-1. **Applicant Capture**: intake and initial record creation
-2. **Quotation**: agreement and service configuration
-3. **Verification**: bank assessment and FICA document checks
-4. **Integration**: handover and operational readiness
+1. **Initiation**: applicant intake and facility application dispatch
+2. **Facility, Pre-Risk & Quote**: facility form, sales evaluation, optional pre-risk clearance, and quotation flow
+3. **Procurement & AI Verification**: parallel procurement evidence collection and document verification (FICA upload, ITC/sanctions, AI validation agent), followed by Reporter Agent synthesis
+4. **Risk Review**: mandatory Risk Manager review
+5. **Contract**: contract draft review plus contract/ABSA collection
+6. **Final Approval**: dual approval from Risk Manager and Account Manager
+
+Sanctions screening always runs either during pre-risk (when sales flags issues) or at the main ITC checkpoint after FICA. Results are reused for up to 7 days.
+
+## Stage 3: Procurement & AI verification
+
+Stage 3 runs checks in parallel after the applicant signs the quote and submits required documents.
+
+### Input wait gate
+
+Before checks begin, Stage 3 waits for required document readiness:
+
+| Input | Event | Required |
+| :--- | :--- | :--- |
+| FICA documents (bank statement, ID, proof of residence) | `upload/fica.received` | Always |
+
+Procurement outcomes are collected as evidence in Stage 3 but are no longer a separate blocking wait gate before analysis.
+
+### Stream A: Procurement risk assessment
+
+ProcureCheck runs against the applicant. If procurement fails to execute (for example API auth/provider errors), the workflow records a manual-required procurement status and continues with the remaining Stage 3 checks.
+
+### Stream B: Document verification and AI analysis
+
+After documents are ready, two independent paths run **in parallel**:
+
+- **ITC + sanctions check**: ITC provider check plus sanctions screening. If ITC provider is unavailable, the workflow records manual-required ITC and continues.
+- **AI validation/risk/sanctions analysis**: Gemini-powered analysis of uploaded documents, with fallback/manual-required envelopes when an agent call fails.
+- **PDF-native bank statement analysis**: When a bank statement PDF is present, Stage 3 forwards it directly as `application/pdf` document input so Gemini can use document understanding (layout/tables/context), not just extracted text.
+
+Both paths are joined before Reporter synthesis. Partial failures are retained and surfaced to Risk Review instead of terminating immediately.
+
+### Reporter Agent synthesis
+
+Once ITC/sanctions and AI analysis complete, the **Reporter Agent** combines results into a single consolidated report. This report includes:
+
+- Validation summary from the AI agent
+- Risk assessment from the AI agent
+- Sanctions results from both ITC and AI paths
+- ITC status (live or manual-required degraded mode)
+- Combined flags (e.g. `ITC_SANCTIONS_BLOCKED`, `ITC_CHECK_FAILED`)
+- Overall recommendation and aggregated trust score
+
+The consolidated report is then sent to Stage 4 for a single mandatory Risk Manager decision. Stage 4 uses **reminder-based waiting** while items are in the queue and **does not auto-terminate** on review timeout; manual review remains mandatory.
+
+### Stage 3 flow diagram
+
+If no usable bank statement PDF is available, Stage 3 keeps conservative/manual-review fallbacks for risk outputs.
+
+```
+                    ┌─ Stream A: Procurement evidence ─────────┐
+Wait FICA docs  ─┬──┤                                           ├── all resolve
+                 │  └───────────────────────────────────────────┘
+                 │   ┌─ ITC + Sanctions check (degraded ok) ───┐
+                 └───┤                                           ├── join results
+                     └─ AI Validation/Risk/Sanctions ───────────┘
+                                        │
+                              Reporter Agent synthesizes all available results
+                              → Stage 4 Risk Manager decision
+```
 
 ## Workflow statuses
 
@@ -44,6 +105,58 @@ When a workflow status is **Awaiting human**, quick actions appear:
 
 You will be prompted to confirm the action before it is sent.
 
+### Structured override decisions
+
+Approval and rejection decisions use a **structured override dialog** instead of free-text reasons. You select a category, optional subcategory, and can add notes. This data feeds the AI retraining pipeline. See [Risk review](/user-guides/risk-review) for full details.
+
+## Sales evaluation (Stage 2)
+
+After the facility application is submitted, the system runs an automated sales evaluation to detect potential issues before a quote is generated.
+
+### Possible outcomes
+
+- **No issues found**: the workflow continues directly to quote generation.
+- **Issues found**: the workflow pauses and creates a **Pre-risk Approval Required** notification. Staff must review and approve before the quote can be sent.
+
+### Pre-risk approval path
+
+When issues are detected:
+
+1. A notification is created with the issues summary.
+2. A staff member approves or rejects via the `risk/pre-approval.decided` event.
+3. If approved but flagged for deeper evaluation, a second `risk/pre-evaluation.decided` wait occurs.
+4. If rejected at any step, the applicant is notified by email and the workflow terminates.
+5. Once approved, the workflow continues to quote generation.
+
+### Tracking fields
+
+The applicant detail page shows:
+
+- **Sales Evaluation**: current status (`not_started`, `approved`, `issues_found`)
+- **Pre-risk Path**: whether pre-risk was required and its outcome
+- **Applicant Decision**: whether the applicant approved or declined
+
+## Applicant approve/decline flow
+
+Several Stage 2 and Stage 5 steps now support **explicit applicant decisions** instead of signature-only flows:
+
+### Quote response (Stage 2)
+
+After staff approves and sends a quote, the client receives a form link. The client can:
+
+- **Approve** the quotation
+- **Decline** the quotation (with a required reason)
+
+If declined, the applicant receives a confirmation email and the workflow terminates with reason "Applicant declined quotation".
+
+### Contract response (Stage 5)
+
+The StratCol contract form also supports approve/decline decisions. If the applicant declines the contract, the workflow terminates with reason "Applicant declined contract".
+
+### Email notifications on decline
+
+When an applicant declines any decision-enabled form, the system sends a status email confirming the decline and logs the reason in the `applicantDeclineReason` field on the workflow.
+
 ## Workflow details page
 
 Select **View workflow** from the actions menu to open the detail view.
@@ -52,6 +165,9 @@ Select **View workflow** from the actions menu to open the detail view.
 
 - **Header**: workflow ID, client, status, and stage
 - **Generated quote**: amount, status, and rationale (when available)
+- **Sales evaluation**: status, issues summary, and flagged-by indicator
+- **Pre-risk path**: required/not required, outcome
+- **Applicant decision**: current outcome and decline reason (if any)
 - **Activity timeline**: audit log of all events and transitions
 - **Client details**: company and contact information
 - **Processing status**: current agent and any error details
