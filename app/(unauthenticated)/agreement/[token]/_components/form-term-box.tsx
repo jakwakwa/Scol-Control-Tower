@@ -1,4 +1,11 @@
-function TermBlock({ title, children }) {
+import type { ReactNode } from "react";
+
+type TermBlockProps = {
+	title: string;
+	children: ReactNode;
+};
+
+function TermBlock({ title, children }: TermBlockProps) {
 	return (
 		<div className="mb-4">
 			<h4 className="font-bold text-gray-800 mb-2">{title}</h4>
