@@ -39,6 +39,7 @@ export type KillSwitchReason =
 	| "STAGE2_PRE_RISK_APPROVAL_TIMEOUT"
 	| "STAGE2_PRE_RISK_EVAL_TIMEOUT"
 	| "STAGE2_QUOTE_APPROVAL_TIMEOUT"
+	| "VALIDATION_ERROR_INGEST"
 	| "STAGE2_QUOTE_RESPONSE_TIMEOUT"
 	| "STAGE3_FICA_UPLOAD_TIMEOUT"
 	| "STAGE4_FINANCIAL_STATEMENTS_TIMEOUT"
@@ -275,6 +276,7 @@ function getReasonMessage(reason: KillSwitchReason): string {
 		STAGE2_PRE_RISK_APPROVAL_TIMEOUT: "Pre-risk approval not received within deadline",
 		STAGE2_PRE_RISK_EVAL_TIMEOUT: "Pre-risk evaluation not completed within deadline",
 		STAGE2_QUOTE_APPROVAL_TIMEOUT: "Quote approval not received within deadline",
+		VALIDATION_ERROR_INGEST: "Workflow terminated due to invalid event data payload",
 		STAGE2_QUOTE_RESPONSE_TIMEOUT: "Applicant did not respond to quote within deadline",
 		STAGE3_FICA_UPLOAD_TIMEOUT: "FICA documents not uploaded within deadline",
 		STAGE4_FINANCIAL_STATEMENTS_TIMEOUT:

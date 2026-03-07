@@ -803,6 +803,27 @@ export default function ApplicantDetailPage() {
 
 							<TabsContent value="overview">
 								<GlassCard className="mb-0">
+									{isWorkflowTerminated ? (
+										<div className="mb-6 p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive-foreground">
+											<div className="flex items-center gap-2 font-bold mb-1">
+												⚠️ Workflow Terminated
+											</div>
+											<p className="text-sm">
+												Reason:{" "}
+												{(workflow as any)?.terminationReason ||
+													"No termination reason provided."}
+											</p>
+											{(workflow as any)?.terminatedAt && (
+												<p className="text-xs mt-1 opacity-80">
+													Terminated at {formatDateTime((workflow as any).terminatedAt)}
+													{(workflow as any)?.terminatedBy
+														? ` by ${(workflow as any).terminatedBy}`
+														: ""}
+												</p>
+											)}
+										</div>
+									) : null}
+
 									<h3 className="font-bold text-lg mb-4">Application Summary</h3>
 									<p className="text-sm text-muted-foreground mb-6">
 										Application initiated on{" "}
