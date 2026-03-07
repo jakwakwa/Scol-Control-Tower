@@ -1,4 +1,14 @@
-function SignatureBox({ label, type = "text", name, value, onChange }) {
+import type { ChangeEventHandler } from "react";
+
+interface SignatureBoxProps {
+	label: string;
+	type?: "text" | "date";
+	name: string;
+	value: string;
+	onChange: ChangeEventHandler<HTMLInputElement>;
+}
+
+function SignatureBox({ label, type = "text", name, value, onChange }: SignatureBoxProps) {
 	return (
 		<div className="flex flex-col">
 			{type === "date" ? (
