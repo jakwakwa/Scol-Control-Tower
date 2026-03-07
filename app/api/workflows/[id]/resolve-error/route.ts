@@ -1,10 +1,16 @@
 import { inngest } from "@/inngest/client";
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 export async function POST(
 	request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
+	const authResult = await requireAuth();
+	if (authResult instanceof NextResponse) {
+		return authResult;
+	}
+
 	const { id } = await params;
 	const workflowId = parseInt(id);
 

@@ -60,7 +60,15 @@ export default async function DashboardPage() {
 					registrationNumber: w.registrationNumber || undefined,
 					mandateType: w.mandateType || undefined,
 					riskLevel: w.riskLevel || undefined,
-					...(w.metadata ? JSON.parse(w.metadata) : {}),
+					...(w.metadata
+						? (() => {
+								try {
+									return JSON.parse(w.metadata);
+								} catch {
+									return {};
+								}
+							})()
+						: {}),
 				},
 			}));
 
@@ -104,8 +112,8 @@ export default async function DashboardPage() {
 				type: (n.type as WorkflowNotification["type"]) || "awaiting",
 				message: n.message,
 				timestamp: n.createdAt || new Date(),
-				read: n.read || false,
-				actionable: n.actionable || false,
+				read: n.read,
+				actionable: n.actionable,
 			}));
 		} catch (error) {
 			console.error("Failed to fetch notifications:", error);

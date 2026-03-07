@@ -1,9 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getDatabaseClient } from "@/app/utils";
-import { documentUploads, workflows, applicants } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { auth } from "@clerk/nextjs/server";
 import crypto from "crypto";
+import { eq } from "drizzle-orm";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import { getDatabaseClient } from "@/app/utils";
+import { applicants, documentUploads, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
+import { evaluateDocumentQuality } from "@/lib/services/document-quality.service";
 
 /**
  * POST /api/onboarding/documents/upload
@@ -15,6 +18,11 @@ import { inngest } from "@/inngest/client";
  * 3. Add file validation
  */
 export async function POST(request: NextRequest) {
+	const { userId } = await auth();
+	if (!userId) {
+		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+	}
+
 	const db = getDatabaseClient();
 	if (!db) {
 		return NextResponse.json({ error: "Database not available" }, { status: 500 });
@@ -28,11 +36,10 @@ export async function POST(request: NextRequest) {
 		const internalFormId = formData.get("internalFormId") as string | null;
 		const category = formData.get("category") as string | null;
 		const documentType = formData.get("documentType") as string | null;
-		const userId = formData.get("userId") as string | null;
 		const metadata = formData.get("metadata") as string | null;
 
 		// Validate required fields
-		if (!file || !workflowId || !category || !documentType) {
+		if (!(file && workflowId && category && documentType)) {
 			return NextResponse.json(
 				{
 					error: "Missing required fields: file, workflowId, category, documentType",
@@ -84,34 +91,68 @@ export async function POST(request: NextRequest) {
 		const fileExtension = file.name.split(".").pop() || "bin";
 		const storageKey = `${workflowId}/${category}/${crypto.randomUUID()}.${fileExtension}`;
 
-		// In production, upload to S3/R2 here
-		// For now, we'll just store the metadata
-		// const fileBuffer = await file.arrayBuffer();
-		// await uploadToStorage(storageKey, fileBuffer);
+		const fileBuffer = await file.arrayBuffer();
+		const quality = evaluateDocumentQuality(
+			file.name,
+			file.type,
+			Buffer.from(fileBuffer),
+			{
+				enforceRecency:
+					documentType.toUpperCase() === "PROOF_OF_ADDRESS" ||
+					documentType.toUpperCase() === "PROPRIETOR_RESIDENCE",
+			}
+		);
+		if (!quality.ok) {
+			return NextResponse.json(
+				{ error: `Document quality checks failed: ${quality.reasons.join("; ")}` },
+				{ status: 400 }
+			);
+		}
+		const base64Content = Buffer.from(fileBuffer).toString("base64");
+		const combinedMetadata =
+			quality.warnings.length > 0
+				? JSON.stringify({
+						clientMetadata: metadata || null,
+						qualityWarnings: quality.warnings,
+					})
+				: metadata || undefined;
 
-		// Mock storage URL (in production, this would be the actual S3/R2 URL)
-		const storageUrl = `/api/onboarding/documents/download/${storageKey}`;
+		const document = await db.transaction(async tx => {
+			const [inserted] = await tx
+				.insert(documentUploads)
+				.values({
+					workflowId: workflowIdNum,
+					internalFormId: internalFormId ? parseInt(internalFormId) : null,
+					category: category as
+						| "standard"
+						| "individual"
+						| "financial"
+						| "professional"
+						| "industry",
+					documentType,
+					fileName: file.name,
+					fileSize: file.size,
+					fileContent: base64Content,
+					mimeType: file.type,
+					storageKey,
+					storageUrl: `/api/documents/download?documentUploadId=PLACEHOLDER&storageKey=${encodeURIComponent(storageKey)}`,
+					verificationStatus: "pending",
+					metadata: combinedMetadata,
+					uploadedBy: userId || undefined,
+				})
+				.returning();
 
-		// Create document record
-		const result = await db
-			.insert(documentUploads)
-			.values({
-				workflowId: workflowIdNum,
-				internalFormId: internalFormId ? parseInt(internalFormId) : null,
-				category: category as any,
-				documentType,
-				fileName: file.name,
-				fileSize: file.size,
-				mimeType: file.type,
-				storageKey,
-				storageUrl,
-				verificationStatus: "pending",
-				metadata: metadata || undefined,
-				uploadedBy: userId || undefined,
-			})
-			.returning();
+			if (!inserted) return null;
 
-		const document = result[0];
+			const actualStorageUrl = `/api/documents/download?documentUploadId=${inserted.id}&storageKey=${encodeURIComponent(storageKey)}`;
+			await tx
+				.update(documentUploads)
+				.set({ storageUrl: actualStorageUrl })
+				.where(eq(documentUploads.id, inserted.id));
+
+			return { ...inserted, storageUrl: actualStorageUrl };
+		});
+
 		if (!document) {
 			return NextResponse.json(
 				{ error: "Failed to create document record" },
@@ -213,6 +254,11 @@ export async function POST(request: NextRequest) {
  * List all documents for a workflow
  */
 export async function GET(request: NextRequest) {
+	const { userId } = await auth();
+	if (!userId) {
+		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+	}
+
 	const db = getDatabaseClient();
 	if (!db) {
 		return NextResponse.json({ error: "Database not available" }, { status: 500 });

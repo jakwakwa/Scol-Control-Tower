@@ -1,0 +1,25 @@
+---
+description: Prohibits seeded data in the project
+alwaysApply: true
+---
+
+# No Seeded Data
+
+Seeded data is **not tolerated or allowed** in this project.
+
+## What This Means
+
+- **No seed scripts** or seed files (e.g. `**/seed.ts`, `seed.js`, etc.)
+- **No fixture data** in migrations or seed files
+- **No hardcoded test data** that persists to the database
+- **No sample/demo data** committed to the codebase
+
+## Instead
+
+- Use migrations for schema changes only.
+- For local development or testing, create data via the application UI or API, or use ephemeral/test utilities that run in isolation and do not persist.
+- Avoid any mechanism that seeds the database with predefined records.
+
+## When Asked to Seed
+
+If asked to add seed data, seed scripts, or seed files: **do not implement** — explain that this project prohibits seeded data and suggest alternatives.

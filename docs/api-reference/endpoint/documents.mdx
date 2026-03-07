@@ -17,6 +17,8 @@ description: 'Manage applicant documents'
   <SegmentDescription>Upload a new file (bank statement, ID, etc.).</SegmentDescription>
 </Segment>
 
+Uploads are subject to **quality checks** at ingest (legibility heuristics, image dimensions, entropy-based low-detail detection). Submissions that fail these checks may be **rejected or routed** for manual review. Proof-of-residence uploads may trigger **recency validation** with warnings or quality metadata.
+
 ### Request Body (FormData)
 
 <ParamField body="file" type="file" required>

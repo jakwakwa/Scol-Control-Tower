@@ -2,19 +2,6 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { inngest } from "@/inngest";
-import type { FormType } from "@/lib/types";
-import { getDatabaseClient } from "@/app/utils";
-import { quotes } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
-import {
-	absa6995Schema,
-	accountantLetterSchema,
-	callCentreApplicationSchema,
-	facilityApplicationSchema,
-	signedQuotationSchema,
-	stratcolContractSchema,
-	type FacilityApplicationForm,
-} from "@/lib/validations/forms";
 import {
 	getFormInstanceByToken,
 	recordFormSubmission,
@@ -23,15 +10,23 @@ import {
 	createWorkflowNotification,
 	logWorkflowEvent,
 } from "@/lib/services/notification-events.service";
+import type { FormType } from "@/lib/types";
+import {
+	absa6995Schema,
+	callCentreApplicationSchema,
+	type FacilityApplicationForm,
+	facilityApplicationSchema,
+	signedQuotationSchema,
+	stratcolAgreementSchema,
+} from "@/lib/validations/forms";
 
 const formSubmissionSchema = z.object({
 	token: z.string().min(10),
 	formType: z.enum([
 		"FACILITY_APPLICATION",
 		"SIGNED_QUOTATION",
-		"STRATCOL_CONTRACT",
+		"AGREEMENT_CONTRACT",
 		"ABSA_6995",
-		"ACCOUNTANT_LETTER",
 		"CALL_CENTRE_APPLICATION",
 	]),
 	data: z.record(z.string(), z.unknown()),
@@ -40,15 +35,14 @@ const formSubmissionSchema = z.object({
 const formSchemaMap: Record<FormType, z.ZodSchema> = {
 	FACILITY_APPLICATION: facilityApplicationSchema,
 	SIGNED_QUOTATION: signedQuotationSchema,
-	STRATCOL_CONTRACT: stratcolContractSchema,
+	AGREEMENT_CONTRACT: stratcolAgreementSchema,
 	ABSA_6995: absa6995Schema,
-	ACCOUNTANT_LETTER: accountantLetterSchema,
 	CALL_CENTRE_APPLICATION: callCentreApplicationSchema,
 	DOCUMENT_UPLOADS: z.any(),
 };
 
 const extractSubmittedBy = (formType: FormType, data: Record<string, unknown>) => {
-	if (formType === "SIGNED_QUOTATION" || formType === "STRATCOL_CONTRACT") {
+	if (formType === "SIGNED_QUOTATION" || formType === "AGREEMENT_CONTRACT") {
 		return typeof data.signatureName === "string" ? data.signatureName : undefined;
 	}
 
@@ -58,6 +52,62 @@ const extractSubmittedBy = (formType: FormType, data: Record<string, unknown>) =
 	}
 
 	return undefined;
+};
+
+const toNumber = (value: unknown): number => {
+	if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+	if (typeof value === "string") {
+		const parsed = Number(value.replace(/[R,\s]/g, ""));
+		return Number.isFinite(parsed) ? parsed : 0;
+	}
+	return 0;
+};
+
+const deriveMandateType = (
+	serviceTypes: string[] | undefined
+): "EFT" | "DEBIT_ORDER" | "CASH" | "MIXED" => {
+	const normalizedServiceTypes = serviceTypes ?? [];
+	const hasDebicheck = normalizedServiceTypes.includes("DebiCheck");
+	const hasEft = normalizedServiceTypes.some(type => type !== "DebiCheck");
+	if (hasDebicheck && hasEft) return "MIXED";
+	if (hasDebicheck) return "DEBIT_ORDER";
+	return "EFT";
+};
+
+const buildFacilitySubmissionFormData = (facilityData: FacilityApplicationForm) => {
+	const legacyServiceTypes = facilityData.serviceTypes || [];
+	const nestedServiceTypes = facilityData.facilitySelection?.serviceTypes || [];
+	const serviceTypes = nestedServiceTypes.length > 0 ? nestedServiceTypes : legacyServiceTypes;
+
+	const nestedMaxRandValue = facilityData.volumeMetrics?.limitsAppliedFor?.maxRandValue;
+	const legacyMaxRandValue = facilityData.maxRandValue;
+	const mandateVolume = toNumber(nestedMaxRandValue ?? legacyMaxRandValue) * 100;
+
+	const forecastVolume =
+		facilityData.volumeMetrics?.predictedGrowth?.forecastVolume ?? facilityData.forecastVolume;
+	const forecastAverageValue =
+		facilityData.volumeMetrics?.predictedGrowth?.forecastAverageValue ??
+		facilityData.forecastAverageValue;
+
+	const applicantDetails = facilityData.applicantDetails ?? {};
+	const registrationOrIdNumber = applicantDetails.registrationOrIdNumber;
+
+	return {
+		mandateVolume,
+		mandateType: deriveMandateType(serviceTypes),
+		businessType: "Unknown",
+		annualTurnover: toNumber(forecastVolume) * toNumber(forecastAverageValue) * 12,
+		facilityApplicationData: facilityData as unknown as Record<string, unknown>,
+		ficaComparisonContext: {
+			companyName: applicantDetails.registeredName,
+			tradingName: applicantDetails.tradingName,
+			registrationNumber: registrationOrIdNumber,
+			idNumber: registrationOrIdNumber,
+			contactName: applicantDetails.contactPerson,
+			email: applicantDetails.email,
+			phone: applicantDetails.telephone,
+		},
+	};
 };
 
 export async function POST(request: NextRequest) {
@@ -108,36 +158,6 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		let latestQuoteId: number | null = null;
-		let quoteDb = null as Awaited<ReturnType<typeof getDatabaseClient>> | null;
-
-		if (formType === "SIGNED_QUOTATION" && formInstance.workflowId) {
-			quoteDb = await getDatabaseClient();
-
-			if (!quoteDb) {
-				return NextResponse.json(
-					{ error: "Database connection failed" },
-					{ status: 500 }
-				);
-			}
-
-			const quoteResults = await quoteDb
-				.select()
-				.from(quotes)
-				.where(eq(quotes.workflowId, formInstance.workflowId))
-				.orderBy(desc(quotes.createdAt))
-				.limit(1);
-
-			if (quoteResults.length === 0) {
-				return NextResponse.json(
-					{ error: "No quote available for this workflow" },
-					{ status: 404 }
-				);
-			}
-
-			latestQuoteId = quoteResults[0].id;
-		}
-
 		const submission = await recordFormSubmission({
 			applicantMagiclinkFormId: formInstance.id,
 			applicantId: formInstance.applicantId,
@@ -185,21 +205,7 @@ export async function POST(request: NextRequest) {
 
 			if (formType === "FACILITY_APPLICATION") {
 				const facilityData = validation.data as FacilityApplicationForm;
-				const serviceTypes = facilityData.serviceTypes || [];
-
-				let mandateType: "EFT" | "DEBIT_ORDER" | "CASH" | "MIXED" = "EFT";
-				const hasDebicheck = serviceTypes.includes("DebiCheck");
-				// Consider other service types as EFT for now
-				const hasEft = serviceTypes.some(type => type !== "DebiCheck");
-
-				if (hasDebicheck && hasEft) {
-					mandateType = "MIXED";
-				} else if (hasDebicheck) {
-					mandateType = "DEBIT_ORDER";
-				}
-
-				// Assuming maxRandValue is in Rands, convert to cents
-				const mandateVolume = (facilityData.maxRandValue || 0) * 100;
+				const mappedFormData = buildFacilitySubmissionFormData(facilityData);
 
 				await inngest.send({
 					name: "form/facility.submitted",
@@ -207,67 +213,7 @@ export async function POST(request: NextRequest) {
 						workflowId: formInstance.workflowId,
 						applicantId: formInstance.applicantId,
 						submissionId: submission.id,
-						formData: {
-							mandateVolume,
-							mandateType,
-							businessType: "Unknown",
-							annualTurnover:
-								(facilityData.forecastVolume || 0) *
-								(facilityData.forecastAverageValue || 0) *
-								12,
-						},
-						submittedAt: new Date().toISOString(),
-					},
-				});
-			}
-
-			if (formType === "STRATCOL_CONTRACT") {
-				await inngest.send({
-					name: "contract/signed",
-					data: {
-						workflowId: formInstance.workflowId,
-						signedAt: new Date().toISOString(),
-					},
-				});
-			}
-
-			if (formType === "SIGNED_QUOTATION" && formInstance.workflowId) {
-				const db = quoteDb ?? (await getDatabaseClient());
-
-				if (!db) {
-					console.error("[FormSubmit] Database connection failed for quote update");
-				} else {
-					const updateResults = latestQuoteId
-						? await db
-								.update(quotes)
-								.set({ status: "approved", updatedAt: new Date() })
-								.where(eq(quotes.id, latestQuoteId))
-								.returning()
-						: [];
-
-					const resolvedQuoteId = updateResults[0]?.id ?? latestQuoteId;
-
-					if (resolvedQuoteId) {
-						await inngest.send({
-							name: "quote/signed",
-							data: {
-								workflowId: formInstance.workflowId,
-								applicantId: formInstance.applicantId,
-								quoteId: resolvedQuoteId,
-								signedAt: new Date().toISOString(),
-							},
-						});
-					}
-				}
-			}
-
-			if (formType === "ACCOUNTANT_LETTER") {
-				await inngest.send({
-					name: "form/accountant-letter.submitted",
-					data: {
-						workflowId: formInstance.workflowId,
-						applicantId: formInstance.applicantId,
-						submissionId: submission.id,
+						formData: mappedFormData,
 						submittedAt: new Date().toISOString(),
 					},
 				});
@@ -281,6 +227,17 @@ export async function POST(request: NextRequest) {
 						applicantId: formInstance.applicantId,
 						submissionId: submission.id,
 						submittedAt: new Date().toISOString(),
+					},
+				});
+			}
+
+			if (formType === "ABSA_6995") {
+				await inngest.send({
+					name: "form/absa-6995.completed",
+					data: {
+						workflowId: formInstance.workflowId,
+						applicantId: formInstance.applicantId,
+						completedAt: new Date().toISOString(),
 					},
 				});
 			}

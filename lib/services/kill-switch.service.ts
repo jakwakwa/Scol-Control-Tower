@@ -12,18 +12,19 @@
  * - Audit trail for compliance
  */
 
-import { eq, and, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import {
-	workflows,
-	workflowEvents,
-	notifications,
 	applicantMagiclinkForms,
 	applicants,
+	notifications,
+	workflowEvents,
+	workflows,
 } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import { sendInternalAlertEmail } from "./email.service";
 import { escalateToManagement } from "./notification.service";
+import { acquireStateLock } from "./state-lock.service";
 
 // ============================================
 // Types
@@ -33,6 +34,20 @@ export type KillSwitchReason =
 	| "PROCUREMENT_DENIED"
 	| "COMPLIANCE_VIOLATION"
 	| "FRAUD_DETECTED"
+	| "TIMEOUT_TERMINATION"
+	| "STAGE2_FACILITY_TIMEOUT"
+	| "STAGE2_PRE_RISK_APPROVAL_TIMEOUT"
+	| "STAGE2_PRE_RISK_EVAL_TIMEOUT"
+	| "STAGE2_QUOTE_APPROVAL_TIMEOUT"
+	| "VALIDATION_ERROR_INGEST"
+	| "STAGE2_QUOTE_RESPONSE_TIMEOUT"
+	| "STAGE3_FICA_UPLOAD_TIMEOUT"
+	| "STAGE4_FINANCIAL_STATEMENTS_TIMEOUT"
+	| "STAGE5_CONTRACT_REVIEW_TIMEOUT"
+	| "STAGE5_ABSA_FORM_TIMEOUT"
+	| "STAGE6_RISK_MANAGER_TIMEOUT"
+	| "STAGE6_ACCOUNT_MANAGER_TIMEOUT"
+	| "STAGE6_CONTRACT_SIGNATURE_TIMEOUT"
 	| "MANUAL_TERMINATION";
 
 export interface KillSwitchResult {
@@ -72,10 +87,6 @@ export async function executeKillSwitch(
 	const { workflowId, applicantId, reason, decidedBy, notes } = input;
 	const terminatedAt = new Date();
 
-	console.log(
-		`[KillSwitch] EXECUTING for Workflow ${workflowId} - Reason: ${reason}`
-	);
-
 	const db = getDatabaseClient();
 	if (!db) {
 		return {
@@ -100,6 +111,10 @@ export async function executeKillSwitch(
 				metadata: notes ? JSON.stringify({ notes }) : undefined,
 			})
 			.where(eq(workflows.id, workflowId));
+
+		// Phase 1: Acquire state lock to prevent ghost processes from
+		// overwriting the terminated state with late-arriving results
+		await acquireStateLock(workflowId, decidedBy);
 
 		// Step 2: Revoke all pending form links
 		const formsRevoked = await revokeAllPendingForms(db, applicantId, workflowId);
@@ -163,12 +178,11 @@ export async function executeKillSwitch(
 			applicantId,
 			reason: `Kill switch activated: ${getReasonMessage(reason)}${notes ? ` — ${notes}` : ""}`,
 			escalationType: reason === "COMPLIANCE_VIOLATION" ? "compliance" : "kill_switch",
-			severity: reason === "COMPLIANCE_VIOLATION" || reason === "FRAUD_DETECTED" ? "critical" : "warning",
+			severity:
+				reason === "COMPLIANCE_VIOLATION" || reason === "FRAUD_DETECTED"
+					? "critical"
+					: "warning",
 		});
-
-		console.log(
-			`[KillSwitch] SUCCESS - Workflow ${workflowId} terminated, ${formsRevoked} forms revoked`
-		);
 
 		return {
 			success: true,
@@ -220,7 +234,7 @@ export async function isWorkflowTerminated(workflowId: number): Promise<boolean>
 async function revokeAllPendingForms(
 	db: NonNullable<ReturnType<typeof getDatabaseClient>>,
 	applicantId: number,
-	workflowId: number
+	_workflowId: number
 ): Promise<number> {
 	try {
 		const pendingForms = await db
@@ -257,6 +271,22 @@ function getReasonMessage(reason: KillSwitchReason): string {
 		PROCUREMENT_DENIED: "Procurement check denied by Risk Manager",
 		COMPLIANCE_VIOLATION: "Compliance violation detected",
 		FRAUD_DETECTED: "Potential fraud detected",
+		TIMEOUT_TERMINATION: "Terminated automatically due to timeout",
+		STAGE2_FACILITY_TIMEOUT: "Facility application not submitted within deadline",
+		STAGE2_PRE_RISK_APPROVAL_TIMEOUT: "Pre-risk approval not received within deadline",
+		STAGE2_PRE_RISK_EVAL_TIMEOUT: "Pre-risk evaluation not completed within deadline",
+		STAGE2_QUOTE_APPROVAL_TIMEOUT: "Quote approval not received within deadline",
+		VALIDATION_ERROR_INGEST: "Workflow terminated due to invalid event data payload",
+		STAGE2_QUOTE_RESPONSE_TIMEOUT: "Applicant did not respond to quote within deadline",
+		STAGE3_FICA_UPLOAD_TIMEOUT: "FICA documents not uploaded within deadline",
+		STAGE4_FINANCIAL_STATEMENTS_TIMEOUT:
+			"Financial statements not confirmed within deadline",
+		STAGE5_CONTRACT_REVIEW_TIMEOUT: "Contract review not completed within deadline",
+		STAGE5_ABSA_FORM_TIMEOUT: "ABSA 6995 form not completed within deadline",
+		STAGE6_RISK_MANAGER_TIMEOUT: "Risk Manager approval not received within deadline",
+		STAGE6_ACCOUNT_MANAGER_TIMEOUT:
+			"Account Manager approval not received within deadline",
+		STAGE6_CONTRACT_SIGNATURE_TIMEOUT: "Contract not signed within deadline",
 		MANUAL_TERMINATION: "Manually terminated by administrator",
 	};
 	return messages[reason];

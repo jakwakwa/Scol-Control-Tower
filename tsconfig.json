@@ -103,6 +103,7 @@
 		"tests",
 		"**/*.test.*",
 		"**/*.spec.*",
-		"vitest.config.ts"
+		"vitest.config.ts",
+		"scripts/validate-html-rendering.ts"
 	]
 }

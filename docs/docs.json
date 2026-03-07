@@ -1,14 +1,14 @@
 {
-	"$schema": "https://mintlify.com/docs.json",
-	"theme": "linden",
-	"name": "StratCol Control Tower Docs",
-	"colors": {
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "linden",
+  "name": "StratCol Control Tower Docs",
+  "colors": {
     "primary": "#b79e76",
     "light": "#857c6e",
     "dark": "#a48e2d"
   },
-	"favicon": "/favicon.svg",
-	"navigation": {
+  "favicon": "/favicon.svg",
+  "navigation": {
     "dropdowns": [
       {
         "dropdown": "Guides",
@@ -19,17 +19,25 @@
               "user-guides/overview",
               "user-guides/applicants",
               "user-guides/workflows",
-              "user-guides/e2e-testing",
+              "user-guides/risk-review",
+              "user-guides/ai-feedback-pipeline",
               "user-guides/onboarding-forms",
+              "user-guides/quotations",
               "user-guides/agents",
               "user-guides/notifications",
-              "user-guides/quotations"
+              "user-guides/e2e-testing"
             ]
           },
           {
             "group": "Development",
             "pages": [
               "user-guides/e2e-testing"
+            ]
+          },
+          {
+            "group": "Agent Contracts",
+            "pages": [
+              "agent-contracts/firecrawl-check-contracts"
             ]
           },
           {
@@ -46,6 +54,20 @@
               "essentials/code",
               "essentials/images",
               "essentials/reusable-snippets"
+            ]
+          },
+          {
+            "group": "Project",
+            "pages": [
+              "project/exec-summary",
+              "project/changelog-2026-03-02",
+              "project/changelog-2026-03-03"
+            ]
+          },
+          {
+            "group": "Issues",
+            "pages": [
+              "issues/2026-03-01-feat-harden-procurement-fallback-plan"
             ]
           },
           {
@@ -87,42 +109,42 @@
       }
     ]
   },
-	"logo": {
+  "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/light.svg",
     "href": "https://stratcolltd.mintlify.app/user-guides/overview"
   },
-	"navbar": {
-		"links": [
-			{
-				"label": "Support",
-				"href": "mailto:hi@mintlify.com"
-			}
-		],
-		"primary": {
-			"type": "button",
-			"label": "Dashboard",
-			"href": "https://dashboard.mintlify.com"
-		}
-	},
-	"contextual": {
-		"options": [
-			"copy",
-			"view",
-			"chatgpt",
-			"claude",
-			"perplexity",
-			"mcp",
-			"cursor",
-			"vscode"
-		]
-	},
-	"footer": {
-		"socials": {
-			"x": "https://x.com/mintlify",
-			"github": "https://github.com/mintlify",
-			"linkedin": "https://linkedin.com/company/mintlify"
-		}
+  "navbar": {
+    "links": [
+      {
+        "label": "Support",
+        "href": "mailto:hi@mintlify.com"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Dashboard",
+      "href": "https://dashboard.mintlify.com"
+    }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
+  },
+  "footer": {
+    "socials": {
+      "x": "https://x.com/mintlify",
+      "github": "https://github.com/mintlify",
+      "linkedin": "https://linkedin.com/company/mintlify"
+    }
   },
   "background": {
     "color": {

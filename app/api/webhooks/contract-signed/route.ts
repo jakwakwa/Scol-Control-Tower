@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { inngest } from "@/inngest";
+import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { inngest } from "@/inngest";
 
 // Schema for incoming Google Form data for Contract Signing
 const contractSignedSchema = z.object({
@@ -44,8 +44,6 @@ export async function POST(request: NextRequest) {
 				signedAt: new Date().toISOString(),
 			},
 		});
-
-		console.log(`[API] Contract signed event sent for workflow ${data.workflowId}`);
 
 		return NextResponse.json(
 			{

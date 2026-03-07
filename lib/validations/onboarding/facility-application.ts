@@ -4,7 +4,7 @@
  * Note: Using UK spelling throughout (e.g., organisation, authorisation)
  */
 import { z } from "zod";
-import { currencySchema, optionalString } from "./common";
+import { currencySchema, optionalString, saIdNumberSchema } from "./common";
 
 // ============================================
 // Service Type Enums
@@ -144,10 +144,90 @@ export const volumeMetricsSchema = z.object({
 export type VolumeMetrics = z.infer<typeof volumeMetricsSchema>;
 
 // ============================================
+// Applicant & Insurance Context (PDF-aligned)
+// ============================================
+
+const yesNoBooleanSchema = z
+	.enum(["yes", "no"])
+	.transform(value => value === "yes")
+	.optional();
+
+export const facilityApplicantDetailsSchema = z.object({
+	registeredName: optionalString(),
+	tradingName: optionalString(),
+	registrationOrIdNumber: optionalString(),
+	contactPerson: optionalString(),
+	telephone: optionalString(),
+	email: z.string().email("Must be a valid email address").optional().or(z.literal("")),
+	industry: optionalString(),
+	subIndustry: optionalString(),
+	fspLicenseNumber: optionalString(),
+	igfGuaranteeNumber: optionalString(),
+	regulatingBody: optionalString(),
+	membershipNumber: optionalString(),
+	professionalAffiliation: optionalString(),
+	professionalMembershipNumber: optionalString(),
+	businessDescription: optionalString(),
+	marketingMethod: optionalString(),
+});
+
+export const facilityInsuranceDetailsSchema = z.object({
+	isInsuranceClient: z.boolean().default(false),
+	noneFscaRegulatedCollections: yesNoBooleanSchema,
+	fscaCollections: z
+		.object({
+			funeralPoliciesUpTo30000: yesNoBooleanSchema,
+			shortTermInsurance: yesNoBooleanSchema,
+			riskOnlyPolicies: yesNoBooleanSchema,
+			riskAndSavingsGuaranteed: yesNoBooleanSchema,
+			savingsAndInvestmentsWithoutGuarantees: yesNoBooleanSchema,
+			retirementAnnuitiesAndPreservationFunds: yesNoBooleanSchema,
+			pensionsOnGroupBasis: yesNoBooleanSchema,
+			unitTrust: yesNoBooleanSchema,
+		})
+		.default({}),
+	rolePlayers: z
+		.object({
+			isInsurer: yesNoBooleanSchema,
+			insurerNames: optionalString(),
+			isUma: yesNoBooleanSchema,
+			umaName: optionalString(),
+			isCallCaptiveOwner: yesNoBooleanSchema,
+			callCaptiveOwnerName: optionalString(),
+			isVapProductOwner: yesNoBooleanSchema,
+			vapProductsOrServices: optionalString(),
+			isIntermediaryFsp: yesNoBooleanSchema,
+			intermediaryInsurerNames: optionalString(),
+			intermediaryUmaName: optionalString(),
+			intermediaryCallCaptiveOwnerName: optionalString(),
+			intermediaryProductOwners: optionalString(),
+			isJuristicRepresentative: yesNoBooleanSchema,
+			juristicOperatingFsp: optionalString(),
+		})
+		.default({}),
+})
+.superRefine((value, ctx) => {
+	if (!value.isInsuranceClient) {
+		return;
+	}
+
+	if (value.noneFscaRegulatedCollections === undefined) {
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			path: ["noneFscaRegulatedCollections"],
+			message: "Required for insurance clients",
+		});
+	}
+});
+
+// ============================================
 // Complete Facility Application Schema
 // ============================================
 
 export const facilityApplicationSchema = z.object({
+	idNumber: saIdNumberSchema,
+	applicantDetails: facilityApplicantDetailsSchema.optional(),
+	insuranceDetails: facilityInsuranceDetailsSchema.optional(),
 	facilitySelection: facilitySelectionSchema,
 	volumeMetrics: volumeMetricsSchema,
 });

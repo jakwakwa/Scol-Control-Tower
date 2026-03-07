@@ -1,16 +1,29 @@
-import { getDatabaseClient } from "@/app/utils";
-import { DashboardLayout, GlassCard, DashboardSection } from "@/components/dashboard";
-import { Button } from "@/components/ui/button";
-import { notifications, applicants, workflows } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
 import {
+	RiAlertLine,
+	RiCheckDoubleLine,
 	RiCheckLine,
 	RiDeleteBinLine,
-	RiAlertLine,
 	RiTimeLine,
-	RiCheckDoubleLine,
 } from "@remixicon/react";
+import { desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { getDatabaseClient } from "@/app/utils";
+import { DashboardLayout, DashboardSection, GlassCard } from "@/components/dashboard";
+import { Button } from "@/components/ui/button";
+import { applicants, notifications, workflows } from "@/db/schema";
+
+interface NotificationRow {
+	id: number;
+	workflowId: number | null;
+	type: string;
+	message: string;
+	read: boolean | null;
+	actionable: boolean | null;
+	createdAt: Date | null;
+	clientName: string | null;
+	severity: string | null;
+	groupKey: string | null;
+}
 
 async function markAsRead(formData: FormData) {
 	"use server";
@@ -63,9 +76,43 @@ async function markAllAsRead() {
 	revalidatePath("/dashboard/notifications");
 }
 
+const MANUAL_FALLBACK_ALERT_TERMS = [
+	"manual procurement check required",
+	"procurement_check_failed",
+	"procurecheck failed",
+	"procurement check failed",
+	"manual sanctions check required",
+	"sanctions_check_failed",
+	"automated sanctions checks failed",
+];
+
+function isManualFallbackNotification(message: string): boolean {
+	const normalized = message.toLowerCase();
+	return MANUAL_FALLBACK_ALERT_TERMS.some(term => normalized.includes(term));
+}
+
+function isManualSanctionsNotification(message: string): boolean {
+	const normalized = message.toLowerCase();
+	return (
+		normalized.includes("manual sanctions check required") ||
+		normalized.includes("sanctions_check_failed") ||
+		normalized.includes("automated sanctions checks failed")
+	);
+}
+
+function formatNotificationMessage(message: string): string {
+	if (!isManualFallbackNotification(message)) {
+		return message;
+	}
+	if (isManualSanctionsNotification(message)) {
+		return "Automated sanctions checks failed. Complete a full manual sanctions check in Risk Review and record the sanctions decision.";
+	}
+	return "Automated procurement checks failed. Complete a full manual procurement check in Risk Review and record the procurement decision.";
+}
+
 export default async function NotificationsPage() {
 	const db = getDatabaseClient();
-	let allNotifications: any[] = [];
+	let allNotifications: NotificationRow[] = [];
 
 	if (db) {
 		try {
@@ -79,6 +126,8 @@ export default async function NotificationsPage() {
 					actionable: notifications.actionable,
 					createdAt: notifications.createdAt,
 					clientName: applicants.companyName,
+					severity: notifications.severity,
+					groupKey: notifications.groupKey,
 				})
 				.from(notifications)
 				.leftJoin(workflows, eq(notifications.workflowId, workflows.id))
@@ -126,22 +175,36 @@ export default async function NotificationsPage() {
 					</GlassCard>
 				) : (
 					<div className="space-y-3">
-						{allNotifications.map(notification => (
+						{allNotifications.map(notification => {
+							const isHighSeverity =
+								notification.severity === "high" || notification.severity === "critical";
+							const isMediumGrouped =
+								notification.severity === "medium" && notification.groupKey;
+
+							return (
 							<GlassCard
 								key={notification.id}
 								className={`flex items-start justify-between gap-4 ${
-									!notification.read ? "border-l-4 border-l-warning" : ""
+									isHighSeverity
+										? "bg-destructive text-destructive-foreground border-l-4 border-l-destructive"
+										: isMediumGrouped
+											? "bg-warning/20 border-l-4 border-l-warning"
+											: !notification.read
+												? "border-l-4 border-l-warning"
+												: ""
 								}`}>
 								<div className="flex items-start gap-4">
 									<div
 										className={`p-2 rounded-lg ${
-											notification.type === "error"
-												? "bg-red-500/10 text-red-400"
-												: notification.type === "warning"
-													? "bg-warning/50 text-warning-foreground"
-													: notification.type === "success"
-														? "bg-green-500/10 text-green-400"
-														: "bg-blue-500/10 text-blue-400"
+											isHighSeverity
+												? "bg-destructive/30 text-destructive-foreground"
+												: notification.type === "error"
+													? "bg-red-500/10 text-red-400"
+													: notification.type === "warning"
+														? "bg-warning/50 text-warning-foreground"
+														: notification.type === "success"
+															? "bg-green-500/10 text-green-400"
+															: "bg-blue-500/10 text-blue-400"
 										}`}>
 										{notification.type === "error" ? (
 											<RiAlertLine className="h-5 w-5" />
@@ -152,14 +215,19 @@ export default async function NotificationsPage() {
 										)}
 									</div>
 									<div>
-										<h4 className="font-medium">
+										<h4 className="font-medium flex items-center gap-2">
 											{notification.clientName || "Unknown Client"}
+											{isManualFallbackNotification(notification.message) && (
+												<span className="text-[10px] uppercase tracking-wide text-red-300 border border-red-500/30 bg-red-500/10 rounded px-1.5 py-0.5">
+													Manual Check
+												</span>
+											)}
 											{!notification.read && (
 												<span className="ml-2 inline-block w-2 h-2 rounded-full bg-blue-400" />
 											)}
 										</h4>
 										<p className="text-sm text-muted-foreground">
-											{notification.message}
+											{formatNotificationMessage(notification.message)}
 										</p>
 										<p className="text-xs text-muted-foreground/60 mt-1">
 											{notification.createdAt
@@ -190,7 +258,8 @@ export default async function NotificationsPage() {
 									</form>
 								</div>
 							</GlassCard>
-						))}
+							);
+						})}
 					</div>
 				)}
 			</DashboardSection>

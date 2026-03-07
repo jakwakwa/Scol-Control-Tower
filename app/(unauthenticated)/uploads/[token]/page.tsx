@@ -95,6 +95,17 @@ export default async function UploadPage({ params }: UploadPageProps) {
 				};
 				requirements = getConfigDocumentRequirements(context);
 			}
+
+			if (applicant.productType && applicant.productType !== "call_centre") {
+				requirements.push({
+					type: "ACCOUNTANT_LETTER",
+					label: "Accountant letter (optional)",
+					category: "FINANCIAL",
+					required: false,
+					description:
+						"If you use an accountant, you may upload a confirmation letter on their letterhead. Not required for proprietors who manage their own accounts.",
+				});
+			}
 		}
 	}
 

@@ -3,6 +3,7 @@ import { getDatabaseClient } from "@/app/utils";
 import { applicants, workflows } from "@/db/schema";
 import { createApplicantSchema } from "@/lib/validations";
 import { inngest } from "@/inngest";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 /**
  * GET /api/applicants
@@ -10,6 +11,11 @@ import { inngest } from "@/inngest";
  */
 export async function GET() {
 	try {
+		const authResult = await requireAuth();
+		if (authResult instanceof NextResponse) {
+			return authResult;
+		}
+
 		const db = await getDatabaseClient();
 
 		if (!db) {
@@ -35,6 +41,11 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
 	try {
+		const authResult = await requireAuth();
+		if (authResult instanceof NextResponse) {
+			return authResult;
+		}
+
 		const db = await getDatabaseClient();
 
 		if (!db) {
@@ -67,13 +78,15 @@ export async function POST(request: NextRequest) {
 					contactName: data.contactName,
 					email: data.email,
 					phone: data.phone,
+					idNumber: data.idNumber || null,
 					entityType: data.entityType,
 					productType: data.productType,
 					industry: data.industry,
 					employeeCount: data.employeeCount,
-					mandateVolume: data.estimatedVolume
-						? parseInt(data.estimatedVolume.replace(/[^0-9]/g, ""))
-						: 0,
+					estimatedTransactionsPerMonth:
+						data.estimatedTransactionsPerMonth != null
+							? Math.round(Number(data.estimatedTransactionsPerMonth))
+							: null,
 					notes: data.notes,
 					status: "new",
 				},

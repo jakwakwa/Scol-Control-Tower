@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
+import styles from "@/components/forms/external/external-form-theme.module.css";
 import type { DocumentRequirement } from "@/config/document-requirements";
 
 interface UploadViewProps {
@@ -72,53 +72,49 @@ export default function UploadView({ token, requirements }: UploadViewProps) {
 	};
 
 	return (
-		<div className="space-y-8">
-			<p className="text-sm text-muted-foreground">
+		<div className={styles.externalField}>
+			<p className={styles.externalSectionNote}>
 				Upload the supporting documents listed below. You can upload multiple files per
 				requirement when needed.
 			</p>
 
 			{Object.entries(grouped).map(([category, items]) => (
-				<section key={category} className="space-y-4">
-					<h3 className="text-base font-semibold text-foreground">
+				<section key={category} className={styles.externalCard}>
+					<div className={styles.externalSectionHeader}>
 						{category.replace(/_/g, " ")}
-					</h3>
-					<div className="space-y-4">
+					</div>
+					<div className={styles.externalSectionBody}>
 						{items.map(req => (
-							<div
-								key={req.type}
-								className="rounded-lg border border-border/60 p-4 space-y-3">
+							<div key={req.type} className={styles.ownerCard}>
 								<div className="flex items-start justify-between gap-4">
 									<div>
-										<p className="text-sm font-medium text-foreground">{req.label}</p>
+										<p>{req.label}</p>
 										{req.description ? (
-											<p className="text-xs text-muted-foreground">{req.description}</p>
+											<p className={styles.externalSectionNote}>{req.description}</p>
 										) : null}
-										<p className="text-xs text-muted-foreground">
+										<p className={styles.externalSectionNote}>
 											{req.required ? "Required" : "Optional"}
 										</p>
 									</div>
-									{statuses[req.type] === "uploaded" ? (
-										<span className="text-xs font-medium text-emerald-500">Uploaded</span>
-									) : null}
+									{statuses[req.type] === "uploaded" ? <span>Uploaded</span> : null}
 								</div>
 								<div className="flex flex-col gap-3 md:flex-row md:items-center">
 									<input
 										type="file"
 										multiple
 										onChange={event => handleFilesChange(req.type, event.target.files)}
-										className="text-sm"
+										className={styles.externalInput}
 									/>
-									<Button
+									<button
 										type="button"
-										variant="outline"
 										disabled={statuses[req.type] === "uploading"}
+										className={styles.outlineButton}
 										onClick={() => uploadDocuments(req)}>
 										{statuses[req.type] === "uploading" ? "Uploading..." : "Upload"}
-									</Button>
+									</button>
 								</div>
 								{errors[req.type] ? (
-									<p className="text-xs text-destructive">{errors[req.type]}</p>
+									<p className={styles.externalError}>{errors[req.type]}</p>
 								) : null}
 							</div>
 						))}

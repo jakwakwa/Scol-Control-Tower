@@ -1,9 +1,24 @@
 "use client";
 
+import {
+	RiAlarmWarningLine,
+	RiAlertLine,
+	RiBuilding2Line,
+	RiCheckLine,
+	RiCloseLine,
+	RiErrorWarningLine,
+	RiEyeLine,
+	RiPercentLine,
+	RiRefreshLine,
+	RiScalesLine,
+	RiShieldCheckLine,
+	RiTimeLine,
+} from "@remixicon/react";
 import * as React from "react";
-import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DataSourceBadge } from "@/components/ui/data-source-badge";
 import {
 	Dialog,
 	DialogContent,
@@ -12,21 +27,22 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
-	RiShieldCheckLine,
-	RiAlertLine,
-	RiTimeLine,
-	RiCheckLine,
-	RiCloseLine,
-	RiBuilding2Line,
-	RiPercentLine,
-	RiScalesLine,
-	RiEyeLine,
-	RiRefreshLine,
-} from "@remixicon/react";
-import { toast } from "sonner";
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import {
+	OVERRIDE_CATEGORIES,
+	OVERRIDE_CATEGORY_LABELS,
+	OVERRIDE_SUBCATEGORIES,
+	type OverrideCategory,
+} from "@/lib/constants/override-taxonomy";
+import { cn } from "@/lib/utils";
 
 // ============================================
 // Types
@@ -54,6 +70,12 @@ export interface RiskReviewItem {
 	summary?: string;
 	reasoning?: string; // AI's detailed reasoning for the score
 	analysisConfidence?: number; // AI confidence in the analysis (0-100)
+	ficaComparison?: {
+		totalMismatches: number;
+		criticalMismatches: number;
+		documentsWithMismatches: number;
+		keyDiscrepancies: string[];
+	};
 	// Document Status
 	bankStatementVerified?: boolean;
 	accountantLetterVerified?: boolean;
@@ -62,19 +84,52 @@ export interface RiskReviewItem {
 	// V2 Workflow - Review Type (Phase 3)
 	/** Review type: "procurement" for Stage 3, "general" for Stage 4 */
 	reviewType?: "procurement" | "general";
+	decisionType?: string;
+	targetResource?: string;
 	/** Procurement-specific: ProcureCheck risk score */
 	procurementScore?: number;
 	/** Procurement-specific: Has anomalies detected */
 	hasAnomalies?: boolean;
 	/** Procurement-specific: Anomaly descriptions */
 	anomalies?: string[];
+	/** Procurement automation failed; full manual procurement check required */
+	procurementCheckFailed?: boolean;
+	/** Error detail from failed procurement automation */
+	procurementFailureReason?: string;
+	/** System/source that failed (e.g., procurecheck) */
+	procurementFailureSource?: string;
+	/** Operator guidance for manual fallback */
+	procurementFailureGuidance?: string;
+	/** ProcureCheck recommendation if available */
+	procurementRecommendedAction?: string;
+	// SOP v3.1.0 — Sanctions & Escalation
+	/** Current sanction status */
+	sanctionStatus?: "clear" | "flagged" | "confirmed_hit";
+	/** Current escalation tier (1=Normal, 2=Manager Alert, 3=Salvage) */
+	escalationTier?: number;
+	/** Data source indicator (mock vs live) */
+	dataSource?: string | null;
+	checkStatuses?: {
+		procurement: "available" | "manual_required";
+		validation: "available" | "manual_required";
+		risk: "available" | "manual_required";
+		sanctions: "available" | "manual_required";
+		itc: "available" | "manual_required";
+	};
 }
 
 interface RiskReviewCardProps {
 	item: RiskReviewItem;
-	onApprove: (id: number, reason?: string) => Promise<void>;
-	onReject: (id: number, reason: string) => Promise<void>;
+	onApprove: (id: number, overrideData: OverrideData) => Promise<void>;
+	onReject: (id: number, overrideData: OverrideData) => Promise<void>;
 	onViewDetails: (item: RiskReviewItem) => void;
+}
+
+/** Structured override data passed from the dialog */
+export interface OverrideData {
+	overrideCategory: OverrideCategory;
+	overrideSubcategory?: string;
+	overrideDetails?: string;
 }
 
 interface RiskDecisionDialogProps {
@@ -82,7 +137,7 @@ interface RiskDecisionDialogProps {
 	action: "approve" | "reject" | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onConfirm: (reason?: string) => Promise<void>;
+	onConfirm: (overrideData: OverrideData) => Promise<void>;
 }
 
 // ============================================
@@ -186,6 +241,9 @@ export function RiskReviewCard({
 	onReject,
 	onViewDetails,
 }: RiskReviewCardProps) {
+	const requiresManualProcurementCheck =
+		item.reviewType === "procurement" && item.procurementCheckFailed;
+
 	const [_isApproving, setIsApproving] = React.useState(false);
 	const [showDecisionDialog, setShowDecisionDialog] = React.useState(false);
 	const [decisionAction, setDecisionAction] = React.useState<"approve" | "reject" | null>(
@@ -202,20 +260,16 @@ export function RiskReviewCard({
 		setShowDecisionDialog(true);
 	};
 
-	const handleConfirmDecision = async (reason?: string) => {
+	const handleConfirmDecision = async (overrideData: OverrideData) => {
 		setIsApproving(true);
 		try {
 			if (decisionAction === "approve") {
-				await onApprove(item.id, reason);
+				await onApprove(item.id, overrideData);
 				toast.success(`Approved ${item.clientName}`, {
 					description: "Application has been approved and workflow resumed.",
 				});
 			} else {
-				if (!reason) {
-					toast.error("Rejection reason required");
-					return;
-				}
-				await onReject(item.id, reason);
+				await onReject(item.id, overrideData);
 				toast.success(`Rejected ${item.clientName}`, {
 					description: "Application has been rejected.",
 				});
@@ -258,9 +312,38 @@ export function RiskReviewCard({
 						<div className="flex-1 min-w-0">
 							<div className="flex items-center gap-2">
 								<h3 className="text-base font-semibold ">{item.clientName}</h3>
-								<Badge  className="bg-secondary/10 text-secondary text-[10px] shrink-0">
+								<Badge className="bg-secondary/10 text-secondary text-[10px] shrink-0">
 									WF-{item.workflowId}
 								</Badge>
+								{/* SOP v3.1.0: Sanction status badge */}
+								{item.sanctionStatus === "flagged" && (
+									<Badge variant="destructive" className="text-[10px] shrink-0 gap-1">
+										<RiAlarmWarningLine className="h-3 w-3" />
+										SANCTION
+									</Badge>
+								)}
+								{/* SOP v3.1.0: Escalation tier badge */}
+								{item.escalationTier && item.escalationTier >= 2 && (
+									<Badge
+										variant="outline"
+										className={cn(
+											"text-[10px] shrink-0",
+											item.escalationTier === 3
+												? "bg-red-500/10 text-red-400 border-red-500/20"
+												: "bg-orange-500/10 text-orange-400 border-orange-500/20"
+										)}>
+										Tier {item.escalationTier}
+									</Badge>
+								)}
+								{/* Data source badge (mock vs live) */}
+								<DataSourceBadge dataSource={item.dataSource} />
+								{requiresManualProcurementCheck && (
+									<Badge
+										variant="outline"
+										className="text-[10px] shrink-0 bg-red-500/10 text-red-400 border-red-500/20">
+										Manual Procurement Check
+									</Badge>
+								)}
 							</div>
 							<div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
 								<span className="flex items-center gap-1">
@@ -357,6 +440,24 @@ export function RiskReviewCard({
 						</div>
 					</div>
 
+					{/* Procurement fallback warning */}
+					{requiresManualProcurementCheck && (
+						<div className="mt-4 p-3 rounded-lg border border-red-500/20 bg-red-500/10">
+							<p className="text-xs font-semibold text-red-400 uppercase tracking-wide">
+								Manual Procurement Check Required
+							</p>
+							<p className="text-xs text-muted-foreground mt-1">
+								{item.procurementFailureGuidance ||
+									"Automated procurement checks failed to run. Complete a full manual procurement review and record the procurement decision."}
+							</p>
+							{item.procurementFailureReason && (
+								<p className="text-xs text-red-300 mt-2">
+									Failure: {item.procurementFailureReason}
+								</p>
+							)}
+						</div>
+					)}
+
 					{/* Risk Flags Preview */}
 					{displayFlags.length > 0 && (
 						<div className="mt-4">
@@ -385,6 +486,24 @@ export function RiskReviewCard({
 					{item.summary && (
 						<div className="mt-4 p-3 rounded-lg bg-secondary/5 border border-secondary/10">
 							<p className="text-xs text-muted-foreground">{item.summary}</p>
+						</div>
+					)}
+
+					{item.checkStatuses && (
+						<div className="mt-3 flex flex-wrap gap-1.5">
+							{Object.entries(item.checkStatuses).map(([check, status]) => (
+								<Badge
+									key={check}
+									variant="outline"
+									className={cn(
+										"text-[10px]",
+										status === "manual_required"
+											? "bg-warning/50 text-warning-foreground border-warning"
+											: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+									)}>
+									{check}: {status === "manual_required" ? "manual" : "ok"}
+								</Badge>
+							))}
 						</div>
 					)}
 
@@ -433,7 +552,7 @@ export function RiskReviewCard({
 }
 
 // ============================================
-// Risk Decision Dialog Component
+// Risk Decision Dialog Component (V2 - Structured)
 // ============================================
 
 export function RiskDecisionDialog({
@@ -443,19 +562,47 @@ export function RiskDecisionDialog({
 	onOpenChange,
 	onConfirm,
 }: RiskDecisionDialogProps) {
-	const [reason, setReason] = React.useState("");
+	const [overrideCategory, setOverrideCategory] = React.useState<OverrideCategory | "">(
+		""
+	);
+	const [overrideSubcategory, setOverrideSubcategory] = React.useState<string>("");
+	const [overrideDetails, setOverrideDetails] = React.useState("");
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+	// Get subcategories for selected category
+	const subcategories = overrideCategory ? OVERRIDE_SUBCATEGORIES[overrideCategory] : [];
+
+	// Detect potential divergence with AI recommendation
+	const aiRecommendation = item?.recommendation?.toUpperCase() || "";
+	const isDivergent =
+		(action === "approve" &&
+			(aiRecommendation.includes("DECLINE") || aiRecommendation.includes("REJECT"))) ||
+		(action === "reject" &&
+			(aiRecommendation.includes("APPROVE") || aiRecommendation.includes("CLEAR")));
+
+	// Validation: category is always required, reject also needs non-AI_ALIGNED category
+	const isValid =
+		overrideCategory !== "" &&
+		(action === "approve" || overrideCategory !== "AI_ALIGNED") &&
+		(overrideCategory !== "OTHER" || overrideDetails.trim().length > 0);
+
 	const handleSubmit = async () => {
-		if (action === "reject" && !reason.trim()) {
-			toast.error("Please provide a reason for rejection");
+		if (!isValid) {
+			toast.error("Please complete the required fields");
 			return;
 		}
 
 		setIsSubmitting(true);
 		try {
-			await onConfirm(reason || undefined);
-			setReason("");
+			await onConfirm({
+				overrideCategory: overrideCategory as OverrideCategory,
+				overrideSubcategory: overrideSubcategory || undefined,
+				overrideDetails: overrideDetails.trim() || undefined,
+			});
+			// Reset form
+			setOverrideCategory("");
+			setOverrideSubcategory("");
+			setOverrideDetails("");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -486,10 +633,25 @@ export function RiskDecisionDialog({
 					</DialogTitle>
 					<DialogDescription>
 						{action === "approve"
-							? `You are about to approve ${item.clientName}'s application. This will resume the onboarding workflow.`
-							: `You are about to reject ${item.clientName}'s application. Please provide a reason for the rejection.`}
+							? `Approve ${item.clientName}'s application. Select the category that best describes your assessment.`
+							: `Reject ${item.clientName}'s application. Select the reason category for rejection.`}
 					</DialogDescription>
 				</DialogHeader>
+
+				{/* AI Divergence Warning */}
+				{isDivergent && (
+					<div className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+						<RiErrorWarningLine className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+						<div className="text-sm">
+							<p className="font-medium text-amber-400">AI Divergence</p>
+							<p className="text-muted-foreground mt-0.5">
+								The AI recommended <strong>{item.recommendation}</strong> for this
+								application. Your {action === "approve" ? "approval" : "rejection"} will
+								be flagged for retraining review.
+							</p>
+						</div>
+					</div>
+				)}
 
 				{/* Summary Card */}
 				<div className="p-4 rounded-lg bg-secondary/5 border border-secondary/10 space-y-3">
@@ -522,22 +684,68 @@ export function RiskDecisionDialog({
 					</div>
 				</div>
 
-				{/* Reason Input */}
-				<div className="space-y-2">
-					<Label htmlFor="reason">
-						{action === "approve" ? "Notes (Optional)" : "Rejection Reason *"}
-					</Label>
-					<Textarea
-						id="reason"
-						placeholder={
-							action === "approve"
-								? "Add optional notes for this approval..."
-								: "Please explain why this application is being rejected..."
-						}
-						value={reason}
-						onChange={e => setReason(e.target.value)}
-						className="min-h-[100px] bg-secondary/5 border-secondary/20"
-					/>
+				{/* Override Category Selector */}
+				<div className="space-y-3">
+					<div className="space-y-2">
+						<Label htmlFor="category">Override Category *</Label>
+						<Select
+							value={overrideCategory}
+							onValueChange={value => {
+								setOverrideCategory(value as OverrideCategory);
+								setOverrideSubcategory(""); // Reset subcategory on category change
+							}}>
+							<SelectTrigger id="category" className="bg-secondary/5 border-secondary/20">
+								<SelectValue placeholder="Select override category..." />
+							</SelectTrigger>
+							<SelectContent>
+								{OVERRIDE_CATEGORIES.map(cat => (
+									<SelectItem key={cat} value={cat}>
+										{OVERRIDE_CATEGORY_LABELS[cat]}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+
+					{/* Subcategory Selector (conditional) */}
+					{subcategories.length > 0 && (
+						<div className="space-y-2">
+							<Label htmlFor="subcategory">Subcategory</Label>
+							<Select value={overrideSubcategory} onValueChange={setOverrideSubcategory}>
+								<SelectTrigger
+									id="subcategory"
+									className="bg-secondary/5 border-secondary/20">
+									<SelectValue placeholder="Select specific issue..." />
+								</SelectTrigger>
+								<SelectContent>
+									{subcategories.map(sub => (
+										<SelectItem key={sub.value} value={sub.value}>
+											{sub.label}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+					)}
+
+					{/* Additional Details (always available but required for OTHER) */}
+					<div className="space-y-2">
+						<Label htmlFor="details">
+							{overrideCategory === "OTHER" ? "Details *" : "Additional Notes"}
+						</Label>
+						<Textarea
+							id="details"
+							placeholder={
+								overrideCategory === "OTHER"
+									? "Describe the specific reason..."
+									: "Optional additional context..."
+							}
+							value={overrideDetails}
+							onChange={e => setOverrideDetails(e.target.value)}
+							className="min-h-[80px] bg-secondary/5 border-secondary/20"
+							maxLength={500}
+						/>
+					</div>
 				</div>
 
 				<DialogFooter className="gap-2 sm:gap-0">
@@ -549,7 +757,7 @@ export function RiskDecisionDialog({
 					</Button>
 					<Button
 						onClick={handleSubmit}
-						disabled={isSubmitting || (action === "reject" && !reason.trim())}
+						disabled={isSubmitting || !isValid}
 						className={cn(
 							action === "approve"
 								? "bg-emerald-600 hover:bg-emerald-700"
@@ -576,8 +784,8 @@ export function RiskDecisionDialog({
 interface RiskReviewQueueProps {
 	items: RiskReviewItem[];
 	isLoading?: boolean;
-	onApprove: (id: number, reason?: string) => Promise<void>;
-	onReject: (id: number, reason: string) => Promise<void>;
+	onApprove: (id: number, overrideData: OverrideData) => Promise<void>;
+	onReject: (id: number, overrideData: OverrideData) => Promise<void>;
 	onViewDetails: (item: RiskReviewItem) => void;
 	onRefresh?: () => void;
 }
@@ -590,8 +798,12 @@ export function RiskReviewQueue({
 	onViewDetails,
 	onRefresh,
 }: RiskReviewQueueProps) {
-	const highPriorityItems = items.filter(item => (item.aiTrustScore || 100) < 60);
-	const normalItems = items.filter(item => (item.aiTrustScore || 100) >= 60);
+	const highPriorityItems = items.filter(
+		item => item.procurementCheckFailed || (item.aiTrustScore || 100) < 60
+	);
+	const normalItems = items.filter(
+		item => !item.procurementCheckFailed && (item.aiTrustScore || 100) >= 60
+	);
 
 	if (isLoading) {
 		return (

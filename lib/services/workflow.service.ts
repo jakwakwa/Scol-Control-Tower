@@ -1,9 +1,10 @@
 /**
  * Workflow service - database operations for workflow state
  */
-import { getDatabaseClient } from "@/app/utils";
-import { workflows, type WorkflowStatus } from "@/db/schema";
+
 import { eq } from "drizzle-orm";
+import { getDatabaseClient } from "@/app/utils";
+import { type WorkflowStatus, workflows } from "@/db/schema";
 
 /**
  * Update workflow status and stage in the database
@@ -11,12 +12,8 @@ import { eq } from "drizzle-orm";
 export async function updateWorkflowStatus(
 	workflowId: number,
 	status: WorkflowStatus,
-	stage: number,
+	stage: number
 ): Promise<void> {
-	console.log(
-		`[WorkflowService] Updating Workflow ${workflowId}: Status=${status}, Stage=${stage}`,
-	);
-
 	const db = getDatabaseClient();
 	if (!db) {
 		throw new Error("Failed to get database client");

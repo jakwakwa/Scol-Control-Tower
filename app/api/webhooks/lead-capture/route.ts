@@ -12,7 +12,7 @@ const applicantCaptureSchema = z.object({
 	phone: z.string().optional(),
 	industry: z.string().optional(),
 	employeeCount: z.coerce.number().optional(),
-	estimatedVolume: z.string().optional(),
+	estimatedTransactionsPerMonth: z.coerce.number().int().min(0).optional(),
 	secret: z.string().min(1, "Secret is required"), // Shared secret for auth
 });
 
@@ -58,9 +58,10 @@ export async function POST(request: NextRequest) {
 					phone: data.phone,
 					industry: data.industry,
 					employeeCount: data.employeeCount,
-					mandateVolume: data.estimatedVolume
-						? parseInt(data.estimatedVolume.toString().replace(/[^0-9]/g, ""))
-						: 0,
+					estimatedTransactionsPerMonth:
+						data.estimatedTransactionsPerMonth != null
+							? Math.round(Number(data.estimatedTransactionsPerMonth))
+							: null,
 					status: "new",
 				},
 			])

@@ -226,6 +226,10 @@ export function FormWizard({
 					setInternalStep(step);
 				}
 				onStepChange?.(step);
+				// Scroll to top when changing steps
+				if (typeof window !== "undefined") {
+					window.scrollTo({ top: 0, behavior: "smooth" });
+				}
 			}
 		},
 		[activeSteps.length, controlledStep, onStepChange]
@@ -264,6 +268,11 @@ export function FormWizard({
 		}
 
 		await onSubmit();
+
+		// Scroll to top so users see success messages
+		if (typeof window !== "undefined") {
+			window.scrollTo({ top: 0, behavior: "smooth" });
+		}
 
 		// Clear saved step on successful submission
 		if (storageKey && typeof window !== "undefined") {

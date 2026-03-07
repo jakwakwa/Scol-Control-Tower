@@ -1,88 +1,88 @@
-# SCOL Watchtower Platform
+# StratCol Onboard Control Tower
 
-![Control Tower](/app/opengraph-image.png)
+**StratCol Onboard Control Tower** (SCOL Watchtower) is an event-driven onboarding automation platform that manages applicant lifecycles, risk assessment, sanctions checks, and contract workflows—without middleware. Capture sources (e.g. Google Forms / Apps Script) talk directly to the Next.js backend; orchestration and state live in [Inngest](https://www.inngest.com/) workflows.
 
-## Overview
+## Features
 
-**SCOL Watchtower** (StratCol Onboard AI) is a "Zero-Middleware" onboarding automation platform designed to manage applicant lifecycles, risk assessment, and contract workflows.
-
-The system has recently transitioned from a Zapier-dependent architecture to a direct event-driven model. This shift centralises state management within [Inngest](https://www.inngest.com/) workflows, eliminates external dependencies for core logic, and enables direct communication between capture sources (Google Forms/Apps Script) and the Next.js backend.
-
-## Key Features
-
-- **Zero-Middleware Architecture**: Direct ingestion of webhooks from Google Apps Script, removing Zapier entirely to reduce latency and costs.
-- **Event-Driven Workflows**: Complex business logic (onboarding, verification, signing) is orchestrated via Inngest, with clear domain events like `onboarding/lead.created` and `contract/signed`.
-- **Deterministic Verification**: Replaces probabilistic AI voting with a strict, hierarchical veto system using a local blocklist (`mock_blacklist.json`).
-- **Direct Applicant Capture**: Secure HTTP endpoints (`/api/webhooks/lead-capture`) handle form submissions directly.
-- **Real-time Dashboard**: A comprehensive UI built with Shadcn/UI for monitoring agents, applicants, and workflow statuses.
+- **Zero-Middleware**: Webhooks from Google Apps Script (or similar) hit the app directly; no Zapier or third-party orchestration.
+- **6-Stage Control Tower**: Lead capture → Facility & quote → Procurement & FICA → Risk review → Contract (ABSA gate) → Final approval. Supports kill switch, parallel streams, and conditional document logic.
+- **Event-Driven Workflows**: Inngest workflows react to domain events (`onboarding/lead.created`, `contract/signed`, agent callbacks, etc.).
+- **Verification & Risk**: OpenSanctions (sanctions), ProcureCheck (entity verification), optional Firecrawl-backed checks, and AI agents (validation, risk, sanctions) with a Reporter Agent.
+- **Direct Capture**: Secure endpoints such as `/api/webhooks/lead-capture` and `/api/webhooks/contract-signed` for form submissions and contract events.
+- **Dashboard**: Shadcn/UI-based UI for applicants, workflows, agents, risk review, sanctions, notifications, and forms.
 
 ## Tech Stack
 
-**Core Framework**
--   **Framework**: [Next.js 15](https://nextjs.org/) (App Router, Turbo)
--   **Language**: [TypeScript](https://www.typescriptlang.org/)
--   **Package Manager**: Bun (recommended) or Node.js
+| Area | Technologies |
+|------|--------------|
+| **Framework** | [Next.js 16](https://nextjs.org/) (App Router, Turbo) |
+| **Language** | [TypeScript](https://www.typescriptlang.org/) |
+| **Package manager** | [Bun](https://bun.sh/) (recommended) |
+| **Database** | [Turso](https://turso.tech/) (LibSQL) |
+| **ORM** | [Drizzle ORM](https://orm.drizzle.team/) |
+| **Auth** | [Clerk](https://clerk.com/) |
+| **Background jobs** | [Inngest](https://www.inngest.com/) |
+| **Styling** | [Tailwind CSS 4](https://tailwindcss.com/), [Shadcn UI](https://ui.shadcn.com/) |
+| **Other** | Recharts, React Hook Form, Zod, Resend (email) |
 
-**Backend & Data**
--   **Database**: [Turso](https://turso.tech/) (LibSQL)
--   **ORM**: [Drizzle ORM](https://orm.drizzle.team/)
--   **Auth**: [Clerk](https://clerk.com/)
--   **Background Jobs**: [Inngest](https://www.inngest.com/)
+## Architecture (high level)
 
-**Frontend & UI**
--   **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
--   **Components**: [Shadcn UI](https://ui.shadcn.com/)
--   **Icons**: Remix Icons
--   **Visualisation**: Recharts
+1. **Ingestion**: Applicants are captured (e.g. Google Forms → Apps Script) and POST to `/api/webhooks/lead-capture`.
+2. **Orchestration**: The API sends events to Inngest; the Control Tower workflow (`inngest/functions/control-tower-workflow.ts`) runs the 6-stage pipeline.
+3. **Verification & risk**: Workflow steps call OpenSanctions, ProcureCheck, Firecrawl (when enabled), and AI agents; state is updated in the database.
+4. **External callbacks**: Contract signing and other events are received via webhooks (e.g. `/api/webhooks/contract-signed`) and drive the workflow forward without polling.
 
-## Architecture
-
-The platform follows a modern event-driven architecture:
-
-1.  **Ingestion**: Applicants are captured via Google Forms, which trigger a Google Apps Script to POST data directly to `/api/webhooks/lead-capture`.
-2.  **Orchestration**: The API triggers an Inngest workflow (`inngest/functions/onboarding.ts`).
-3.  **Verification**: The workflow performs immediate veto checks against the database and blocklists.
-4.  **State Management**: The workflow manages the applicant's state (e.g., waiting for contract signing via `/api/webhooks/contract-signed`) without polling.
-
-## Getting Started
+## Getting started
 
 ### Prerequisites
 
--   **Node.js** (v20+) or **Bun** (v1.0+)
--   **Turso CLI** (for database management)
--   **Clerk Account** (for authentication)
+- [Bun](https://bun.sh/) v1.0+ (or Node.js v20+)
+- [Turso CLI](https://docs.turso.tech/cli) for database creation and tokens
+- [Clerk](https://clerk.com/) account for authentication
 
 ### Installation
 
-1.  **Clone the repository**
-    ```bash
-    git clone [https://github.com/jakwakwa/scol-watchtower.git](https://github.com/jakwakwa/scol-watchtower.git)
-    cd scol-watchtower
-    ```
+1. **Clone and enter the repo**
+   ```bash
+   git clone <your-repo-url>
+   cd sc-onboard-controltower
+   ```
 
-2.  **Install dependencies**
-    ```bash
-    bun install
-    # or
-    npm install
-    ```
+2. **Install dependencies**
+   ```bash
+   bun install
+   ```
 
-3.  **Environment Configuration**
-    Copy the example environment file and fill in your credentials:
-    ```bash
-    cp .env.example .env.local
-    ```
-    *You will need API keys for Clerk, Turso, and your Inngest signing key (if running in production).*
+3. **Environment**
+   Copy the example env and set your keys:
+   ```bash
+   cp .env.example .env.local
+   ```
+   Configure at least: Clerk (`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SECRET`), Turso (`TURSO_*`), OpenSanctions (`OPENSANCTIONS_*`), and for webhooks/callbacks `GAS_WEBHOOK_SECRET` / `CRON_SECRET`. Add Inngest keys when running in production.
 
-4.  **Database Setup**
-    Push the schema to your Turso database:
-    ```bash
-    bun run db:migrate
-    ```
+4. **Database**
+   Create your Turso DB and apply migrations:
+   ```bash
+   bun run db:migrate
+   ```
 
-### Running the Project
+### Commands
 
-You can start the development server using the standard Next.js command:
+| Command | Description |
+|---------|-------------|
+| `bun dev` | Start Next.js dev server (Turbo) |
+| `bun run build` | Production build |
+| `bun run start` | Start production server |
+| `bun run lint` | Run linting |
+| `bun run db:generate` | Generate Drizzle migrations |
+| `bun run db:migrate` | Run migrations |
+| `bun run db:studio` | Open Drizzle Studio |
+| `bun run test:e2e` | Run Playwright E2E tests |
+
+### Running the app
 
 ```bash
 bun dev
+```
+
+Then open the app at the URL shown in the terminal (e.g. `http://localhost:3000`).

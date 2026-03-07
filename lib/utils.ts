@@ -17,3 +17,42 @@ export function getBaseUrl() {
 	}
 	return "http://localhost:3000";
 }
+
+// ============================================
+// Decision Routing — stage-decoupled endpoint resolution
+// ============================================
+
+interface DecisionRoutingInput {
+	decisionType?: string | null;
+	targetResource?: string | null;
+	reviewType?: string | null;
+	stage?: number | null;
+}
+
+const DECISION_TYPE_ENDPOINTS: Record<string, string> = {
+	procurement_review: "/api/risk-decision/procurement",
+	risk_review: "/api/risk-decision",
+	quote_approval: "/api/applicants/approval",
+	quality_gate: "/api/applicants/approval",
+	final_approval: "/api/onboarding/approve",
+};
+
+/**
+ * Resolves the API endpoint for a decision based on the item's metadata.
+ * Prefers `targetResource` (explicit) > `decisionType` (typed) > `reviewType`/stage (legacy).
+ */
+export function getDecisionEndpoint(input: DecisionRoutingInput): string {
+	if (input.targetResource) {
+		return input.targetResource;
+	}
+
+	if (input.decisionType && DECISION_TYPE_ENDPOINTS[input.decisionType]) {
+		return DECISION_TYPE_ENDPOINTS[input.decisionType];
+	}
+
+	if (input.reviewType === "procurement" || input.stage === 3) {
+		return "/api/risk-decision/procurement";
+	}
+
+	return "/api/risk-decision";
+}

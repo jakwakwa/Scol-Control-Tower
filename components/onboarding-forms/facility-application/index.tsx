@@ -205,6 +205,13 @@ const ADDITIONAL_SERVICE_OPTIONS: CheckboxOption[] = [
 // ============================================
 
 const TEST_DATA: Partial<FacilityApplicationFormData> = {
+	idNumber: "8501015009087",
+	applicantDetails: {
+		registeredName: "Test Company (Pty) Ltd",
+		tradingName: "Test Trading",
+		registrationOrIdNumber: "2024/123456/07",
+		contactPerson: "John Smith",
+	},
 	facilitySelection: {
 		serviceTypes: [ServiceType.EFT, ServiceType.DEBICHECK],
 		additionalServices: [AdditionalService.INTEGRATION],
@@ -258,6 +265,23 @@ export function FacilityApplicationForm({
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		resolver: zodResolver(facilityApplicationSchema) as any,
 		defaultValues: initialData ?? {
+			idNumber: "",
+			applicantDetails: {
+				registeredName: "",
+				tradingName: "",
+				registrationOrIdNumber: "",
+				contactPerson: "",
+				telephone: "",
+				email: "",
+				industry: "",
+				subIndustry: "",
+				businessDescription: "",
+				marketingMethod: "",
+			},
+			insuranceDetails: {
+				isInsuranceClient: false,
+				noneFscaRegulatedCollections: undefined,
+			},
 			facilitySelection: {
 				serviceTypes: [],
 				additionalServices: [],
@@ -371,6 +395,56 @@ export function FacilityApplicationForm({
 										<RiServiceLine className="h-5 w-5 text-muted-foreground" />
 										<h3 className="text-lg font-semibold">Facility Selection</h3>
 									</div>
+
+									<div className="space-y-4">
+										<h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">
+											Applicant Details
+										</h4>
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+											<FormField label="Registered Name / Surname">
+												<Input
+													{...register("applicantDetails.registeredName")}
+													placeholder="Legal entity name"
+													disabled={readOnly}
+												/>
+											</FormField>
+											<FormField label="Trading Name">
+												<Input
+													{...register("applicantDetails.tradingName")}
+													placeholder="Trading name"
+													disabled={readOnly}
+												/>
+											</FormField>
+											<FormField label="Registration No. / ID No.">
+												<Input
+													{...register("applicantDetails.registrationOrIdNumber")}
+													placeholder="Registration or ID number"
+													disabled={readOnly}
+												/>
+											</FormField>
+											<FormField label="Contact Person">
+												<Input
+													{...register("applicantDetails.contactPerson")}
+													placeholder="Contact person"
+													disabled={readOnly}
+												/>
+											</FormField>
+										</div>
+									</div>
+
+									{/* SA ID Number */}
+									<FormField
+										label="SA ID Number"
+										required
+										error={errors.idNumber?.message}
+										description="Enter your 13-digit South African ID number">
+										<Input
+											{...register("idNumber")}
+											placeholder="e.g., 8501015009087"
+											maxLength={13}
+											disabled={readOnly}
+										/>
+									</FormField>
 
 									{/* Service Types */}
 									<FormField

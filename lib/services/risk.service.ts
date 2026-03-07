@@ -52,12 +52,7 @@ export async function analyzeRisk(applicantId: number): Promise<RiskResult> {
 		});
 	} catch (error) {
 		console.error("[RiskService] ProcureCheck creation failed:", error);
-		// Fallback for demo/dev if API fails (e.g. strict sandbox limits)
-		return {
-			riskScore: 50,
-			anomalies: ["ProcureCheck API Request Failed - Manual Review Needed"],
-			recommendedAction: "MANUAL_REVIEW",
-		};
+		throw error;
 	}
 
 	// 2. Poll for Results (Short wait in sandbox, real world might be async job)
@@ -68,12 +63,7 @@ export async function analyzeRisk(applicantId: number): Promise<RiskResult> {
 		| string
 		| undefined; // Adjust based on actual response key
 	if (!vendorId) {
-		return {
-			riskScore: 50,
-			anomalies: ["ProcureCheck did not return a Vendor ID"],
-			recommendedAction: "MANUAL_REVIEW",
-			procureCheckData: checkResult,
-		};
+		throw new Error("ProcureCheck did not return a Vendor ID");
 	}
 
 	let results: any = null; // Ideally type this fully based on API docs, but explicit any/unknown is better than implicit
@@ -95,8 +85,7 @@ export async function analyzeRisk(applicantId: number): Promise<RiskResult> {
 		riskScore -= failures * 20; // Deduction per failure
 		anomalies.push(`${failures} compliance checks failed in ProcureCheck`);
 	} else if (!results) {
-		anomalies.push("No results returned from ProcureCheck");
-		riskScore = 50;
+		throw new Error("No results returned from ProcureCheck");
 	}
 
 	if (results?.JudgementCheck?.Failed) {

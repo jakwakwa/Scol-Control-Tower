@@ -1,39 +1,33 @@
 /**
- * Contract Draft Review API — SOP Stage 5
+ * Contract Submission API — External Magic Link
  *
- * Allows the Account Manager to review/edit the AI-generated contract draft
- * and mark it as reviewed. Emits 'contract/draft.reviewed' to advance workflow.
+ * Accepts the signed Stratcol Agreement from the unauthenticated
+ * contract form (magic link). Validates the token, records the
+ * submission, and emits 'contract/signed' to advance the Inngest
+ * workflow.
  *
  * POST /api/contract/review
- * Body: { workflowId, applicantId, changes? }
+ * Body: { token, data }
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { inngest } from "@/inngest/client";
-import { getDatabaseClient } from "@/app/utils";
-import { workflows, workflowEvents } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { auth } from "@clerk/nextjs/server";
+import { inngest } from "@/inngest";
+import {
+	getFormInstanceByToken,
+	recordFormSubmission,
+} from "@/lib/services/form.service";
+import { stratcolAgreementSchema } from "@/lib/validations/forms";
 
-const ContractReviewSchema = z.object({
-	workflowId: z.number().int().positive("Workflow ID is required"),
-	applicantId: z.number().int().positive("Applicant ID is required"),
-	changes: z.record(z.string(), z.unknown()).optional(),
+const SubmissionSchema = z.object({
+	token: z.string().min(1, "Token is required"),
+	data: stratcolAgreementSchema,
 });
 
 export async function POST(request: NextRequest) {
 	try {
-		const { userId } = await auth();
-		if (!userId) {
-			return NextResponse.json(
-				{ error: "Unauthorized - Authentication required" },
-				{ status: 401 }
-			);
-		}
-
 		const body = await request.json();
-		const validationResult = ContractReviewSchema.safeParse(body);
+		const validationResult = SubmissionSchema.safeParse(body);
 
 		if (!validationResult.success) {
 			return NextResponse.json(
@@ -45,63 +39,71 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const { workflowId, applicantId, changes } = validationResult.data;
+		const { token, data } = validationResult.data;
 
-		console.log(`[ContractReview] Processing contract review for workflow ${workflowId}`);
+		// 1. Validate token
+		const formInstance = await getFormInstanceByToken(token);
 
-		const db = getDatabaseClient();
-		if (!db) {
-			return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
-		}
-
-		// Verify workflow exists
-		const workflowResult = await db
-			.select()
-			.from(workflows)
-			.where(eq(workflows.id, workflowId));
-
-		if (workflowResult.length === 0) {
+		if (!formInstance) {
 			return NextResponse.json(
-				{ error: `Workflow ${workflowId} not found` },
+				{ error: "Invalid or expired contract link" },
 				{ status: 404 }
 			);
 		}
 
-		// Log the contract review event
-		await db.insert(workflowEvents).values({
-			workflowId,
-			eventType: "contract_draft_reviewed",
-			payload: JSON.stringify({
-				reviewedBy: userId,
-				changes: changes || {},
-				reviewedAt: new Date().toISOString(),
-			}),
-			actorId: userId,
-			actorType: "user",
+		if (formInstance.expiresAt && new Date(formInstance.expiresAt) < new Date()) {
+			return NextResponse.json({ error: "Contract link has expired" }, { status: 410 });
+		}
+
+		if (formInstance.status === "submitted") {
+			return NextResponse.json(
+				{ error: "Contract has already been submitted" },
+				{ status: 409 }
+			);
+		}
+
+		// 2. Record the submission
+		await recordFormSubmission({
+			applicantMagiclinkFormId: formInstance.id,
+			applicantId: formInstance.applicantId,
+			workflowId: formInstance.workflowId,
+			formType: "AGREEMENT_CONTRACT",
+			data: data as unknown as Record<string, unknown>,
+			submittedBy: data.authorisedRepresentative?.name || "external",
 		});
 
-		// Emit Inngest event to advance workflow
-		await inngest.send({
-			name: "contract/draft.reviewed",
-			data: {
-				workflowId,
-				applicantId,
-				reviewedBy: userId,
-				reviewedAt: new Date().toISOString(),
-				changes: changes || {},
-			},
-		});
+		// 3. Emit Inngest event to advance workflow
+		if (formInstance.workflowId) {
+			await inngest.send({
+				name: "form/decision.responded",
+				data: {
+					workflowId: formInstance.workflowId,
+					applicantId: formInstance.applicantId,
+					formType: "AGREEMENT_CONTRACT",
+					decision: "APPROVED",
+					respondedAt: new Date().toISOString(),
+				},
+			});
+
+			await inngest.send({
+				name: "contract/signed",
+				data: {
+					workflowId: formInstance.workflowId,
+					applicantId: formInstance.applicantId,
+					signedAt: new Date().toISOString(),
+					signedBy: data.authorisedRepresentative?.name,
+				},
+			});
+		}
 
 		return NextResponse.json({
 			success: true,
-			message: "Contract draft reviewed — proceeding to send to client",
-			workflowId,
-			applicantId,
-			reviewedBy: userId,
+			message: "Contract submitted successfully",
+			applicantId: formInstance.applicantId,
 			timestamp: new Date().toISOString(),
 		});
 	} catch (error) {
-		console.error("[ContractReview] Error:", error);
+		console.error("[ContractSubmission] Error:", error);
 		return NextResponse.json(
 			{
 				error: "Internal server error",

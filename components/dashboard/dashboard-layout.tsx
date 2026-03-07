@@ -1,7 +1,7 @@
 "use client";
 
+import type { WorkflowNotification } from "./notifications-panel";
 import { PageMeta } from "./page-meta";
-import { type WorkflowNotification } from "./notifications-panel";
 
 interface DashboardLayoutProps {
 	children: React.ReactNode;
@@ -56,14 +56,20 @@ interface GlassCardProps {
 	hover?: boolean;
 }
 
-export function GlassCard({ children, className, hover = false }: GlassCardProps) {
+export function GlassCard({
+	children,
+	className,
+	hover = false,
+}: GlassCardProps): React.ReactNode {
 	return (
 		<div
-			className={`rounded-2xl bg-card border border-sidebar-border backdrop-blur-sm p-6 shadow-xl shadow-black/5 ${
+			className={`card-form border border-sidebar-border p-6 mb-0 pb-0 shadow-xl shadow-black/50 rounded-tl-sm ${
 				hover
-					? "transition-all duration-300 hover:bg-card/70 hover:border-secondary/10 hover:shadow-2xl hover:-translate-y-1"
+					? "transition-all duration-300 hover:bg-card hover:border-secondary/10 hover:shadow-2xl hover:-translate-y-1"
 					: ""
-			} ${className || ""}`}>
+			} ${className || ""}`}
+			// style={{ borderRadius: "40px !important" }}
+		>
 			{children}
 		</div>
 	);
