@@ -72,10 +72,12 @@ export interface RiskReviewData {
 		defaultDetails: string;
 		tradeReferences: number | string;
 		recentEnquiries: number | string;
+		recentEnquiries: number | string;
 	};
 	sanctionsData: {
 		sanctionsMatch: string;
 		pepHits: number | string;
+		adverseMedia: number | string;
 		adverseMedia: number | string;
 		alerts: Array<{ date: string; source: string; title: string; severity: string }>;
 	};
@@ -88,6 +90,7 @@ export interface RiskReviewData {
 			status: string;
 		};
 		lastVerified: string;
+		lastVerified: string;
 		banking: {
 			bankName: string;
 			accountNumber: string;
@@ -97,6 +100,7 @@ export interface RiskReviewData {
 	};
 }
 
+// AI Service helpers have been extracted to Server Actions
 // AI Service helpers have been extracted to Server Actions
 
 // --- Screen UI Components ---
@@ -503,7 +507,7 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 		window.print();
 	};
 
-	const handleGenerateSummary = async () => {
+	const _handleGenerateSummary = async () => {
 		setIsGeneratingSummary(true);
 		setSummaryError(null);
 
@@ -517,22 +521,29 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
     `;
 
 		try {
+			const _result = await generateRiskBriefing(dataContext);
+
+		try {
 			const result = await generateRiskBriefing(dataContext);
 			setAiSummary(result);
 		} catch (error) {
 			const err = error as Error;
 			setSummaryError(err.message || "Failed to generate AI insights. Please try again.");
-		} finally {
+		} catch (error) {
+			const err = error as Error;
+			setSummaryError(err.message || "Failed to generate AI insights. Please try again.");
+		} finally 
 			setIsGeneratingSummary(false);
-		}
 	};
 
-	const handleAnalyzeMedia = async (
+	const _handleAnalyzeMedia = async (
 		alertIdx: number,
 		alert: { title: string; source: string; severity: string }
 	) => {
 		setAnalyzingMediaId(alertIdx);
 
+		try {
+			const _result = await analyzeMediaRisk(alert.title, alert.source, alert.severity);
 		try {
 			const result = await analyzeMediaRisk(alert.title, alert.source, alert.severity);
 			setMediaAnalyses(prev => ({ ...prev, [alertIdx]: result }));
@@ -578,7 +589,7 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 								variant="ai"
 								size="ai"
 								className="aiBtn text-violet-400"
-								onClick={handleGenerateSummary}
+								onClick={_handleGenerateSummary}
 								disabled={isGeneratingSummary}>
 								{isGeneratingSummary ? (
 									<Loader2 className="w-8 h-8 animate-spin" />
@@ -990,7 +1001,7 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 													<div className="flex gap-2">
 														{/* AI Action Button for specific alert */}
 														<Button
-															onClick={() => handleAnalyzeMedia(idx, alert)}
+															onClick={() => _handleAnalyzeMedia(idx, alert)}
 															disabled={analyzingMediaId === idx}
 															className="text-xs font-medium text-primary bg-primary/10 px-3 py-1.5 	 hover:bg-primary/20 transition-colors flex items-center gap-1 disabled:opacity-50">
 															{analyzingMediaId === idx ? (
@@ -1165,6 +1176,10 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 				</div>
 			</div>
 
+			{/* Printable Report (Receives AI Summary */}
+			<div className="hidden">
+				<PrintableAuditReport aiSummary={aiSummary} data={data} />
+			</div>
 			{/* Printable Report (Receives AI Summary */}
 			<div className="hidden">
 				<PrintableAuditReport aiSummary={aiSummary} data={data} />
