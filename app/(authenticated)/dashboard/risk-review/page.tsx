@@ -16,6 +16,33 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getDecisionEndpoint } from "@/lib/utils";
 
+interface OverrideData {
+	overrideCategory?: string;
+	overrideSubcategory?: string;
+	overrideDetails?: string;
+}
+
+interface RiskReviewItem {
+	id: number;
+	applicantId: string;
+	decisionType: string;
+	targetResource: string;
+	reviewType: string;
+	stage: string;
+	anomalies?: string[];
+	procurementCheckFailed?: boolean;
+	procurementScore?: number;
+	procurementRecommendedAction?: string;
+	recommendation?: string;
+	procurementFailureReason?: string;
+	procurementFailureSource?: string;
+	procurementFailureGuidance?: string;
+	clientName: string;
+	companyName: string;
+	aiTrustScore?: number;
+	createdAt: string | Date;
+}
+
 export default function RiskReviewPage() {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [items, setItems] = useState([]);

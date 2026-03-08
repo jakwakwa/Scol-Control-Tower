@@ -1,7 +1,7 @@
 ---
 title: Refactor Applicant Form and AI Logic
 type: refactor
-status: active
+status: completed
 date: 2026-03-08
 ---
 
@@ -33,14 +33,14 @@ Based on the recent Kieran TypeScript code review, this task aims to restructure
 
 ## Acceptance Criteria
 
-- [ ] A Zod schema correctly representing the Applicant Form payload exists in `lib/validations/schemas/applicant.schema.ts`.
-- [ ] `ApplicantForm` is fully integrated with `react-hook-form`. Forms gracefully reflect validation errors without manually managing `errors` state objects.
-- [ ] Zod infers proper types on form submit (i.e. replacing the custom `ApplicantFormData` interface).
-- [ ] `actions/ai.actions.ts` securely provides the logic wrapped inside discrete functions, strictly utilizing `lib/ai/models.ts` under the hood.
-- [ ] `RiskReviewDetail` has the raw `callGemini` function completely removed and depends solely on imported Server Actions.
-- [ ] The AI Server Action natively retries failed operations implicitly behind the scenes.
-- [ ] All TypeScript types explicitly clear up any residual `any` castings found in previous edits.
-- [ ] Clear all ai slop in the files you changed
+- [x] A Zod schema correctly representing the Applicant Form payload exists in `lib/validations/schemas/applicant.schema.ts`.
+- [x] `ApplicantForm` is fully integrated with `react-hook-form`. Forms gracefully reflect validation errors without manually managing `errors` state objects.
+- [x] Zod infers proper types on form submit (i.e. replacing the custom `ApplicantFormData` interface).
+- [x] `actions/ai.actions.ts` securely provides the logic wrapped inside discrete functions, strictly utilizing `lib/ai/models.ts` under the hood.
+- [x] `RiskReviewDetail` has the raw `callGemini` function completely removed and depends solely on imported Server Actions.
+- [x] The AI Server Action natively retries failed operations implicitly behind the scenes.
+- [x] All TypeScript types explicitly clear up any residual `any` castings found in previous edits.
+- [x] Clear all ai slop in the files you changed
 
 ## Remove AI Code Slop
 
