@@ -23,6 +23,7 @@ import {
 	Users,
 } from "lucide-react";
 import { useState } from "react";
+import { analyzeMediaRisk, generateRiskBriefing } from "@/actions/ai.actions";
 
 export interface RiskReviewData {
 	globalData: {
@@ -66,10 +67,12 @@ export interface RiskReviewData {
 		defaults: number | string;
 		defaultDetails: string;
 		tradeReferences: number | string;
+		recentEnquiries: number | string;
 	};
 	sanctionsData: {
 		sanctionsMatch: string;
 		pepHits: number | string;
+		adverseMedia: number | string;
 		alerts: Array<{ date: string; source: string; title: string; severity: string }>;
 	};
 	ficaData: {
@@ -80,6 +83,7 @@ export interface RiskReviewData {
 			ageInDays: number | string;
 			status: string;
 		};
+		lastVerified: string;
 		banking: {
 			bankName: string;
 			accountNumber: string;
@@ -89,40 +93,7 @@ export interface RiskReviewData {
 	};
 }
 
-// --- Gemini API Helper ---
-const callGemini = async (
-	prompt: string,
-	systemInstruction: string = "You are a helpful assistant."
-) => {
-	const apiKey = ""; // API key provided by the execution environment
-	const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-
-	const payload = {
-		contents: [{ parts: [{ text: prompt }] }],
-		systemInstruction: { parts: [{ text: systemInstruction }] },
-	};
-
-	const delays = [1000, 2000, 4000, 8000, 16000];
-	let retries = 0;
-
-	while (retries < 5) {
-		try {
-			const response = await fetch(url, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(payload),
-			});
-			if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-			const data = await response.json();
-			return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
-		} catch (_error) {
-			if (retries === 4)
-				throw new Error("Failed to connect to AI service after multiple attempts.");
-			await new Promise(res => setTimeout(res, delays[retries]));
-			retries++;
-		}
-	}
-};
+// AI Service helpers have been extracted to Server Actions
 
 // --- Screen UI Components ---
 
@@ -530,8 +501,6 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 		setIsGeneratingSummary(true);
 		setSummaryError(null);
 
-		const systemPrompt =
-			"You are an expert South African Procurement & Compliance Risk Analyst.";
 		const dataContext = `
       Entity: ${JSON.stringify(globalData.entity)}
       Overall Score: ${globalData.overallRiskScore}
@@ -540,21 +509,13 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
       Sanctions Data: ${JSON.stringify(sanctionsData)}
       FICA Data: ${JSON.stringify(ficaData)}
     `;
-		const prompt = `Review the provided compliance data payload for ${globalData.entity.name}. 
-    Write a concise, professional executive summary (max 3 short paragraphs) detailing:
-    1. The primary identified risks (e.g., the specific conflict of interest, the payment default, adverse media).
-    2. The compliance strengths (e.g., FICA is solid, B-BBEE is Level 2).
-    3. A definitive final recommendation (e.g., "Refer for manual review before proceeding").
-    
-    Do not use markdown headers (#). Use simple text formatting or standard bullet points if necessary. Keep it highly analytical and objective.
-    
-    Data Payload: ${dataContext}`;
 
 		try {
-			const result = await callGemini(prompt, systemPrompt);
+			const result = await generateRiskBriefing(dataContext);
 			setAiSummary(result);
-		} catch (_err) {
-			setSummaryError("Failed to generate AI insights. Please try again.");
+		} catch (error) {
+			const err = error as Error;
+			setSummaryError(err.message || "Failed to generate AI insights. Please try again.");
 		} finally {
 			setIsGeneratingSummary(false);
 		}
@@ -566,17 +527,8 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 	) => {
 		setAnalyzingMediaId(alertIdx);
 
-		const systemPrompt =
-			"You are a Risk Analyst specializing in Anti-Money Laundering (AML) and Reputational Risk in South Africa.";
-		const prompt = `Analyze the following adverse media alert for a potential supplier:
-    Title: "${alert.title}"
-    Source: "${alert.source}"
-    Severity: "${alert.severity}"
-    
-    Provide a brief (3-4 sentences) explanation of what this kind of alert typically entails in a South African context and what specific further investigation the procurement officer should conduct regarding this alert.`;
-
 		try {
-			const result = await callGemini(prompt, systemPrompt);
+			const result = await analyzeMediaRisk(alert.title, alert.source, alert.severity);
 			setMediaAnalyses(prev => ({ ...prev, [alertIdx]: result }));
 		} catch (_err) {
 			setMediaAnalyses(prev => ({ ...prev, [alertIdx]: "Analysis failed to load." }));
@@ -600,7 +552,7 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 					<header className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-6 border-b border-zinc-800">
 						<div>
 							<div className="flex items-center gap-3 mb-2">
-								<h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-600">
+								<h1 className="text-3xl font-bold bg-clip-text text-transparent bg-linear-to-r from-amber-200 via-yellow-400 to-amber-600">
 									Overall Risk Profile
 								</h1>
 								{globalData.overallStatus === "REVIEW REQUIRED" && (
@@ -636,7 +588,7 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 							</button>
 							<button
 								type="button"
-								className="px-5 py-2 text-sm font-medium text-zinc-950 bg-gradient-to-r from-amber-400 to-yellow-600 hover:from-amber-300 hover:to-yellow-500 rounded-lg shadow-lg shadow-amber-500/20 transition-all flex items-center gap-2">
+								className="px-5 py-2 text-sm font-medium text-zinc-950 bg-linear-to-r from-amber-400 to-yellow-600 hover:from-amber-300 hover:to-yellow-500 rounded-lg shadow-lg shadow-amber-500/20 transition-all flex items-center gap-2">
 								<Check className="w-4 h-4" /> Final Adjudication
 							</button>
 						</div>
@@ -645,7 +597,7 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 					{/* AI Executive Summary Card */}
 					{(isGeneratingSummary || aiSummary || summaryError) && (
 						<div className="animate-in fade-in slide-in-from-top-4 duration-500">
-							<div className="relative p-1 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 bg-[length:200%_auto] animate-gradient-x">
+							<div className="relative p-1 rounded-xl bg-linear-to-r from-indigo-500 via-purple-500 to-indigo-500 bg-size-[200%_auto] animate-gradient-x">
 								<div className="bg-zinc-950 rounded-lg p-6 h-full border border-zinc-900">
 									<div className="flex items-center gap-2 mb-4 pb-4 border-b border-zinc-800">
 										<Sparkles className="w-5 h-5 text-indigo-400" />
@@ -680,7 +632,7 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 					<div className="grid grid-cols-1 md:grid-cols-4 gap-6">
 						<Card className="col-span-1 md:col-span-3 p-6 flex flex-col justify-center">
 							<div className="flex items-center gap-4 mb-4">
-								<div className="w-12 h-12 rounded-lg bg-gradient-to-br from-zinc-800 to-zinc-900 border border-zinc-700 flex items-center justify-center">
+								<div className="w-12 h-12 rounded-lg bg-linear-to-br from-zinc-800 to-zinc-900 border border-zinc-700 flex items-center justify-center">
 									<Building2 className="w-6 h-6 text-amber-400" />
 								</div>
 								<div>
@@ -785,7 +737,7 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 												}`}>
 												{tab}
 												{activeSubTab === tab && (
-													<span className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-amber-400 to-yellow-600 rounded-t-full" />
+													<span className="absolute bottom-0 left-0 w-full h-0.5 bg-linear-to-r from-amber-400 to-yellow-600 rounded-t-full" />
 												)}
 											</button>
 										))}
@@ -1195,8 +1147,10 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 				</div>
 			</div>
 
-			{/* Printable Report (Receives AI Summary if generated) */}
-			<PrintableAuditReport aiSummary={aiSummary} />
+			{/* Printable Report (Receives AI Summary */}
+			<div className="hidden">
+				<PrintableAuditReport aiSummary={aiSummary} data={data} />
+			</div>
 		</>
 	);
 }
