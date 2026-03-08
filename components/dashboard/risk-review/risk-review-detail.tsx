@@ -1,1083 +1,1203 @@
-"use client";
-
 import {
-	RiAlertLine,
-	RiArrowDownSLine,
-	RiArrowRightSLine,
-	RiBankLine,
-	RiBuilding2Line,
-	RiCheckLine,
-	RiCloseLine,
-	RiExternalLinkLine,
-	RiEyeLine,
-	RiFileTextLine,
-	RiHistoryLine,
-	RiLoader4Line,
-	RiPercentLine,
-	RiQuestionLine,
-	RiShieldCheckLine,
-	RiShoppingBag3Line,
-	RiUserLine,
-} from "@remixicon/react";
-import * as React from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { DataSourceBadge } from "@/components/ui/data-source-badge";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import {
-	Sheet,
-	SheetContent,
-	SheetDescription,
-	SheetHeader,
-	SheetTitle,
-} from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import {
-	OVERRIDE_CATEGORIES,
-	OVERRIDE_CATEGORY_LABELS,
-	type OverrideCategory,
-} from "@/lib/constants/override-taxonomy";
-import { cn } from "@/lib/utils";
-import type { RiskReviewItem } from "./risk-review-queue";
+	Activity,
+	AlertOctagon,
+	AlertTriangle,
+	Building2,
+	Check,
+	CheckCircle2,
+	ChevronRight,
+	Clock,
+	CreditCard,
+	Download,
+	FileCheck,
+	FileText,
+	Fingerprint,
+	Globe2,
+	Home,
+	Landmark,
+	Loader2,
+	Newspaper,
+	Scale,
+	ShieldAlert,
+	Sparkles,
+	Users,
+} from "lucide-react";
+import { useState } from "react";
 
-// ============================================
-// Types
-// ============================================
-
-import type { OverrideData } from "./risk-review-queue";
-
-interface RiskReviewDetailProps {
-	item: RiskReviewItem | null;
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	onApprove: (id: number, overrideData: OverrideData) => Promise<void>;
-	onReject: (id: number, overrideData: OverrideData) => Promise<void>;
+export interface RiskReviewData {
+	globalData: {
+		transactionId: string;
+		generatedAt: string;
+		overallStatus: string;
+		overallRiskScore: number;
+		entity: {
+			name: string;
+			tradingAs?: string;
+			registrationNumber?: string;
+			entityType?: string;
+			registeredAddress?: string;
+		};
+	};
+	procurementData: {
+		cipcStatus: string;
+		taxStatus: string;
+		taxExpiry: string;
+		beeLevel: string;
+		beeExpiry: string;
+		riskAlerts: Array<{
+			category: string;
+			message: string;
+			id?: string;
+			action?: string;
+		}>;
+		checks: Array<{ name: string; status: string; detail: string }>;
+		directors: Array<{
+			name: string;
+			idNumber: string;
+			otherDirectorships: number;
+			conflicts: number;
+			status?: string;
+		}>;
+	};
+	itcData: {
+		creditScore: number;
+		scoreBand: string;
+		judgements: number | string;
+		defaults: number | string;
+		defaultDetails: string;
+		tradeReferences: number | string;
+	};
+	sanctionsData: {
+		sanctionsMatch: string;
+		pepHits: number | string;
+		alerts: Array<{ date: string; source: string; title: string; severity: string }>;
+	};
+	ficaData: {
+		identity: Array<{ name: string; id: string; status: string; deceasedStatus: string }>;
+		residence: {
+			address: string;
+			documentType: string;
+			ageInDays: number | string;
+			status: string;
+		};
+		banking: {
+			bankName: string;
+			accountNumber: string;
+			avsStatus: string;
+			avsDetails: string;
+		};
+	};
 }
 
-interface TimelineEvent {
-	id: string;
-	type: "stage_change" | "agent_dispatch" | "agent_callback" | "human_override" | "error";
-	title: string;
-	description: string;
-	timestamp: Date;
-	actor?: string;
-}
+// --- Gemini API Helper ---
+const callGemini = async (
+	prompt: string,
+	systemInstruction: string = "You are a helpful assistant."
+) => {
+	const apiKey = ""; // API key provided by the execution environment
+	const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
-// ============================================
-// Helper Functions
-// ============================================
+	const payload = {
+		contents: [{ parts: [{ text: prompt }] }],
+		systemInstruction: { parts: [{ text: systemInstruction }] },
+	};
 
-function getSeverityColor(severity: string): string {
-	switch (severity) {
-		case "LOW":
-			return "bg-blue-500/10 text-blue-400 border-blue-500/20";
-		case "MEDIUM":
-			return "bg-warning/50 text-warning-foreground border-warning";
-		case "HIGH":
-			return "bg-orange-500/10 text-orange-400 border-orange-500/20";
-		case "CRITICAL":
-			return "bg-red-500/10 text-red-400 border-red-500/20";
-		default:
-			return "bg-secondary/10 text-muted-foreground";
+	const delays = [1000, 2000, 4000, 8000, 16000];
+	let retries = 0;
+
+	while (retries < 5) {
+		try {
+			const response = await fetch(url, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(payload),
+			});
+			if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+			const data = await response.json();
+			return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+		} catch (_error) {
+			if (retries === 4)
+				throw new Error("Failed to connect to AI service after multiple attempts.");
+			await new Promise(res => setTimeout(res, delays[retries]));
+			retries++;
+		}
 	}
-}
+};
 
-function formatDate(date: Date): string {
-	return new Intl.DateTimeFormat("en-ZA", {
-		dateStyle: "medium",
-		timeStyle: "short",
-	}).format(date);
-}
+// --- Screen UI Components ---
 
-// ============================================
-// Metric Card Component
-// ============================================
+const Badge = ({
+	children,
+	variant = "default",
+}: {
+	children: React.ReactNode;
+	variant?: "default" | "success" | "warning" | "danger" | "gold" | "ai";
+}) => {
+	const variants = {
+		default: "bg-zinc-800 text-zinc-300 border-zinc-700",
+		success: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+		warning: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+		danger: "bg-red-500/10 text-red-400 border-red-500/20",
+		gold: "bg-gradient-to-r from-amber-500/20 to-yellow-600/20 text-amber-300 border-amber-500/30",
+		ai: "bg-indigo-500/10 text-indigo-300 border-indigo-500/30",
+	};
+	return (
+		<span
+			className={`px-2.5 py-1 rounded-full text-xs font-medium border ${variants[variant]}`}>
+			{children}
+		</span>
+	);
+};
 
-function MetricCard({
-	icon: Icon,
+const Card = ({
+	children,
+	className = "",
+}: {
+	children: React.ReactNode;
+	className?: string;
+}) => (
+	<div
+		className={`bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden ${className}`}>
+		{children}
+	</div>
+);
+
+const ScoreGauge = ({
+	score,
 	label,
-	value,
-	status,
+	max = 100,
+	inverse = false,
 }: {
-	icon: React.ElementType;
+	score: number;
 	label: string;
-	value: React.ReactNode;
-	status?: "good" | "warning" | "danger" | "neutral";
-}) {
-	const statusColors = {
-		good: "text-emerald-400",
-		warning: "text-warning-foreground",
-		danger: "text-red-400",
-		neutral: "text-muted-foreground",
+	max?: number;
+	inverse?: boolean;
+}) => {
+	const getColour = (val: number) => {
+		const ratio = val / max;
+		if (inverse) {
+			if (ratio > 0.7) return "text-emerald-400";
+			if (ratio > 0.4) return "text-amber-400";
+			return "text-red-400";
+		} else {
+			if (ratio < 0.3) return "text-emerald-400";
+			if (ratio < 0.7) return "text-amber-400";
+			return "text-red-400";
+		}
 	};
 
+	const percentage = (score / max) * 100;
+	const dashoffset = 351.85 - (351.85 * percentage) / 100;
+
 	return (
-		<div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/5 border border-secondary/10">
-			<div className="p-2 rounded-lg bg-secondary/10">
-				<Icon className="h-4 w-4 text-muted-foreground" />
-			</div>
-			<div className="flex-1 min-w-0">
-				<p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-					{label}
-				</p>
-				<p className={cn("text-sm font-semibold", status && statusColors[status])}>
-					{value}
-				</p>
+		<div className="flex flex-col items-center justify-center relative">
+			<h3 className="text-sm text-zinc-400 font-medium mb-4 flex items-center gap-2">
+				<Activity className="w-4 h-4" /> {label}
+			</h3>
+			<div className="relative flex items-center justify-center mb-2">
+				<svg className="w-28 h-28 transform -rotate-90">
+					<circle
+						cx="56"
+						cy="56"
+						r="48"
+						className="text-zinc-800 stroke-current"
+						strokeWidth="8"
+						fill="transparent"
+					/>
+					<circle
+						cx="56"
+						cy="56"
+						r="48"
+						className={`${getColour(score)} stroke-current transition-all duration-1000 ease-out`}
+						strokeWidth="8"
+						fill="transparent"
+						strokeDasharray="351.85"
+						strokeDashoffset={dashoffset}
+						strokeLinecap="round"
+					/>
+				</svg>
+				<div className="absolute inset-0 flex flex-col items-center justify-center">
+					<span className={`text-3xl font-bold ${getColour(score)}`}>{score}</span>
+				</div>
 			</div>
 		</div>
 	);
-}
+};
 
-// ============================================
-// Document Card Component
-// ============================================
-
-function DocumentCard({
-	name,
-	type,
-	verified,
-	uploadDate,
-	onView,
+// --- Printable Master Report Component (Hidden on Screen) ---
+const PrintableAuditReport = ({
+	aiSummary,
+	data,
 }: {
-	name: string;
-	type: string;
-	verified: boolean;
-	uploadDate?: Date;
-	onView?: () => void;
-}) {
+	aiSummary: string | null;
+	data: RiskReviewData;
+}) => {
+	if (!data) return null;
+	const { globalData, procurementData, itcData, sanctionsData, ficaData } = data;
 	return (
-		<div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/5 border border-secondary/10 hover:bg-secondary/10 transition-colors">
-			<div
-				className={cn(
-					"p-2 rounded-lg",
-					verified ? "bg-emerald-500/10" : "bg-warning/50"
-				)}>
-				<RiFileTextLine
-					className={cn(
-						"h-5 w-5",
-						verified ? "text-emerald-400" : "text-warning-foreground"
-					)}
-				/>
-			</div>
-			<div className="flex-1 min-w-0">
-				<p className="text-sm font-medium truncate">{name}</p>
-				<div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-					<span>{type}</span>
-					{uploadDate && (
-						<>
-							<span>•</span>
-							<span>{formatDate(uploadDate)}</span>
-						</>
-					)}
-				</div>
-			</div>
-			<div className="flex items-center gap-2">
-				{verified ? (
-					<Badge
-						variant="outline"
-						className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]">
-						Verified
-					</Badge>
-				) : (
-					<Badge
-						variant="outline"
-						className="bg-warning/50 text-warning-foreground border-warning text-[10px]">
-						Pending
-					</Badge>
-				)}
-				{onView && (
-					<Button variant="ghost" size="icon" className="h-7 w-7" onClick={onView}>
-						<RiEyeLine className="h-3.5 w-3.5" />
-					</Button>
-				)}
-			</div>
-		</div>
-	);
-}
-
-// ============================================
-// Timeline Event Component
-// ============================================
-
-function TimelineEventCard({ event }: { event: TimelineEvent }) {
-	const typeConfig = {
-		stage_change: {
-			icon: RiHistoryLine,
-			color: "text-blue-400",
-			bg: "bg-blue-500/10",
-		},
-		agent_dispatch: {
-			icon: RiExternalLinkLine,
-			color: "text-purple-400",
-			bg: "bg-purple-500/10",
-		},
-		agent_callback: {
-			icon: RiCheckLine,
-			color: "text-emerald-400",
-			bg: "bg-emerald-500/10",
-		},
-		human_override: {
-			icon: RiUserLine,
-			color: "text-warning-foreground",
-			bg: "bg-warning/50",
-		},
-		error: { icon: RiAlertLine, color: "text-red-400", bg: "bg-red-500/10" },
-	};
-
-	const config = typeConfig[event.type];
-	const Icon = config.icon;
-
-	return (
-		<div className="flex gap-3">
-			<div className={cn("p-1.5 rounded-lg h-fit", config.bg)}>
-				<Icon className={cn("h-3.5 w-3.5", config.color)} />
-			</div>
-			<div className="flex-1 min-w-0 pb-4">
-				<div className="flex items-start justify-between gap-2">
-					<p className="text-sm font-medium">{event.title}</p>
-					<span className="text-[10px] text-muted-foreground whitespace-nowrap">
-						{formatDate(event.timestamp)}
-					</span>
-				</div>
-				<p className="text-xs text-muted-foreground mt-0.5">{event.description}</p>
-				{event.actor && (
-					<p className="text-[10px] text-muted-foreground/70 mt-1">By: {event.actor}</p>
-				)}
-			</div>
-		</div>
-	);
-}
-
-// ============================================
-// Risk Review Detail Sheet
-// ============================================
-
-export function RiskReviewDetail({
-	item,
-	open,
-	onOpenChange,
-	onApprove,
-	onReject,
-}: RiskReviewDetailProps) {
-	const [activeTab, setActiveTab] = React.useState("overview");
-	const [isSubmitting, setIsSubmitting] = React.useState(false);
-	const [actionType, setActionType] = React.useState<"approve" | "reject" | null>(null);
-
-	// Override modal state (SOP v3.1.0 — "Why" modal)
-	const [showOverrideModal, setShowOverrideModal] = React.useState(false);
-	const [pendingAction, setPendingAction] = React.useState<"approve" | "reject" | null>(
-		null
-	);
-	const [overrideCategory, setOverrideCategory] = React.useState<OverrideCategory | null>(
-		null
-	);
-	const [overrideReason, setOverrideReason] = React.useState("");
-
-	// Collapsible section state (SOP v3.1.0 — auto-collapse low-risk)
-	const [collapsedSections, setCollapsedSections] = React.useState<
-		Record<string, boolean>
-	>({});
-
-	/**
-	 * Determine if a decision disagrees with the AI recommendation.
-	 * If AI says APPROVE and user clicks Reject, or AI says DECLINE and user clicks Approve.
-	 */
-	const isOverride = React.useCallback(
-		(action: "approve" | "reject"): boolean => {
-			if (!item?.recommendation) return false;
-			const rec = item.recommendation.toUpperCase();
-			if (action === "approve" && (rec === "DECLINE" || rec === "REJECT")) return true;
-			if (action === "reject" && rec === "APPROVE") return true;
-			return false;
-		},
-		[item?.recommendation]
-	);
-
-	const toggleSection = React.useCallback((sectionId: string) => {
-		setCollapsedSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
-	}, []);
-
-	/**
-	 * Initialize collapsed state based on risk flag severity.
-	 * HIGH/CRITICAL → expanded, LOW/MEDIUM → collapsed.
-	 */
-	React.useEffect(() => {
-		if (!item?.riskFlags) return;
-		const initial: Record<string, boolean> = {};
-		item.riskFlags.forEach((flag, idx) => {
-			const key = `flag_${idx}`;
-			// Collapse LOW/MEDIUM, expand HIGH/CRITICAL
-			initial[key] = flag.severity === "LOW" || flag.severity === "MEDIUM";
-		});
-		// Collapse "documents" section if all docs are verified
-		if (item.bankStatementVerified && item.accountantLetterVerified) {
-			initial.documents_section = true;
-		}
-		setCollapsedSections(initial);
-	}, [item?.riskFlags, item?.bankStatementVerified, item?.accountantLetterVerified]);
-
-	/**
-	 * Determine review type based on workflow stage (V2 Workflow Phase 3)
-	 * Stage 3 = Procurement review, Stage 4 = General/Final review
-	 */
-	const reviewType: "procurement" | "general" =
-		item?.reviewType || (item?.stage === 3 ? "procurement" : "general");
-
-	/**
-	 * Get the appropriate API endpoint based on review type
-	 */
-	const _getApiEndpoint = () => {
-		return reviewType === "procurement"
-			? "/api/risk-decision/procurement"
-			: "/api/risk-decision";
-	};
-
-	/**
-	 * Handle approve action — intercept if overriding AI recommendation
-	 * Uses AI_ALIGNED category as default since detail view doesn't have the full dialog
-	 */
-	const handleApprove = async () => {
-		if (!item) return;
-		if (isOverride("approve")) {
-			setPendingAction("approve");
-			setShowOverrideModal(true);
-			return;
-		}
-		setIsSubmitting(true);
-		setActionType("approve");
-		try {
-			await onApprove(item.id, {
-				overrideCategory: "AI_ALIGNED",
-				overrideDetails: `Approved via ${reviewType} review`,
-			});
-			onOpenChange(false);
-		} finally {
-			setIsSubmitting(false);
-			setActionType(null);
-		}
-	};
-
-	/**
-	 * Handle reject action — intercept if overriding AI recommendation
-	 * Defaults to OTHER category from detail view
-	 * Full structured rejection should go through the RiskDecisionDialog
-	 */
-	const handleReject = async () => {
-		if (!item) return;
-		if (isOverride("reject")) {
-			setPendingAction("reject");
-			setShowOverrideModal(true);
-			return;
-		}
-		setIsSubmitting(true);
-		setActionType("reject");
-		try {
-			await onReject(item.id, {
-				overrideCategory: "OTHER",
-				overrideDetails: `Rejected via ${reviewType} review`,
-			});
-			onOpenChange(false);
-		} finally {
-			setIsSubmitting(false);
-			setActionType(null);
-		}
-	};
-
-	/**
-	 * Submit override after selecting category and reason in the modal
-	 */
-	const handleOverrideSubmit = async () => {
-		if (!(item && pendingAction && overrideCategory && overrideReason.trim())) return;
-		setIsSubmitting(true);
-		setActionType(pendingAction);
-		try {
-			const overrideData: OverrideData = {
-				overrideCategory: overrideCategory,
-				overrideDetails: `[${overrideCategory}] ${overrideReason}`,
-			};
-			if (pendingAction === "approve") {
-				await onApprove(item.id, overrideData);
-			} else {
-				await onReject(item.id, overrideData);
-			}
-			setShowOverrideModal(false);
-			setPendingAction(null);
-			setOverrideCategory(null);
-			setOverrideReason("");
-			onOpenChange(false);
-		} finally {
-			setIsSubmitting(false);
-			setActionType(null);
-		}
-	};
-
-	// Mock timeline events - in production, fetch from API
-	const mockTimeline: TimelineEvent[] = item
-		? [
-				{
-					id: "1",
-					type: "stage_change",
-					title: "Workflow Started",
-					description: "Applicant captured and workflow initiated",
-					timestamp: item.createdAt,
-					actor: "System",
-				},
-				{
-					id: "2",
-					type: "agent_dispatch",
-					title: "ITC Check Initiated",
-					description: `Credit score returned: ${item.itcScore || "Pending"}`,
-					timestamp: new Date(item.createdAt.getTime() + 60000),
-					actor: "ITC Service",
-				},
-				{
-					id: "3",
-					type: "stage_change",
-					title: "FICA Documents Received",
-					description: "Required documents uploaded",
-					timestamp: new Date(item.createdAt.getTime() + 3600000),
-				},
-				{
-					id: "4",
-					type: "agent_callback",
-					title: "AI FICA Analysis Complete",
-					description: `Trust score: ${item.aiTrustScore}%. Recommendation: ${item.recommendation || "Manual Review"}`,
-					timestamp: new Date(item.createdAt.getTime() + 3660000),
-					actor: "FICA AI Agent",
-				},
-				{
-					id: "5",
-					type: "human_override",
-					title: "Awaiting Risk Manager Decision",
-					description: "Workflow paused for human review",
-					timestamp: new Date(),
-				},
-			]
-		: [];
-
-	if (!item) return null;
-
-	return (
-		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent className="w-full sm:max-w-xl border-secondary/20 bg-transparent bg-linear-to-br from-slate-950/60 to-slate-950/30 backdrop-blur-lg overflow-y-auto">
-				<SheetHeader className="pb-4">
-					<div className="flex items-start justify-between">
-						<div>
-							<SheetTitle className="text-xl text-white/90">{item.clientName}</SheetTitle>
-							<SheetDescription className="flex items-center gap-2 mt-1 flex-wrap text-accent-foreground">
-								<RiBuilding2Line className="h-3.5 w-3.5 text-white" />
-								{item.companyName}
-								<span className="text-muted">•</span>
-								<Badge
-									variant="secondary"
-									className=" bg-white/10 text-[10px] text-white/90">
-									WF-{item.workflowId}
-								</Badge>
-								{/* Review Type Badge (Phase 3) */}
-								<Badge
-									className={cn(
-										"text-[13px] gap-2 h-8",
-										reviewType === "procurement"
-											? "bg-indigo-500/40 text-indigo-200 border-indigo-500/20"
-											: "bg-indigo-500/40 text-indigo-300 border-blue-500/20"
-									)}>
-									{reviewType === "procurement" ? (
-										<span className="flex items-center gap-2">
-											<RiShoppingBag3Line className="h-4 w-4 text-indigo-400" />
-											Procurement
-										</span>
-									) : (
-										<span className="flex items-center gap-2">
-											<RiShieldCheckLine className="h-4 w-4" />
-											General
-										</span>
-									)}
-								</Badge>
-								{/* Data source badge (mock vs live) */}
-								<DataSourceBadge dataSource={item.dataSource} />
-							</SheetDescription>
-						</div>
-						<div
-							className={cn(
-								"px-3 py-1.5 bg-secondary/10 w-20 rounded-lg text-center",
-								item.aiTrustScore && item.aiTrustScore >= 80
-									? "bg-emerald-500/10"
-									: item.aiTrustScore && item.aiTrustScore >= 60
-										? "bg-warning"
-										: "bg-destructive-foreground/70"
-							)}>
-							<p className="text-[10px] text-white">AI Score</p>
-							<p className="text-xl font-bold text-white">{item.aiTrustScore || "N/A"}</p>
-						</div>
+		<div className="hidden print:block text-black bg-white font-sans p-8 max-w-4xl mx-auto text-sm">
+			<div className="border-b-2 border-black pb-6 mb-6">
+				<div className="flex justify-between items-end mb-4">
+					<div>
+						<h1 className="text-2xl font-bold tracking-tight uppercase">
+							Master Compliance & Risk Audit Report
+						</h1>
+						<p className="text-gray-600 font-medium mt-1">CONFIDENTIAL & PRIVILEGED</p>
 					</div>
-				</SheetHeader>
+					<div className="text-right">
+						<p className="font-bold">Ref: {globalData.transactionId}</p>
+						<p className="text-gray-600">Generated: {globalData.generatedAt}</p>
+					</div>
+				</div>
+			</div>
 
-				<Tabs value={activeTab} onValueChange={setActiveTab} className="mt-0">
-					<TabsList className="w-full bg-secondary/10">
-						<TabsTrigger value="overview" className="flex-1 text-xs">
-							Overview
-						</TabsTrigger>
-						<TabsTrigger value="documents" className="flex-1 text-xs">
-							Documents
-						</TabsTrigger>
-						<TabsTrigger value="risks" className="flex-1 text-xs">
-							Risk Flags
-						</TabsTrigger>
-						<TabsTrigger value="timeline" className="flex-1 text-xs">
-							Timeline
-						</TabsTrigger>
-					</TabsList>
+			{/* AI Executive Summary injected into PDF if available */}
+			{aiSummary && (
+				<div className="mb-8 border-2 border-indigo-900 bg-indigo-50 p-4 rounded-sm">
+					<h2 className="text-lg font-bold uppercase border-b border-indigo-200 pb-1 mb-3 text-indigo-900">
+						AI Adjudication Briefing
+					</h2>
+					<div className="text-sm whitespace-pre-wrap text-black leading-relaxed">
+						{aiSummary}
+					</div>
+					<p className="text-xs text-indigo-700 italic mt-3 pt-2 border-t border-indigo-200">
+						* This summary was generated by AI risk analysis based on the data within this
+						report.
+					</p>
+				</div>
+			)}
 
-					{/* Overview Tab */}
-					<TabsContent value="overview" className="mt-0 space-y-4">
-						{/* Key Metrics */}
-						<div className="grid grid-cols-2 gap-3">
-							<MetricCard
-								icon={RiPercentLine}
-								label="AI Trust Score"
-								value={`${item.aiTrustScore || 0}%`}
-								status={
-									(item.aiTrustScore || 0) >= 80
-										? "good"
-										: (item.aiTrustScore || 0) >= 60
-											? "warning"
-											: "danger"
-								}
-							/>
-							<MetricCard
-								icon={RiBankLine}
-								label="ITC Credit Score"
-								value={item.itcScore || "N/A"}
-								status={
-									(item.itcScore || 0) >= 700
-										? "good"
-										: (item.itcScore || 0) >= 600
-											? "warning"
-											: "danger"
-								}
-							/>
-							<MetricCard
-								icon={RiAlertLine}
-								label="Risk Flags"
-								value={item.riskFlags?.length || 0}
-								status={(item.riskFlags?.length || 0) === 0 ? "good" : "warning"}
-							/>
-							<MetricCard
-								icon={RiShieldCheckLine}
-								label="Name Match"
-								value={item.nameMatchVerified ? "Verified" : "Mismatch"}
-								status={item.nameMatchVerified ? "good" : "danger"}
-							/>
-						</div>
+			<div className="mb-8">
+				<h2 className="text-lg font-bold uppercase border-b border-gray-300 pb-1 mb-3">
+					1. Executive Summary
+				</h2>
+				<table className="w-full border-collapse border border-gray-300 mb-4">
+					<tbody>
+						<tr className="border-b border-gray-300">
+							<td className="p-2 font-bold bg-gray-100 w-1/3">Subject Entity Name</td>
+							<td className="p-2 w-2/3">
+								{globalData.entity.name} (T/A {globalData.entity.tradingAs})
+							</td>
+						</tr>
+						<tr className="border-b border-gray-300">
+							<td className="p-2 font-bold bg-gray-100">Registration Number</td>
+							<td className="p-2">
+								{globalData.entity.registrationNumber} ({globalData.entity.entityType})
+							</td>
+						</tr>
+						<tr className="border-b border-gray-300">
+							<td className="p-2 font-bold bg-gray-100">Registered Address</td>
+							<td className="p-2">{globalData.entity.registeredAddress}</td>
+						</tr>
+						<tr>
+							<td className="p-2 font-bold bg-gray-100">Overall System Adjudication</td>
+							<td className="p-2 font-bold uppercase">
+								{globalData.overallStatus} (Risk Score: {globalData.overallRiskScore}/100)
+							</td>
+						</tr>
+					</tbody>
+				</table>
 
-						{/* AI Summary */}
-						{item.summary && (
-							<div className="p-4 rounded-lg bg-secondary/5 border border-secondary/10">
-								<h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-									<RiShieldCheckLine className="h-4 w-4 text-primary" />
-									AI Analysis Summary
-								</h4>
-								<p className="text-sm text-muted-foreground leading-relaxed">
-									{item.summary}
+				{procurementData.riskAlerts.length > 0 && (
+					<div className="border-l-4 border-black pl-4 py-2 my-4 bg-gray-50">
+						<h3 className="font-bold uppercase text-red-700 mb-2">
+							CRITICAL EXCEPTIONS IDENTIFIED
+						</h3>
+						{procurementData.riskAlerts.map((alert, idx) => (
+							<p key={idx} className="mb-1">
+								<span className="font-bold">{alert.category}:</span> {alert.message}
+							</p>
+						))}
+					</div>
+				)}
+			</div>
+
+			<div className="mb-8">
+				<h2 className="text-lg font-bold uppercase border-b border-gray-300 pb-1 mb-3">
+					2. Procurement & Governance (CIPC & SARS)
+				</h2>
+				<div className="grid grid-cols-2 gap-4 mb-4">
+					<div>
+						<p>
+							<span className="font-bold">CIPC Status:</span> {procurementData.cipcStatus}
+						</p>
+						<p>
+							<span className="font-bold">SARS Tax Clearance:</span>{" "}
+							{procurementData.taxStatus} (Exp: {procurementData.taxExpiry})
+						</p>
+					</div>
+					<div>
+						<p>
+							<span className="font-bold">B-BBEE Status:</span> Level{" "}
+							{procurementData.beeLevel} (Exp: {procurementData.beeExpiry})
+						</p>
+						<p>
+							<span className="font-bold">National Treasury Restr. List:</span> CLEAR
+						</p>
+					</div>
+				</div>
+
+				<h3 className="font-bold mt-4 mb-2">2.1 Active Directors & Conflict Matches</h3>
+				<table className="w-full border-collapse border border-gray-300 text-sm">
+					<thead className="bg-gray-100">
+						<tr>
+							<th className="border border-gray-300 p-2 text-left">Full Name</th>
+							<th className="border border-gray-300 p-2 text-left">Identity Number</th>
+							<th className="border border-gray-300 p-2 text-center">
+								Other Directorships
+							</th>
+							<th className="border border-gray-300 p-2 text-center">Conflict Matches</th>
+						</tr>
+					</thead>
+					<tbody>
+						{procurementData.directors.map((d, idx) => (
+							<tr key={idx}>
+								<td className="border border-gray-300 p-2">{d.name}</td>
+								<td className="border border-gray-300 p-2">{d.idNumber}</td>
+								<td className="border border-gray-300 p-2 text-center">
+									{d.otherDirectorships}
+								</td>
+								<td className="border border-gray-300 p-2 text-center font-bold">
+									{d.conflicts > 0 ? `${d.conflicts} MATCHES` : "NONE"}
+								</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+
+			<div className="mb-8">
+				<h2 className="text-lg font-bold uppercase border-b border-gray-300 pb-1 mb-3">
+					3. Commercial Credit Profile (ITC)
+				</h2>
+				<table className="w-full border-collapse border border-gray-300">
+					<tbody>
+						<tr className="border-b border-gray-300">
+							<td className="p-2 font-bold bg-gray-100 w-1/3">Credit Score</td>
+							<td className="p-2 w-2/3">
+								{itcData.creditScore} ({itcData.scoreBand})
+							</td>
+						</tr>
+						<tr className="border-b border-gray-300">
+							<td className="p-2 font-bold bg-gray-100">Civil Judgements</td>
+							<td className="p-2">{itcData.judgements}</td>
+						</tr>
+						<tr className="border-b border-gray-300">
+							<td className="p-2 font-bold bg-gray-100">Payment Defaults</td>
+							<td className="p-2">
+								{itcData.defaults} ({itcData.defaultDetails})
+							</td>
+						</tr>
+						<tr>
+							<td className="p-2 font-bold bg-gray-100">Trade References</td>
+							<td className="p-2">{itcData.tradeReferences}</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+
+			<div className="mb-8">
+				<h2 className="text-lg font-bold uppercase border-b border-gray-300 pb-1 mb-3">
+					4. Sanctions, PEP & Adverse Media (WorldCheck)
+				</h2>
+				<p className="mb-2">
+					<span className="font-bold">Global Sanctions Match:</span>{" "}
+					{sanctionsData.sanctionsMatch}
+				</p>
+				<p className="mb-2">
+					<span className="font-bold">Politically Exposed Persons (PEP) Hits:</span>{" "}
+					{sanctionsData.pepHits}
+				</p>
+
+				{sanctionsData.alerts.length > 0 && (
+					<div className="mt-4">
+						<h3 className="font-bold mb-2">4.1 Adverse Media & Alerts Log</h3>
+						<table className="w-full border-collapse border border-gray-300">
+							<thead className="bg-gray-100">
+								<tr>
+									<th className="border border-gray-300 p-2 text-left">Date</th>
+									<th className="border border-gray-300 p-2 text-left">Source</th>
+									<th className="border border-gray-300 p-2 text-left">Detail</th>
+									<th className="border border-gray-300 p-2 text-center">Severity</th>
+								</tr>
+							</thead>
+							<tbody>
+								{sanctionsData.alerts.map((alert, idx) => (
+									<tr key={idx}>
+										<td className="border border-gray-300 p-2 whitespace-nowrap">
+											{alert.date}
+										</td>
+										<td className="border border-gray-300 p-2">{alert.source}</td>
+										<td className="border border-gray-300 p-2">{alert.title}</td>
+										<td className="border border-gray-300 p-2 text-center font-bold">
+											{alert.severity}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				)}
+			</div>
+
+			<div className="mb-8">
+				<h2 className="text-lg font-bold uppercase border-b border-gray-300 pb-1 mb-3">
+					5. FICA / KYC Validations
+				</h2>
+				<div className="grid grid-cols-2 gap-6">
+					<div>
+						<h3 className="font-bold mb-2 border-b border-gray-200 pb-1">
+							5.1 Natural Person Verification
+						</h3>
+						{ficaData.identity.map((id, idx) => (
+							<div key={idx} className="mb-2">
+								<p className="font-bold">
+									{id.name} ({id.id})
+								</p>
+								<p className="text-xs">
+									HANIS Status: {id.status} | Life Status: {id.deceasedStatus}
 								</p>
 							</div>
-						)}
+						))}
+					</div>
+					<div>
+						<h3 className="font-bold mb-2 border-b border-gray-200 pb-1">
+							5.2 Proof of Residence
+						</h3>
+						<p className="text-sm font-bold">{ficaData.residence.address}</p>
+						<p className="text-xs mt-1">Source: {ficaData.residence.documentType}</p>
+						<p className="text-xs">
+							Document Age: {ficaData.residence.ageInDays} Days (
+							{ficaData.residence.status})
+						</p>
+					</div>
+				</div>
 
-						{/* AI Explanation - Why this score? */}
-						{item.reasoning && (
-							<div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-								<h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-									<RiAlertLine className="h-4 w-4 text-primary" />
-									Why This Score?
-								</h4>
-								<p className="text-sm text-foreground leading-relaxed">
-									{item.reasoning}
-								</p>
+				<div className="mt-4">
+					<h3 className="font-bold mb-2 border-b border-gray-200 pb-1">
+						5.3 Banking Verification (AVS)
+					</h3>
+					<p className="text-sm">
+						<span className="font-bold">Account:</span> {ficaData.banking.bankName}{" "}
+						{ficaData.banking.accountNumber}
+					</p>
+					<p className="text-sm">
+						<span className="font-bold">AVS Match:</span> {ficaData.banking.avsStatus} -{" "}
+						{ficaData.banking.avsDetails}
+					</p>
+				</div>
+			</div>
 
-								{item.riskFlags && item.riskFlags.length > 0 && (
-									<div className="mt-4 pt-4 border-t border-primary/10">
-										<p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
-											Identified Risk Factors
-										</p>
-										<div className="space-y-2">
-											{item.riskFlags.map((flag, idx) => (
+			<div className="mt-12 pt-4 border-t-2 border-black text-center text-xs text-gray-500">
+				<p>
+					This report was automatically generated by the Compliance Orchestrator System.
+				</p>
+				<p>
+					Data provided by LexisNexis, TransUnion, and the Department of Home Affairs
+					(HANIS).
+				</p>
+				<p className="mt-2 font-bold uppercase">End of Report</p>
+			</div>
+		</div>
+	);
+};
+
+// --- Main App Component ---
+
+function RiskReviewDetail({ data }: { data: RiskReviewData }) {
+	const [primaryTab, setPrimaryTab] = useState("procurement");
+	const [activeSubTab, setActiveSubTab] = useState("overview");
+
+	// AI Feature States
+	const [aiSummary, setAiSummary] = useState<string | null>(null);
+	const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+	const [summaryError, setSummaryError] = useState<string | null>(null);
+
+	const [mediaAnalyses, setMediaAnalyses] = useState<Record<number, string>>({});
+	const [analyzingMediaId, setAnalyzingMediaId] = useState<number | null>(null);
+
+	if (!data?.globalData) {
+		return <div className="p-8 text-center text-zinc-500">Loading risk data...</div>;
+	}
+
+	const { globalData, procurementData, itcData, sanctionsData, ficaData } = data;
+
+	const handlePrint = () => {
+		window.print();
+	};
+
+	const handleGenerateSummary = async () => {
+		setIsGeneratingSummary(true);
+		setSummaryError(null);
+
+		const systemPrompt =
+			"You are an expert South African Procurement & Compliance Risk Analyst.";
+		const dataContext = `
+      Entity: ${JSON.stringify(globalData.entity)}
+      Overall Score: ${globalData.overallRiskScore}
+      Procurement Data: ${JSON.stringify(procurementData)}
+      ITC Data: ${JSON.stringify(itcData)}
+      Sanctions Data: ${JSON.stringify(sanctionsData)}
+      FICA Data: ${JSON.stringify(ficaData)}
+    `;
+		const prompt = `Review the provided compliance data payload for ${globalData.entity.name}. 
+    Write a concise, professional executive summary (max 3 short paragraphs) detailing:
+    1. The primary identified risks (e.g., the specific conflict of interest, the payment default, adverse media).
+    2. The compliance strengths (e.g., FICA is solid, B-BBEE is Level 2).
+    3. A definitive final recommendation (e.g., "Refer for manual review before proceeding").
+    
+    Do not use markdown headers (#). Use simple text formatting or standard bullet points if necessary. Keep it highly analytical and objective.
+    
+    Data Payload: ${dataContext}`;
+
+		try {
+			const result = await callGemini(prompt, systemPrompt);
+			setAiSummary(result);
+		} catch (_err) {
+			setSummaryError("Failed to generate AI insights. Please try again.");
+		} finally {
+			setIsGeneratingSummary(false);
+		}
+	};
+
+	const handleAnalyzeMedia = async (
+		alertIdx: number,
+		alert: { title: string; source: string; severity: string }
+	) => {
+		setAnalyzingMediaId(alertIdx);
+
+		const systemPrompt =
+			"You are a Risk Analyst specializing in Anti-Money Laundering (AML) and Reputational Risk in South Africa.";
+		const prompt = `Analyze the following adverse media alert for a potential supplier:
+    Title: "${alert.title}"
+    Source: "${alert.source}"
+    Severity: "${alert.severity}"
+    
+    Provide a brief (3-4 sentences) explanation of what this kind of alert typically entails in a South African context and what specific further investigation the procurement officer should conduct regarding this alert.`;
+
+		try {
+			const result = await callGemini(prompt, systemPrompt);
+			setMediaAnalyses(prev => ({ ...prev, [alertIdx]: result }));
+		} catch (_err) {
+			setMediaAnalyses(prev => ({ ...prev, [alertIdx]: "Analysis failed to load." }));
+		} finally {
+			setAnalyzingMediaId(null);
+		}
+	};
+
+	const tabs = [
+		{ id: "procurement", label: "Procurement", subtitle: "Compliance & Conflicts" },
+		{ id: "itc", label: "ITC Credit", subtitle: "Commercial & Defaults" },
+		{ id: "sanctions", label: "Sanctions & AML", subtitle: "WorldCheck & Media" },
+		{ id: "fica", label: "FICA / KYC", subtitle: "Identity & Banking" },
+	];
+
+	return (
+		<>
+			{/* Screen UI */}
+			<div className="min-h-screen bg-zinc-950 text-zinc-300 font-sans p-4 md:p-8 selection:bg-amber-500/30 print:hidden">
+				<div className="max-w-6xl mx-auto space-y-6">
+					<header className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-6 border-b border-zinc-800">
+						<div>
+							<div className="flex items-center gap-3 mb-2">
+								<h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-600">
+									Overall Risk Profile
+								</h1>
+								{globalData.overallStatus === "REVIEW REQUIRED" && (
+									<Badge variant="warning">Manual Review Required</Badge>
+								)}
+							</div>
+							<p className="text-zinc-500 text-sm flex items-center gap-2">
+								<FileText className="w-4 h-4" />
+								Report Ref: {globalData.transactionId}{" "}
+								<span className="text-zinc-700">|</span>
+								Generated: {globalData.generatedAt}
+							</p>
+						</div>
+
+						<div className="flex flex-wrap items-center gap-3">
+							<button
+								type="button"
+								onClick={handleGenerateSummary}
+								disabled={isGeneratingSummary}
+								className="px-4 py-2 text-sm font-medium text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 rounded-lg transition-all flex items-center gap-2 disabled:opacity-50">
+								{isGeneratingSummary ? (
+									<Loader2 className="w-4 h-4 animate-spin" />
+								) : (
+									<Sparkles className="w-4 h-4" />
+								)}
+								{isGeneratingSummary ? "Analyzing..." : "✨ AI Risk Briefing"}
+							</button>
+							<button
+								type="button"
+								onClick={handlePrint}
+								className="px-4 py-2 text-sm font-medium text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-lg transition-colors flex items-center gap-2">
+								<Download className="w-4 h-4" /> Export Master PDF
+							</button>
+							<button
+								type="button"
+								className="px-5 py-2 text-sm font-medium text-zinc-950 bg-gradient-to-r from-amber-400 to-yellow-600 hover:from-amber-300 hover:to-yellow-500 rounded-lg shadow-lg shadow-amber-500/20 transition-all flex items-center gap-2">
+								<Check className="w-4 h-4" /> Final Adjudication
+							</button>
+						</div>
+					</header>
+
+					{/* AI Executive Summary Card */}
+					{(isGeneratingSummary || aiSummary || summaryError) && (
+						<div className="animate-in fade-in slide-in-from-top-4 duration-500">
+							<div className="relative p-1 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 bg-[length:200%_auto] animate-gradient-x">
+								<div className="bg-zinc-950 rounded-lg p-6 h-full border border-zinc-900">
+									<div className="flex items-center gap-2 mb-4 pb-4 border-b border-zinc-800">
+										<Sparkles className="w-5 h-5 text-indigo-400" />
+										<h2 className="text-lg font-semibold text-zinc-100">
+											AI Adjudication Briefing
+										</h2>
+										<Badge variant="ai">Beta</Badge>
+									</div>
+
+									{isGeneratingSummary && (
+										<div className="flex flex-col items-center justify-center py-8 gap-3 text-zinc-500">
+											<Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+											<p className="animate-pulse">
+												Synthesizing compliance data from 4 domains...
+											</p>
+										</div>
+									)}
+
+									{summaryError && <p className="text-red-400 text-sm">{summaryError}</p>}
+
+									{aiSummary && !isGeneratingSummary && (
+										<div className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">
+											{aiSummary}
+										</div>
+									)}
+								</div>
+							</div>
+						</div>
+					)}
+
+					{/* Global Summary Row */}
+					<div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+						<Card className="col-span-1 md:col-span-3 p-6 flex flex-col justify-center">
+							<div className="flex items-center gap-4 mb-4">
+								<div className="w-12 h-12 rounded-lg bg-gradient-to-br from-zinc-800 to-zinc-900 border border-zinc-700 flex items-center justify-center">
+									<Building2 className="w-6 h-6 text-amber-400" />
+								</div>
+								<div>
+									<h2 className="text-xl font-semibold text-zinc-100">
+										{globalData.entity.name}
+									</h2>
+									<p className="text-sm text-zinc-400">
+										Reg: {globalData.entity.registrationNumber} •{" "}
+										{globalData.entity.entityType}
+									</p>
+								</div>
+							</div>
+							<div className="flex gap-2">
+								<Badge variant="gold">B-BBEE Lvl 2</Badge>
+								<Badge variant="danger">1 Conflict Found</Badge>
+								<Badge variant="warning">Adverse Media Found</Badge>
+								<Badge variant="success">FICA Compliant</Badge>
+							</div>
+						</Card>
+
+						<Card className="col-span-1 p-6 relative overflow-hidden flex flex-col items-center justify-center">
+							<div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl"></div>
+							<h3 className="text-xs text-zinc-400 font-medium mb-1 uppercase tracking-wider">
+								Overall Risk Score
+							</h3>
+							<p className="text-5xl font-bold text-amber-400 mb-2">
+								{globalData.overallRiskScore}
+							</p>
+							<p className="text-xs text-zinc-500 text-center">
+								Calculated from all modules
+							</p>
+						</Card>
+					</div>
+
+					{/* Primary Navigation (Pills) */}
+					<div className="flex flex-wrap gap-3 py-2">
+						{tabs.map(tab => (
+							<button
+								key={tab.id}
+								type="button"
+								onClick={() => setPrimaryTab(tab.id)}
+								className={`flex flex-col items-start px-5 py-3 rounded-xl border transition-all ${
+									primaryTab === tab.id
+										? "bg-zinc-800/80 border-amber-500/50 shadow-md shadow-amber-500/5"
+										: "bg-zinc-900/30 border-zinc-800 hover:bg-zinc-800/50 hover:border-zinc-700"
+								}`}>
+								<span
+									className={`text-sm font-semibold mb-0.5 ${primaryTab === tab.id ? "text-amber-400" : "text-zinc-300"}`}>
+									{tab.label}
+								</span>
+								<span className="text-xs text-zinc-500">{tab.subtitle}</span>
+							</button>
+						))}
+					</div>
+
+					{/* Dynamic Content Area */}
+					<div className="mt-6">
+						{/* PROCUREMENT VIEW */}
+						{primaryTab === "procurement" && (
+							<div className="space-y-6 animate-in fade-in duration-500">
+								{procurementData.riskAlerts.length > 0 && (
+									<div className="space-y-3">
+										<h3 className="text-lg font-semibold text-zinc-100 flex items-center gap-2">
+											<ShieldAlert className="w-5 h-5 text-amber-500" />
+											Procurement Exceptions
+										</h3>
+										<div className="grid grid-cols-1 gap-3">
+											{procurementData.riskAlerts.map((alert, idx) => (
 												<div
 													key={idx}
-													className="flex items-start gap-2 bg-background/40 p-2 rounded border border-primary/10">
-													<Badge
-														variant="outline"
-														className={cn(
-															"text-[10px] shrink-0",
-															getSeverityColor(flag.severity)
-														)}>
-														{flag.severity}
-													</Badge>
-													<div className="text-xs">
-														<span className="font-semibold text-foreground/80">
-															{flag.type.replace(/_/g, " ")}
-														</span>
-														<span className="mx-1 text-muted-foreground">-</span>
-														<span className="text-muted-foreground">
-															{flag.description}
-														</span>
+													className="p-4 rounded-lg border bg-amber-500/5 border-amber-500/20 flex flex-col md:flex-row md:items-center gap-4">
+													<div className="p-2 rounded-full bg-amber-500/10 text-amber-400">
+														<AlertTriangle className="w-5 h-5" />
+													</div>
+													<div className="flex-1">
+														<div className="flex items-center gap-2 mb-1">
+															<Badge variant="warning">
+																{alert.id} | {alert.category}
+															</Badge>
+														</div>
+														<p className="text-zinc-200 text-sm">{alert.message}</p>
+														<p className="text-zinc-500 text-xs mt-1">
+															Action: {alert.action}
+														</p>
 													</div>
 												</div>
 											))}
 										</div>
 									</div>
 								)}
-
-								{item.analysisConfidence && (
-									<p className="text-xs text-muted-foreground mt-3">
-										AI Confidence: {item.analysisConfidence}%
-									</p>
-								)}
+								<div className="border-b border-zinc-800">
+									<nav className="flex space-x-8">
+										{["overview", "directors", "compliance"].map(tab => (
+											<button
+												key={tab}
+												type="button"
+												onClick={() => setActiveSubTab(tab)}
+												className={`pb-4 text-sm font-medium capitalize transition-colors relative ${
+													activeSubTab === tab
+														? "text-amber-400"
+														: "text-zinc-500 hover:text-zinc-300"
+												}`}>
+												{tab}
+												{activeSubTab === tab && (
+													<span className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-amber-400 to-yellow-600 rounded-t-full" />
+												)}
+											</button>
+										))}
+									</nav>
+								</div>
+								<div className="pt-2">
+									{activeSubTab === "overview" && (
+										<Card>
+											<table className="w-full text-left border-collapse">
+												<thead>
+													<tr className="border-b border-zinc-800 bg-zinc-900/50 text-xs text-zinc-500 uppercase tracking-wider">
+														<th className="p-4 font-medium">Verification Check</th>
+														<th className="p-4 font-medium">Result</th>
+														<th className="p-4 font-medium">Details</th>
+													</tr>
+												</thead>
+												<tbody className="divide-y divide-zinc-800/50 text-sm">
+													{procurementData.checks.map((check, idx) => (
+														<tr
+															key={idx}
+															className="hover:bg-zinc-800/20 transition-colors">
+															<td className="p-4 font-medium text-zinc-300">
+																{check.name}
+															</td>
+															<td className="p-4">
+																<Badge
+																	variant={
+																		check.status === "PASS" ? "success" : "danger"
+																	}>
+																	{check.status}
+																</Badge>
+															</td>
+															<td className="p-4 text-zinc-500">{check.detail}</td>
+														</tr>
+													))}
+												</tbody>
+											</table>
+										</Card>
+									)}
+									{activeSubTab === "directors" && (
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+											{procurementData.directors.map((director, idx) => (
+												<Card
+													key={idx}
+													className={`p-5 flex flex-col gap-4 ${director.status === "FLAGGED" ? "border-amber-500/30" : ""}`}>
+													<div className="flex items-start justify-between">
+														<div className="flex items-center gap-3">
+															<div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400">
+																<Users className="w-5 h-5" />
+															</div>
+															<div>
+																<h4 className="font-medium text-zinc-200">
+																	{director.name}
+																</h4>
+																<p className="text-xs text-zinc-500">
+																	ID: {director.idNumber}
+																</p>
+															</div>
+														</div>
+														<Badge
+															variant={
+																director.status === "CLEARED" ? "success" : "warning"
+															}>
+															{director.status}
+														</Badge>
+													</div>
+													<div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-zinc-950/50 text-sm">
+														<div>
+															<span className="block text-xs text-zinc-500 mb-1">
+																Other Directorships
+															</span>
+															<span className="font-medium text-zinc-300">
+																{director.otherDirectorships} Active
+															</span>
+														</div>
+														<div>
+															<span className="block text-xs text-zinc-500 mb-1">
+																Identified Conflicts
+															</span>
+															<span
+																className={`font-medium ${director.conflicts > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+																{director.conflicts} Matches
+															</span>
+														</div>
+													</div>
+												</Card>
+											))}
+										</div>
+									)}
+									{activeSubTab === "compliance" && (
+										<Card className="p-6">
+											<div className="flex items-center gap-4 pb-6 border-b border-zinc-800">
+												<div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center">
+													<Clock className="w-6 h-6 text-zinc-400" />
+												</div>
+												<div className="flex-1">
+													<h4 className="text-zinc-200 font-medium">
+														B-BBEE Expiry Tracking
+													</h4>
+													<p className="text-sm text-zinc-500">
+														Certificate/Affidavit valid until {procurementData.beeExpiry}
+													</p>
+												</div>
+												<Badge variant="warning">Expires in 24 Days</Badge>
+											</div>
+										</Card>
+									)}
+								</div>
 							</div>
 						)}
 
-						{item.ficaComparison && (
-							<div className="p-4 rounded-lg bg-secondary/5 border border-secondary/10">
-								<h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-									<RiFileTextLine className="h-4 w-4 text-primary" />
-									FICA Field Verification
-								</h4>
-								<div className="grid grid-cols-3 gap-3 mb-3">
-									<MetricCard
-										icon={RiAlertLine}
-										label="Total Mismatches"
-										value={item.ficaComparison.totalMismatches}
-										status={
-											item.ficaComparison.totalMismatches > 0 ? "warning" : "good"
-										}
-									/>
-									<MetricCard
-										icon={RiAlertLine}
-										label="Critical Mismatches"
-										value={item.ficaComparison.criticalMismatches}
-										status={
-											item.ficaComparison.criticalMismatches > 0 ? "danger" : "good"
-										}
-									/>
-									<MetricCard
-										icon={RiCheckLine}
-										label="Docs Impacted"
-										value={item.ficaComparison.documentsWithMismatches}
-										status={
-											item.ficaComparison.documentsWithMismatches > 0
-												? "warning"
-												: "good"
-										}
-									/>
-								</div>
-								{item.ficaComparison.keyDiscrepancies.length > 0 ? (
-									<div className="space-y-2">
-										<p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-											Key Discrepancies
+						{/* ITC VIEW */}
+						{primaryTab === "itc" && (
+							<div className="space-y-6 animate-in fade-in duration-500">
+								<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+									<Card className="col-span-1 p-6 flex flex-col items-center justify-center bg-zinc-900/50">
+										<ScoreGauge
+											score={itcData.creditScore}
+											label="Commercial Credit Score"
+											max={999}
+											inverse={true}
+										/>
+										<p className="text-sm text-amber-400 font-medium mt-2">
+											{itcData.scoreBand}
 										</p>
-										{item.ficaComparison.keyDiscrepancies.map((discrepancy, idx) => (
+									</Card>
+									<div className="col-span-1 md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+										<Card className="p-5 border-l-4 border-l-emerald-500">
+											<div className="flex items-center gap-3 mb-2">
+												<Scale className="w-5 h-5 text-emerald-400" />
+												<h4 className="font-medium text-zinc-200">Court Judgements</h4>
+											</div>
+											<p className="text-2xl font-bold text-zinc-100">
+												{itcData.judgements}
+											</p>
+											<p className="text-xs text-zinc-500 mt-1">
+												No active civil judgements recorded.
+											</p>
+										</Card>
+										<Card className="p-5 border-l-4 border-l-amber-500">
+											<div className="flex items-center gap-3 mb-2">
+												<AlertOctagon className="w-5 h-5 text-amber-400" />
+												<h4 className="font-medium text-zinc-200">Payment Defaults</h4>
+											</div>
+											<p className="text-2xl font-bold text-zinc-100">
+												{itcData.defaults}
+											</p>
+											<p className="text-xs text-amber-400/80 mt-1">
+												{itcData.defaultDetails}
+											</p>
+										</Card>
+										<Card className="p-5 sm:col-span-2">
+											<div className="flex items-center gap-3 mb-4">
+												<CreditCard className="w-5 h-5 text-zinc-400" />
+												<h4 className="font-medium text-zinc-200">Credit Behaviour</h4>
+											</div>
+											<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+												<div className="p-3 bg-zinc-950 rounded-lg">
+													<span className="block text-xs text-zinc-500 mb-1">
+														Trade References
+													</span>
+													<span className="text-sm font-medium text-zinc-300">
+														{itcData.tradeReferences}
+													</span>
+												</div>
+												<div className="p-3 bg-zinc-950 rounded-lg">
+													<span className="block text-xs text-zinc-500 mb-1">
+														Recent Credit Enquiries
+													</span>
+													<span className="text-sm font-medium text-zinc-300">
+														{itcData.recentEnquiries}
+													</span>
+												</div>
+											</div>
+										</Card>
+									</div>
+								</div>
+							</div>
+						)}
+
+						{/* SANCTIONS VIEW */}
+						{primaryTab === "sanctions" && (
+							<div className="space-y-6 animate-in fade-in duration-500">
+								<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+									<Card className="p-5 flex items-center justify-between">
+										<div>
+											<p className="text-sm text-zinc-400 mb-1">Global Sanctions</p>
+											<p className="text-xl font-bold text-emerald-400">Clear</p>
+										</div>
+										<div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+											<Globe2 className="w-5 h-5 text-emerald-400" />
+										</div>
+									</Card>
+									<Card className="p-5 flex items-center justify-between">
+										<div>
+											<p className="text-sm text-zinc-400 mb-1">PEP Matches</p>
+											<p className="text-xl font-bold text-emerald-400">0 Identified</p>
+										</div>
+										<div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+											<Users className="w-5 h-5 text-emerald-400" />
+										</div>
+									</Card>
+									<Card className="p-5 flex items-center justify-between border-amber-500/30">
+										<div>
+											<p className="text-sm text-zinc-400 mb-1">Adverse Media</p>
+											<p className="text-xl font-bold text-amber-400">
+												{sanctionsData.adverseMedia} Hits
+											</p>
+										</div>
+										<div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
+											<Newspaper className="w-5 h-5 text-amber-400" />
+										</div>
+									</Card>
+								</div>
+								<Card>
+									<div className="p-5 border-b border-zinc-800 bg-zinc-900/50">
+										<h3 className="font-medium text-zinc-200 flex items-center gap-2">
+											<Globe2 className="w-4 h-4 text-amber-500" />
+											WorldCheck / AML Alerts
+										</h3>
+									</div>
+									<div className="divide-y divide-zinc-800">
+										{sanctionsData.alerts.map((alert, idx) => (
 											<div
-												key={`${discrepancy}-${idx}`}
-												className="text-xs text-muted-foreground bg-background/40 p-2 rounded border border-secondary/10">
-												{discrepancy}
+												key={idx}
+												className="p-5 hover:bg-zinc-800/20 transition-colors">
+												<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+													<div className="flex items-start gap-4">
+														<Badge
+															variant={alert.severity === "HIGH" ? "danger" : "warning"}>
+															{alert.severity}
+														</Badge>
+														<div>
+															<p className="font-medium text-zinc-200 mb-1">
+																{alert.title}
+															</p>
+															<p className="text-xs text-zinc-500">
+																Source: {alert.source} • Logged: {alert.date}
+															</p>
+														</div>
+													</div>
+
+													<div className="flex gap-2">
+														{/* AI Action Button for specific alert */}
+														<button
+															type="button"
+															onClick={() => handleAnalyzeMedia(idx, alert)}
+															disabled={analyzingMediaId === idx}
+															className="text-xs font-medium text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-md hover:bg-indigo-500/20 transition-colors flex items-center gap-1 disabled:opacity-50">
+															{analyzingMediaId === idx ? (
+																<Loader2 className="w-3 h-3 animate-spin" />
+															) : (
+																<Sparkles className="w-3 h-3" />
+															)}
+															✨ Analyze Risk
+														</button>
+														<button
+															type="button"
+															className="text-xs font-medium text-amber-400 hover:text-amber-300 flex items-center gap-1 px-2">
+															Dossier <ChevronRight className="w-3 h-3" />
+														</button>
+													</div>
+												</div>
+
+												{/* Expandable AI Analysis Result */}
+												{mediaAnalyses[idx] && (
+													<div className="mt-4 p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-md text-sm text-zinc-300 animate-in slide-in-from-top-2">
+														<p className="flex items-center gap-2 mb-1 font-medium text-indigo-300">
+															<Sparkles className="w-4 h-4" /> AI Context Analysis
+														</p>
+														<p>{mediaAnalyses[idx]}</p>
+													</div>
+												)}
 											</div>
 										))}
 									</div>
-								) : (
-									<p className="text-xs text-emerald-400">
-										No FICA field discrepancies were flagged.
-									</p>
-								)}
+								</Card>
 							</div>
 						)}
 
-						{/* Recommendation */}
-						<div className="p-4 rounded-lg bg-secondary/5 border border-secondary/10">
-							<h4 className="text-sm font-semibold mb-2">Recommendation</h4>
-							<Badge
-								className={cn(
-									"text-xs",
-									item.recommendation === "APPROVE"
-										? "bg-emerald-500/10 text-emerald-400"
-										: item.recommendation === "MANUAL_REVIEW"
-											? "bg-warning/50 text-warning-foreground"
-											: "bg-red-500/10 text-red-400"
-								)}>
-								{item.recommendation || "Manual Review Required"}
-							</Badge>
-						</div>
-					</TabsContent>
-
-					{/* Documents Tab */}
-					<TabsContent value="documents" className="mt-0 space-y-3">
-						<DocumentCard
-							name="Bank Statement - Jan to Mar 2026"
-							type="Bank Statement"
-							verified={item.bankStatementVerified}
-							uploadDate={item.createdAt}
-						/>
-						<DocumentCard
-							name="Accountant Letter"
-							type="Verification Letter"
-							verified={item.accountantLetterVerified}
-							uploadDate={item.createdAt}
-						/>
-						<DocumentCard
-							name="Company Registration"
-							type="CIPC Document"
-							verified={true}
-							uploadDate={item.createdAt}
-						/>
-					</TabsContent>
-
-					{/* Risk Flags Tab — Collapsible sections (SOP v3.1.0) */}
-					<TabsContent value="risks" className="mt-0 space-y-3">
-						{item.riskFlags && item.riskFlags.length > 0 ? (
-							<>
-								{/* Summary bar */}
-								<div className="flex items-center justify-between p-3 rounded-lg bg-secondary/5 border border-secondary/10">
-									<span className="text-xs text-muted-foreground">
-										{
-											item.riskFlags.filter(
-												f => f.severity === "HIGH" || f.severity === "CRITICAL"
-											).length
-										}{" "}
-										critical/high •{" "}
-										{
-											item.riskFlags.filter(
-												f => f.severity === "LOW" || f.severity === "MEDIUM"
-											).length
-										}{" "}
-										low/medium
-									</span>
-									<Button
-										variant="ghost"
-										size="sm"
-										className="text-xs h-7"
-										onClick={() => {
-											const allExpanded = Object.values(collapsedSections).every(v => !v);
-											const next: Record<string, boolean> = {};
-											item.riskFlags?.forEach((_, idx) => {
-												next[`flag_${idx}`] = !allExpanded;
-											});
-											setCollapsedSections(next);
-										}}>
-										{Object.values(collapsedSections).every(v => !v)
-											? "Collapse All"
-											: "Expand All"}
-									</Button>
+						{/* FICA VIEW */}
+						{primaryTab === "fica" && (
+							<div className="space-y-6 animate-in fade-in duration-500">
+								<div className="flex items-center justify-between bg-zinc-900/50 p-4 rounded-xl border border-zinc-800">
+									<div className="flex items-center gap-3">
+										<FileCheck className="w-5 h-5 text-emerald-400" />
+										<h3 className="font-medium text-zinc-200">KYC / FICA Verification</h3>
+									</div>
+									<p className="text-xs text-zinc-500">
+										Last verified: {ficaData.lastVerified}
+									</p>
 								</div>
-
-								{item.riskFlags.map((flag, idx) => {
-									const sectionKey = `flag_${idx}`;
-									const isCollapsed = collapsedSections[sectionKey] ?? false;
-									const isHighSeverity =
-										flag.severity === "HIGH" || flag.severity === "CRITICAL";
-
-									return (
-										<div
-											key={idx}
-											className={cn(
-												"rounded-lg border transition-all duration-200",
-												isHighSeverity
-													? "bg-red-500/5 border-red-500/20"
-													: "bg-secondary/5 border-secondary/10"
-											)}>
-											{/* Clickable header */}
-											<button
-												type="button"
-												className="flex items-center justify-between gap-3 w-full p-4 text-left"
-												onClick={() => toggleSection(sectionKey)}>
-												<div className="flex items-center gap-2">
-													<Badge
-														variant="outline"
-														className={cn(
-															"text-[10px]",
-															getSeverityColor(flag.severity)
-														)}>
-														{flag.severity}
-													</Badge>
-													<h4 className="text-sm font-semibold">
-														{flag.type.replace(/_/g, " ")}
-													</h4>
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+									<Card className="p-6 md:col-span-2">
+										<div className="flex items-center gap-3 mb-6 pb-4 border-b border-zinc-800">
+											<div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center">
+												<Fingerprint className="w-5 h-5 text-zinc-300" />
+											</div>
+											<div>
+												<h4 className="font-medium text-zinc-200">
+													Identity Document Validity
+												</h4>
+												<p className="text-xs text-zinc-500">
+													Validated against Department of Home Affairs (HANIS)
+												</p>
+											</div>
+										</div>
+										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+											{ficaData.identity.map((person, idx) => (
+												<div
+													key={idx}
+													className="p-4 bg-zinc-950 rounded-lg border border-zinc-800/50">
+													<div className="flex items-start justify-between mb-3">
+														<div>
+															<p className="font-medium text-zinc-200">{person.name}</p>
+															<p className="text-xs text-zinc-500">{person.id}</p>
+														</div>
+														<Badge
+															variant={
+																person.status === "VERIFIED" ? "success" : "warning"
+															}>
+															{person.status}
+														</Badge>
+													</div>
+													<div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/5 px-2 py-1 rounded w-fit">
+														<CheckCircle2 className="w-3 h-3" /> Status:{" "}
+														{person.deceasedStatus}
+													</div>
 												</div>
-												{isCollapsed ? (
-													<RiArrowRightSLine className="h-4 w-4 text-muted-foreground shrink-0" />
-												) : (
-													<RiArrowDownSLine className="h-4 w-4 text-muted-foreground shrink-0" />
-												)}
-											</button>
-
-											{/* Collapsible content */}
-											{!isCollapsed && (
-												<div className="px-4 pb-4">
-													<p className="text-sm text-muted-foreground">
-														{flag.description}
+											))}
+										</div>
+									</Card>
+									<Card className="p-6">
+										<div className="flex items-center gap-3 mb-6 pb-4 border-b border-zinc-800">
+											<div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center">
+												<Home className="w-5 h-5 text-zinc-300" />
+											</div>
+											<div>
+												<h4 className="font-medium text-zinc-200">Proof of Residence</h4>
+												<p className="text-xs text-zinc-500">
+													FICA 90-day validity check
+												</p>
+											</div>
+										</div>
+										<div className="space-y-4">
+											<div>
+												<p className="text-xs text-zinc-500 mb-1">Declared Address</p>
+												<p className="text-sm text-zinc-300 font-medium">
+													{ficaData.residence.address}
+												</p>
+											</div>
+											<div className="grid grid-cols-2 gap-3 pt-2">
+												<div>
+													<p className="text-xs text-zinc-500 mb-1">Document Used</p>
+													<p className="text-sm text-zinc-300">
+														{ficaData.residence.documentType}
 													</p>
 												</div>
-											)}
+												<div>
+													<p className="text-xs text-zinc-500 mb-1">Document Age</p>
+													<div className="flex items-center gap-2">
+														<p className="text-sm font-medium text-emerald-400">
+															{ficaData.residence.ageInDays} Days Old
+														</p>
+														<Badge variant="success">{ficaData.residence.status}</Badge>
+													</div>
+												</div>
+											</div>
 										</div>
-									);
-								})}
-							</>
-						) : (
-							<div className="flex flex-col items-center justify-center py-12 text-center">
-								<div className="p-3 rounded-full bg-emerald-500/10 mb-3">
-									<RiCheckLine className="h-6 w-6 text-emerald-400" />
-								</div>
-								<p className="text-sm font-medium">No Risk Flags</p>
-								<p className="text-xs text-muted-foreground mt-1">
-									No concerning patterns detected
-								</p>
-							</div>
-						)}
-					</TabsContent>
-
-					{/* Timeline Tab */}
-					<TabsContent value="timeline" className="mt-0">
-						<div className="relative pl-2 border-l border-secondary/20 ml-2">
-							{mockTimeline.map(event => (
-								<TimelineEventCard key={event.id} event={event} />
-							))}
-						</div>
-					</TabsContent>
-				</Tabs>
-
-				{/* Action Buttons - Always visible */}
-				<Separator className="my-0 bg-secondary/10" />
-
-				{/* Review Type Context (Phase 3) */}
-				<div className="mb-0 p-3 rounded-lg bg-white/10 border border-secondary/10 my-4">
-					<p className="text-xs text-muted-foreground">
-						<span className="font-medium text-accent-foreground">Review Type:</span>{" "}
-						{reviewType === "procurement" ? (
-							<span className="text-white/90">
-								Procurement Review (Stage 3) - Routes to{" "}
-								<code className="text-emerald-100">/api/risk-decision/procurement</code>
-							</span>
-						) : (
-							<>
-								General Review (Stage 4) - Routes to{" "}
-								<code className="text-blue-400">/api/risk-decision</code>
-							</>
-						)}
-					</p>
-
-					{reviewType === "procurement" && item.procurementCheckFailed && (
-						<div className="mt-2 pt-2 border-t border-red-500/20">
-							<div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 space-y-2">
-								<p className="text-[10px] font-semibold uppercase tracking-wide text-red-300">
-									Manual Procurement Check Required
-								</p>
-								<p className="text-xs text-muted-foreground">
-									{item.procurementFailureGuidance ||
-										"Automated ProcureCheck execution failed. Risk Manager must perform a complete manual procurement check before finalizing this stage."}
-								</p>
-								{item.procurementFailureReason && (
-									<p className="text-xs text-red-200">
-										Failure reason: {item.procurementFailureReason}
-									</p>
-								)}
-								<div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-									<div>
-										<span className="uppercase text-[10px] text-muted-foreground/70">
-											Source
-										</span>
-										<p className="text-foreground/90">
-											{item.procurementFailureSource || "procurecheck"}
-										</p>
-									</div>
-									<div>
-										<span className="uppercase text-[10px] text-muted-foreground/70">
-											Recommended
-										</span>
-										<p className="text-foreground/90">
-											{item.procurementRecommendedAction || "MANUAL_REVIEW"}
-										</p>
-									</div>
+									</Card>
+									<Card className="p-6">
+										<div className="flex items-center gap-3 mb-6 pb-4 border-b border-zinc-800">
+											<div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center">
+												<Landmark className="w-5 h-5 text-zinc-300" />
+											</div>
+											<div>
+												<h4 className="font-medium text-zinc-200">
+													Bank & Source of Funds
+												</h4>
+												<p className="text-xs text-zinc-500">
+													Account Verification System (AVS) & Statements
+												</p>
+											</div>
+										</div>
+										<div className="space-y-4">
+											<div>
+												<p className="text-xs text-zinc-500 mb-1">Verified Account</p>
+												<p className="text-sm text-zinc-300 font-medium">
+													{ficaData.banking.bankName} • {ficaData.banking.accountNumber}
+												</p>
+											</div>
+											<div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800/50">
+												<div className="flex items-center justify-between mb-2">
+													<span className="text-xs text-zinc-400">Bank AVS Response</span>
+													<Badge variant="success">{ficaData.banking.avsStatus}</Badge>
+												</div>
+												<p className="text-xs text-zinc-500">
+													{ficaData.banking.avsDetails}
+												</p>
+											</div>
+										</div>
+									</Card>
 								</div>
 							</div>
-						</div>
-					)}
-
-					{/* Procurement-specific data display */}
-					{reviewType === "procurement" && item.procurementScore !== undefined && (
-						<div className="mt-2 pt-2 border-t border-secondary/10 grid grid-cols-2 gap-2">
-							<div>
-								<p className="text-[10px] text-muted-foreground uppercase">
-									ProcureCheck Score
-								</p>
-								<p
-									className={cn(
-										"text-sm font-semibold",
-										item.procurementScore <= 30
-											? "text-emerald-400"
-											: item.procurementScore <= 60
-												? "text-yellow-400"
-												: "text-red-400"
-									)}>
-									{item.procurementScore}%
-								</p>
-							</div>
-							<div>
-								<p className="text-[10px] text-muted-foreground uppercase">Anomalies</p>
-								<p
-									className={cn(
-										"text-sm font-semibold",
-										item.hasAnomalies ? "text-red-400" : "text-emerald-400"
-									)}>
-									{item.hasAnomalies ? "Detected" : "None"}
-								</p>
-							</div>
-						</div>
-					)}
-
-					{/* Anomaly list if present */}
-					{reviewType === "procurement" &&
-						item.anomalies &&
-						item.anomalies.length > 0 && (
-							<div className="mt-2 pt-2 border-t border-secondary/10">
-								<p className="text-[10px] text-muted-foreground uppercase mb-1">
-									Anomaly Details
-								</p>
-								<ul className="text-xs text-red-400 space-y-0.5">
-									{item.anomalies.map((anomaly, idx) => (
-										<li key={idx} className="flex items-start gap-1">
-											<RiAlertLine className="h-3 w-3 shrink-0 mt-0.5" />
-											{anomaly}
-										</li>
-									))}
-								</ul>
-							</div>
 						)}
+					</div>
 				</div>
+			</div>
 
-				<div className="flex gap-4 mt-4">
-					<Button
-						variant="destructive"
-						disabled={isSubmitting}
-						className="flex-1 border-red-500/20 bg-destructive-foreground/90 shadow-md shadow-red-900/70 w-fit max-w-[100px] text-white/90 hover:bg-red-500/10"
-						onClick={handleReject}>
-						{isSubmitting && actionType === "reject" ? (
-							<RiLoader4Line className="h-4 w-4 mr-0 animate-spin" />
-						) : (
-							<RiCloseLine className="h-4 w-4 mr-0" />
-						)}
-						Reject
-					</Button>
-					<Button
-						disabled={isSubmitting}
-						className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-						onClick={handleApprove}>
-						{isSubmitting && actionType === "approve" ? (
-							<RiLoader4Line className="h-4 w-4 mr-2 animate-spin" />
-						) : (
-							<RiCheckLine className="h-4 w-4 mr-2" />
-						)}
-						Approve
-					</Button>
-				</div>
-
-				{/* Override "Why" Modal (SOP v3.1.0) */}
-				<Dialog
-					open={showOverrideModal}
-					onOpenChange={open => {
-						setShowOverrideModal(open);
-						if (!open) {
-							setPendingAction(null);
-							setOverrideCategory(null);
-							setOverrideReason("");
-						}
-					}}>
-					<DialogContent className="sm:max-w-md">
-						<DialogHeader>
-							<DialogTitle className="flex items-center gap-2">
-								<RiQuestionLine className="h-5 w-5 text-amber-500" />
-								Why are you overriding the AI recommendation?
-							</DialogTitle>
-							<DialogDescription>
-								The AI recommended <strong>{item.recommendation || "—"}</strong> but you
-								are choosing to <strong>{pendingAction}</strong>. Please select a reason
-								category and provide a justification.
-							</DialogDescription>
-						</DialogHeader>
-
-						<div className="space-y-4 py-2">
-							{/* Category selection */}
-							<div className="space-y-2">
-								<Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-									Override Category <span className="text-destructive">*</span>
-								</Label>
-								<div className="grid gap-2">
-									{OVERRIDE_CATEGORIES.filter(c => c !== "AI_ALIGNED").map(cat => (
-										<button
-											key={cat}
-											type="button"
-											className={cn(
-												"flex flex-col items-start p-3 rounded-lg border text-left transition-all duration-150",
-												overrideCategory === cat
-													? "border-primary bg-primary/10 ring-1 ring-primary/30"
-													: "border-secondary/20 hover:border-secondary/40 hover:bg-secondary/5"
-											)}
-											onClick={() => setOverrideCategory(cat)}>
-											<span className="text-sm font-medium">
-												{OVERRIDE_CATEGORY_LABELS[cat]}
-											</span>
-										</button>
-									))}
-								</div>
-							</div>
-
-							{/* Reason text */}
-							<div className="space-y-1.5">
-								<Label htmlFor="overrideReason" className="text-xs font-medium">
-									Justification <span className="text-destructive">*</span>
-								</Label>
-								<Textarea
-									id="overrideReason"
-									placeholder="Explain why you are overriding the AI recommendation..."
-									value={overrideReason}
-									onChange={e => setOverrideReason(e.target.value)}
-									rows={3}
-								/>
-							</div>
-						</div>
-
-						<DialogFooter className="gap-2">
-							<Button
-								variant="outline"
-								onClick={() => setShowOverrideModal(false)}
-								disabled={isSubmitting}>
-								Cancel
-							</Button>
-							<Button
-								onClick={handleOverrideSubmit}
-								disabled={isSubmitting || !overrideCategory || !overrideReason.trim()}
-								className={cn(
-									pendingAction === "approve"
-										? "bg-emerald-600 hover:bg-emerald-700"
-										: "bg-destructive hover:bg-destructive/90"
-								)}>
-								{isSubmitting ? (
-									<RiLoader4Line className="h-4 w-4 mr-2 animate-spin" />
-								) : null}
-								Confirm Override & {pendingAction === "approve" ? "Approve" : "Reject"}
-							</Button>
-						</DialogFooter>
-					</DialogContent>
-				</Dialog>
-			</SheetContent>
-		</Sheet>
+			{/* Printable Report (Receives AI Summary if generated) */}
+			<PrintableAuditReport aiSummary={aiSummary} />
+		</>
 	);
 }
-
-export default RiskReviewDetail;
+export { RiskReviewDetail };
