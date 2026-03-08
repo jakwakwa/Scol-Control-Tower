@@ -87,7 +87,6 @@ const columns: ColumnDef<RiskEntityRow>[] = [
 			<Button
 				variant="ghost"
 				size="xs"
-				className="-ml-4 hover:bg-transparent hover:text-foreground"
 				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
 				Business Name
 				{column.getIsSorted() === "asc" ? (

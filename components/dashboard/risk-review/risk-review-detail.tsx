@@ -1,5 +1,6 @@
 "use client";
 
+import { RiAiGenerate2 } from "@remixicon/react";
 import {
 	Activity,
 	AlertOctagon,
@@ -26,6 +27,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { analyzeMediaRisk, generateRiskBriefing } from "@/actions/ai.actions";
+import { Button } from "@/components/ui/button";
 
 export interface RiskReviewData {
 	globalData: {
@@ -107,12 +109,12 @@ const Badge = ({
 	variant?: "default" | "success" | "warning" | "danger" | "gold" | "ai";
 }) => {
 	const variants = {
-		default: "bg-zinc-800 text-zinc-300 border-zinc-700",
-		success: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-		warning: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-		danger: "bg-red-500/10 text-red-400 border-red-500/20",
-		gold: "bg-gradient-to-r from-amber-500/20 to-yellow-600/20 text-amber-300 border-amber-500/30",
-		ai: "bg-indigo-500/10 text-indigo-300 border-indigo-500/30",
+		default: "bg-secondary/90 text-muted-foreground border-border",
+		success: "bg-chart-4/10 text-chart-4 border-chart-4/20",
+		warning: "bg-warning/50 text-warning-foreground border-warning",
+		danger: "bg-destructive/20 text-destructive-foreground border-destructive/30",
+		gold: "bg-primary/20 text-primary border-primary/30",
+		ai: "bg-primary/10 text-primary border-primary/30",
 	};
 	return (
 		<span
@@ -130,7 +132,7 @@ const Card = ({
 	className?: string;
 }) => (
 	<div
-		className={`bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden ${className}`}>
+		className={`glass-card border border-border rounded-xl overflow-hidden ${className}`}>
 		{children}
 	</div>
 );
@@ -149,13 +151,13 @@ const ScoreGauge = ({
 	const getColour = (val: number) => {
 		const ratio = val / max;
 		if (inverse) {
-			if (ratio > 0.7) return "text-emerald-400";
-			if (ratio > 0.4) return "text-amber-400";
-			return "text-red-400";
+			if (ratio > 0.7) return "text-chart-4";
+			if (ratio > 0.4) return "text-warning-foreground";
+			return "text-destructive";
 		} else {
-			if (ratio < 0.3) return "text-emerald-400";
-			if (ratio < 0.7) return "text-amber-400";
-			return "text-red-400";
+			if (ratio < 0.3) return "text-chart-4";
+			if (ratio < 0.7) return "text-warning-foreground";
+			return "text-destructive";
 		}
 	};
 
@@ -164,7 +166,7 @@ const ScoreGauge = ({
 
 	return (
 		<div className="flex flex-col items-center justify-center relative">
-			<h3 className="text-sm text-zinc-400 font-medium mb-4 flex items-center gap-2">
+			<h3 className="text-sm text-muted-foreground font-medium mb-4 flex items-center gap-2">
 				<Activity className="w-4 h-4" /> {label}
 			</h3>
 			<div className="relative flex items-center justify-center mb-2">
@@ -173,7 +175,7 @@ const ScoreGauge = ({
 						cx="56"
 						cy="56"
 						r="48"
-						className="text-zinc-800 stroke-current"
+						className="text-muted stroke-current"
 						strokeWidth="8"
 						fill="transparent"
 					/>
@@ -490,7 +492,9 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 	const [analyzingMediaId, setAnalyzingMediaId] = useState<number | null>(null);
 
 	if (!data?.globalData) {
-		return <div className="p-8 text-center text-zinc-500">Loading risk data...</div>;
+		return (
+			<div className="p-8 text-center text-muted-foreground">Loading risk data...</div>
+		);
 	}
 
 	const { globalData, procurementData, itcData, sanctionsData, ficaData } = data;
@@ -549,79 +553,80 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 	return (
 		<>
 			{/* Screen UI */}
-			<div className="min-h-screen bg-zinc-950 text-zinc-300 font-sans p-4 md:p-8 selection:bg-amber-500/30 print:hidden">
+			<div className="min-h-screen card-form text-foreground font-sans p-4 md:p-8 selection:bg-primary/30 print:hidden">
 				<div className="max-w-6xl mx-auto space-y-6">
-					<header className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-6 border-b border-zinc-800">
+					<header className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-6 border-b border-border">
 						<div>
 							<div className="flex items-center gap-3 mb-2">
-								<h1 className="text-3xl font-bold bg-clip-text text-transparent bg-linear-to-r from-amber-200 via-yellow-400 to-amber-600">
+								<h1 className="text-3xl font-bold bg-clip-text text-transparent bg-linear-to-r from-primary via-primary to-primary">
 									Overall Risk Profile
 								</h1>
 								{globalData.overallStatus === "REVIEW REQUIRED" && (
 									<Badge variant="warning">Manual Review Required</Badge>
 								)}
 							</div>
-							<p className="text-zinc-500 text-sm flex items-center gap-2">
+							<p className="text-muted-foreground text-sm flex items-center gap-2">
 								<FileText className="w-4 h-4" />
 								Report Ref: {globalData.transactionId}{" "}
-								<span className="text-zinc-700">|</span>
+								<span className="text-muted-foreground/60">|</span>
 								Generated: {globalData.generatedAt}
 							</p>
 						</div>
 
 						<div className="flex flex-wrap items-center gap-3">
-							<button
-								type="button"
+							<Button
+								variant="ai"
+								size="ai"
+								className="aiBtn text-violet-400"
 								onClick={handleGenerateSummary}
-								disabled={isGeneratingSummary}
-								className="px-4 py-2 text-sm font-medium text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 rounded-lg transition-all flex items-center gap-2 disabled:opacity-50">
+								disabled={isGeneratingSummary}>
 								{isGeneratingSummary ? (
-									<Loader2 className="w-4 h-4 animate-spin" />
+									<Loader2 className="w-8 h-8 animate-spin" />
 								) : (
-									<Sparkles className="w-4 h-4" />
+									<RiAiGenerate2 className="text-purple-500 animate-pulse  " />
 								)}
-								{isGeneratingSummary ? "Analyzing..." : "✨ AI Risk Briefing"}
-							</button>
-							<button
-								type="button"
-								onClick={handlePrint}
-								className="px-4 py-2 text-sm font-medium text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-lg transition-colors flex items-center gap-2">
+
+								{isGeneratingSummary ? "Analyzing..." : " Brief"}
+							</Button>
+							<Button variant="default" onClick={handlePrint}>
 								<Download className="w-4 h-4" /> Export Master PDF
-							</button>
-							<button
-								type="button"
-								className="px-5 py-2 text-sm font-medium text-zinc-950 bg-linear-to-r from-amber-400 to-yellow-600 hover:from-amber-300 hover:to-yellow-500 rounded-lg shadow-lg shadow-amber-500/20 transition-all flex items-center gap-2">
+							</Button>
+							<Button
+								variant="link"
+								className="px-5 py-2 transition-all flex items-center gap-2">
 								<Check className="w-4 h-4" /> Final Adjudication
-							</button>
+							</Button>
 						</div>
 					</header>
 
 					{/* AI Executive Summary Card */}
 					{(isGeneratingSummary || aiSummary || summaryError) && (
 						<div className="animate-in fade-in slide-in-from-top-4 duration-500">
-							<div className="relative p-1 rounded-xl bg-linear-to-r from-indigo-500 via-purple-500 to-indigo-500 bg-size-[200%_auto] animate-gradient-x">
-								<div className="bg-zinc-950 rounded-lg p-6 h-full border border-zinc-900">
-									<div className="flex items-center gap-2 mb-4 pb-4 border-b border-zinc-800">
-										<Sparkles className="w-5 h-5 text-indigo-400" />
-										<h2 className="text-lg font-semibold text-zinc-100">
+							<div className="relative p-1 rounded-xl bg-linear-to-r from-violet-400/10 via-indigo-700/20 to-purple-900/05 bg-size-[200%_auto] animate-gradient-x border-teal-900">
+								<div className="bg-linear-to-r from-cyan-950/10  to-purple-950/20 rounded-lg p-8 h-full border border-cyan-800">
+									<div className="flex items-center gap-2 mb-4 pb-4 border-b border-white/05">
+										<Sparkles className="w-5 h-5 text-primary" />
+										<h2 className="text-lg font-semibold text-foreground">
 											AI Adjudication Briefing
 										</h2>
 										<Badge variant="ai">Beta</Badge>
 									</div>
 
 									{isGeneratingSummary && (
-										<div className="flex flex-col items-center justify-center py-8 gap-3 text-zinc-500">
-											<Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+										<div className="flex flex-col items-center justify-center py-8 gap-3 text-muted">
+											<Loader2 className="w-8 h-8 animate-spin text-primary" />
 											<p className="animate-pulse">
 												Synthesizing compliance data from 4 domains...
 											</p>
 										</div>
 									)}
 
-									{summaryError && <p className="text-red-400 text-sm">{summaryError}</p>}
+									{summaryError && (
+										<p className="text-destructive text-sm">{summaryError}</p>
+									)}
 
 									{aiSummary && !isGeneratingSummary && (
-										<div className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">
+										<div className="text-xs text-chart-1 whitespace-pre-wrap leading-relaxed">
 											{aiSummary}
 										</div>
 									)}
@@ -634,14 +639,14 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 					<div className="grid grid-cols-1 md:grid-cols-4 gap-6">
 						<Card className="col-span-1 md:col-span-3 p-6 flex flex-col justify-center">
 							<div className="flex items-center gap-4 mb-4">
-								<div className="w-12 h-12 rounded-lg bg-linear-to-br from-zinc-800 to-zinc-900 border border-zinc-700 flex items-center justify-center">
-									<Building2 className="w-6 h-6 text-amber-400" />
+								<div className="w-12 h-12 rounded-lg bg-secondary border border-border flex items-center justify-center">
+									<Building2 className="w-6 h-6 text-primary" />
 								</div>
 								<div>
-									<h2 className="text-xl font-semibold text-zinc-100">
+									<h2 className="text-xl font-semibold text-foreground">
 										{globalData.entity.name}
 									</h2>
-									<p className="text-sm text-zinc-400">
+									<p className="text-sm text-muted-foreground">
 										Reg: {globalData.entity.registrationNumber} •{" "}
 										{globalData.entity.entityType}
 									</p>
@@ -656,37 +661,38 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 						</Card>
 
 						<Card className="col-span-1 p-6 relative overflow-hidden flex flex-col items-center justify-center">
-							<div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl"></div>
-							<h3 className="text-xs text-zinc-400 font-medium mb-1 uppercase tracking-wider">
+							<div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
+							<h3 className="text-xs text-muted-foreground font-medium mb-1 uppercase tracking-wider">
 								Overall Risk Score
 							</h3>
-							<p className="text-5xl font-bold text-amber-400 mb-2">
+							<p className="text-2xl font-bold text-chart-5 mb-2">
 								{globalData.overallRiskScore}
 							</p>
-							<p className="text-xs text-zinc-500 text-center">
+							<p className="text-xs text-muted-foreground text-center">
 								Calculated from all modules
 							</p>
 						</Card>
 					</div>
 
 					{/* Primary Navigation (Pills) */}
-					<div className="flex flex-wrap gap-3 py-2">
+					<div className="flex flex-wrap gap-4 py-2">
 						{tabs.map(tab => (
-							<button
+							<Button
 								key={tab.id}
-								type="button"
 								onClick={() => setPrimaryTab(tab.id)}
-								className={`flex flex-col items-start px-5 py-3 rounded-xl border transition-all ${
+								className={`flex flex-col items-start px-5 py-8 rounded-md border transition-all ${
 									primaryTab === tab.id
-										? "bg-zinc-800/80 border-amber-500/50 shadow-md shadow-amber-500/5"
-										: "bg-zinc-900/30 border-zinc-800 hover:bg-zinc-800/50 hover:border-zinc-700"
+										? "bg-secondary border-primary/50 shadow-md shadow-primary/5"
+										: "bg-card/30 border-border hover:bg-secondary/50 hover:border-border"
 								}`}>
 								<span
-									className={`text-sm font-semibold mb-0.5 ${primaryTab === tab.id ? "text-amber-400" : "text-zinc-300"}`}>
+									className={`text-sm font-semibold pb-1 leading-2.5 ${primaryTab === tab.id ? "text-primary" : "text-foreground"}`}>
 									{tab.label}
 								</span>
-								<span className="text-xs text-zinc-500">{tab.subtitle}</span>
-							</button>
+								<span className="text-xs py-0 leading-1.5 text-muted-foreground">
+									{tab.subtitle}
+								</span>
+							</Button>
 						))}
 					</div>
 
@@ -697,16 +703,16 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 							<div className="space-y-6 animate-in fade-in duration-500">
 								{procurementData.riskAlerts.length > 0 && (
 									<div className="space-y-3">
-										<h3 className="text-lg font-semibold text-zinc-100 flex items-center gap-2">
-											<ShieldAlert className="w-5 h-5 text-amber-500" />
+										<h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+											<ShieldAlert className="w-5 h-5 text-warning-foreground" />
 											Procurement Exceptions
 										</h3>
 										<div className="grid grid-cols-1 gap-3">
 											{procurementData.riskAlerts.map((alert, idx) => (
 												<div
 													key={idx}
-													className="p-4 rounded-lg border bg-amber-500/5 border-amber-500/20 flex flex-col md:flex-row md:items-center gap-4">
-													<div className="p-2 rounded-full bg-amber-500/10 text-amber-400">
+													className="p-4 rounded-lg border bg-warning/10 border-warning/20 flex flex-col md:flex-row md:items-center gap-4">
+													<div className="p-2 rounded-full bg-warning/20 text-warning-foreground">
 														<AlertTriangle className="w-5 h-5" />
 													</div>
 													<div className="flex-1">
@@ -715,8 +721,8 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 																{alert.id} | {alert.category}
 															</Badge>
 														</div>
-														<p className="text-zinc-200 text-sm">{alert.message}</p>
-														<p className="text-zinc-500 text-xs mt-1">
+														<p className="text-foreground text-sm">{alert.message}</p>
+														<p className="text-muted-foreground text-xs mt-1">
 															Action: {alert.action}
 														</p>
 													</div>
@@ -725,23 +731,22 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 										</div>
 									</div>
 								)}
-								<div className="border-b border-zinc-800">
-									<nav className="flex space-x-8">
+								<div className="border-b-0 border-border">
+									<nav className="flex space-x-1 border-b-0">
 										{["overview", "directors", "compliance"].map(tab => (
-											<button
+											<Button
 												key={tab}
-												type="button"
 												onClick={() => setActiveSubTab(tab)}
-												className={`pb-4 text-sm font-medium capitalize transition-colors relative ${
+												className={`pb-4 text-sm font-medium capitalize transition-colors relative rounded-b-none ${
 													activeSubTab === tab
-														? "text-amber-400"
-														: "text-zinc-500 hover:text-zinc-300"
+														? "text-primary bg-secondary"
+														: "text-muted-foreground  bg-secondary/50 hover:text-foreground"
 												}`}>
 												{tab}
 												{activeSubTab === tab && (
-													<span className="absolute bottom-0 left-0 w-full h-0.5 bg-linear-to-r from-amber-400 to-yellow-600 rounded-t-full" />
+													<span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-b-0 rounded-t-sm" />
 												)}
-											</button>
+											</Button>
 										))}
 									</nav>
 								</div>
@@ -750,18 +755,16 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 										<Card>
 											<table className="w-full text-left border-collapse">
 												<thead>
-													<tr className="border-b border-zinc-800 bg-zinc-900/50 text-xs text-zinc-500 uppercase tracking-wider">
+													<tr className="border-b border-border bg-muted/50 text-xs text-muted-foreground uppercase tracking-wider">
 														<th className="p-4 font-medium">Verification Check</th>
 														<th className="p-4 font-medium">Result</th>
 														<th className="p-4 font-medium">Details</th>
 													</tr>
 												</thead>
-												<tbody className="divide-y divide-zinc-800/50 text-sm">
+												<tbody className="divide-y divide-border/50 text-sm">
 													{procurementData.checks.map((check, idx) => (
-														<tr
-															key={idx}
-															className="hover:bg-zinc-800/20 transition-colors">
-															<td className="p-4 font-medium text-zinc-300">
+														<tr key={idx} className="hover:bg-muted/20 transition-colors">
+															<td className="p-4 font-medium text-foreground">
 																{check.name}
 															</td>
 															<td className="p-4">
@@ -772,7 +775,9 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 																	{check.status}
 																</Badge>
 															</td>
-															<td className="p-4 text-zinc-500">{check.detail}</td>
+															<td className="p-4 text-muted-foreground">
+																{check.detail}
+															</td>
 														</tr>
 													))}
 												</tbody>
@@ -784,17 +789,17 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 											{procurementData.directors.map((director, idx) => (
 												<Card
 													key={idx}
-													className={`p-5 flex flex-col gap-4 ${director.status === "FLAGGED" ? "border-amber-500/30" : ""}`}>
+													className={`p-5 flex flex-col gap-4 ${director.status === "FLAGGED" ? "border-warning/30" : ""}`}>
 													<div className="flex items-start justify-between">
 														<div className="flex items-center gap-3">
-															<div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400">
+															<div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground">
 																<Users className="w-5 h-5" />
 															</div>
 															<div>
-																<h4 className="font-medium text-zinc-200">
+																<h4 className="font-medium text-foreground">
 																	{director.name}
 																</h4>
-																<p className="text-xs text-zinc-500">
+																<p className="text-xs text-muted-foreground">
 																	ID: {director.idNumber}
 																</p>
 															</div>
@@ -806,21 +811,21 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 															{director.status}
 														</Badge>
 													</div>
-													<div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-zinc-950/50 text-sm">
+													<div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-muted/30 text-sm">
 														<div>
-															<span className="block text-xs text-zinc-500 mb-1">
+															<span className="block text-xs text-muted-foreground mb-1">
 																Other Directorships
 															</span>
-															<span className="font-medium text-zinc-300">
+															<span className="font-medium text-foreground">
 																{director.otherDirectorships} Active
 															</span>
 														</div>
 														<div>
-															<span className="block text-xs text-zinc-500 mb-1">
+															<span className="block text-xs text-muted-foreground mb-1">
 																Identified Conflicts
 															</span>
 															<span
-																className={`font-medium ${director.conflicts > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+																className={`font-medium ${director.conflicts > 0 ? "text-warning-foreground" : "text-chart-4"}`}>
 																{director.conflicts} Matches
 															</span>
 														</div>
@@ -831,15 +836,15 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 									)}
 									{activeSubTab === "compliance" && (
 										<Card className="p-6">
-											<div className="flex items-center gap-4 pb-6 border-b border-zinc-800">
-												<div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center">
-													<Clock className="w-6 h-6 text-zinc-400" />
+											<div className="flex items-center gap-4 pb-6 border-b border-border">
+												<div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center">
+													<Clock className="w-6 h-6 text-muted-foreground" />
 												</div>
 												<div className="flex-1">
-													<h4 className="text-zinc-200 font-medium">
+													<h4 className="text-foreground font-medium">
 														B-BBEE Expiry Tracking
 													</h4>
-													<p className="text-sm text-zinc-500">
+													<p className="text-sm text-muted-foreground">
 														Certificate/Affidavit valid until {procurementData.beeExpiry}
 													</p>
 												</div>
@@ -855,61 +860,61 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 						{primaryTab === "itc" && (
 							<div className="space-y-6 animate-in fade-in duration-500">
 								<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-									<Card className="col-span-1 p-6 flex flex-col items-center justify-center bg-zinc-900/50">
+									<Card className="col-span-1 p-6 flex flex-col items-center justify-center bg-muted/30">
 										<ScoreGauge
 											score={itcData.creditScore}
 											label="Commercial Credit Score"
 											max={999}
 											inverse={true}
 										/>
-										<p className="text-sm text-amber-400 font-medium mt-2">
+										<p className="text-sm text-primary font-medium mt-2">
 											{itcData.scoreBand}
 										</p>
 									</Card>
 									<div className="col-span-1 md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-										<Card className="p-5 border-l-4 border-l-emerald-500">
+										<Card className="p-5 border-l-4 border-l-chart-4">
 											<div className="flex items-center gap-3 mb-2">
-												<Scale className="w-5 h-5 text-emerald-400" />
-												<h4 className="font-medium text-zinc-200">Court Judgements</h4>
+												<Scale className="w-5 h-5 text-chart-4" />
+												<h4 className="font-medium text-foreground">Court Judgements</h4>
 											</div>
-											<p className="text-2xl font-bold text-zinc-100">
+											<p className="text-2xl font-bold text-foreground">
 												{itcData.judgements}
 											</p>
-											<p className="text-xs text-zinc-500 mt-1">
+											<p className="text-xs text-muted-foreground mt-1">
 												No active civil judgements recorded.
 											</p>
 										</Card>
-										<Card className="p-5 border-l-4 border-l-amber-500">
+										<Card className="p-5 border-l-4 border-l-warning">
 											<div className="flex items-center gap-3 mb-2">
-												<AlertOctagon className="w-5 h-5 text-amber-400" />
-												<h4 className="font-medium text-zinc-200">Payment Defaults</h4>
+												<AlertOctagon className="w-5 h-5 text-warning-foreground" />
+												<h4 className="font-medium text-foreground">Payment Defaults</h4>
 											</div>
-											<p className="text-2xl font-bold text-zinc-100">
+											<p className="text-2xl font-bold text-foreground">
 												{itcData.defaults}
 											</p>
-											<p className="text-xs text-amber-400/80 mt-1">
+											<p className="text-xs text-warning-foreground/80 mt-1">
 												{itcData.defaultDetails}
 											</p>
 										</Card>
 										<Card className="p-5 sm:col-span-2">
 											<div className="flex items-center gap-3 mb-4">
-												<CreditCard className="w-5 h-5 text-zinc-400" />
-												<h4 className="font-medium text-zinc-200">Credit Behaviour</h4>
+												<CreditCard className="w-5 h-5 text-muted-foreground" />
+												<h4 className="font-medium text-foreground">Credit Behaviour</h4>
 											</div>
 											<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-												<div className="p-3 bg-zinc-950 rounded-lg">
-													<span className="block text-xs text-zinc-500 mb-1">
+												<div className="p-3 bg-muted/30 rounded-lg">
+													<span className="block text-xs text-muted-foreground mb-1">
 														Trade References
 													</span>
-													<span className="text-sm font-medium text-zinc-300">
+													<span className="text-sm font-medium text-foreground">
 														{itcData.tradeReferences}
 													</span>
 												</div>
-												<div className="p-3 bg-zinc-950 rounded-lg">
-													<span className="block text-xs text-zinc-500 mb-1">
+												<div className="p-3 bg-muted/30 rounded-lg">
+													<span className="block text-xs text-muted-foreground mb-1">
 														Recent Credit Enquiries
 													</span>
-													<span className="text-sm font-medium text-zinc-300">
+													<span className="text-sm font-medium text-foreground">
 														{itcData.recentEnquiries}
 													</span>
 												</div>
@@ -926,46 +931,46 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 								<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
 									<Card className="p-5 flex items-center justify-between">
 										<div>
-											<p className="text-sm text-zinc-400 mb-1">Global Sanctions</p>
-											<p className="text-xl font-bold text-emerald-400">Clear</p>
+											<p className="text-sm text-muted-foreground mb-1">
+												Global Sanctions
+											</p>
+											<p className="text-xl font-bold text-chart-4">Clear</p>
 										</div>
-										<div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
-											<Globe2 className="w-5 h-5 text-emerald-400" />
+										<div className="w-10 h-10 rounded-full bg-chart-4/10 flex items-center justify-center">
+											<Globe2 className="w-5 h-5 text-chart-4" />
 										</div>
 									</Card>
 									<Card className="p-5 flex items-center justify-between">
 										<div>
-											<p className="text-sm text-zinc-400 mb-1">PEP Matches</p>
-											<p className="text-xl font-bold text-emerald-400">0 Identified</p>
+											<p className="text-sm text-muted-foreground mb-1">PEP Matches</p>
+											<p className="text-xl font-bold text-chart-4">0 Identified</p>
 										</div>
-										<div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
-											<Users className="w-5 h-5 text-emerald-400" />
+										<div className="w-10 h-10 rounded-full bg-chart-4/10 flex items-center justify-center">
+											<Users className="w-5 h-5 text-chart-4" />
 										</div>
 									</Card>
-									<Card className="p-5 flex items-center justify-between border-amber-500/30">
+									<Card className="p-5 flex items-center justify-between border-warning/30">
 										<div>
-											<p className="text-sm text-zinc-400 mb-1">Adverse Media</p>
-											<p className="text-xl font-bold text-amber-400">
+											<p className="text-sm text-muted-foreground mb-1">Adverse Media</p>
+											<p className="text-xl font-bold text-warning-foreground">
 												{sanctionsData.adverseMedia} Hits
 											</p>
 										</div>
-										<div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
-											<Newspaper className="w-5 h-5 text-amber-400" />
+										<div className="w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center">
+											<Newspaper className="w-5 h-5 text-warning-foreground" />
 										</div>
 									</Card>
 								</div>
 								<Card>
-									<div className="p-5 border-b border-zinc-800 bg-zinc-900/50">
-										<h3 className="font-medium text-zinc-200 flex items-center gap-2">
-											<Globe2 className="w-4 h-4 text-amber-500" />
+									<div className="p-5 border-b border-border bg-muted/30">
+										<h3 className="font-medium text-foreground flex items-center gap-2">
+											<Globe2 className="w-4 h-4 text-primary" />
 											WorldCheck / AML Alerts
 										</h3>
 									</div>
-									<div className="divide-y divide-zinc-800">
+									<div className="divide-y divide-border">
 										{sanctionsData.alerts.map((alert, idx) => (
-											<div
-												key={idx}
-												className="p-5 hover:bg-zinc-800/20 transition-colors">
+											<div key={idx} className="p-5 hover:bg-muted/20 transition-colors">
 												<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 													<div className="flex items-start gap-4">
 														<Badge
@@ -973,10 +978,10 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 															{alert.severity}
 														</Badge>
 														<div>
-															<p className="font-medium text-zinc-200 mb-1">
+															<p className="font-medium text-foreground mb-1">
 																{alert.title}
 															</p>
-															<p className="text-xs text-zinc-500">
+															<p className="text-xs text-muted-foreground">
 																Source: {alert.source} • Logged: {alert.date}
 															</p>
 														</div>
@@ -984,30 +989,27 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 
 													<div className="flex gap-2">
 														{/* AI Action Button for specific alert */}
-														<button
-															type="button"
+														<Button
 															onClick={() => handleAnalyzeMedia(idx, alert)}
 															disabled={analyzingMediaId === idx}
-															className="text-xs font-medium text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-md hover:bg-indigo-500/20 transition-colors flex items-center gap-1 disabled:opacity-50">
+															className="text-xs font-medium text-primary bg-primary/10 px-3 py-1.5 	 hover:bg-primary/20 transition-colors flex items-center gap-1 disabled:opacity-50">
 															{analyzingMediaId === idx ? (
 																<Loader2 className="w-3 h-3 animate-spin" />
 															) : (
 																<Sparkles className="w-3 h-3" />
 															)}
 															✨ Analyze Risk
-														</button>
-														<button
-															type="button"
-															className="text-xs font-medium text-amber-400 hover:text-amber-300 flex items-center gap-1 px-2">
+														</Button>
+														<Button className="text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1 px-2">
 															Dossier <ChevronRight className="w-3 h-3" />
-														</button>
+														</Button>
 													</div>
 												</div>
 
 												{/* Expandable AI Analysis Result */}
 												{mediaAnalyses[idx] && (
-													<div className="mt-4 p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-md text-sm text-zinc-300 animate-in slide-in-from-top-2">
-														<p className="flex items-center gap-2 mb-1 font-medium text-indigo-300">
+													<div className="mt-4 p-3 bg-primary/5 border border-primary/20 rounded-md text-sm text-foreground animate-in slide-in-from-top-2">
+														<p className="flex items-center gap-2 mb-1 font-medium text-primary">
 															<Sparkles className="w-4 h-4" /> AI Context Analysis
 														</p>
 														<p>{mediaAnalyses[idx]}</p>
@@ -1023,26 +1025,28 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 						{/* FICA VIEW */}
 						{primaryTab === "fica" && (
 							<div className="space-y-6 animate-in fade-in duration-500">
-								<div className="flex items-center justify-between bg-zinc-900/50 p-4 rounded-xl border border-zinc-800">
+								<div className="flex items-center justify-between bg-muted/30 p-4 rounded-xl border border-border">
 									<div className="flex items-center gap-3">
-										<FileCheck className="w-5 h-5 text-emerald-400" />
-										<h3 className="font-medium text-zinc-200">KYC / FICA Verification</h3>
+										<FileCheck className="w-5 h-5 text-chart-4" />
+										<h3 className="font-medium text-foreground">
+											KYC / FICA Verification
+										</h3>
 									</div>
-									<p className="text-xs text-zinc-500">
+									<p className="text-xs text-muted-foreground">
 										Last verified: {ficaData.lastVerified}
 									</p>
 								</div>
 								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 									<Card className="p-6 md:col-span-2">
-										<div className="flex items-center gap-3 mb-6 pb-4 border-b border-zinc-800">
-											<div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center">
-												<Fingerprint className="w-5 h-5 text-zinc-300" />
+										<div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
+											<div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
+												<Fingerprint className="w-5 h-5 text-muted-foreground" />
 											</div>
 											<div>
-												<h4 className="font-medium text-zinc-200">
+												<h4 className="font-medium text-foreground">
 													Identity Document Validity
 												</h4>
-												<p className="text-xs text-zinc-500">
+												<p className="text-xs text-muted-foreground">
 													Validated against Department of Home Affairs (HANIS)
 												</p>
 											</div>
@@ -1051,11 +1055,11 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 											{ficaData.identity.map((person, idx) => (
 												<div
 													key={idx}
-													className="p-4 bg-zinc-950 rounded-lg border border-zinc-800/50">
+													className="p-4 bg-muted/20 rounded-lg border border-border/50">
 													<div className="flex items-start justify-between mb-3">
 														<div>
-															<p className="font-medium text-zinc-200">{person.name}</p>
-															<p className="text-xs text-zinc-500">{person.id}</p>
+															<p className="font-medium text-foreground">{person.name}</p>
+															<p className="text-xs text-muted-foreground">{person.id}</p>
 														</div>
 														<Badge
 															variant={
@@ -1064,7 +1068,7 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 															{person.status}
 														</Badge>
 													</div>
-													<div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/5 px-2 py-1 rounded w-fit">
+													<div className="flex items-center gap-2 text-xs text-chart-4 bg-chart-4/10 px-2 py-1 rounded w-fit">
 														<CheckCircle2 className="w-3 h-3" /> Status:{" "}
 														{person.deceasedStatus}
 													</div>
@@ -1073,35 +1077,43 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 										</div>
 									</Card>
 									<Card className="p-6">
-										<div className="flex items-center gap-3 mb-6 pb-4 border-b border-zinc-800">
-											<div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center">
-												<Home className="w-5 h-5 text-zinc-300" />
+										<div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
+											<div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
+												<Home className="w-5 h-5 text-muted-foreground" />
 											</div>
 											<div>
-												<h4 className="font-medium text-zinc-200">Proof of Residence</h4>
-												<p className="text-xs text-zinc-500">
+												<h4 className="font-medium text-foreground">
+													Proof of Residence
+												</h4>
+												<p className="text-xs text-muted-foreground">
 													FICA 90-day validity check
 												</p>
 											</div>
 										</div>
 										<div className="space-y-4">
 											<div>
-												<p className="text-xs text-zinc-500 mb-1">Declared Address</p>
-												<p className="text-sm text-zinc-300 font-medium">
+												<p className="text-xs text-muted-foreground mb-1">
+													Declared Address
+												</p>
+												<p className="text-sm text-foreground font-medium">
 													{ficaData.residence.address}
 												</p>
 											</div>
 											<div className="grid grid-cols-2 gap-3 pt-2">
 												<div>
-													<p className="text-xs text-zinc-500 mb-1">Document Used</p>
-													<p className="text-sm text-zinc-300">
+													<p className="text-xs text-muted-foreground mb-1">
+														Document Used
+													</p>
+													<p className="text-sm text-foreground">
 														{ficaData.residence.documentType}
 													</p>
 												</div>
 												<div>
-													<p className="text-xs text-zinc-500 mb-1">Document Age</p>
+													<p className="text-xs text-muted-foreground mb-1">
+														Document Age
+													</p>
 													<div className="flex items-center gap-2">
-														<p className="text-sm font-medium text-emerald-400">
+														<p className="text-sm font-medium text-chart-4">
 															{ficaData.residence.ageInDays} Days Old
 														</p>
 														<Badge variant="success">{ficaData.residence.status}</Badge>
@@ -1111,32 +1123,36 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 										</div>
 									</Card>
 									<Card className="p-6">
-										<div className="flex items-center gap-3 mb-6 pb-4 border-b border-zinc-800">
-											<div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center">
-												<Landmark className="w-5 h-5 text-zinc-300" />
+										<div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
+											<div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
+												<Landmark className="w-5 h-5 text-muted-foreground" />
 											</div>
 											<div>
-												<h4 className="font-medium text-zinc-200">
+												<h4 className="font-medium text-foreground">
 													Bank & Source of Funds
 												</h4>
-												<p className="text-xs text-zinc-500">
+												<p className="text-xs text-muted-foreground">
 													Account Verification System (AVS) & Statements
 												</p>
 											</div>
 										</div>
 										<div className="space-y-4">
 											<div>
-												<p className="text-xs text-zinc-500 mb-1">Verified Account</p>
-												<p className="text-sm text-zinc-300 font-medium">
+												<p className="text-xs text-muted-foreground mb-1">
+													Verified Account
+												</p>
+												<p className="text-sm text-foreground font-medium">
 													{ficaData.banking.bankName} • {ficaData.banking.accountNumber}
 												</p>
 											</div>
-											<div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800/50">
+											<div className="p-3 bg-muted/20 rounded-lg border border-border/50">
 												<div className="flex items-center justify-between mb-2">
-													<span className="text-xs text-zinc-400">Bank AVS Response</span>
+													<span className="text-xs text-muted-foreground">
+														Bank AVS Response
+													</span>
 													<Badge variant="success">{ficaData.banking.avsStatus}</Badge>
 												</div>
-												<p className="text-xs text-zinc-500">
+												<p className="text-xs text-muted-foreground">
 													{ficaData.banking.avsDetails}
 												</p>
 											</div>

@@ -77,11 +77,7 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 	{
 		accessorKey: "companyName",
 		header: ({ column }) => (
-			<Button
-				variant="ghost"
-				size="xs"
-				className="-ml-4 hover:bg-transparent hover:text-foreground"
-				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+			<Button onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
 				Company
 				{column.getIsSorted() === "asc" ? (
 					<RiArrowUpSLine className="ml-2 h-4 w-4" />
@@ -104,9 +100,7 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 		accessorKey: "contactName",
 		header: ({ column }) => (
 			<Button
-				variant="ghost"
 				size="xs"
-				className="-ml-4 hover:bg-transparent hover:text-foreground"
 				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
 				Contact
 				{column.getIsSorted() === "asc" ? (
@@ -131,7 +125,6 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 			<Button
 				variant="ghost"
 				size="xs"
-				className="-ml-4 hover:bg-transparent hover:text-foreground"
 				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
 				Industry
 				{column.getIsSorted() === "asc" ? (
@@ -153,7 +146,6 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 			<Button
 				variant="ghost"
 				size="xs"
-				className="-ml-4 hover:bg-transparent hover:text-foreground"
 				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
 				Employees
 				{column.getIsSorted() === "asc" ? (
@@ -175,7 +167,6 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 			<Button
 				variant="ghost"
 				size="xs"
-				className="-ml-4 hover:bg-transparent hover:text-foreground"
 				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
 				Status
 				{column.getIsSorted() === "asc" ? (

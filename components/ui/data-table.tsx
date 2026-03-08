@@ -114,7 +114,7 @@ export function DataTable<TData, TValue>({
 									return (
 										<TableHead
 											key={header.id}
-											className="px-3 py-2 text-xs font-semibold text-secondary/80 uppercase tracking-wider">
+											className="px-3 py-2 text-xs font-light text-muted-foreground/80 tracking-tight">
 											{header.isPlaceholder
 												? null
 												: flexRender(header.column.columnDef.header, header.getContext())}
@@ -130,9 +130,9 @@ export function DataTable<TData, TValue>({
 								<TableRow
 									key={row.id}
 									data-state={row.getIsSelected() && "selected"}
-									className="group border-sidebar-border hover:bg-secondary/4 transition-all duration-200">
+									className="group pl-4 border-sidebar-border hover:bg-secondary/4 transition-all duration-200">
 									{row.getVisibleCells().map(cell => (
-										<TableCell key={cell.id} className="px-3 py-4">
+										<TableCell key={cell.id} className="px-8 py-4">
 											{flexRender(cell.column.columnDef.cell, cell.getContext())}
 										</TableCell>
 									))}
@@ -158,7 +158,7 @@ export function DataTable<TData, TValue>({
 						</span>
 						<div className="flex items-center gap-1">
 							<Button
-								variant="ghost"
+								variant="default"
 								size="icon"
 								className="h-8 w-8"
 								onClick={handlePrevious}
@@ -166,7 +166,7 @@ export function DataTable<TData, TValue>({
 								<RiArrowLeftSLine className="h-4 w-4" />
 							</Button>
 							<Button
-								variant="ghost"
+								variant="default"
 								size="icon"
 								className="h-8 w-8"
 								onClick={handleNext}
