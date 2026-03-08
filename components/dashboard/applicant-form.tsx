@@ -81,7 +81,7 @@ export function ApplicantForm({
 			idNumber: `${isTestMode ? "8501015009087" : ""}`,
 			email: `${isTestMode ? "jkotzee@icloud.com" : "john.test@testcompany.co.za"}`,
 			phone: `${isTestMode ? "+27 76 341 0291" : "+27 82 123 4567"}`,
-			entityType: "company",
+			entityType: isTestMode ? "company" : "company",
 			productType: "standard",
 			industry: `${isTestMode ? "Software Development" : "Financial Services"}`,
 			mandateType: `${isTestMode ? "Debit Order" : "debit_order"}`,
@@ -113,8 +113,19 @@ export function ApplicantForm({
 		} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
 			newErrors.email = "Invalid email address";
 		}
-		if (formData.idNumber.trim() && !/^\d{13}$/.test(formData.idNumber.trim())) {
-			newErrors.idNumber = "ID number must be exactly 13 digits";
+		if (formData.entityType === "proprietor") {
+			if (!formData.idNumber.trim()) {
+				newErrors.idNumber = "ID number is required for Proprietors";
+			} else if (!/^\d{13}$/.test(formData.idNumber.trim())) {
+				newErrors.idNumber = "ID number must be exactly 13 digits";
+			}
+		} else {
+			if (!formData.registrationNumber.trim()) {
+				newErrors.registrationNumber = "Registration number is required for Companies";
+			}
+			if (formData.idNumber.trim() && !/^\d{13}$/.test(formData.idNumber.trim())) {
+				newErrors.idNumber = "ID number must be exactly 13 digits";
+			}
 		}
 
 		setErrors(newErrors);
@@ -210,17 +221,24 @@ export function ApplicantForm({
 							)}
 						</div>
 
-						<div className="space-y-2">
-							<Label htmlFor="registrationNumber">CIPC Registration Number</Label>
-							<Input
-								className="border-input-border"
-								id="registrationNumber"
-								autoComplete={"registrationNumber"}
-								value={formData.registrationNumber}
-								onChange={e => updateField("registrationNumber", e.target.value)}
-								placeholder="e.g., 2024/123456/07"
-							/>
-						</div>
+						{formData.entityType !== "proprietor" && (
+							<div className="space-y-2">
+								<Label htmlFor="registrationNumber">CIPC Registration Number *</Label>
+								<Input
+									className={cn(
+										errors.registrationNumber ? "border-red-500" : "border-input-border"
+									)}
+									id="registrationNumber"
+									autoComplete={"registrationNumber"}
+									value={formData.registrationNumber}
+									onChange={e => updateField("registrationNumber", e.target.value)}
+									placeholder="e.g., 2024/123456/07"
+								/>
+								{errors.registrationNumber && (
+									<p className="text-xs text-red-400">{errors.registrationNumber}</p>
+								)}
+							</div>
+						)}
 
 						<div className="space-y-2">
 							<Label htmlFor="entityType">Entity Type</Label>
@@ -351,20 +369,24 @@ export function ApplicantForm({
 							{errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
 						</div>
 
-						<div className="space-y-2">
-							<Label htmlFor="idNumber">SA ID Number</Label>
-							<Input
-								id="idNumber"
-								value={formData.idNumber}
-								onChange={e => updateField("idNumber", e.target.value)}
-								placeholder="13-digit SA ID number"
-								maxLength={13}
-								className={cn(errors.idNumber ? "border-red-500" : "border-input-border")}
-							/>
-							{errors.idNumber && (
-								<p className="text-xs text-red-400">{errors.idNumber}</p>
-							)}
-						</div>
+						{formData.entityType === "proprietor" && (
+							<div className="space-y-2">
+								<Label htmlFor="idNumber">SA ID Number *</Label>
+								<Input
+									id="idNumber"
+									value={formData.idNumber}
+									onChange={e => updateField("idNumber", e.target.value)}
+									placeholder="13-digit SA ID number"
+									maxLength={13}
+									className={cn(
+										errors.idNumber ? "border-red-500" : "border-input-border"
+									)}
+								/>
+								{errors.idNumber && (
+									<p className="text-xs text-red-400">{errors.idNumber}</p>
+								)}
+							</div>
+						)}
 
 						<div className="space-y-2">
 							<Label htmlFor="phone">Phone Number</Label>

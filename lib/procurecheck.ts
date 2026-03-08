@@ -66,32 +66,46 @@ async function getJwt(): Promise<string> {
 	return token;
 }
 
-/**
- * Create a Vendor Check (Sandbox Mode)
- * Uses default sandbox GUID for nationality if needed.
- */
 export async function createTestVendor(vendorData: {
 	vendorName: string;
-	registrationNumber: string | null;
+	registrationNumber?: string | null;
+	idNumber?: string | null;
 	applicantId: number; // Used as external ID
+	isProprietor?: boolean;
 }) {
 	const token = await getJwt();
 
-	if (!vendorData.registrationNumber) {
-		throw new Error("ProcureCheck requires a registration number");
+	if (vendorData.isProprietor) {
+		if (!vendorData.idNumber) {
+			throw new Error("ProcureCheck requires an ID number for Proprietors");
+		}
+	} else {
+		if (!vendorData.registrationNumber) {
+			throw new Error("ProcureCheck requires a registration number for Companies");
+		}
 	}
 
 	// Sandbox specific: Use the GUID from screenshots for South Africa / Test
 	// nationality_Id: "153A0FB2-CC8D-4805-80D2-5F996720FED9"
-	const payload = {
+	const payload: Record<string, any> = {
 		vendor_Name: vendorData.vendorName,
-		vendor_RegNum: vendorData.registrationNumber,
 		vendorExternalID: `STC-${vendorData.applicantId}`, // Unique ID for our system
 		nationality_Id: "153A0FB2-CC8D-4805-80D2-5F996720FED9",
 		processBeeInfo: false,
 	};
 
-	const res = await fetch(`${config.baseUrl}api/vendors/cipc?processBeeInfo=false`, {
+	let endpoint = "api/vendors/cipc?processBeeInfo=false";
+
+	if (vendorData.isProprietor) {
+		payload.idNumber = vendorData.idNumber;
+		payload.entityType = "Individual";
+		endpoint = "api/vendors/individual"; // Assumed endpoint for natural persons
+	} else {
+		payload.vendor_RegNum = vendorData.registrationNumber;
+		payload.entityType = "Company";
+	}
+
+	const res = await fetch(`${config.baseUrl}${endpoint}`, {
 		method: "POST",
 		headers: {
 			Authorization: `Bearer ${token}`,

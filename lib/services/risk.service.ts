@@ -45,10 +45,13 @@ export async function analyzeRisk(applicantId: number): Promise<RiskResult> {
 	// 1. Initiate Check
 	let checkResult: Record<string, unknown> | undefined;
 	try {
+		const isProprietor = applicantData.entityType === "proprietor";
 		checkResult = await createTestVendor({
 			applicantId,
 			vendorName: applicantData.companyName,
 			registrationNumber: applicantData.registrationNumber,
+			idNumber: applicantData.idNumber,
+			isProprietor,
 		});
 	} catch (error) {
 		console.error("[RiskService] ProcureCheck creation failed:", error);
