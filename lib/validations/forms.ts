@@ -57,105 +57,108 @@ const insuranceDetailsSchema = z.object({
 		.optional(),
 });
 
-export const facilityApplicationSchema = z.object({
-	applicantDetails: applicantDetailsSchema.optional(),
-	insuranceDetails: insuranceDetailsSchema.optional(),
-	facilitySelection: z
-		.object({
-			serviceTypes: z
-				.array(
-					z.enum(["EFT", "DebiCheck", "3rd Party Payments", "Pay@", "Card Payments"])
-				)
-				.min(1, "Select at least one service type"),
-			additionalServices: z
-				.array(
-					z.enum([
-						"Integration",
-						"E-Mandate",
-						"Account Verification",
-						"ID Verification",
-						"Bulk SMS",
-					])
-				)
-				.optional()
-				.default([]),
-		})
-		.optional(),
-	volumeMetrics: z
-		.object({
-			history: z
-				.object({
-					currentProvider: z.string().optional(),
-					previousProvider: z.string().optional(),
-					amountsOwed: z.string().optional(),
-				})
-				.optional(),
-			statistics: z
-				.object({
-					averageTransactionsPerMonth: z.coerce.number().min(0).optional(),
-					unpaidTransactionsCount: z.coerce.number().min(0).optional(),
-					unpaidTransactionsValue: z.coerce.number().min(0).optional(),
-					disputedTransactionsCount: z.coerce.number().min(0).optional(),
-					disputedTransactionsValue: z.coerce.number().min(0).optional(),
-				})
-				.optional(),
-			predictedGrowth: z
-				.object({
-					forecastVolume: z.coerce.number().min(0).optional(),
-					forecastAverageValue: z.coerce.number().min(0).optional(),
-				})
-				.optional(),
-			limitsAppliedFor: z
-				.object({
-					maxTransactionsPerMonth: z.coerce.number().min(0).optional(),
-					maxRandValue: z.coerce.number().min(0).optional(),
-					highestSingleTransaction: z.coerce.number().min(0).optional(),
-				})
-				.optional(),
-		})
-		.optional(),
-	serviceTypes: z
-		.array(z.enum(["EFT", "DebiCheck", "3rd Party Payments", "Pay@", "Card Payments"]))
-		.optional()
-		.default([]),
-	additionalServices: z
-		.array(
-			z.enum([
-				"Integration",
-				"E-Mandate",
-				"Account Verification",
-				"ID Verification",
-				"Bulk SMS",
-			])
-		)
-		.optional()
-		.default([]),
-	currentProvider: z.string().optional(),
-	amountsOwed: z.string().optional(),
-	averageTransactionsPerMonth: z.coerce.number().min(0).optional(),
-	unpaidTransactionsCount: z.coerce.number().min(0).optional(),
-	unpaidTransactionsValue: z.coerce.number().min(0).optional(),
-	disputedTransactionsCount: z.coerce.number().min(0).optional(),
-	disputedTransactionsValue: z.coerce.number().min(0).optional(),
-	forecastVolume: z.coerce.number().min(0).optional(),
-	forecastAverageValue: z.coerce.number().min(0).optional(),
-	maxTransactionsPerMonth: z.coerce.number().min(0).optional(),
-	maxRandValue: z.coerce.number().min(0).optional(),
-	highestSingleTransaction: z.coerce.number().min(0).optional(),
-}).superRefine((value, ctx) => {
-	const hasLegacyServiceTypes = Array.isArray(value.serviceTypes) && value.serviceTypes.length > 0;
-	const hasNestedServiceTypes =
-		Array.isArray(value.facilitySelection?.serviceTypes) &&
-		value.facilitySelection.serviceTypes.length > 0;
+export const facilityApplicationSchema = z
+	.object({
+		applicantDetails: applicantDetailsSchema.optional(),
+		insuranceDetails: insuranceDetailsSchema.optional(),
+		facilitySelection: z
+			.object({
+				serviceTypes: z
+					.array(
+						z.enum(["EFT", "DebiCheck", "3rd Party Payments", "Pay@", "Card Payments"])
+					)
+					.min(1, "Select at least one service type"),
+				additionalServices: z
+					.array(
+						z.enum([
+							"Integration",
+							"E-Mandate",
+							"Account Verification",
+							"ID Verification",
+							"Bulk SMS",
+						])
+					)
+					.optional()
+					.default([]),
+			})
+			.optional(),
+		volumeMetrics: z
+			.object({
+				history: z
+					.object({
+						currentProvider: z.string().optional(),
+						previousProvider: z.string().optional(),
+						amountsOwed: z.string().optional(),
+					})
+					.optional(),
+				statistics: z
+					.object({
+						averageTransactionsPerMonth: z.coerce.number().min(0).optional(),
+						unpaidTransactionsCount: z.coerce.number().min(0).optional(),
+						unpaidTransactionsValue: z.coerce.number().min(0).optional(),
+						disputedTransactionsCount: z.coerce.number().min(0).optional(),
+						disputedTransactionsValue: z.coerce.number().min(0).optional(),
+					})
+					.optional(),
+				predictedGrowth: z
+					.object({
+						forecastVolume: z.coerce.number().min(0).optional(),
+						forecastAverageValue: z.coerce.number().min(0).optional(),
+					})
+					.optional(),
+				limitsAppliedFor: z
+					.object({
+						maxTransactionsPerMonth: z.coerce.number().min(0).optional(),
+						maxRandValue: z.coerce.number().min(0).optional(),
+						highestSingleTransaction: z.coerce.number().min(0).optional(),
+					})
+					.optional(),
+			})
+			.optional(),
+		serviceTypes: z
+			.array(z.enum(["EFT", "DebiCheck", "3rd Party Payments", "Pay@", "Card Payments"]))
+			.optional()
+			.default([]),
+		additionalServices: z
+			.array(
+				z.enum([
+					"Integration",
+					"E-Mandate",
+					"Account Verification",
+					"ID Verification",
+					"Bulk SMS",
+				])
+			)
+			.optional()
+			.default([]),
+		currentProvider: z.string().optional(),
+		amountsOwed: z.string().optional(),
+		averageTransactionsPerMonth: z.coerce.number().min(0).optional(),
+		unpaidTransactionsCount: z.coerce.number().min(0).optional(),
+		unpaidTransactionsValue: z.coerce.number().min(0).optional(),
+		disputedTransactionsCount: z.coerce.number().min(0).optional(),
+		disputedTransactionsValue: z.coerce.number().min(0).optional(),
+		forecastVolume: z.coerce.number().min(0).optional(),
+		forecastAverageValue: z.coerce.number().min(0).optional(),
+		maxTransactionsPerMonth: z.coerce.number().min(0).optional(),
+		maxRandValue: z.coerce.number().min(0).optional(),
+		highestSingleTransaction: z.coerce.number().min(0).optional(),
+	})
+	.superRefine((value, ctx) => {
+		const hasLegacyServiceTypes =
+			Array.isArray(value.serviceTypes) && value.serviceTypes.length > 0;
+		const hasNestedServiceTypes =
+			Array.isArray(value.facilitySelection?.serviceTypes) &&
+			value.facilitySelection.serviceTypes.length > 0;
 
-	if (!(hasLegacyServiceTypes || hasNestedServiceTypes)) {
-		ctx.addIssue({
-			code: z.ZodIssueCode.custom,
-			path: ["serviceTypes"],
-			message: "Select at least one service type",
-		});
-	}
-});
+		if (!(hasLegacyServiceTypes || hasNestedServiceTypes)) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["serviceTypes"],
+				message: "Select at least one service type",
+			});
+		}
+	});
 
 export type FacilityApplicationForm = z.infer<typeof facilityApplicationSchema>;
 
@@ -184,10 +187,13 @@ export const stratcolAgreementSchema = z.object({
 	industryTenure: z.string().optional(),
 	companyResolution: z
 		.object({
-			cityTown: z.string().min(1),
-			date: z.string().min(1),
-			resolvedName: z.string().min(2),
-			resolvedIdNumber: z.string().min(6),
+			cityTown: z.string().min(1, "City/Town is required"),
+			date: z
+				.string()
+				.min(1, "Resolution date is required")
+				.regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
+			resolvedName: z.string().min(2, "Resolved name is required"),
+			resolvedIdNumber: z.string().min(6, "ID number is required"),
 		})
 		.optional(),
 	authorisedRepresentative: z.object({
@@ -223,8 +229,11 @@ export const stratcolAgreementSchema = z.object({
 	consentAccepted: z.literal(true, {
 		message: "You must accept the agreement",
 	}),
-	signatureName: z.string().min(2),
-	signatureDate: z.string().min(2),
+	signatureName: z.string().min(2, "Signature name is required"),
+	signatureDate: z
+		.string()
+		.min(1, "Signature date is required")
+		.regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
 });
 
 export type StratcolAgreementForm = z.infer<typeof stratcolAgreementSchema>;
@@ -237,8 +246,11 @@ export const signedQuotationSchema = z.object({
 	consentAccepted: z.literal(true, {
 		message: "You must accept the quotation terms",
 	}),
-	signatureName: z.string().min(2),
-	signatureDate: z.string().min(2),
+	signatureName: z.string().min(2, "Signature name is required"),
+	signatureDate: z
+		.string()
+		.min(1, "Signature date is required")
+		.regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
 });
 
 export type SignedQuotationForm = z.infer<typeof signedQuotationSchema>;
@@ -371,12 +383,21 @@ export const absa6995Schema = z.object({
 		ultimateCreditorInformed: z.literal(true, { message: "Required" }),
 	}),
 	signatures: z.object({
-		clientName: z.string().min(2),
-		clientSignature: z.string().min(2),
-		clientSignatureDate: z.string().min(2),
+		clientName: z.string().min(2, "Client name is required"),
+		clientSignature: z.string().min(2, "Client signature is required"),
+		clientSignatureDate: z
+			.string()
+			.min(1, "Signature date is required")
+			.regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
 		mandatedOfficialName: z.string().optional(),
 		mandatedOfficialSignature: z.string().optional(),
-		mandatedOfficialDate: z.string().optional(),
+		mandatedOfficialDate: z
+			.string()
+			.optional()
+			.refine(
+				val => !val || /^\d{4}-\d{2}-\d{2}$/.test(val),
+				"Date must be in YYYY-MM-DD format"
+			),
 	}),
 });
 
@@ -407,7 +428,10 @@ export const callCentreApplicationSchema = z.object({
 
 	// Final Signature
 	signatureName: z.string().min(2, "Signature is required"),
-	signatureDate: z.string().min(2, "Signature date is required"),
+	signatureDate: z
+		.string()
+		.min(1, "Signature date is required")
+		.regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
 });
 
 export type CallCentreApplicationForm = z.infer<typeof callCentreApplicationSchema>;

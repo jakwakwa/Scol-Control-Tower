@@ -216,7 +216,7 @@ export function buildAgreementDefaults(options: {
 						(absaPhysical as { city?: string })?.city ||
 						(absaRegistered as { city?: string })?.city ||
 						"",
-					date: new Date().toISOString().split("T")[0],
+					date: undefined,
 					resolvedName: repName,
 					resolvedIdNumber: repId,
 				}
@@ -250,7 +250,7 @@ export function buildAgreementDefaults(options: {
 		creditBankAccount,
 		debitBankAccount,
 		signatureName: applicant.contactName,
-		signatureDate: new Date().toISOString().split("T")[0],
+		signatureDate: undefined,
 	};
 
 	return result;
