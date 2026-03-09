@@ -1,11 +1,11 @@
 import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
+import { applicants, documents } from "@/db/schema";
 import {
 	getDocumentRequirements,
 	resolveBusinessType,
 } from "@/lib/services/document-requirements.service";
 import { DocumentTypeSchema } from "@/lib/types";
-import { applicants, documents } from "@/db/schema";
 import { inngest } from "../client";
 
 /**
@@ -64,9 +64,7 @@ export const documentAggregator = inngest.createFunction(
 			applicantInfo.industry ?? undefined
 		);
 
-		const requirements = docReqs.documents
-			.filter(req => req.required)
-			.map(req => req.id);
+		const requirements = docReqs.documents.filter(req => req.required).map(req => req.id);
 
 		const uploadedTypes = applicantDocs.map(d => d.type);
 
@@ -82,20 +80,19 @@ export const documentAggregator = inngest.createFunction(
 
 		// 3. Emit the bundle event expected by onboarding.ts
 		// Map db documents to the shape expected by onboarding.ts event; validate type with Zod
-		const payloadDocuments = applicantDocs
-			.map(d => {
-				const parsed = DocumentTypeSchema.safeParse(d.type);
-				if (!parsed.success) return null;
-				return {
-					type: parsed.data,
-					filename: d.fileName || "unknown",
-					url: d.storageUrl || "",
-					uploadedAt: d.uploadedAt
-						? new Date(d.uploadedAt).toISOString()
-						: new Date().toISOString(),
-				};
-			})
-			.filter((doc): doc is NonNullable<typeof doc> => doc !== null);
+		const payloadDocuments = applicantDocs.map(d => {
+			// Use parse() instead of safeParse() for type safety - throws if invalid
+			// This is safe because upstream filters ensure validity
+			const type = DocumentTypeSchema.parse(d.type);
+			return {
+				type,
+				filename: d.fileName || "unknown",
+				url: d.storageUrl || "",
+				uploadedAt: d.uploadedAt
+					? new Date(d.uploadedAt).toISOString()
+					: new Date().toISOString(),
+			};
+		});
 
 		await step.run("emit-fica-received", async () => {
 			await inngest.send({
