@@ -1,7 +1,13 @@
 import { NextRequest } from 'next/server';
 import { addController, removeController } from '@/lib/notification-broadcaster';
+import { auth } from '@clerk/nextjs/server';
 
 export async function GET(request: NextRequest) {
+  const { userId } = await auth();
+
+  if (!userId) {
+    return new Response('Unauthorized', { status: 401 });
+  }
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
