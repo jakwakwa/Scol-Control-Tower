@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"workbench.preferredHighContrastColorTheme": "Vira Ocean High Contrast",
+		"terminal.integrated.fontLigatures.enabled": true,
+		"terminal.integrated.tabs.showActions": "singleTerminal",
+		"terminal.integrated.tabs.showActiveTerminal": "singleTerminal",
+		"terminal.integrated.tabs.title": "${shellType}",
+		"terminal.integrated.enableMultiLinePasteWarning": "never",
+		"terminal.integrated.suggest.cdPath": "relative"
+	}
+}
