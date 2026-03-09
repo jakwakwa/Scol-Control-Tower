@@ -1,12 +1,10 @@
-import { ReadableStreamDefaultController } from 'stream/web';
+const controllers = new Set<ReadableStreamDefaultController<Uint8Array>>();
 
-const controllers = new Set<ReadableStreamDefaultController>();
-
-export function addController(controller: ReadableStreamDefaultController) {
+export function addController(controller: ReadableStreamDefaultController<Uint8Array>) {
   controllers.add(controller);
 }
 
-export function removeController(controller: ReadableStreamDefaultController) {
+export function removeController(controller: ReadableStreamDefaultController<Uint8Array>) {
   controllers.delete(controller);
 }
 
