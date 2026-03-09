@@ -76,61 +76,69 @@ export async function executeStage6({
 		}),
 	]);
 
-	if (!riskManagerApproval) {
-		await step.run("notify-am-final-risk-timeout", async () => {
-			await guardKillSwitch(workflowId, "notify-am-final-risk-timeout");
-			await createWorkflowNotification({
-				workflowId,
-				applicantId,
-				type: "warning",
-				title: "Delay: Final Risk Approval",
-				message: "Final risk manager approval timed out.",
-				actionable: true,
-			});
-			await sendInternalAlertEmail({
-				title: "Delay: Final Risk Approval",
-				message: `The final risk manager approval has not been completed within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window.`,
-				workflowId,
-				applicantId,
-				type: "warning",
-				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
-			});
+	// Check for approval timeouts (both can timeout)
+	const missingApprovals: Array<'risk' | 'account'> = [];
+	if (!riskManagerApproval) missingApprovals.push('risk');
+	if (!accountManagerApproval) missingApprovals.push('account');
+
+	if (missingApprovals.length > 0) {
+		// Send notifications for all missing approvals before termination
+		await step.run("notify-am-approval-timeouts", async () => {
+			await guardKillSwitch(workflowId, "notify-am-approval-timeouts");
+			for (const type of missingApprovals) {
+				if (type === 'risk') {
+					await createWorkflowNotification({
+						workflowId,
+						applicantId,
+						type: "warning",
+						title: "Delay: Final Risk Approval",
+						message: "Final risk manager approval timed out.",
+						actionable: true,
+					});
+					await sendInternalAlertEmail({
+						title: "Delay: Final Risk Approval",
+						message: `The final risk manager approval has not been completed within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window.`,
+						workflowId,
+						applicantId,
+						type: "warning",
+						actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
+					});
+				} else if (type === 'account') {
+					await createWorkflowNotification({
+						workflowId,
+						applicantId,
+						type: "warning",
+						title: "Delay: Final Account Manager Approval",
+						message: "Final account manager approval timed out.",
+						actionable: true,
+					});
+					await sendInternalAlertEmail({
+						title: "Delay: Final Account Manager Approval",
+						message: `The final account manager approval has not been completed within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window.`,
+						workflowId,
+						applicantId,
+						type: "warning",
+						actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
+					});
+				}
+			}
 		});
-		await step.run("terminate-risk-manager-timeout", () =>
+
+		// Determine termination reason based on which approvals timed out
+		const terminationReason: "STAGE6_RISK_MANAGER_TIMEOUT" | "STAGE6_ACCOUNT_MANAGER_TIMEOUT" =
+			missingApprovals.includes('risk') ? "STAGE6_RISK_MANAGER_TIMEOUT" : "STAGE6_ACCOUNT_MANAGER_TIMEOUT";
+
+		const notes = missingApprovals.includes('risk') && missingApprovals.includes('account')
+			? "Both risk manager and account manager approvals timed out."
+			: undefined;
+
+		await step.run("terminate-approval-timeout", () =>
 			terminateRun({
 				workflowId,
 				applicantId,
 				stage: 6,
-				reason: "STAGE6_RISK_MANAGER_TIMEOUT",
-			})
-		);
-	}
-	if (!accountManagerApproval) {
-		await step.run("notify-am-final-account-timeout", async () => {
-			await guardKillSwitch(workflowId, "notify-am-final-account-timeout");
-			await createWorkflowNotification({
-				workflowId,
-				applicantId,
-				type: "warning",
-				title: "Delay: Final Account Manager Approval",
-				message: "Final account manager approval timed out.",
-				actionable: true,
-			});
-			await sendInternalAlertEmail({
-				title: "Delay: Final Account Manager Approval",
-				message: `The final account manager approval has not been completed within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window.`,
-				workflowId,
-				applicantId,
-				type: "warning",
-				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
-			});
-		});
-		await step.run("terminate-account-manager-timeout", () =>
-			terminateRun({
-				workflowId,
-				applicantId,
-				stage: 6,
-				reason: "STAGE6_ACCOUNT_MANAGER_TIMEOUT",
+				reason: terminationReason,
+				notes,
 			})
 		);
 	}

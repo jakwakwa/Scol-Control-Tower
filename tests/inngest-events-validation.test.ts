@@ -1,17 +1,17 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import {
-	OnboardingLeadCreatedSchema,
-	WorkflowTerminatedSchema,
 	DocumentUploadedSchema,
 	FormFacilitySubmittedSchema,
-	RiskPreApprovalDecidedSchema,
+	OnboardingLeadCreatedSchema,
 	QuoteApprovedSchema,
-	QuoteRespondedSchema,
-	UploadFicaReceivedSchema,
-	SanctionClearedSchema,
-	RiskDecisionReceivedSchema,
-	StoredSanctionsPayloadSchema,
 	QuoteDetailsSchema,
+	QuoteRespondedSchema,
+	RiskDecisionReceivedSchema,
+	RiskPreApprovalDecidedSchema,
+	SanctionClearedSchema,
+	StoredSanctionsPayloadSchema,
+	UploadFicaReceivedSchema,
+	WorkflowTerminatedSchema,
 } from "../lib/validations/inngest-events";
 
 describe("Inngest Event Validation Schemas", () => {

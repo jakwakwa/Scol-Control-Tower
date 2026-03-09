@@ -2,7 +2,7 @@
 
 import { UserButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useDashboardStore } from "@/lib/dashboard-store";
 import { cn } from "@/lib/utils";
 import { NotificationsPanel, type WorkflowNotification } from "./notifications-panel";
@@ -53,35 +53,29 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 		setIsMounted(true);
 	}, []);
 
-	// Auto-refresh notifications every 30 seconds (paused when tab is hidden)
-	const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	// Real-time updates via SSE
 
 	useEffect(() => {
-		const startPolling = () => {
-			if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
-			refreshIntervalRef.current = setInterval(() => {
-				if (!document.hidden) {
+		const eventSource = new EventSource('/api/notifications/stream');
+
+		eventSource.onmessage = (event) => {
+			try {
+				const data = JSON.parse(event.data);
+				if (data && (data.type === 'notification' || data.type === 'update')) {
 					router.refresh();
 				}
-			}, 30_000);
-		};
-
-		startPolling();
-
-		const handleVisibility = () => {
-			if (!document.hidden) {
-				router.refresh();
-				startPolling();
+			} catch (e) {
+				console.error('Failed to parse notification event', e);
 			}
 		};
 
-		document.addEventListener("visibilitychange", handleVisibility);
+		eventSource.onerror = (error) => {
+			console.error('EventSource failed', error);
+			// EventSource automatically reconnects
+		};
 
 		return () => {
-			if (refreshIntervalRef.current) {
-				clearInterval(refreshIntervalRef.current);
-			}
-			document.removeEventListener("visibilitychange", handleVisibility);
+			eventSource.close();
 		};
 	}, [router]);
 

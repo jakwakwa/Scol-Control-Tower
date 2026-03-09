@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import type { NotificationSeverity } from "@/db/schema";
 import { notifications, workflowEvents } from "@/db/schema";
+import { broadcast } from "@/lib/notification-broadcaster";
 
 export interface CreateNotificationParams {
 	workflowId: number;
@@ -122,22 +123,33 @@ export async function createWorkflowNotification(
 						createdAt: new Date(),
 					})
 					.where(eq(notifications.id, current.id));
+				// Broadcast update to connected clients
+				broadcast({ type: "update", notificationId: current.id });
 				return;
 			}
 		}
 
-		await db.insert(notifications).values([
-			{
-				workflowId: params.workflowId,
-				applicantId: params.applicantId,
-				type: params.type,
-				message: `${params.title}: ${params.message}`,
-				actionable: params.actionable ?? true,
-				read: false,
-				severity,
-				groupKey: params.groupKey,
-			},
-		]);
+		// Insert new notification and broadcast
+		const result = await db
+			.insert(notifications)
+			.values([
+				{
+					workflowId: params.workflowId,
+					applicantId: params.applicantId,
+					type: params.type,
+					message: `${params.title}: ${params.message}`,
+					actionable: params.actionable ?? true,
+					read: false,
+					severity,
+					groupKey: params.groupKey,
+				},
+			])
+			.returning({ id: notifications.id });
+
+		const insertedId = result[0]?.id;
+		if (insertedId) {
+			broadcast({ type: "notification", notificationId: insertedId });
+		}
 	} catch (error) {
 		console.error("[NotificationEvents] Failed to create notification:", error);
 	}
