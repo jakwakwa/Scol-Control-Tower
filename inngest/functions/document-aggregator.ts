@@ -77,7 +77,7 @@ export const documentAggregator = inngest.createFunction(
 
 			return [
 				{
-					type: d.type,
+					rawType: d.type,
 					parsedType: parsedType.data,
 					fileName: d.fileName,
 					storageUrl: d.storageUrl,
@@ -87,7 +87,7 @@ export const documentAggregator = inngest.createFunction(
 		});
 
 		// 5. Determine uploaded document types from valid documents only
-		const uploadedTypes = validDocs.map(d => d.type);
+		const uploadedTypes = validDocs.map(d => d.rawType);
 
 		// 6. Check for any missing required documents
 		const missing = requirements.filter(req => !uploadedTypes.includes(req));
