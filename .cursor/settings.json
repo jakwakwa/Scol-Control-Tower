@@ -9,16 +9,7 @@
     "continual-learning": {
       "enabled": true
     },
-    "superpowers": {
-      "enabled": true
-    },
-    "cursor-team-kit": {
-      "enabled": true
-    },
     "compound-engineering": {
-      "enabled": true
-    },
-    "linear": {
       "enabled": true
     }
   }

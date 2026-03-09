@@ -12,9 +12,9 @@ import { applicants, quotes, workflows } from "@/db/schema";
 import { cn } from "@/lib/utils";
 
 const statusConfig = {
-	new: { label: "New", color: "bg-white/10 text-slate-400/80" },
-	in_progress: { label: "In Progress", color: "bg-blue-950 text-blue-300" },
-	approved: { label: "Approved", color: "bg-emerald-500/5 text-emerald-400" },
+	new: { label: "New", color: "bg-white/5 text-slate-400" },
+	in_progress: { label: "In Progress", color: "bg-blue-400/5 text-blue-300" },
+	approved: { label: "Approved", color: "bg-emerald-400/5 text-emerald-400" },
 	rejected: { label: "Rejected", color: "bg-red-500/5 text-red-400" },
 } as const;
 
@@ -96,7 +96,7 @@ export default async function ApplicantsPage() {
 						<div
 							key={status}
 							className={cn(
-								`rounded-xl  shadow-[0_5px_10px_0_rgba(0,0,0,.15)] bg-${config.color} border rounded-br-2xl  
+								`rounded-xl  shadow-[0_5px_10px_0_rgba(0,0,0,.15)] bg-${config.color} border rounded-br-2xl  backdrop-blur-[2.5px] 
 								after:rounded-tl-lg before:rounded-tl-lg 
 								after:rounded-tr-lg before:rounded-tr-lg 
 								border-sidebar-border p-4 text-center`,
@@ -110,7 +110,7 @@ export default async function ApplicantsPage() {
 			</div>
 
 			{/* Applicants Table */}
-			<DashboardSection title="All Applicants">
+			<DashboardSection title="">
 				<ApplicantsTable applicants={allApplicants} />
 			</DashboardSection>
 		</DashboardLayout>

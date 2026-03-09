@@ -15,7 +15,8 @@ Next.js supports the "Backend for Frontend" pattern. This lets you create public
 
 
 > **Good to know**: Next.js backend capabilities are not a full backend replacement. They serve as an API layer that:
->
+> YOU CAN ALWAYS ASSUME YOU ARENT DONE UNLESS YOU CAN PROVE YOUR SOLUTION WORKS IN RUNTIME (in the browser) and COMPILE TIME. ALWAYS APPLIES: PROVE YOUR SOLUTION WORKS BEFORE DECLARING "I HAVE SUCCESSFULLY IMPLEMENTED..." 
+
 > * is publicly reachable
 > * handles any HTTP request
 > * can return any content type

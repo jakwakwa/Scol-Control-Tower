@@ -108,7 +108,14 @@ export const riskAssessments = sqliteTable("risk_assessments", {
 	applicantId: integer("applicant_id")
 		.notNull()
 		.references(() => applicants.id),
+	overallScore: integer("overall_score"),
+	overallStatus: text("overall_status"), // REVIEW REQUIRED, COMPLIANT, etc.
 	overallRisk: text("overall_risk"), // green, amber, red
+
+	procurementData: text("procurement_data"), // JSON
+	itcData: text("itc_data"), // JSON
+	sanctionsData: text("sanctions_data"), // JSON
+	ficaData: text("fica_data"), // JSON
 
 	// Specific risk factors from user schema
 	cashFlowConsistency: text("cash_flow_consistency"),
