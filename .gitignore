@@ -52,3 +52,6 @@ playwright/.clerk
 # Project uses Bun exclusively — prevent accidental npm lockfile
 package-lock.json
 playwright-report/index.html
+
+# clerk configuration (can include secrets)
+/.clerk/
