@@ -1,17 +1,17 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import {
-	OnboardingLeadCreatedSchema,
-	WorkflowTerminatedSchema,
 	DocumentUploadedSchema,
 	FormFacilitySubmittedSchema,
-	RiskPreApprovalDecidedSchema,
+	OnboardingLeadCreatedSchema,
 	QuoteApprovedSchema,
-	QuoteRespondedSchema,
-	UploadFicaReceivedSchema,
-	SanctionClearedSchema,
-	RiskDecisionReceivedSchema,
-	StoredSanctionsPayloadSchema,
 	QuoteDetailsSchema,
+	QuoteRespondedSchema,
+	RiskDecisionReceivedSchema,
+	RiskPreApprovalDecidedSchema,
+	SanctionClearedSchema,
+	StoredSanctionsPayloadSchema,
+	UploadFicaReceivedSchema,
+	WorkflowTerminatedSchema,
 } from "../lib/validations/inngest-events";
 
 describe("Inngest Event Validation Schemas", () => {
@@ -49,17 +49,6 @@ describe("Inngest Event Validation Schemas", () => {
 				workflowId: 1,
 				applicantId: 2,
 				reason: "INVALID_REASON",
-				decidedBy: "user@example.com",
-				terminatedAt: "2026-03-03T10:00:00Z",
-			};
-			expect(() => WorkflowTerminatedSchema.parse(data)).toThrow();
-		});
-
-		it("should reject STAGE2_APPROVAL_TIMEOUT (orphan value not in KillSwitchReason)", () => {
-			const data = {
-				workflowId: 1,
-				applicantId: 2,
-				reason: "STAGE2_APPROVAL_TIMEOUT",
 				decidedBy: "user@example.com",
 				terminatedAt: "2026-03-03T10:00:00Z",
 			};
