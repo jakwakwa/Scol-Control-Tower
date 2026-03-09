@@ -8,7 +8,7 @@ Use the canonical rule files instead of duplicating guidance:
 ## Quick start
 - Stack: Next.js 16, TypeScript (strict), Bun-only (no npm/yarn/pnpm), Turso + Drizzle, Clerk, Inngest.
 - Dev: `bun run dev` (Next.js) or `bun run dev:all` (Next.js + Inngest).
-- Lint/format: `npx @biomejs/biome check .` (do **not** use `bun run lint`; Next.js lint is removed).
+- Lint/format: `bunx @biomejs/biome check .` (do **not** use `bun run lint`; Next.js lint is removed).
 - Build: `bun run build` currently hits the known `stageName` schema TypeScript error in `db/schema.ts`; note this when reporting.
 - Tests: Playwright E2E (`bun run test:e2e`); reset test DB with `bun run test:db:reset`.
 
