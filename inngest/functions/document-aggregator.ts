@@ -68,14 +68,24 @@ export const documentAggregator = inngest.createFunction(
 
 		// 4. Filter documents to only those with complete required metadata
 		// (valid type, non-empty fileName, non-empty storageUrl, and uploadedAt)
-		const validDocs = applicantDocs.filter(
+		const normalizedDocs = applicantDocs.map(doc => ({
+			...doc,
+			uploadedAt:
+				doc.uploadedAt instanceof Date
+					? doc.uploadedAt
+					: doc.uploadedAt
+						? new Date(doc.uploadedAt)
+						: null,
+		}));
+
+		const validDocs = normalizedDocs.filter(
 			(
 				d
 			): d is {
 				type: string;
 				fileName: string;
 				storageUrl: string;
-				uploadedAt: string;
+				uploadedAt: Date;
 				// other fields exist but we only care about these
 			} => {
 				const parsed = DocumentTypeSchema.safeParse(d.type);
@@ -83,6 +93,7 @@ export const documentAggregator = inngest.createFunction(
 				if (!d.fileName || d.fileName.trim() === "") return false;
 				if (!d.storageUrl || d.storageUrl.trim() === "") return false;
 				if (!d.uploadedAt) return false;
+				if (Number.isNaN(d.uploadedAt.getTime())) return false;
 				return true;
 			}
 		);
@@ -109,7 +120,7 @@ export const documentAggregator = inngest.createFunction(
 				type: parsed.data,
 				filename: d.fileName,
 				url: d.storageUrl,
-				uploadedAt: new Date(d.uploadedAt).toISOString(),
+				uploadedAt: d.uploadedAt.toISOString(),
 			};
 		});
 
