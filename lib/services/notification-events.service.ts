@@ -124,28 +124,31 @@ export async function createWorkflowNotification(
 					})
 					.where(eq(notifications.id, current.id));
 				// Broadcast update to connected clients
-				await broadcast({ type: 'update', notificationId: current.id });
+				broadcast({ type: "update", notificationId: current.id });
 				return;
 			}
 		}
 
 		// Insert new notification and broadcast
-		const result = await db.insert(notifications).values([
-			{
-				workflowId: params.workflowId,
-				applicantId: params.applicantId,
-				type: params.type,
-				message: `${params.title}: ${params.message}`,
-				actionable: params.actionable ?? true,
-				read: false,
-				severity,
-				groupKey: params.groupKey,
-			},
-		]).returning({ id: notifications.id });
+		const result = await db
+			.insert(notifications)
+			.values([
+				{
+					workflowId: params.workflowId,
+					applicantId: params.applicantId,
+					type: params.type,
+					message: `${params.title}: ${params.message}`,
+					actionable: params.actionable ?? true,
+					read: false,
+					severity,
+					groupKey: params.groupKey,
+				},
+			])
+			.returning({ id: notifications.id });
 
 		const insertedId = result[0]?.id;
 		if (insertedId) {
-			await broadcast({ type: 'notification', notificationId: insertedId });
+			broadcast({ type: "notification", notificationId: insertedId });
 		}
 	} catch (error) {
 		console.error("[NotificationEvents] Failed to create notification:", error);
