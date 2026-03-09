@@ -37,7 +37,7 @@ export async function POST(
 		}
 
 		const { applicantId, reviewNotes } = parsed.data;
-		const db = getDatabaseClient();
+		const db = await getDatabaseClient();
 		if (!db) {
 			return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
 		}

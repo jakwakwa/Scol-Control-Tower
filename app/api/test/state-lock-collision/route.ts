@@ -17,12 +17,23 @@ const CollisionSchema = z.object({
 	source: z.string().min(1).max(100).default("e2e-stream-b"),
 });
 
-function ensureTestMode() {
-	return process.env.NODE_ENV === "test" || process.env.PLAYWRIGHT === "true";
+function ensureTestMode(request: NextRequest) {
+	if (process.env.NODE_ENV === "test") {
+		return true;
+	}
+
+	const requestSecret = request.headers.get("x-watchtower-test-secret");
+	const expectedSecret = process.env.PLAYWRIGHT_TEST_SECRET;
+
+	if (!expectedSecret) {
+		return false;
+	}
+
+	return requestSecret === expectedSecret;
 }
 
 export async function POST(request: NextRequest) {
-	if (!ensureTestMode()) {
+	if (!ensureTestMode(request)) {
 		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 
@@ -78,7 +89,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-	if (!ensureTestMode()) {
+	if (!ensureTestMode(request)) {
 		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 

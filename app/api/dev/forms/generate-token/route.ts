@@ -20,7 +20,7 @@ import { FormTypeSchema } from "@/lib/types";
  * Returns the applicant ID.
  */
 async function getOrCreateDevApplicant(): Promise<number> {
-	const db = getDatabaseClient();
+	const db = await getDatabaseClient();
 	if (!db) throw new Error("Database connection failed");
 
 	// Try to find any existing applicant

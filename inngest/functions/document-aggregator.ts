@@ -1,11 +1,11 @@
 import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
+import { applicants, documents } from "@/db/schema";
 import {
 	getDocumentRequirements,
 	resolveBusinessType,
 } from "@/lib/services/document-requirements.service";
 import { DocumentTypeSchema } from "@/lib/types";
-import { applicants, documents } from "@/db/schema";
 import { inngest } from "../client";
 
 /**
@@ -64,26 +64,28 @@ export const documentAggregator = inngest.createFunction(
 			applicantInfo.industry ?? undefined
 		);
 
-		const requirements = docReqs.documents
-			.filter(req => req.required)
-			.map(req => req.id);
+		const requirements = docReqs.documents.filter(req => req.required).map(req => req.id);
 
 		// 4. Filter documents to only those with complete required metadata
 		// (valid type, non-empty fileName, non-empty storageUrl, and uploadedAt)
-		const validDocs = applicantDocs.filter((d): d is {
-			type: string;
-			fileName: string;
-			storageUrl: string;
-			uploadedAt: number;
-			// other fields exist but we only care about these
-		} => {
-			const parsed = DocumentTypeSchema.safeParse(d.type);
-			if (!parsed.success) return false;
-			if (!d.fileName || d.fileName.trim() === "") return false;
-			if (!d.storageUrl || d.storageUrl.trim() === "") return false;
-			if (!d.uploadedAt) return false;
-			return true;
-		});
+		const validDocs = applicantDocs.filter(
+			(
+				d
+			): d is {
+				type: string;
+				fileName: string;
+				storageUrl: string;
+				uploadedAt: string;
+				// other fields exist but we only care about these
+			} => {
+				const parsed = DocumentTypeSchema.safeParse(d.type);
+				if (!parsed.success) return false;
+				if (!d.fileName || d.fileName.trim() === "") return false;
+				if (!d.storageUrl || d.storageUrl.trim() === "") return false;
+				if (!d.uploadedAt) return false;
+				return true;
+			}
+		);
 
 		// 5. Determine uploaded document types from valid documents only
 		const uploadedTypes = validDocs.map(d => d.type);
