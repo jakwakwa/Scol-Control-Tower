@@ -1,22 +1,25 @@
 const controllers = new Set<ReadableStreamDefaultController<Uint8Array>>();
+const encoder = new TextEncoder();
 
 export function addController(controller: ReadableStreamDefaultController<Uint8Array>) {
-  controllers.add(controller);
+	controllers.add(controller);
 }
 
-export function removeController(controller: ReadableStreamDefaultController<Uint8Array>) {
-  controllers.delete(controller);
+export function removeController(
+	controller: ReadableStreamDefaultController<Uint8Array>
+) {
+	controllers.delete(controller);
 }
 
-export async function broadcast(event: { type: string; notificationId?: number }) {
-  const encoder = new TextEncoder();
-  const data = `data: ${JSON.stringify(event)}\n\n`;
-  for (const controller of controllers) {
-    try {
-      controller.enqueue(encoder.encode(data));
-    } catch (e) {
-      // If enqueue fails (e.g., closed), remove the controller
-      controllers.delete(controller);
-    }
-  }
+export function broadcast(event: { type: string; notificationId?: number }) {
+	const data = `data: ${JSON.stringify(event)}\n\n`;
+	const encoded = encoder.encode(data);
+	for (const controller of controllers) {
+		try {
+			controller.enqueue(encoded);
+		} catch (_e) {
+			// If enqueue fails (e.g., closed), remove the controller
+			controllers.delete(controller);
+		}
+	}
 }
