@@ -1,5 +1,5 @@
 ---
-trigger: model_decision
+trigger: always apply
 description: How to produce the most optimized and maintainable Next.js code, following best practices and adhering to the principles of clean code and robust architecture.
 ---
 

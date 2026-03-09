@@ -3,7 +3,7 @@
  *
  * Tests the new applicant form flow in the dashboard.
  */
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test.describe("New Applicant Form", () => {
 	test("should open form, fill inputs, and cancel", async ({ page }) => {
@@ -18,6 +18,8 @@ test.describe("New Applicant Form", () => {
 
 		// Fill in the form fields
 		await page.fill("#companyName", "E2E Test Company Pty Ltd");
+		await page.getByRole("combobox", { name: "Entity Type" }).click();
+		await page.getByRole("option", { name: "Company" }).click();
 		await page.fill("#registrationNumber", "2024/999888/07");
 		await page.fill("#contactName", "Test Contact Person");
 		await page.fill("#email", "e2e-test@example.com");

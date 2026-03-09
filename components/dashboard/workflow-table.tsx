@@ -226,7 +226,6 @@ export const columns: ColumnDef<WorkflowRow>[] = [
 			<Button
 				variant="ghost"
 				size="xs"
-				className="-ml-4 hover:bg-transparent hover:text-foreground"
 				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
 				Client
 				{column.getIsSorted() === "asc" ? (
@@ -276,7 +275,6 @@ export const columns: ColumnDef<WorkflowRow>[] = [
 			<Button
 				variant="ghost"
 				size="xs"
-				className="-ml-4 hover:bg-transparent hover:text-foreground"
 				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
 				Status
 				{column.getIsSorted() === "asc" ? (
@@ -296,7 +294,6 @@ export const columns: ColumnDef<WorkflowRow>[] = [
 			<Button
 				variant="ghost"
 				size="xs"
-				className="-ml-4 hover:bg-transparent hover:text-foreground"
 				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
 				Agent
 				{column.getIsSorted() === "asc" ? (
@@ -320,7 +317,6 @@ export const columns: ColumnDef<WorkflowRow>[] = [
 			<Button
 				variant="ghost"
 				size="xs"
-				className="-ml-4 hover:bg-transparent hover:text-foreground"
 				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
 				Started
 				{column.getIsSorted() === "asc" ? (
