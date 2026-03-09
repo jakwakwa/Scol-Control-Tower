@@ -1,8 +1,0 @@
----
-alwaysApply: true
----
-This file contains a list of helpful information and context that the agent can reference when working in this codebase. Each entry provides specific guidance or rules for different aspects of the project. You can read these files using the readFile tool if the users prompt seems related.
-
-- [Creating a Next.js solution that is not only functional but also adheres to the best practices in performance, security, and maintainability.](./frontend.md)
-- [how to use clerk in a nextjs >= 15 app router project](./auth-clerk.md)
-- [No seeded data — seed scripts, fixture data, and sample data are prohibited.](./no-seeded-data.mdc)
