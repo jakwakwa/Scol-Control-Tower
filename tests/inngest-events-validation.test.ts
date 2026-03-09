@@ -54,6 +54,17 @@ describe("Inngest Event Validation Schemas", () => {
 			};
 			expect(() => WorkflowTerminatedSchema.parse(data)).toThrow();
 		});
+
+		it("should reject STAGE2_APPROVAL_TIMEOUT (orphan value not in KillSwitchReason)", () => {
+			const data = {
+				workflowId: 1,
+				applicantId: 2,
+				reason: "STAGE2_APPROVAL_TIMEOUT",
+				decidedBy: "user@example.com",
+				terminatedAt: "2026-03-03T10:00:00Z",
+			};
+			expect(() => WorkflowTerminatedSchema.parse(data)).toThrow();
+		});
 	});
 
 	describe("DocumentUploadedSchema", () => {
