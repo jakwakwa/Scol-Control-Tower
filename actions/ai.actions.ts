@@ -20,11 +20,21 @@ const withRetryAndTimeout = async <T>(
 	while (retries < maxAttempts) {
 		try {
 			// Create a promise that rejects after timeout
+			let timeoutId: ReturnType<typeof setTimeout> | undefined;
 			const timeoutPromise = new Promise<never>((_, reject) => {
-				setTimeout(() => reject(new Error("AI operation timed out.")), timeoutMs);
+				timeoutId = setTimeout(
+					() => reject(new Error("AI operation timed out.")),
+					timeoutMs
+				);
 			});
 
-			return await Promise.race([operation(), timeoutPromise]);
+			try {
+				return await Promise.race([operation(), timeoutPromise]);
+			} finally {
+				if (timeoutId !== undefined) {
+					clearTimeout(timeoutId);
+				}
+			}
 		} catch (error: unknown) {
 			// Check if it's a rate limit or service unavailable
 			const status =
