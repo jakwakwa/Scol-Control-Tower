@@ -82,47 +82,50 @@ export async function executeStage6({
 	if (!accountManagerApproval) missingApprovals.push('account');
 
 	if (missingApprovals.length > 0) {
-		// Send notifications for all missing approvals before termination
-		await step.run("notify-am-approval-timeouts", async () => {
-			await guardKillSwitch(workflowId, "notify-am-approval-timeouts");
-			for (const type of missingApprovals) {
-				if (type === 'risk') {
-					await createWorkflowNotification({
-						workflowId,
-						applicantId,
-						type: "warning",
-						title: "Delay: Final Risk Approval",
-						message: "Final risk manager approval timed out.",
-						actionable: true,
-					});
-					await sendInternalAlertEmail({
-						title: "Delay: Final Risk Approval",
-						message: `The final risk manager approval has not been completed within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window.`,
-						workflowId,
-						applicantId,
-						type: "warning",
-						actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
-					});
-				} else if (type === 'account') {
-					await createWorkflowNotification({
-						workflowId,
-						applicantId,
-						type: "warning",
-						title: "Delay: Final Account Manager Approval",
-						message: "Final account manager approval timed out.",
-						actionable: true,
-					});
-					await sendInternalAlertEmail({
-						title: "Delay: Final Account Manager Approval",
-						message: `The final account manager approval has not been completed within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window.`,
-						workflowId,
-						applicantId,
-						type: "warning",
-						actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
-					});
-				}
-			}
-		});
+		// Send notifications per approval type in separate steps to avoid duplicate
+		// notifications/emails on retries (each step is idempotent in scope)
+		if (missingApprovals.includes("risk")) {
+			await step.run("notify-risk-approval-timeout", async () => {
+				await guardKillSwitch(workflowId, "notify-risk-approval-timeout");
+				await createWorkflowNotification({
+					workflowId,
+					applicantId,
+					type: "warning",
+					title: "Delay: Final Risk Approval",
+					message: "Final risk manager approval timed out.",
+					actionable: true,
+				});
+				await sendInternalAlertEmail({
+					title: "Delay: Final Risk Approval",
+					message: `The final risk manager approval has not been completed within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window.`,
+					workflowId,
+					applicantId,
+					type: "warning",
+					actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
+				});
+			});
+		}
+		if (missingApprovals.includes("account")) {
+			await step.run("notify-account-approval-timeout", async () => {
+				await guardKillSwitch(workflowId, "notify-account-approval-timeout");
+				await createWorkflowNotification({
+					workflowId,
+					applicantId,
+					type: "warning",
+					title: "Delay: Final Account Manager Approval",
+					message: "Final account manager approval timed out.",
+					actionable: true,
+				});
+				await sendInternalAlertEmail({
+					title: "Delay: Final Account Manager Approval",
+					message: `The final account manager approval has not been completed within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window.`,
+					workflowId,
+					applicantId,
+					type: "warning",
+					actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
+				});
+			});
+		}
 
 		// Determine termination reason based on which approvals timed out
 		const terminationReason: "STAGE6_RISK_MANAGER_TIMEOUT" |"STAGE6_ACCOUNT_MANAGER_TIMEOUT"|"STAGE6_RISK_AND_ACCOUNT_MANAGER_TIMEOUT" =
