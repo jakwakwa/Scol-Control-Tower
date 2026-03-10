@@ -359,7 +359,8 @@ export const workflowTerminationDenyList = sqliteTable("workflow_termination_den
 		.references(() => applicants.id),
 
 	// Identifiers for re-applicant matching (normalized for comparison)
-	idNumbers: text("id_numbers").notNull(), // JSON array: applicant + directors
+	idNumbers: text("id_numbers").notNull(), // JSON array: applicant/contact ID only
+	boardMemberIds: text("board_member_ids").notNull(), // JSON array: directors/beneficial owners IDs
 	cellphones: text("cellphones").notNull(), // JSON array
 	bankAccounts: text("bank_accounts").notNull(), // JSON array: accountNumber + branchCode
 	boardMemberNames: text("board_member_names").notNull(), // JSON array: full names
@@ -383,6 +384,7 @@ export const workflowTerminationDenyList = sqliteTable("workflow_termination_den
  */
 export const SCREENING_VALUE_TYPES = [
 	"id_number",
+	"board_member_id",
 	"cellphone",
 	"bank_account",
 	"board_member_name",
@@ -396,7 +398,7 @@ export const workflowTerminationScreening = sqliteTable("workflow_termination_sc
 		.notNull()
 		.references(() => workflowTerminationDenyList.id, { onDelete: "cascade" }),
 	valueType: text("value_type", {
-		enum: ["id_number", "cellphone", "bank_account", "board_member_name"],
+		enum: ["id_number", "board_member_id", "cellphone", "bank_account", "board_member_name"],
 	}).notNull(),
 	value: text("value").notNull(), // Normalized value for exact match and FTS indexing
 	createdAt: integer("created_at", { mode: "timestamp" })
@@ -418,7 +420,7 @@ export const reApplicantAttempts = sqliteTable("re_applicant_attempts", {
 	matchedDenyListId: integer("matched_deny_list_id")
 		.notNull()
 		.references(() => workflowTerminationDenyList.id),
-	matchedOn: text("matched_on").notNull(), // "id_number" | "cellphone" | "bank_account" | "board_member_name"
+	matchedOn: text("matched_on").notNull(), // "id_number" | "board_member_id" | "cellphone" | "bank_account" | "board_member_name"
 	matchedValue: text("matched_value").notNull(),
 	deniedAt: integer("denied_at", { mode: "timestamp" })
 		.notNull()

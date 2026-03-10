@@ -4,12 +4,11 @@
  * Captures identifiers from Risk Manager declined applicants and checks
  * re-applicants. No AI — only a smart algorithm.
  *
- * Matching: ID number, bank account, cellphone, and board member names
- * (when linked to applicant). Board names use normalized full-name match
- * with minimum 2 words to reduce false positives.
+ * Matching: Applicant ID, board member IDs, bank account, cellphone, board member names.
+ * Board member checks (ID + name) are conditional: only when applicant has board members
+ * (directors/beneficial owners). Proprietors have no board members — skip those checks.
  *
- * Screening values are stored in workflow_termination_screening for
- * Turso FTS/vector search capabilities.
+ * Screening values stored in workflow_termination_screening for Turso FTS/vertex search.
  */
 
 import { and, desc, eq } from "drizzle-orm";
@@ -30,14 +29,19 @@ import type { KillSwitchReason } from "./kill-switch.service";
 // ============================================
 
 export interface DenyListIdentifiers {
-	idNumbers: string[];
+	/** Applicant/contact ID only (not directors) */
+	applicantIdNumbers: string[];
+	/** Directors' and beneficial owners' ID numbers */
+	boardMemberIds: string[];
 	cellphones: string[];
 	bankAccounts: string[];
+	/** Directors' and beneficial owners' names (not applicant contact) */
 	boardMemberNames: string[];
 }
 
 export type ReApplicantMatchOn =
 	| "id_number"
+	| "board_member_id"
 	| "cellphone"
 	| "bank_account"
 	| "board_member_name";
@@ -102,19 +106,31 @@ function normalizeBoardMemberName(val: string | null | undefined): string | null
  * Sources: applicants table, applicantSubmissions (FACILITY_APPLICATION, ABSA_6995),
  * internalSubmissions (stratcol_agreement, facility_application, absa_6995).
  */
+/**
+ * Extract identifiers, separating applicant/contact IDs from board member (director/beneficial owner) IDs.
+ * Proprietors typically have no board members; board member checks are conditional on their presence.
+ */
 export async function extractDenyListIdentifiers(
 	applicantId: number,
 	workflowId: number
 ): Promise<DenyListIdentifiers> {
-	const idNumbers: string[] = [];
+	const applicantIdNumbers: string[] = [];
+	const boardMemberIds: string[] = [];
 	const cellphones: string[] = [];
 	const bankAccounts: string[] = [];
 	const boardMemberNames: string[] = [];
 
 	const db = getDatabaseClient();
-	if (!db) return { idNumbers, cellphones, bankAccounts, boardMemberNames };
+	if (!db)
+		return {
+			applicantIdNumbers,
+			boardMemberIds,
+			cellphones,
+			bankAccounts,
+			boardMemberNames,
+		};
 
-	// 1. Applicant record
+	// 1. Applicant record - applicant/contact ID only (not board member)
 	const [applicant] = await db
 		.select()
 		.from(applicants)
@@ -122,10 +138,10 @@ export async function extractDenyListIdentifiers(
 
 	if (applicant) {
 		const nId = normalizeIdNumber(applicant.idNumber);
-		if (nId) idNumbers.push(nId);
+		if (nId) applicantIdNumbers.push(nId);
 		const nPhone = normalizePhone(applicant.phone);
 		if (nPhone) cellphones.push(nPhone);
-		if (applicant.contactName?.trim()) boardMemberNames.push(applicant.contactName.trim());
+		// contactName is applicant contact, NOT a board member - do not add to boardMemberNames
 	}
 
 	// 2. Applicant submissions (magic link forms)
@@ -139,16 +155,16 @@ export async function extractDenyListIdentifiers(
 			const data = s.data ? (JSON.parse(s.data) as Record<string, unknown>) : null;
 			if (!data) continue;
 
-			// FACILITY_APPLICATION - ficaComparisonContext
+			// FACILITY_APPLICATION - ficaComparisonContext (applicant/contact)
 			const fica = data.ficaComparisonContext as Record<string, unknown> | undefined;
 			if (fica) {
 				const nId = normalizeIdNumber(fica.idNumber as string);
-				if (nId) idNumbers.push(nId);
+				if (nId) applicantIdNumbers.push(nId);
 				const nPhone = normalizePhone(fica.phone as string);
 				if (nPhone) cellphones.push(nPhone);
 			}
 
-			// ABSA_6995 - sectionA.directors.directors, bankingDetails
+			// ABSA_6995 - directors are board members
 			const sectionA = data.sectionA as Record<string, unknown> | undefined;
 			if (sectionA) {
 				const directors = (sectionA.directors as { directors?: Array<{ fullName?: string; idNumber?: string }> })
@@ -156,7 +172,7 @@ export async function extractDenyListIdentifiers(
 				for (const d of directors) {
 					if (d?.fullName?.trim()) boardMemberNames.push(d.fullName.trim());
 					const nId = normalizeIdNumber(d?.idNumber);
-					if (nId) idNumbers.push(nId);
+					if (nId) boardMemberIds.push(nId);
 				}
 				const banking = sectionA.bankingDetails as { accountNumber?: string; branchCode?: string } | undefined;
 				if (banking) {
@@ -175,7 +191,7 @@ export async function extractDenyListIdentifiers(
 					for (const d of directors.directors) {
 						if (d?.fullName?.trim()) boardMemberNames.push(d.fullName.trim());
 						const nId = normalizeIdNumber(d?.idNumber);
-						if (nId) idNumbers.push(nId);
+						if (nId) boardMemberIds.push(nId);
 					}
 				}
 				const banking = appDetails.bankingDetails as { accountNumber?: string; branchCode?: string } | undefined;
@@ -189,7 +205,7 @@ export async function extractDenyListIdentifiers(
 		}
 	}
 
-	// 3. Internal submissions (stratcol_agreement, facility_application, absa_6995)
+	// 3. Internal submissions - beneficial owners and directors are board members
 	const internalFormsList = await db
 		.select({ id: internalForms.id, formType: internalForms.formType })
 		.from(internalForms)
@@ -208,14 +224,14 @@ export async function extractDenyListIdentifiers(
 		try {
 			const formData = JSON.parse(sub.formData) as Record<string, unknown>;
 
-			// Stratcol: signatoryAndOwners.beneficialOwners, bankingAndMandates
+			// Stratcol: beneficialOwners are board members
 			const signatory = formData.signatoryAndOwners as Record<string, unknown> | undefined;
 			if (signatory) {
 				const owners = (signatory.beneficialOwners as Array<{ name?: string; idNumber?: string }>) ?? [];
 				for (const o of owners) {
 					if (o?.name?.trim()) boardMemberNames.push(o.name.trim());
 					const nId = normalizeIdNumber(o?.idNumber);
-					if (nId) idNumbers.push(nId);
+					if (nId) boardMemberIds.push(nId);
 				}
 			}
 			const banking = formData.bankingAndMandates as Record<string, unknown> | undefined;
@@ -232,7 +248,7 @@ export async function extractDenyListIdentifiers(
 				}
 			}
 
-			// ABSA 6995 internal: sectionA.directors.directors, bankingDetails
+			// ABSA 6995 internal: directors are board members
 			const sectionA = formData.sectionA as Record<string, unknown> | undefined;
 			if (sectionA) {
 				const directors = (sectionA.directors as { directors?: Array<{ fullName?: string; idNumber?: string }> })
@@ -240,7 +256,7 @@ export async function extractDenyListIdentifiers(
 				for (const d of directors) {
 					if (d?.fullName?.trim()) boardMemberNames.push(d.fullName.trim());
 					const nId = normalizeIdNumber(d?.idNumber);
-					if (nId) idNumbers.push(nId);
+					if (nId) boardMemberIds.push(nId);
 				}
 				const banking = sectionA.bankingDetails as { accountNumber?: string; branchCode?: string } | undefined;
 				if (banking) {
@@ -253,9 +269,9 @@ export async function extractDenyListIdentifiers(
 		}
 	}
 
-	// Deduplicate
 	return {
-		idNumbers: [...new Set(idNumbers)],
+		applicantIdNumbers: [...new Set(applicantIdNumbers)],
+		boardMemberIds: [...new Set(boardMemberIds)],
 		cellphones: [...new Set(cellphones)],
 		bankAccounts: [...new Set(bankAccounts)],
 		boardMemberNames: [...new Set(boardMemberNames)],
@@ -290,7 +306,8 @@ export async function addToDenyList(
 
 	// Require at least one identifier to add
 	const hasAny =
-		identifiers.idNumbers.length > 0 ||
+		identifiers.applicantIdNumbers.length > 0 ||
+		identifiers.boardMemberIds.length > 0 ||
 		identifiers.cellphones.length > 0 ||
 		identifiers.bankAccounts.length > 0 ||
 		identifiers.boardMemberNames.length > 0;
@@ -305,7 +322,8 @@ export async function addToDenyList(
 			.values({
 				workflowId,
 				applicantId,
-				idNumbers: JSON.stringify(identifiers.idNumbers),
+				idNumbers: JSON.stringify(identifiers.applicantIdNumbers),
+				boardMemberIds: JSON.stringify(identifiers.boardMemberIds),
 				cellphones: JSON.stringify(identifiers.cellphones),
 				bankAccounts: JSON.stringify(identifiers.bankAccounts),
 				boardMemberNames: JSON.stringify(identifiers.boardMemberNames),
@@ -318,12 +336,15 @@ export async function addToDenyList(
 		// Populate screening table for Turso FTS/vector search
 		const screeningRows: Array<{
 			denyListId: number;
-			valueType: "id_number" | "cellphone" | "bank_account" | "board_member_name";
+			valueType: "id_number" | "board_member_id" | "cellphone" | "bank_account" | "board_member_name";
 			value: string;
 		}> = [];
 
-		for (const v of identifiers.idNumbers) {
+		for (const v of identifiers.applicantIdNumbers) {
 			screeningRows.push({ denyListId: row.id, valueType: "id_number", value: v });
+		}
+		for (const v of identifiers.boardMemberIds) {
+			screeningRows.push({ denyListId: row.id, valueType: "board_member_id", value: v });
 		}
 		for (const v of identifiers.cellphones) {
 			screeningRows.push({ denyListId: row.id, valueType: "cellphone", value: v });
@@ -362,8 +383,9 @@ export async function addToDenyList(
 
 /**
  * Check if the applicant matches any entry in the deny list via screening table.
- * Returns the first match (ID, cellphone, bank_account, board_member_name).
- * Board member names require 2+ words to reduce false positives.
+ * Always checks: applicant ID, cellphone, bank_account.
+ * Board member checks (ID + name) only when applicant has board members (directors/beneficial owners).
+ * Proprietors typically have no board members — skip board member search in that case.
  */
 export async function checkReApplicant(
 	applicantId: number,
@@ -374,25 +396,36 @@ export async function checkReApplicant(
 
 	const identifiers = await extractDenyListIdentifiers(applicantId, workflowId);
 
-	// Normalize board names for matching (2+ words only)
+	// Proprietors have no board members; only run board member checks when they exist
+	const hasBoardMembers =
+		identifiers.boardMemberIds.length > 0 || identifiers.boardMemberNames.length > 0;
+
 	const normalizedBoardNames = identifiers.boardMemberNames
 		.map(n => normalizeBoardMemberName(n))
 		.filter((n): n is string => n !== null);
 
 	const hasAny =
-		identifiers.idNumbers.length > 0 ||
+		identifiers.applicantIdNumbers.length > 0 ||
 		identifiers.cellphones.length > 0 ||
 		identifiers.bankAccounts.length > 0 ||
-		normalizedBoardNames.length > 0;
+		(hasBoardMembers && (identifiers.boardMemberIds.length > 0 || normalizedBoardNames.length > 0));
 	if (!hasAny) return null;
 
-	// Query screening table - exclude deny list entries from same applicant's current workflow
+	// Always check: applicant ID, cellphone, bank_account
 	const allValues: Array<{ type: ReApplicantMatchOn; value: string }> = [
-		...identifiers.idNumbers.map(v => ({ type: "id_number" as const, value: v })),
+		...identifiers.applicantIdNumbers.map(v => ({ type: "id_number" as const, value: v })),
 		...identifiers.cellphones.map(v => ({ type: "cellphone" as const, value: v })),
 		...identifiers.bankAccounts.map(v => ({ type: "bank_account" as const, value: v })),
-		...normalizedBoardNames.map(v => ({ type: "board_member_name" as const, value: v })),
 	];
+	// Conditional: board member ID and name only when applicant has board members
+	if (hasBoardMembers) {
+		for (const v of identifiers.boardMemberIds) {
+			allValues.push({ type: "board_member_id", value: v });
+		}
+		for (const v of normalizedBoardNames) {
+			allValues.push({ type: "board_member_name", value: v });
+		}
+	}
 
 	for (const { type, value } of allValues) {
 		const matches = await db

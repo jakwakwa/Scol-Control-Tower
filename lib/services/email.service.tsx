@@ -140,7 +140,7 @@ export async function sendReApplicantDeniedEmail(params: {
 	workflowId: number;
 	applicantId: number;
 	companyName: string;
-	matchedOn: "id_number" | "cellphone" | "bank_account" | "board_member_name";
+	matchedOn: "id_number" | "board_member_id" | "cellphone" | "bank_account" | "board_member_name";
 	matchedValue: string;
 }): Promise<EmailResult> {
 	if (!resend) {
@@ -157,11 +157,13 @@ export async function sendReApplicantDeniedEmail(params: {
 	const matchLabel =
 		params.matchedOn === "id_number"
 			? "ID number"
-			: params.matchedOn === "cellphone"
-				? "cellphone"
-				: params.matchedOn === "board_member_name"
-					? "board member name"
-					: "bank account";
+			: params.matchedOn === "board_member_id"
+				? "board member ID"
+				: params.matchedOn === "cellphone"
+					? "cellphone"
+					: params.matchedOn === "board_member_name"
+						? "board member name"
+						: "bank account";
 
 	const message = `A re-applicant was detected and the workflow has been automatically terminated.
 

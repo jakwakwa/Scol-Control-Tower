@@ -64,6 +64,13 @@
       "when": 1773128533424,
       "tag": "0008_dry_darkhawk",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1773134034989,
+      "tag": "0009_rainy_mandarin",
+      "breakpoints": true
     }
   ]
 }
