@@ -219,7 +219,6 @@ export default function FormPage({
 							Back to Forms
 						</Button>
 					</Link>
-					form
 				</div>
 			}>
 			<div className="max-w-4xl mx-auto">{renderForm()}</div>
