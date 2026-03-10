@@ -49,6 +49,7 @@ export type KillSwitchReason =
 	| "STAGE5_ABSA_FORM_TIMEOUT"
 	| "STAGE6_RISK_MANAGER_TIMEOUT"
 	| "STAGE6_ACCOUNT_MANAGER_TIMEOUT"
+	| "STAGE6_RISK_AND_ACCOUNT_MANAGER_TIMEOUT"
 	| "STAGE6_CONTRACT_SIGNATURE_TIMEOUT"
 	| "MANUAL_TERMINATION";
 
@@ -296,6 +297,8 @@ function getReasonMessage(reason: KillSwitchReason): string {
 		STAGE6_RISK_MANAGER_TIMEOUT: "Risk Manager approval not received within deadline",
 		STAGE6_ACCOUNT_MANAGER_TIMEOUT:
 			"Account Manager approval not received within deadline",
+		STAGE6_RISK_AND_ACCOUNT_MANAGER_TIMEOUT:
+			"Both Risk Manager and Account Manager approvals not received within deadline",
 		STAGE6_CONTRACT_SIGNATURE_TIMEOUT: "Contract not signed within deadline",
 		MANUAL_TERMINATION: "Manually terminated by administrator",
 	};
