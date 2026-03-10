@@ -375,6 +375,36 @@ export const workflowTerminationDenyList = sqliteTable("workflow_termination_den
 });
 
 /**
+ * Workflow Termination Screening - Separate table for Turso FTS/vector search
+ *
+ * Stores each screening value (id_number, cellphone, bank_account, board_member_name)
+ * as a separate row for easy querying and Turso full-text/vector search.
+ * Populated when adding to workflow_termination_deny_list.
+ */
+export const SCREENING_VALUE_TYPES = [
+	"id_number",
+	"cellphone",
+	"bank_account",
+	"board_member_name",
+] as const;
+
+export type ScreeningValueType = (typeof SCREENING_VALUE_TYPES)[number];
+
+export const workflowTerminationScreening = sqliteTable("workflow_termination_screening", {
+	id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
+	denyListId: integer("deny_list_id")
+		.notNull()
+		.references(() => workflowTerminationDenyList.id, { onDelete: "cascade" }),
+	valueType: text("value_type", {
+		enum: ["id_number", "cellphone", "bank_account", "board_member_name"],
+	}).notNull(),
+	value: text("value").notNull(), // Normalized value for exact match and FTS indexing
+	createdAt: integer("created_at", { mode: "timestamp" })
+		.notNull()
+		.$defaultFn(() => new Date()),
+});
+
+/**
  * Re-Applicant Attempt Log - Records when a re-applicant is detected and denied
  */
 export const reApplicantAttempts = sqliteTable("re_applicant_attempts", {
@@ -388,7 +418,7 @@ export const reApplicantAttempts = sqliteTable("re_applicant_attempts", {
 	matchedDenyListId: integer("matched_deny_list_id")
 		.notNull()
 		.references(() => workflowTerminationDenyList.id),
-	matchedOn: text("matched_on").notNull(), // "id_number" | "cellphone" | "bank_account"
+	matchedOn: text("matched_on").notNull(), // "id_number" | "cellphone" | "bank_account" | "board_member_name"
 	matchedValue: text("matched_value").notNull(),
 	deniedAt: integer("denied_at", { mode: "timestamp" })
 		.notNull()
@@ -530,6 +560,17 @@ export const workflowTerminationDenyListRelations = relations(
 			references: [applicants.id],
 		}),
 		reApplicantAttempts: many(reApplicantAttempts),
+		screeningValues: many(workflowTerminationScreening),
+	})
+);
+
+export const workflowTerminationScreeningRelations = relations(
+	workflowTerminationScreening,
+	({ one }) => ({
+		denyList: one(workflowTerminationDenyList, {
+			fields: [workflowTerminationScreening.denyListId],
+			references: [workflowTerminationDenyList.id],
+		}),
 	})
 );
 

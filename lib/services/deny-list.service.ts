@@ -4,12 +4,15 @@
  * Captures identifiers from Risk Manager declined applicants and checks
  * re-applicants. No AI — only a smart algorithm.
  *
- * Matching rules: ID number, bank account, or cellphone number only.
- * Board member names are captured for audit/display but NOT used for
- * auto-match (high false-positive risk from name variations).
+ * Matching: ID number, bank account, cellphone, and board member names
+ * (when linked to applicant). Board names use normalized full-name match
+ * with minimum 2 words to reduce false positives.
+ *
+ * Screening values are stored in workflow_termination_screening for
+ * Turso FTS/vector search capabilities.
  */
 
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import {
 	applicantSubmissions,
@@ -18,6 +21,7 @@ import {
 	internalSubmissions,
 	reApplicantAttempts,
 	workflowTerminationDenyList,
+	workflowTerminationScreening,
 } from "@/db/schema";
 import type { KillSwitchReason } from "./kill-switch.service";
 
@@ -32,9 +36,15 @@ export interface DenyListIdentifiers {
 	boardMemberNames: string[];
 }
 
+export type ReApplicantMatchOn =
+	| "id_number"
+	| "cellphone"
+	| "bank_account"
+	| "board_member_name";
+
 export interface ReApplicantMatch {
 	matchedDenyListId: number;
-	matchedOn: "id_number" | "cellphone" | "bank_account";
+	matchedOn: ReApplicantMatchOn;
 	matchedValue: string;
 }
 
@@ -65,6 +75,22 @@ function normalizeBankAccount(
 	const acct = accountNumber.replace(/\s/g, "").replace(/\D/g, "");
 	const branch = (branchCode || "").toString().replace(/\s/g, "").replace(/\D/g, "");
 	return acct.length >= 6 ? `${acct}:${branch || "0"}` : null;
+}
+
+/**
+ * Normalize board member name for matching: lowercase, trim, collapse whitespace.
+ * Returns null if empty or single-word (to reduce false positives from common names).
+ */
+function normalizeBoardMemberName(val: string | null | undefined): string | null {
+	if (!val || typeof val !== "string") return null;
+	const normalized = val
+		.trim()
+		.toLowerCase()
+		.replace(/\s+/g, " ");
+	const words = normalized.split(" ").filter(Boolean);
+	// Require at least 2 words to reduce false positives (e.g. "John" alone)
+	if (words.length < 2) return null;
+	return normalized;
 }
 
 // ============================================
@@ -287,7 +313,40 @@ export async function addToDenyList(
 			})
 			.returning({ id: workflowTerminationDenyList.id });
 
-		return { success: true, denyListId: row?.id };
+		if (!row) return { success: true };
+
+		// Populate screening table for Turso FTS/vector search
+		const screeningRows: Array<{
+			denyListId: number;
+			valueType: "id_number" | "cellphone" | "bank_account" | "board_member_name";
+			value: string;
+		}> = [];
+
+		for (const v of identifiers.idNumbers) {
+			screeningRows.push({ denyListId: row.id, valueType: "id_number", value: v });
+		}
+		for (const v of identifiers.cellphones) {
+			screeningRows.push({ denyListId: row.id, valueType: "cellphone", value: v });
+		}
+		for (const v of identifiers.bankAccounts) {
+			screeningRows.push({ denyListId: row.id, valueType: "bank_account", value: v });
+		}
+		for (const name of identifiers.boardMemberNames) {
+			const normalized = normalizeBoardMemberName(name);
+			if (normalized) {
+				screeningRows.push({
+					denyListId: row.id,
+					valueType: "board_member_name",
+					value: normalized,
+				});
+			}
+		}
+
+		if (screeningRows.length > 0) {
+			await db.insert(workflowTerminationScreening).values(screeningRows);
+		}
+
+		return { success: true, denyListId: row.id };
 	} catch (err) {
 		console.error("[DenyList] Failed to add to deny list:", err);
 		return {
@@ -302,9 +361,9 @@ export async function addToDenyList(
 // ============================================
 
 /**
- * Check if the applicant matches any entry in the deny list.
- * Returns the first match found (by ID, then cellphone, then bank account).
- * Board member names are stored for audit but not used for matching.
+ * Check if the applicant matches any entry in the deny list via screening table.
+ * Returns the first match (ID, cellphone, bank_account, board_member_name).
+ * Board member names require 2+ words to reduce false positives.
  */
 export async function checkReApplicant(
 	applicantId: number,
@@ -315,49 +374,46 @@ export async function checkReApplicant(
 
 	const identifiers = await extractDenyListIdentifiers(applicantId, workflowId);
 
-	// Need at least one identifier to check
+	// Normalize board names for matching (2+ words only)
+	const normalizedBoardNames = identifiers.boardMemberNames
+		.map(n => normalizeBoardMemberName(n))
+		.filter((n): n is string => n !== null);
+
 	const hasAny =
 		identifiers.idNumbers.length > 0 ||
 		identifiers.cellphones.length > 0 ||
-		identifiers.bankAccounts.length > 0;
+		identifiers.bankAccounts.length > 0 ||
+		normalizedBoardNames.length > 0;
 	if (!hasAny) return null;
 
-	const allDenyEntries = await db.select().from(workflowTerminationDenyList);
+	// Query screening table - exclude deny list entries from same applicant's current workflow
+	const allValues: Array<{ type: ReApplicantMatchOn; value: string }> = [
+		...identifiers.idNumbers.map(v => ({ type: "id_number" as const, value: v })),
+		...identifiers.cellphones.map(v => ({ type: "cellphone" as const, value: v })),
+		...identifiers.bankAccounts.map(v => ({ type: "bank_account" as const, value: v })),
+		...normalizedBoardNames.map(v => ({ type: "board_member_name" as const, value: v })),
+	];
 
-	for (const entry of allDenyEntries) {
-		// Skip if same applicant/workflow (avoid self-match)
-		if (entry.applicantId === applicantId || entry.workflowId === workflowId) continue;
+	for (const { type, value } of allValues) {
+		const matches = await db
+			.select({
+				denyListId: workflowTerminationScreening.denyListId,
+			})
+			.from(workflowTerminationScreening)
+			.where(
+				and(
+					eq(workflowTerminationScreening.valueType, type),
+					eq(workflowTerminationScreening.value, value)
+				)
+			)
+			.limit(1);
 
-		const entryIds = JSON.parse(entry.idNumbers || "[]") as string[];
-		const entryPhones = JSON.parse(entry.cellphones || "[]") as string[];
-		const entryBanks = JSON.parse(entry.bankAccounts || "[]") as string[];
-
-		for (const id of identifiers.idNumbers) {
-			if (entryIds.includes(id)) {
-				return {
-					matchedDenyListId: entry.id,
-					matchedOn: "id_number",
-					matchedValue: id,
-				};
-			}
-		}
-		for (const phone of identifiers.cellphones) {
-			if (entryPhones.includes(phone)) {
-				return {
-					matchedDenyListId: entry.id,
-					matchedOn: "cellphone",
-					matchedValue: phone,
-				};
-			}
-		}
-		for (const bank of identifiers.bankAccounts) {
-			if (entryBanks.includes(bank)) {
-				return {
-					matchedDenyListId: entry.id,
-					matchedOn: "bank_account",
-					matchedValue: bank,
-				};
-			}
+		if (matches.length > 0) {
+			return {
+				matchedDenyListId: matches[0].denyListId,
+				matchedOn: type,
+				matchedValue: value,
+			};
 		}
 	}
 
@@ -376,7 +432,7 @@ export async function logReApplicantAttempt(params: {
 	applicantId: number;
 	workflowId: number;
 	matchedDenyListId: number;
-	matchedOn: "id_number" | "cellphone" | "bank_account";
+	matchedOn: ReApplicantMatchOn;
 	matchedValue: string;
 }): Promise<{ success: boolean; error?: string }> {
 	const db = getDatabaseClient();
