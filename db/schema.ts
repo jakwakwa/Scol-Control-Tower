@@ -399,19 +399,29 @@ export const SCREENING_VALUE_TYPES = [
 
 export type ScreeningValueType = (typeof SCREENING_VALUE_TYPES)[number];
 
-export const workflowTerminationScreening = sqliteTable("workflow_termination_screening", {
-	id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
-	denyListId: integer("deny_list_id")
-		.notNull()
-		.references(() => workflowTerminationDenyList.id, { onDelete: "cascade" }),
-	valueType: text("value_type", {
-		enum: SCREENING_VALUE_TYPES,
-	}).notNull(),
-	value: text("value").notNull(), // Normalized value for exact match and FTS indexing
-	createdAt: integer("created_at", { mode: "timestamp" })
-		.notNull()
-		.$defaultFn(() => new Date()),
-});
+export const workflowTerminationScreening = sqliteTable(
+	"workflow_termination_screening",
+	{
+		id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
+		denyListId: integer("deny_list_id")
+			.notNull()
+			.references(() => workflowTerminationDenyList.id, { onDelete: "cascade" }),
+		valueType: text("value_type", {
+			enum: SCREENING_VALUE_TYPES,
+		}).notNull(),
+		value: text("value").notNull(), // Normalized value for exact match and FTS indexing
+		createdAt: integer("created_at", { mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+	},
+	(table) => ({
+		valueTypeValueIdx: index("workflow_termination_screening_value_type_value_idx").on(
+			table.valueType,
+			table.value
+		),
+		denyListIdIdx: index("workflow_termination_screening_deny_list_id_idx").on(table.denyListId),
+	})
+);
 
 /**
  * Re-Applicant Attempt Log - Records when a re-applicant is detected and denied

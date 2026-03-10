@@ -78,6 +78,13 @@
       "when": 1773160111994,
       "tag": "0010_old_blue_blade",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1773160389837,
+      "tag": "0011_brief_amazoness",
+      "breakpoints": true
     }
   ]
 }
