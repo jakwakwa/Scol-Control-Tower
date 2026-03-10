@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { entityTypeEnum } from "@/lib/validations";
 
 export const applicantSchema = z
 	.object({
@@ -8,7 +9,7 @@ export const applicantSchema = z
 		idNumber: z.string().trim().optional(),
 		email: z.string().trim().min(1, "Email is required").email("Invalid email address"),
 		phone: z.string().trim().optional(),
-		entityType: z.string().trim().optional(),
+		entityType: entityTypeEnum.optional(),
 		productType: z.string().trim().optional(),
 		industry: z.string().trim().optional(),
 		employeeCount: z.string().trim().optional(),
@@ -31,7 +32,7 @@ export const applicantSchema = z
 					path: ["idNumber"],
 				});
 			}
-		} else {
+		} else if (data.entityType) {
 			if (!data.registrationNumber) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
