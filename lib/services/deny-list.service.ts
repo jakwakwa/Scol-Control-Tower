@@ -2,8 +2,11 @@
  * Deny List Service - Scenario 2b: Post-Workflow Termination Ruleset
  *
  * Captures identifiers from Risk Manager declined applicants and checks
- * re-applicants. No AI — only a smart algorithm. Matching by ID, bank
- * account, or cellphone number.
+ * re-applicants. No AI — only a smart algorithm.
+ *
+ * Matching rules: ID number, bank account, or cellphone number only.
+ * Board member names are captured for audit/display but NOT used for
+ * auto-match (high false-positive risk from name variations).
  */
 
 import { desc, eq } from "drizzle-orm";
@@ -301,6 +304,7 @@ export async function addToDenyList(
 /**
  * Check if the applicant matches any entry in the deny list.
  * Returns the first match found (by ID, then cellphone, then bank account).
+ * Board member names are stored for audit but not used for matching.
  */
 export async function checkReApplicant(
 	applicantId: number,

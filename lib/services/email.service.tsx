@@ -8,9 +8,13 @@ import InternalAlert from "@/components/emails/InternalAlert";
 
 const resendApiKey = process.env.RESEND_API_KEY;
 // Use the configured alert recipients or fall back to a default/empty
-const alertRecipients = process.env.ALERT_EMAIL_RECIPIENTS?.split(",").map(e => e.trim()).filter(Boolean) || [];
-const dataEntrantRecipients =
-	process.env.DATA_ENTRANT_EMAIL_RECIPIENTS?.split(",").map(e => e.trim()).filter(Boolean) || [];
+// Optional chaining on split; nullish coalesce before map so undefined never throws
+const alertRecipients = (
+	process.env.ALERT_EMAIL_RECIPIENTS?.split(",") ?? []
+).map((e) => e.trim()).filter(Boolean);
+const dataEntrantRecipients = (
+	process.env.DATA_ENTRANT_EMAIL_RECIPIENTS?.split(",") ?? []
+).map((e) => e.trim()).filter(Boolean);
 const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
 
 // Initialize Resend client if API key is present

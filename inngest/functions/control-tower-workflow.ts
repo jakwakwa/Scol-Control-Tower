@@ -137,14 +137,8 @@ export const controlTowerWorkflow = inngest.createFunction(
 					matchedValue: reApplicantMatch.matchedValue,
 				});
 
-				await executeKillSwitch({
-					workflowId,
-					applicantId,
-					reason: "RE_APPLICANT_DENIED",
-					decidedBy: "system",
-					notes: `Re-applicant matched on ${reApplicantMatch.matchedOn}: ${reApplicantMatch.matchedValue}`,
-				});
-
+				// Log before executeKillSwitch: cancelOn: workflow/terminated may skip
+				// subsequent steps once the cancellation event is emitted
 				await logWorkflowEvent({
 					workflowId,
 					eventType: "re_applicant_denied",
@@ -153,6 +147,14 @@ export const controlTowerWorkflow = inngest.createFunction(
 						matchedValue: reApplicantMatch.matchedValue,
 						matchedDenyListId: reApplicantMatch.matchedDenyListId,
 					},
+				});
+
+				await executeKillSwitch({
+					workflowId,
+					applicantId,
+					reason: "RE_APPLICANT_DENIED",
+					decidedBy: "system",
+					notes: `Re-applicant matched on ${reApplicantMatch.matchedOn}: ${reApplicantMatch.matchedValue}`,
 				});
 			});
 			return; // Terminate workflow run
