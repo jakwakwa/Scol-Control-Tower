@@ -125,8 +125,12 @@ export async function executeStage6({
 		});
 
 		// Determine termination reason based on which approvals timed out
-		const terminationReason: "STAGE6_RISK_MANAGER_TIMEOUT" | "STAGE6_ACCOUNT_MANAGER_TIMEOUT" =
-			missingApprovals.includes('risk') ? "STAGE6_RISK_MANAGER_TIMEOUT" : "STAGE6_ACCOUNT_MANAGER_TIMEOUT";
+		const terminationReason: "STAGE6_RISK_MANAGER_TIMEOUT" |"STAGE6_ACCOUNT_MANAGER_TIMEOUT"|"STAGE6_RISK_AND_ACCOUNT_MANAGER_TIMEOUT" =
+		missingApprovals.includes("risk") && missingApprovals.includes("account")
+			? "STAGE6_RISK_AND_ACCOUNT_MANAGER_TIMEOUT"
+			: missingApprovals.includes("risk")
+				? "STAGE6_RISK_MANAGER_TIMEOUT"
+				: "STAGE6_ACCOUNT_MANAGER_TIMEOUT";
 
 		const notes = missingApprovals.includes('risk') && missingApprovals.includes('account')
 			? "Both risk manager and account manager approvals timed out."
