@@ -1,5 +1,6 @@
 "use server";
 
+import { auth } from "@clerk/nextjs/server";
 import {
 	AI_CONFIG,
 	getGenAIClient,
@@ -57,6 +58,11 @@ const withRetryAndTimeout = async <T>(
 };
 
 export async function generateRiskBriefing(dataContext: string): Promise<string> {
+	const { userId } = await auth();
+	if (!userId) {
+		throw new Error("Authentication required to use AI features");
+	}
+
 	if (!isAIConfigured()) {
 		return "AI Service is not configured (Missing GOOGLE_GENAI_KEY). Analysis unavailable.";
 	}
@@ -98,6 +104,11 @@ export async function analyzeMediaRisk(
 	alertSource: string,
 	alertSeverity: string
 ): Promise<string> {
+	const { userId } = await auth();
+	if (!userId) {
+		throw new Error("Authentication required to use AI features");
+	}
+
 	if (!isAIConfigured()) {
 		return "AI Service is not configured. Analysis unavailable.";
 	}
