@@ -1,0 +1,16 @@
+{
+  "plugins": {
+    "clerk": {
+      "enabled": true
+    },
+    "vercel": {
+      "enabled": true
+    },
+    "continual-learning": {
+      "enabled": true
+    },
+    "compound-engineering": {
+      "enabled": true
+    }
+  }
+}
