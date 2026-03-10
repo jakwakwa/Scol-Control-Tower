@@ -42,6 +42,10 @@ const TABLES = [
 	"applicants",
 	"agents",
 	"todos",
+	// Deny list / re-applicant (Scenario 2b)
+	"re_applicant_attempts",
+	"workflow_termination_screening",
+	"workflow_termination_deny_list",
 	// Drizzle internal migration tracking
 	"__drizzle_migrations",
 ];

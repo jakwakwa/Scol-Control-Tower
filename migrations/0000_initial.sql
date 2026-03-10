@@ -4,7 +4,7 @@ CREATE TABLE `activity_logs` (
 	`action` text NOT NULL,
 	`description` text NOT NULL,
 	`performed_by` text,
-	`created_at` integer DEFAULT '"2026-02-19T21:50:17.238Z"',
+	`created_at` integer DEFAULT '"2026-03-10T17:44:36.366Z"',
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -70,10 +70,12 @@ CREATE TABLE `ai_feedback_logs` (
 	`divergence_type` text,
 	`decided_by` text NOT NULL,
 	`decided_at` integer NOT NULL,
+	`related_failure_event_id` integer,
 	`consumed_for_retraining` integer DEFAULT false,
 	`consumed_at` integer,
 	FOREIGN KEY (`workflow_id`) REFERENCES `workflows`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`related_failure_event_id`) REFERENCES `workflow_events`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE TABLE `applicant_magiclink_forms` (
@@ -120,6 +122,7 @@ CREATE TABLE `applicants` (
 	`trading_name` text,
 	`registration_number` text,
 	`contact_name` text NOT NULL,
+	`id_number` text,
 	`email` text NOT NULL,
 	`phone` text,
 	`business_type` text,
@@ -129,6 +132,7 @@ CREATE TABLE `applicants` (
 	`employee_count` integer,
 	`mandate_type` text,
 	`mandate_volume` integer,
+	`estimated_transactions_per_month` integer,
 	`status` text DEFAULT 'new' NOT NULL,
 	`risk_level` text,
 	`itc_score` integer,
@@ -151,6 +155,7 @@ CREATE TABLE `document_uploads` (
 	`document_type` text NOT NULL,
 	`file_name` text NOT NULL,
 	`file_size` integer NOT NULL,
+	`file_content` text,
 	`mime_type` text NOT NULL,
 	`storage_key` text NOT NULL,
 	`storage_url` text,
@@ -174,6 +179,8 @@ CREATE TABLE `documents` (
 	`category` text,
 	`source` text,
 	`file_name` text,
+	`file_content` text,
+	`mime_type` text,
 	`storage_url` text,
 	`uploaded_by` text,
 	`uploaded_at` integer,
@@ -222,6 +229,8 @@ CREATE TABLE `notifications` (
 	`read` integer DEFAULT false,
 	`created_at` integer,
 	`actionable` integer DEFAULT false,
+	`severity` text DEFAULT 'medium',
+	`group_key` text,
 	FOREIGN KEY (`workflow_id`) REFERENCES `workflows`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
@@ -243,10 +252,29 @@ CREATE TABLE `quotes` (
 	FOREIGN KEY (`workflow_id`) REFERENCES `workflows`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE TABLE `re_applicant_attempts` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`applicant_id` integer NOT NULL,
+	`workflow_id` integer NOT NULL,
+	`matched_deny_list_id` integer NOT NULL,
+	`matched_on` text NOT NULL,
+	`matched_value` text NOT NULL,
+	`denied_at` integer NOT NULL,
+	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`workflow_id`) REFERENCES `workflows`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`matched_deny_list_id`) REFERENCES `workflow_termination_deny_list`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
 CREATE TABLE `risk_assessments` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`applicant_id` integer NOT NULL,
+	`overall_score` integer,
+	`overall_status` text,
 	`overall_risk` text,
+	`procurement_data` text,
+	`itc_data` text,
+	`sanctions_data` text,
+	`fica_data` text,
 	`cash_flow_consistency` text,
 	`dishonoured_payments` integer,
 	`average_daily_balance` integer,
@@ -256,7 +284,7 @@ CREATE TABLE `risk_assessments` (
 	`reviewed_by` text,
 	`reviewed_at` integer,
 	`notes` text,
-	`created_at` integer DEFAULT '"2026-02-19T21:50:17.238Z"',
+	`created_at` integer DEFAULT '"2026-03-10T17:44:36.366Z"',
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -306,6 +334,33 @@ CREATE TABLE `workflow_events` (
 	FOREIGN KEY (`workflow_id`) REFERENCES `workflows`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE TABLE `workflow_termination_deny_list` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`workflow_id` integer NOT NULL,
+	`applicant_id` integer NOT NULL,
+	`id_numbers` text NOT NULL,
+	`board_member_ids` text NOT NULL,
+	`cellphones` text NOT NULL,
+	`bank_accounts` text NOT NULL,
+	`board_member_names` text NOT NULL,
+	`termination_reason` text NOT NULL,
+	`terminated_at` integer NOT NULL,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`workflow_id`) REFERENCES `workflows`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE TABLE `workflow_termination_screening` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`deny_list_id` integer NOT NULL,
+	`value_type` text NOT NULL,
+	`value` text NOT NULL,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`deny_list_id`) REFERENCES `workflow_termination_deny_list`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `workflow_termination_screening_value_type_value_idx` ON `workflow_termination_screening` (`value_type`,`value`);--> statement-breakpoint
+CREATE INDEX `workflow_termination_screening_deny_list_id_idx` ON `workflow_termination_screening` (`deny_list_id`);--> statement-breakpoint
 CREATE TABLE `workflows` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`applicant_id` integer NOT NULL,
@@ -334,6 +389,11 @@ CREATE TABLE `workflows` (
 	`stage_name` text,
 	`current_agent` text,
 	`review_type` text,
+	`decision_type` text,
+	`target_resource` text,
+	`state_lock_version` integer DEFAULT 0,
+	`state_locked_at` integer,
+	`state_locked_by` text,
 	`metadata` text,
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );

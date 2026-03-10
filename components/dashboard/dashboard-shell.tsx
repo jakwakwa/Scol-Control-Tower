@@ -125,7 +125,7 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 					<div className="flex h-20 items-center justify-between px-8">
 						<div>
 							{title && (
-								<h1 className="text-xl font-bold bg-linear-to-r from-secondary to-muted bg-clip-text text-transparent">
+								<h1 className="text-xl font-bold bg-linear-to-r from-chart-5 to-muted bg-clip-text text-transparent">
 									{title}
 								</h1>
 							)}

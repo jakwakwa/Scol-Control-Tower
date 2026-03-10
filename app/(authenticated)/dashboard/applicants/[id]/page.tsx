@@ -41,6 +41,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { retryFacilitySubmission } from "@/lib/actions/workflow.actions";
 import { buildAgreementPreviewEntries } from "@/lib/utils/agreement-defaults";
+import { Card } from "@/components/ui/card";
 
 interface ApplicantDetail {
 	id: number;
@@ -648,11 +649,18 @@ export default function ApplicantDetailPage() {
 				description={`Registration: ${client.registrationNumber || "N/A"}`}
 				actions={
 					<div className="flex gap-2">
-						<Link href={`/dashboard/applicants/${id}/agreement-form`}>
-							<Button size="sm" variant="outline">
+
+						{workflowStage === 5 ? (
+							<Link href={`/dashboard/applicants/${id}/agreement-form`}>
+								<Button size="sm" variant="outline">
+									Contract Review
+								</Button>
+							</Link>
+						) : (
+							<Button size="sm" variant="outline" disabled>
 								Contract Review
 							</Button>
-						</Link>
+						)}
 						<Button
 							size="sm"
 							className="bg-action hover:bg-action/85"
@@ -1311,23 +1319,23 @@ export default function ApplicantDetailPage() {
 												<p className="text-sm text-muted-foreground mb-4">
 													Applicant details for contract prefill (key/value).
 												</p>
-												<div className="grid grid-cols-2 gap-2">
+												<div className="grid grid-cols-2 gap-0.5">
 													{previewEntries.map(({ label, value }) => (
-														<div
+														<Card
 															key={label}
-															className="flex flex-col p-4 justify-start gap-1 bg-card text-foreground/60 shadow-lg shadow-secondary/10 rounded-lg border border-border/60">
-															<span className="capitalize font-bold">{label}</span>
-															<span className="font-medium capitalize font-sans text-muted-foreground/80">
+															className="flex flex-col px-4 py-2 justify-start gap-0.5 rounded-lg border border-border/60 rounded-sm mb-0">
+															<span className="capitalize text-xs text-muted-foreground font-medium">{label}</span>
+															<span className="font-light  font-mono text-sm capitalize font-sans my-1 text-muted-foreground/80">
 																{value}
 															</span>
-														</div>
+														</Card>
 													))}
 												</div>
 											</GlassCard>
 										) : null;
 									})()}
 									<div className="flex items-center justify-between">
-										<h3 className="font-bold text-slate-300 text-3xl mt-4 pt-4 pl-4">
+										<h3 className="font-bold text-slate-300 text-xl mt-4 pt-0 pl-4">
 											Quote Review
 										</h3>
 										{quote && canEditQuote && !isEditingQuote && (

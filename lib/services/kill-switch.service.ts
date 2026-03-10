@@ -22,6 +22,7 @@ import {
 	workflows,
 } from "@/db/schema";
 import { inngest } from "@/inngest/client";
+import { addToDenyList } from "./deny-list.service";
 import { sendInternalAlertEmail } from "./email.service";
 import { escalateToManagement } from "./notification.service";
 import { acquireStateLock } from "./state-lock.service";
@@ -32,6 +33,7 @@ import { acquireStateLock } from "./state-lock.service";
 
 export type KillSwitchReason =
 	| "PROCUREMENT_DENIED"
+	| "RE_APPLICANT_DENIED"
 	| "COMPLIANCE_VIOLATION"
 	| "FRAUD_DETECTED"
 	| "TIMEOUT_TERMINATION"
@@ -184,6 +186,12 @@ export async function executeKillSwitch(
 					: "warning",
 		});
 
+		// Step 8: Scenario 2b — Add to deny list for Risk Manager declined applicants
+		const denyResult = await addToDenyList(workflowId, applicantId, reason);
+		if (!denyResult.success) {
+			console.warn("[KillSwitch] Failed to add to deny list:", denyResult.error);
+		}
+
 		return {
 			success: true,
 			workflowId,
@@ -269,6 +277,8 @@ async function revokeAllPendingForms(
 function getReasonMessage(reason: KillSwitchReason): string {
 	const messages: Record<KillSwitchReason, string> = {
 		PROCUREMENT_DENIED: "Procurement check denied by Risk Manager",
+		RE_APPLICANT_DENIED:
+			"Re-applicant detected: previously declined applicant matched on deny list (ID, bank account, or cellphone)",
 		COMPLIANCE_VIOLATION: "Compliance violation detected",
 		FRAUD_DETECTED: "Potential fraud detected",
 		TIMEOUT_TERMINATION: "Terminated automatically due to timeout",

@@ -162,18 +162,18 @@
   --charcoal-700: #1c1c1e;
   --charcoal-800: #151517;
   --charcoal-900: #0e0e10;
- --background: #191e25; /* charcoal-900 — deepest surface  */
+ --background: #1b2c2d; /* charcoal-900 — deepest surface  */
   --foreground: #ddad82; /* warm white — primary text       */
-  --card: #45270f27; /* charcoal-700 — card surfaces    */
+  --card: #1c130b15; /* charcoal-700 — card surfaces    */
   --card-foreground: #ddad82;
   --popover: #05283c99;
   --popover-foreground: #fce0c3;
-  --primary: #876d57; /* gold-500 — main accent / CTAs   */
+  --primary: #c8aa61; /* gold-500 — main accent / CTAs   */
   --primary-foreground: #ddad82; /* dark text on gold buttons       */
-  --secondary: #78898f; /* charcoal-500 — secondary bg     */
-  --secondary-foreground: #c09874;
+  --secondary: #99642f; /* charcoal-500 — secondary bg     */
+  --secondary-foreground: #a0744d;
   --muted: #756f567d; /* charcoal-600 — muted surfaces   */
-  --muted-foreground: #907e6c; /* warm gray — secondary text      */
+  --muted-foreground: #f4e1cfae; /* warm gray — secondary text      */
   --accent: #ddad820d;  
   --accent-foreground: #ddad82;
   --destructive: #e5484d; /* warm red                        */
@@ -185,10 +185,10 @@
   --chart-2: #1ad42a; /* bright green (chart accent)     */
   --chart-3: #e5484d; /* warm red                        */
   --chart-4: #4ade80; /* green (success)                 */
-  --chart-5: #ffc12e; /* gold-400                        */
+  --chart-5: #f0c88b; /* gold-400                        */
   --radius: 0.875rem; /* 14px — premium rounded feel     */
   --sidebar: #080b0f; /* charcoal-800                    */
-  --sidebar-foreground: #ddad82;
+  --sidebar-foreground: #f09a4e;
   --sidebar-primary: #ddad82;
   --sidebar-primary-foreground:#ddad82;
   --sidebar-accent: #c8af99;
@@ -292,7 +292,7 @@
   border-radius: 25px !important;
   background: var(--color-card) !important;
   /* box-shadow:  10px 3px 0px -2px rgba(163, 222, 213, 0.058),  0 10px 30px 1px rgba(4, 3, 3, 0.394); */
-  box-shadow:  2px 10px 10px -2px rgba(9, 9, 12, 0.36),  0 0 7px 2px rgba(16, 13, 13, 0.17)  !important;
+  box-shadow:  2px 10px 10px -2px rgba(9, 9, 9, 0.886),  0 0 7px 2px rgba(16, 13, 13, 0.17)  !important;
  
   /* width: 100%; */
   /* height: 100%; */
@@ -301,22 +301,23 @@
 
 
 .card-form {
-   /* background: hsla(35, 38%, 64%, 0.02) !important; */
+   background: transparent !important;
   position: relative;
-  inset: -1;
+  inset: 0;
   z-index: 2;
   padding-bottom: 19px !important;
   margin-bottom: 20px !important;
   overflow: hidden;
-  border-radius: 15px !important;
-  box-shadow: inset 2px 2px 3px -2px hsla(30, 41%, 59%, 0.263), inset 0.5px 3px 1px -2px hsla(27, 36%, 39%, 0.965), inset 0 -1px 30px 0px rgba(42, 43, 44, 0.109), 0.5px 11px 21px 1px rgba(10, 10, 12, 0.731) !important;
+  border: 1px solid #000  !important;
+  border-radius: 24px !important;
+  box-shadow: inset 0px 0.5px 1px 0px hsla(39, 20%, 55%, 0.862), inset 0px -20px 37px 0px hsla(43, 11%, 25%, 0.08), inset 0 -1px 30px 0px oklab(18.747% -0.01896 -0.00532 / 0.092), 0.5px 11px 11px 1px rgba(8, 8, 12, 0.231) !important;
 }
 
 .dotted-grid-container {
  
   width: 100%;
    height: 100% !important;
-  padding: 15px;
+  padding: 20px !important;
   position: absolute;
   z-index: -1;
   background: var(--background) !important;
@@ -325,15 +326,13 @@
 
 .card-form::before {
   content: '';
-  /* position: absolute; */
-    /* z-index: -12; */
-    inset: 1;
-    border-radius: 20px;
-    -webkit-backdrop-filter: blur(4px);
-            backdrop-filter: blur(4px);
-    -webkit-filter: url(#container-glass);
-            filter: url(#container-glass);
-       
+  position: absolute;
+    z-index: -1;
+    inset: 3;
+    background-color: oklch(15.434% 0.00002 271.152 / 0.002);
+    border-radius: 24px;
+    -webkit-backdrop-filter: blur(3px) !important;
+            backdrop-filter: blur(3px) !important; 
     overflow: hidden;
     isolation: isolate;
 }
@@ -341,12 +340,12 @@
 
 .card-form::after {
   content: '';
-  position: absolute;
+  /* position: absolute; */
     z-index: -1;
     inset: 0;
-    border-radius: 20px;
-    -webkit-backdrop-filter: blur(10px);
-            backdrop-filter: blur(10px);
+    border-radius: 24px;
+    /* -webkit-backdrop-filter: blur(2px);
+            backdrop-filter: blur(2px); */
     /* -webkit-filter: url(#container-glass); */
             /* filter: url(#container-glass); */
        
@@ -365,7 +364,7 @@
   position: relative;
   border-radius: 5px;
   /* z-index: -1; */
-  /* background: var(--background) !important; */
+  background: var(--background) !important;
 }
 
 /*  */
@@ -396,7 +395,7 @@
   padding: 15px;
   position: relative;
   z-index: 0;
-  background: #151617 !important;
+  background: #0d0f10 !important;
 }
 label { 
   color: var(--color-stone-400) !important;
@@ -422,7 +421,7 @@ label {
       mix-blend-mode: multiply !important;
       inset: 1;
       z-index: -10;
-      background-color: #151617 !important;
+      background-color: #06191f !important;
       background:  repeating-linear-gradient(45deg, rgba(1, 28, 31, 0.05), rgba(0, 0, 0, 0.99) 1px, transparent 1px, transparent 5px),
       repeating-linear-gradient(-45deg, rgba(8, 84, 111, 0.116), rgb(80, 51, 11) 1px, transparent 1px, transparent 12px),
       repeating-linear-gradient(90deg, rgba(33, 24, 14, 0.856) 0, rgba(2, 74, 85, 0.31) 1px, transparent 1px, transparent 4px);
@@ -438,7 +437,7 @@ label {
   z-index: 0;
   overflow: hidden;
   border-radius: 25px !important;
-          box-shadow: inset 2.5px 1px 1px -2px oklch(60.682% 0.06291 61.918 / 0.709),inset 0.5px 2px 10px -2px oklch(86.56% 0.05468 64.246 / 0.222), inset 0 -2px 30px 0px oklch(26.629% 0.01015 207.205 / 0.53) !important;
+          box-shadow: inset 2.5px 1px 1px -2px rgb(206, 158, 70),inset 0.5px 2px 3px -1px rgba(150, 128, 49, 0.967), inset 0 -2px 30px -2px rgba(75, 43, 21, 0.667)!important;
 }
 
 
@@ -523,6 +522,11 @@ label {
   
   }
   
+}
+
+.aiBtn > svg {
+width: 28px !important;
+height: 28px !important;
 }
 
 .glassBtn svg {
