@@ -73,7 +73,7 @@ export const documentAggregator = inngest.createFunction(
 			if (!parsedType.success) return [];
 			if (!d.fileName || d.fileName.trim() === "") return [];
 			if (!d.storageUrl || d.storageUrl.trim() === "") return [];
-			if (!d.uploadedAt) return [];
+			if (d.uploadedAt == null) return [];
 
 			return [
 				{
