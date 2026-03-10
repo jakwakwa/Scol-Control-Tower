@@ -1,9 +1,10 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
-import { workflows, workflowEvents, quotes, agentCallbacks, notifications } from "@/db/schema";
+import { workflows } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { executeKillSwitch } from "@/lib/services/kill-switch.service";
 
 const rejectWorkflowSchema = z.object({
 	reason: z.string().optional(),
@@ -12,8 +13,9 @@ const rejectWorkflowSchema = z.object({
 
 /**
  * DELETE /api/workflows/[id]/reject
- * Rejects a workflow by deleting it and related data.
- * IMPORTANT: This does NOT delete the applicant - only the workflow.
+ *
+ * Terminates a workflow via the kill-switch path instead of destructively
+ * deleting it, preserving the audit trail for internal dashboard surfacing.
  */
 export async function DELETE(
 	request: NextRequest,
@@ -32,16 +34,14 @@ export async function DELETE(
 			return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
 		}
 
-		// Parse optional body for audit purposes
 		let body: { reason?: string; actor?: string } = {};
 		try {
 			body = await request.json();
 			rejectWorkflowSchema.parse(body);
 		} catch {
-			// Body is optional, continue without it
+			// Body is optional
 		}
 
-		// Check if workflow exists
 		const existingWorkflow = await db
 			.select()
 			.from(workflows)
@@ -54,26 +54,24 @@ export async function DELETE(
 
 		const workflow = existingWorkflow[0];
 
-		// Delete related records in order (respecting foreign keys)
-		// 1. Delete agent callbacks
-		await db.delete(agentCallbacks).where(eq(agentCallbacks.workflowId, workflowId));
+		if (workflow.status === "terminated" || workflow.status === "completed") {
+			return NextResponse.json(
+				{ error: `Workflow is already ${workflow.status}` },
+				{ status: 409 }
+			);
+		}
 
-		// 2. Delete workflow events
-		await db.delete(workflowEvents).where(eq(workflowEvents.workflowId, workflowId));
-
-		// 3. Delete quotes
-		await db.delete(quotes).where(eq(quotes.workflowId, workflowId));
-
-		// 4. Delete notifications related to this workflow
-		await db.delete(notifications).where(eq(notifications.workflowId, workflowId));
-
-		// 5. Finally delete the workflow itself
-		await db.delete(workflows).where(eq(workflows.id, workflowId));
-
+		await executeKillSwitch({
+			workflowId,
+			applicantId: workflow.applicantId,
+			reason: "MANUAL_TERMINATION",
+			decidedBy: body.actor || "admin",
+			notes: body.reason || "Rejected via Control Tower",
+		});
 
 		return NextResponse.json({
 			success: true,
-			message: "Workflow rejected and removed",
+			message: "Workflow terminated",
 			workflowId,
 			applicantId: workflow.applicantId,
 		});

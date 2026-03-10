@@ -57,7 +57,9 @@ export interface WorkflowRow {
 		| "completed"
 		| "failed"
 		| "timeout"
+		| "terminated"
 		| "paused";
+	terminationReason?: string;
 	currentAgent?: string;
 	startedAt: Date;
 	payload?: Record<string, unknown>;
@@ -101,6 +103,7 @@ const statusConfig = {
 	completed: { label: "Completed", color: "success", icon: RiCheckLine },
 	failed: { label: "Failed", color: "destructive", icon: RiAlertLine },
 	timeout: { label: "Timeout", color: "destructive", icon: RiAlertLine },
+	terminated: { label: "Terminated", color: "destructive", icon: RiCloseLine },
 	paused: {
 		label: "Paused",
 		color: "warning",

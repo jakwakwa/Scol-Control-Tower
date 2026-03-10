@@ -21,10 +21,14 @@ export interface RiskEntityRow {
 	id: number;
 	applicantId: number;
 	companyName: string;
-	procurementStatus: "pending" | "cleared" | "manual_required" | "failed";
-	itcStatus: "pending" | "cleared" | "manual_required" | "failed";
-	sanctionStatus: "clear" | "flagged" | "confirmed_hit" | "pending";
-	ficaStatus: "pending" | "submitted" | "verified" | "rejected";
+	procurementStatus: string;
+	itcStatus: string;
+	sanctionStatus: string;
+	ficaStatus: string;
+	procurementReviewState: string;
+	itcReviewState: string;
+	sanctionsReviewState: string;
+	ficaReviewState: string;
 	finalReportReady: boolean;
 }
 
@@ -43,6 +47,7 @@ function getCheckBadge(status: string): { variant: BadgeVariant; label: string }
 	const normalized = status.toLowerCase();
 
 	switch (normalized) {
+		case "completed":
 		case "cleared":
 		case "clear":
 		case "verified":
@@ -50,6 +55,8 @@ function getCheckBadge(status: string): { variant: BadgeVariant; label: string }
 			return { variant: "success", label: formatLabel(normalized) };
 		case "pending":
 			return { variant: "secondary", label: "Pending" };
+		case "in_progress":
+			return { variant: "info", label: "In Progress" };
 		case "manual_required":
 			return { variant: "warning", label: "Manual Review" };
 		case "flagged":

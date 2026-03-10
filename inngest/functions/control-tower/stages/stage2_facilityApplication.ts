@@ -31,6 +31,7 @@ import {
 	notifyApplicantDecline,
 	runSanctionsForWorkflow,
 } from "../helpers";
+import { handleWaitTimeout } from "../timeout-handler";
 import type { StageDependencies, StageResult } from "../types";
 
 export async function executeStage2({
@@ -93,34 +94,18 @@ export async function executeStage2({
 	});
 
 	if (!facilitySubmission) {
-		await step.run("notify-am-facility-timeout", async () => {
-			await guardKillSwitch(workflowId, "notify-am-facility-timeout");
-			await createWorkflowNotification({
-				workflowId,
-				applicantId,
-				type: "warning",
-				title: "Delay: Facility Application",
-				message:
-					"Applicant failed to submit the facility application within the expected timeframe.",
-				actionable: true,
-			});
-			await sendInternalAlertEmail({
-				title: "Delay: Facility Application",
-				message: `Applicant has not submitted the facility application within the ${WORKFLOW_TIMEOUTS.STAGE} timeout window. Please follow up.`,
-				workflowId,
-				applicantId,
-				type: "warning",
-				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
-			});
+		await handleWaitTimeout({
+			step,
+			workflowId,
+			applicantId,
+			stage: 2,
+			reason: "STAGE2_FACILITY_TIMEOUT",
+			notifyStepId: "notify-am-facility-timeout",
+			terminateStepId: "terminate-facility-timeout",
+			title: "Facility Application",
+			message: "Applicant failed to submit the facility application within the expected timeframe.",
+			timeoutWindow: WORKFLOW_TIMEOUTS.STAGE,
 		});
-		await step.run("terminate-facility-timeout", () =>
-			terminateRun({
-				workflowId,
-				applicantId,
-				stage: 2,
-				reason: "STAGE2_FACILITY_TIMEOUT",
-			})
-		);
 	}
 
 	await step.run("notify-am-facility-submitted", async () => {
@@ -252,33 +237,18 @@ export async function executeStage2({
 		});
 
 		if (!preRiskApproval) {
-			await step.run("notify-am-pre-risk-approval-timeout", async () => {
-				await guardKillSwitch(workflowId, "notify-am-pre-risk-approval-timeout");
-				await createWorkflowNotification({
-					workflowId,
-					applicantId,
-					type: "warning",
-					title: "Delay: Pre-risk Approval",
-					message: "Pre-risk approval timed out.",
-					actionable: true,
-				});
-				await sendInternalAlertEmail({
-					title: "Delay: Pre-risk Approval",
-					message: `The pre-risk approval has not been completed within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window.`,
-					workflowId,
-					applicantId,
-					type: "warning",
-					actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
-				});
+			await handleWaitTimeout({
+				step,
+				workflowId,
+				applicantId,
+				stage: 2,
+				reason: "STAGE2_PRE_RISK_APPROVAL_TIMEOUT",
+				notifyStepId: "notify-am-pre-risk-approval-timeout",
+				terminateStepId: "terminate-pre-risk-approval-timeout",
+				title: "Pre-risk Approval",
+				message: "Pre-risk approval timed out.",
+				timeoutWindow: WORKFLOW_TIMEOUTS.REVIEW,
 			});
-			await step.run("terminate-pre-risk-approval-timeout", () =>
-				terminateRun({
-					workflowId,
-					applicantId,
-					stage: 2,
-					reason: "STAGE2_PRE_RISK_APPROVAL_TIMEOUT",
-				})
-			);
 		}
 
 		if (preRiskApproval.data.decision.outcome === "REJECTED") {
@@ -321,33 +291,18 @@ export async function executeStage2({
 			});
 
 			if (!preRiskEvaluation) {
-				await step.run("notify-am-pre-risk-eval-timeout", async () => {
-					await guardKillSwitch(workflowId, "notify-am-pre-risk-eval-timeout");
-					await createWorkflowNotification({
-						workflowId,
-						applicantId,
-						type: "warning",
-						title: "Delay: Pre-risk Evaluation",
-						message: "Pre-risk evaluation timed out.",
-						actionable: true,
-					});
-					await sendInternalAlertEmail({
-						title: "Delay: Pre-risk Evaluation",
-						message: `The pre-risk evaluation has not been completed within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window.`,
-						workflowId,
-						applicantId,
-						type: "warning",
-						actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
-					});
+				await handleWaitTimeout({
+					step,
+					workflowId,
+					applicantId,
+					stage: 2,
+					reason: "STAGE2_PRE_RISK_EVAL_TIMEOUT",
+					notifyStepId: "notify-am-pre-risk-eval-timeout",
+					terminateStepId: "terminate-pre-risk-eval-timeout",
+					title: "Pre-risk Evaluation",
+					message: "Pre-risk evaluation timed out.",
+					timeoutWindow: WORKFLOW_TIMEOUTS.REVIEW,
 				});
-				await step.run("terminate-pre-risk-eval-timeout", () =>
-					terminateRun({
-						workflowId,
-						applicantId,
-						stage: 2,
-						reason: "STAGE2_PRE_RISK_EVAL_TIMEOUT",
-					})
-				);
 			}
 
 			if (preRiskEvaluation.data.decision.outcome === "REJECTED") {
@@ -576,33 +531,19 @@ export async function executeStage2({
 	});
 
 	if (!quoteApproval) {
-		await step.run("notify-am-quote-timeout", async () => {
-			await guardKillSwitch(workflowId, "notify-am-quote-timeout");
-			await createWorkflowNotification({
-				workflowId,
-				applicantId,
-				type: "warning",
-				title: "Delay: Quote Approval",
-				message: "The quote is stalled awaiting manager approval.",
-				actionable: true,
-			});
-			await sendInternalAlertEmail({
-				title: "Delay: Quote Approval Stalled",
-				message: `The generated quote has not been approved within the ${WORKFLOW_TIMEOUTS.WORKFLOW} timeout window.`,
-				workflowId,
-				applicantId,
-				type: "warning",
-				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}?tab=reviews`,
-			});
+		await handleWaitTimeout({
+			step,
+			workflowId,
+			applicantId,
+			stage: 2,
+			reason: "STAGE2_QUOTE_APPROVAL_TIMEOUT",
+			notifyStepId: "notify-am-quote-timeout",
+			terminateStepId: "terminate-quote-approval-timeout",
+			title: "Quote Approval",
+			message: "The quote is stalled awaiting manager approval.",
+			timeoutWindow: WORKFLOW_TIMEOUTS.WORKFLOW,
+			actionTab: "reviews",
 		});
-		await step.run("terminate-quote-approval-timeout", () =>
-			terminateRun({
-				workflowId,
-				applicantId,
-				stage: 2,
-				reason: "STAGE2_QUOTE_APPROVAL_TIMEOUT",
-			})
-		);
 	}
 
 	// Step 2.5: Send quote for client signature
@@ -644,33 +585,18 @@ export async function executeStage2({
 	});
 
 	if (!quoteResponse) {
-		await step.run("notify-am-quote-response-timeout", async () => {
-			await guardKillSwitch(workflowId, "notify-am-quote-response-timeout");
-			await createWorkflowNotification({
-				workflowId,
-				applicantId,
-				type: "warning",
-				title: "Delay: Quote Signature",
-				message: "Applicant failed to sign the quote within the expected timeframe.",
-				actionable: true,
-			});
-			await sendInternalAlertEmail({
-				title: "Delay: Quote Signature",
-				message: `Applicant has not signed the quote within the ${WORKFLOW_TIMEOUTS.WORKFLOW} timeout window. Please follow up.`,
-				workflowId,
-				applicantId,
-				type: "warning",
-				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
-			});
+		await handleWaitTimeout({
+			step,
+			workflowId,
+			applicantId,
+			stage: 2,
+			reason: "STAGE2_QUOTE_RESPONSE_TIMEOUT",
+			notifyStepId: "notify-am-quote-response-timeout",
+			terminateStepId: "terminate-quote-response-timeout",
+			title: "Quote Signature",
+			message: "Applicant failed to sign the quote within the expected timeframe.",
+			timeoutWindow: WORKFLOW_TIMEOUTS.WORKFLOW,
 		});
-		await step.run("terminate-quote-response-timeout", () =>
-			terminateRun({
-				workflowId,
-				applicantId,
-				stage: 2,
-				reason: "STAGE2_QUOTE_RESPONSE_TIMEOUT",
-			})
-		);
 	}
 
 	if (quoteResponse.data.decision === "DECLINED") {

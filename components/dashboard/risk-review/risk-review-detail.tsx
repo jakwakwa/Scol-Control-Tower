@@ -29,6 +29,13 @@ import { useState } from "react";
 import { analyzeMediaRisk, generateRiskBriefing } from "@/actions/ai.actions";
 import { Button } from "@/components/ui/button";
 
+export interface SectionStatus {
+	machineState: "pending" | "in_progress" | "completed" | "failed" | "manual_required";
+	reviewState: "pending" | "acknowledged" | "approved" | "rejected" | "not_required";
+	provider?: string;
+	errorDetails?: string;
+}
+
 export interface RiskReviewData {
 	globalData: {
 		transactionId: string;
@@ -42,6 +49,12 @@ export interface RiskReviewData {
 			entityType?: string;
 			registeredAddress?: string;
 		};
+	};
+	sectionStatuses?: {
+		procurement: SectionStatus;
+		itc: SectionStatus;
+		sanctions: SectionStatus;
+		fica: SectionStatus;
 	};
 	procurementData: {
 		cipcStatus: string;

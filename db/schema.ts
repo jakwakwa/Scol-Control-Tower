@@ -224,6 +224,72 @@ export const workflows = sqliteTable("workflows", {
 	metadata: text("metadata"),
 });
 
+// ============================================
+// Risk Check Results — Source of truth for per-check lifecycle
+// ============================================
+
+export const RISK_CHECK_TYPES = [
+	"PROCUREMENT",
+	"ITC",
+	"SANCTIONS",
+	"FICA",
+] as const;
+
+export type RiskCheckType = (typeof RISK_CHECK_TYPES)[number];
+
+export const RISK_CHECK_MACHINE_STATES = [
+	"pending",
+	"in_progress",
+	"completed",
+	"failed",
+	"manual_required",
+] as const;
+
+export type RiskCheckMachineState = (typeof RISK_CHECK_MACHINE_STATES)[number];
+
+export const RISK_CHECK_REVIEW_STATES = [
+	"pending",
+	"acknowledged",
+	"approved",
+	"rejected",
+	"not_required",
+] as const;
+
+export type RiskCheckReviewState = (typeof RISK_CHECK_REVIEW_STATES)[number];
+
+export const riskCheckResults = sqliteTable("risk_check_results", {
+	id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
+	workflowId: integer("workflow_id")
+		.notNull()
+		.references(() => workflows.id),
+	applicantId: integer("applicant_id")
+		.notNull()
+		.references(() => applicants.id),
+	checkType: text("check_type").notNull(), // PROCUREMENT | ITC | SANCTIONS | FICA
+
+	machineState: text("machine_state").notNull().default("pending"),
+	reviewState: text("review_state").notNull().default("pending"),
+
+	provider: text("provider"),
+	externalCheckId: text("external_check_id"),
+
+	payload: text("payload"), // JSON: check-specific result data
+	rawPayload: text("raw_payload"), // JSON: raw provider response snapshot
+	errorDetails: text("error_details"),
+
+	startedAt: integer("started_at", { mode: "timestamp" }),
+	completedAt: integer("completed_at", { mode: "timestamp" }),
+
+	reviewedBy: text("reviewed_by"),
+	reviewedAt: integer("reviewed_at", { mode: "timestamp" }),
+	reviewNotes: text("review_notes"),
+
+	createdAt: integer("created_at", { mode: "timestamp" })
+		.$defaultFn(() => new Date()),
+	updatedAt: integer("updated_at", { mode: "timestamp" })
+		.$defaultFn(() => new Date()),
+});
+
 export const NOTIFICATION_SEVERITIES = ["low", "medium", "high", "critical"] as const;
 export type NotificationSeverity = (typeof NOTIFICATION_SEVERITIES)[number];
 

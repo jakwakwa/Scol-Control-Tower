@@ -3,7 +3,7 @@ import { desc, eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
-import { applicants, riskAssessments, workflows } from "@/db/schema";
+import { applicants, riskAssessments, riskCheckResults, workflows } from "@/db/schema";
 import { buildReportData } from "@/lib/risk-review/build-report-data";
 
 /**
@@ -61,7 +61,14 @@ export async function GET(
 			return NextResponse.json({ error: "Applicant not found" }, { status: 404 });
 		}
 
-		const reportData = buildReportData(applicant, riskAssessment, workflow);
+		const riskChecks = workflow
+			? await db
+					.select()
+					.from(riskCheckResults)
+					.where(eq(riskCheckResults.workflowId, workflow.id))
+			: [];
+
+		const reportData = buildReportData(applicant, riskAssessment, workflow, riskChecks);
 
 		return NextResponse.json(reportData);
 	} catch (error) {

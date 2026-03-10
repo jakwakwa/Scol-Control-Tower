@@ -1,4 +1,5 @@
-import type { RiskReviewData } from "@/components/dashboard/risk-review/risk-review-detail";
+import type { RiskReviewData, SectionStatus } from "@/components/dashboard/risk-review/risk-review-detail";
+import type { RiskCheckRow } from "@/lib/services/risk-check.service";
 
 type ApplicantRow = {
 	id: number;
@@ -25,18 +26,23 @@ type WorkflowRow = {
 	startedAt: Date | null;
 };
 
-const DEFAULT_PROCUREMENT = {
+const DEFAULT_SECTION_STATUS: SectionStatus = {
+	machineState: "pending",
+	reviewState: "pending",
+};
+
+const DEFAULT_PROCUREMENT: RiskReviewData["procurementData"] = {
 	cipcStatus: "Pending",
 	taxStatus: "Pending",
 	taxExpiry: "—",
 	beeLevel: "—",
 	beeExpiry: "—",
-	riskAlerts: [] as RiskReviewData["procurementData"]["riskAlerts"],
-	checks: [] as RiskReviewData["procurementData"]["checks"],
-	directors: [] as RiskReviewData["procurementData"]["directors"],
+	riskAlerts: [],
+	checks: [],
+	directors: [],
 };
 
-const DEFAULT_ITC = {
+const DEFAULT_ITC: RiskReviewData["itcData"] = {
 	creditScore: 0,
 	scoreBand: "—",
 	judgements: 0,
@@ -46,15 +52,15 @@ const DEFAULT_ITC = {
 	recentEnquiries: "—",
 };
 
-const DEFAULT_SANCTIONS = {
+const DEFAULT_SANCTIONS: RiskReviewData["sanctionsData"] = {
 	sanctionsMatch: "Pending",
 	pepHits: 0,
 	adverseMedia: 0,
-	alerts: [] as RiskReviewData["sanctionsData"]["alerts"],
+	alerts: [],
 };
 
-const DEFAULT_FICA = {
-	identity: [] as RiskReviewData["ficaData"]["identity"],
+const DEFAULT_FICA: RiskReviewData["ficaData"] = {
+	identity: [],
 	residence: {
 		address: "—",
 		documentType: "—",
@@ -158,10 +164,21 @@ function mergeFica(
 	};
 }
 
+function buildSectionStatus(check: RiskCheckRow | undefined): SectionStatus {
+	if (!check) return DEFAULT_SECTION_STATUS;
+	return {
+		machineState: check.machineState as SectionStatus["machineState"],
+		reviewState: check.reviewState as SectionStatus["reviewState"],
+		provider: check.provider ?? undefined,
+		errorDetails: check.errorDetails ?? undefined,
+	};
+}
+
 export function buildReportData(
 	applicant: ApplicantRow | null,
 	riskAssessment: RiskAssessmentRow | null,
-	workflow: WorkflowRow | null
+	workflow: WorkflowRow | null,
+	riskChecks?: RiskCheckRow[]
 ): RiskReviewData {
 	const applicantId = applicant?.id ?? 0;
 	const transactionId = workflow?.id ? `workflow-${workflow.id}` : `risk-${applicantId}`;
@@ -172,18 +189,41 @@ export function buildReportData(
 	const overallStatus = riskAssessment?.overallStatus ?? "PENDING";
 	const overallRiskScore = riskAssessment?.overallScore ?? 0;
 
-	const procurementParsed = safeJsonParse<Partial<
+	const checkMap = new Map(
+		(riskChecks ?? []).map(c => [c.checkType, c])
+	);
+
+	const procCheck = checkMap.get("PROCUREMENT");
+	const procPayload = procCheck?.payload
+		? safeJsonParse<Partial<RiskReviewData["procurementData"]>>(procCheck.payload, null)
+		: null;
+	const procurementParsed = procPayload ?? safeJsonParse<Partial<
 		RiskReviewData["procurementData"]
 	> | null>(riskAssessment?.procurementData ?? null, null);
-	const itcParsed = safeJsonParse<Partial<RiskReviewData["itcData"]> | null>(
+
+	const itcCheck = checkMap.get("ITC");
+	const itcPayload = itcCheck?.payload
+		? safeJsonParse<Partial<RiskReviewData["itcData"]>>(itcCheck.payload, null)
+		: null;
+	const itcParsed = itcPayload ?? safeJsonParse<Partial<RiskReviewData["itcData"]> | null>(
 		riskAssessment?.itcData ?? null,
 		null
 	);
-	const sanctionsParsed = safeJsonParse<Partial<RiskReviewData["sanctionsData"]> | null>(
+
+	const sancCheck = checkMap.get("SANCTIONS");
+	const sancPayload = sancCheck?.payload
+		? safeJsonParse<Partial<RiskReviewData["sanctionsData"]>>(sancCheck.payload, null)
+		: null;
+	const sanctionsParsed = sancPayload ?? safeJsonParse<Partial<RiskReviewData["sanctionsData"]> | null>(
 		riskAssessment?.sanctionsData ?? null,
 		null
 	);
-	const ficaParsed = safeJsonParse<Partial<RiskReviewData["ficaData"]> | null>(
+
+	const ficaCheck = checkMap.get("FICA");
+	const ficaPayload = ficaCheck?.payload
+		? safeJsonParse<Partial<RiskReviewData["ficaData"]>>(ficaCheck.payload, null)
+		: null;
+	const ficaParsed = ficaPayload ?? safeJsonParse<Partial<RiskReviewData["ficaData"]> | null>(
 		riskAssessment?.ficaData ?? null,
 		null
 	);
@@ -201,6 +241,12 @@ export function buildReportData(
 				entityType: applicant?.entityType ?? undefined,
 				registeredAddress: "—",
 			},
+		},
+		sectionStatuses: {
+			procurement: buildSectionStatus(procCheck),
+			itc: buildSectionStatus(itcCheck),
+			sanctions: buildSectionStatus(sancCheck),
+			fica: buildSectionStatus(ficaCheck),
 		},
 		procurementData: mergeProcurement(procurementParsed),
 		itcData: mergeItc(itcParsed),

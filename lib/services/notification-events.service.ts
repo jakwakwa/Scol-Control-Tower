@@ -70,7 +70,8 @@ export interface LogEventParams {
 		| "management_escalation"
 		| "stale_data_flagged"
 		| "state_lock_acquired"
-		| "re_applicant_denied";
+		| "re_applicant_denied"
+		| "sanctions_ingress_received";
 	payload: object;
 	actorType?: "user" | "agent" | "platform";
 	actorId?: string;

@@ -13,6 +13,9 @@ import {
 	UploadFicaReceivedSchema,
 	WorkflowTerminatedSchema,
 } from "../lib/validations/inngest-events";
+import {
+	ExternalSanctionsIngressSchema,
+} from "../lib/validations/control-tower/onboarding-schemas";
 
 describe("Inngest Event Validation Schemas", () => {
 	describe("OnboardingLeadCreatedSchema", () => {
@@ -327,6 +330,112 @@ describe("Inngest Event Validation Schemas", () => {
 			const data = {};
 			const result = QuoteDetailsSchema.safeParse(data);
 			expect(result.success).toBe(true);
+		});
+	});
+
+	describe("WorkflowTerminatedSchema — new sanctions reason codes", () => {
+		it("should validate VALIDATION_ERROR_SANCTIONS reason", () => {
+			const data = {
+				workflowId: 1,
+				applicantId: 2,
+				reason: "VALIDATION_ERROR_SANCTIONS" as const,
+				decidedBy: "system",
+				terminatedAt: "2026-03-10T10:00:00Z",
+			};
+			expect(() => WorkflowTerminatedSchema.parse(data)).not.toThrow();
+		});
+
+		it("should validate SANCTIONS_EXTERNAL_BLOCKED reason", () => {
+			const data = {
+				workflowId: 1,
+				applicantId: 2,
+				reason: "SANCTIONS_EXTERNAL_BLOCKED" as const,
+				decidedBy: "system:firecrawl_un",
+				terminatedAt: "2026-03-10T10:00:00Z",
+			};
+			expect(() => WorkflowTerminatedSchema.parse(data)).not.toThrow();
+		});
+	});
+
+	describe("ExternalSanctionsIngressSchema", () => {
+		it("should validate a complete sanctions ingress payload", () => {
+			const data = {
+				workflowId: 1,
+				applicantId: 2,
+				provider: "firecrawl_un" as const,
+				externalCheckId: "SCK-1-1710072000000",
+				checkedAt: "2026-03-10T10:00:00Z",
+				passed: true,
+				isBlocked: false,
+				riskLevel: "CLEAR" as const,
+				isPEP: false,
+				requiresEDD: false,
+				adverseMediaCount: 0,
+				matchDetails: [],
+			};
+			expect(() => ExternalSanctionsIngressSchema.parse(data)).not.toThrow();
+		});
+
+		it("should validate with match details", () => {
+			const data = {
+				workflowId: 1,
+				applicantId: 2,
+				provider: "opensanctions" as const,
+				externalCheckId: "OS-match-12345",
+				checkedAt: "2026-03-10T10:00:00Z",
+				passed: false,
+				isBlocked: true,
+				riskLevel: "BLOCKED" as const,
+				matchDetails: [
+					{
+						listName: "UN Security Council Consolidated List",
+						matchedEntity: "Test Entity",
+						matchConfidence: 95,
+						matchType: "EXACT" as const,
+					},
+				],
+			};
+			expect(() => ExternalSanctionsIngressSchema.parse(data)).not.toThrow();
+		});
+
+		it("should reject missing externalCheckId", () => {
+			const data = {
+				workflowId: 1,
+				applicantId: 2,
+				provider: "firecrawl_un" as const,
+				checkedAt: "2026-03-10T10:00:00Z",
+				passed: true,
+			};
+			expect(() => ExternalSanctionsIngressSchema.parse(data)).toThrow();
+		});
+
+		it("should reject invalid provider", () => {
+			const data = {
+				workflowId: 1,
+				applicantId: 2,
+				provider: "unknown_provider",
+				externalCheckId: "check-1",
+				checkedAt: "2026-03-10T10:00:00Z",
+				passed: true,
+			};
+			expect(() => ExternalSanctionsIngressSchema.parse(data)).toThrow();
+		});
+
+		it("should default optional boolean fields", () => {
+			const data = {
+				workflowId: 1,
+				applicantId: 2,
+				provider: "manual" as const,
+				externalCheckId: "manual-check-1",
+				checkedAt: "2026-03-10T10:00:00Z",
+				passed: true,
+			};
+			const result = ExternalSanctionsIngressSchema.parse(data);
+			expect(result.isBlocked).toBe(false);
+			expect(result.isPEP).toBe(false);
+			expect(result.requiresEDD).toBe(false);
+			expect(result.adverseMediaCount).toBe(0);
+			expect(result.matchDetails).toEqual([]);
 		});
 	});
 });

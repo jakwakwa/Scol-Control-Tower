@@ -13,7 +13,7 @@ const createWorkflowSchema = z.object({
 		.enum(["lead_capture", "dynamic_quotation", "verification", "integration"])
 		.default("lead_capture"),
 	status: z
-		.enum(["pending", "in_progress", "awaiting_human", "completed", "failed", "timeout"])
+		.enum(["pending", "processing", "awaiting_human", "paused", "completed", "failed", "terminated"])
 		.default("pending"),
 	currentAgent: z.string().optional(),
 	metadata: z.string().optional(),

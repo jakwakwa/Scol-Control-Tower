@@ -28,6 +28,7 @@ import { executeKillSwitch } from "@/lib/services/kill-switch.service";
 import { logWorkflowEvent } from "@/lib/services/notification-events.service";
 import { terminateRun } from "@/lib/services/terminate-run.service";
 import { LeadCreatedSchema } from "@/lib/validations/control-tower/onboarding-schemas";
+import { validatePerimeter } from "@/lib/validations/control-tower/perimeter-validation";
 import { inngest } from "../client";
 
 import type { WorkflowContext } from "./control-tower/types";
@@ -60,44 +61,48 @@ export const controlTowerWorkflow = inngest.createFunction(
 	},
 	{ event: "onboarding/lead.created" },
 	async ({ event, step }) => {
-		// 1. Perimeter Zod Validation
-		const validationResult = LeadCreatedSchema.safeParse(event.data);
+		const perimeterResult = validatePerimeter({
+			schema: LeadCreatedSchema,
+			data: event.data,
+			eventName: "onboarding/lead.created",
+			sourceSystem: "control-tower",
+			terminationReason: "VALIDATION_ERROR_INGEST",
+		});
 
-		if (!validationResult.success) {
-			console.error("[ControlTower] Validation failed for onboarding/lead.created", {
-				event: event.name,
-				errors: validationResult.error.format(),
+		if (!perimeterResult.ok) {
+			const { failure } = perimeterResult;
+			console.error("[ControlTower] Perimeter validation failed", {
+				event: failure.eventName,
+				failedPaths: failure.failedPaths,
+				messages: failure.messages,
 			});
 
 			await step.run("validation-failed-terminate", async () => {
-				const data = event.data as Record<string, unknown>;
-				const applicantId = typeof data.applicantId === "number" ? data.applicantId : 0;
-				const workflowId = typeof data.workflowId === "number" ? data.workflowId : 0;
-
 				await logWorkflowEvent({
-					workflowId,
+					workflowId: failure.workflowId,
 					eventType: "error",
 					payload: {
 						context: "perimeter_validation_failed",
-						errors: validationResult.error.format(),
+						eventName: failure.eventName,
+						sourceSystem: failure.sourceSystem,
+						failedPaths: failure.failedPaths,
+						messages: failure.messages,
 					},
 				});
 
-				// Only terminate if we have valid IDs
-				if (workflowId > 0 && applicantId > 0) {
+				if (failure.workflowId > 0 && failure.applicantId > 0) {
 					await terminateRun({
-						workflowId,
-						applicantId,
+						workflowId: failure.workflowId,
+						applicantId: failure.applicantId,
 						stage: 1,
-						reason: "VALIDATION_ERROR_INGEST",
+						reason: failure.terminationReason,
 					});
 				}
 			});
-			return; // Short-circuit the run completely
+			return;
 		}
 
-		// Validation passed, use strongly typed data
-		const { applicantId, workflowId } = validationResult.data;
+		const { applicantId, workflowId } = perimeterResult.data;
 		const context: WorkflowContext = { applicantId, workflowId };
 
 		console.info(
