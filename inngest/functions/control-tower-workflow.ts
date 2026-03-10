@@ -16,8 +16,15 @@
  * - Human approval checkpoints with proper Inngest signal handling
  */
 
+import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
-import { workflowEvents } from "@/db/schema";
+import { applicants, workflowEvents } from "@/db/schema";
+import {
+	checkReApplicant,
+	logReApplicantAttempt,
+} from "@/lib/services/deny-list.service";
+import { sendReApplicantDeniedEmail } from "@/lib/services/email.service";
+import { executeKillSwitch } from "@/lib/services/kill-switch.service";
 import { logWorkflowEvent } from "@/lib/services/notification-events.service";
 import { terminateRun } from "@/lib/services/terminate-run.service";
 import { LeadCreatedSchema } from "@/lib/validations/control-tower/onboarding-schemas";
@@ -96,6 +103,62 @@ export const controlTowerWorkflow = inngest.createFunction(
 		console.info(
 			`[ControlTower] Starting workflow ${workflowId} for applicant ${applicantId}`
 		);
+
+		// Scenario 2b: Re-applicant check — deny if previously declined (ID, bank, cellphone)
+		const reApplicantMatch = await step.run("re-applicant-check", async () => {
+			return checkReApplicant(applicantId, workflowId);
+		});
+
+		if (reApplicantMatch) {
+			await step.run("re-applicant-denied-terminate", async () => {
+				const db = getDatabaseClient();
+				let companyName = "Unknown";
+				if (db) {
+					const [row] = await db
+						.select({ companyName: applicants.companyName })
+						.from(applicants)
+						.where(eq(applicants.id, applicantId));
+					if (row?.companyName) companyName = row.companyName;
+				}
+
+				await logReApplicantAttempt({
+					applicantId,
+					workflowId,
+					matchedDenyListId: reApplicantMatch.matchedDenyListId,
+					matchedOn: reApplicantMatch.matchedOn,
+					matchedValue: reApplicantMatch.matchedValue,
+				});
+
+				await sendReApplicantDeniedEmail({
+					workflowId,
+					applicantId,
+					companyName,
+					matchedOn: reApplicantMatch.matchedOn,
+					matchedValue: reApplicantMatch.matchedValue,
+				});
+
+				// Log before executeKillSwitch: cancelOn: workflow/terminated may skip
+				// subsequent steps once the cancellation event is emitted
+				await logWorkflowEvent({
+					workflowId,
+					eventType: "re_applicant_denied",
+					payload: {
+						matchedOn: reApplicantMatch.matchedOn,
+						matchedValue: reApplicantMatch.matchedValue,
+						matchedDenyListId: reApplicantMatch.matchedDenyListId,
+					},
+				});
+
+				await executeKillSwitch({
+					workflowId,
+					applicantId,
+					reason: "RE_APPLICANT_DENIED",
+					decidedBy: "system",
+					notes: `Re-applicant matched on ${reApplicantMatch.matchedOn}: ${reApplicantMatch.matchedValue}`,
+				});
+			});
+			return; // Terminate workflow run
+		}
 
 		console.info("[ControlTower] Routing to Modular Orchestrator");
 		const { runControlTowerOrchestrator } = await import(

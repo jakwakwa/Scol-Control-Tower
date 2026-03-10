@@ -44,6 +44,17 @@ describe("Inngest Event Validation Schemas", () => {
 			expect(() => WorkflowTerminatedSchema.parse(data)).not.toThrow();
 		});
 
+		it("should validate RE_APPLICANT_DENIED reason", () => {
+			const data = {
+				workflowId: 1,
+				applicantId: 2,
+				reason: "RE_APPLICANT_DENIED" as const,
+				decidedBy: "system",
+				terminatedAt: "2026-03-03T10:00:00Z",
+			};
+			expect(() => WorkflowTerminatedSchema.parse(data)).not.toThrow();
+		});
+
 		it("should reject invalid reason", () => {
 			const data = {
 				workflowId: 1,

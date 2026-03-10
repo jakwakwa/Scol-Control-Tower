@@ -16,6 +16,7 @@ export const WorkflowTerminatedSchema = z.object({
 	applicantId: z.number().int().positive(),
 	reason: z.enum([
 		"PROCUREMENT_DENIED",
+		"RE_APPLICANT_DENIED",
 		"COMPLIANCE_VIOLATION",
 		"FRAUD_DETECTED",
 		"TIMEOUT_TERMINATION",

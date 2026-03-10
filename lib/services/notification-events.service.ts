@@ -69,7 +69,8 @@ export interface LogEventParams {
 		| "final_approval"
 		| "management_escalation"
 		| "stale_data_flagged"
-		| "state_lock_acquired";
+		| "state_lock_acquired"
+		| "re_applicant_denied";
 	payload: object;
 	actorType?: "user" | "agent" | "platform";
 	actorId?: string;

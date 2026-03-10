@@ -8,7 +8,13 @@ import InternalAlert from "@/components/emails/InternalAlert";
 
 const resendApiKey = process.env.RESEND_API_KEY;
 // Use the configured alert recipients or fall back to a default/empty
-const alertRecipients = process.env.ALERT_EMAIL_RECIPIENTS?.split(",") || [];
+// Optional chaining on split; nullish coalesce before map so undefined never throws
+const alertRecipients = (
+	process.env.ALERT_EMAIL_RECIPIENTS?.split(",") ?? []
+).map((e) => e.trim()).filter(Boolean);
+const dataEntrantRecipients = (
+	process.env.DATA_ENTRANT_EMAIL_RECIPIENTS?.split(",") ?? []
+).map((e) => e.trim()).filter(Boolean);
 const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
 
 // Initialize Resend client if API key is present
@@ -121,6 +127,82 @@ export async function sendApplicantFormLinksEmail(params: {
 		return { success: true, messageId: data?.id || "unknown" };
 	} catch (error) {
 		console.error("[EmailService] Exception sending applicant email:", error);
+		return { success: false, error: String(error) };
+	}
+}
+
+/**
+ * Send re-applicant denied alert — Scenario 2b
+ * Notifies Risk Manager and data entrant when a previously declined applicant
+ * re-applies and is automatically denied.
+ */
+export async function sendReApplicantDeniedEmail(params: {
+	workflowId: number;
+	applicantId: number;
+	companyName: string;
+	matchedOn: "id_number" | "board_member_id" | "cellphone" | "bank_account" | "board_member_name";
+	matchedValue: string;
+}): Promise<EmailResult> {
+	if (!resend) {
+		console.warn("[EmailService] Resend not configured. Re-applicant email not sent.");
+		return { success: false, error: "Resend not configured" };
+	}
+
+	const recipients = [...new Set([...alertRecipients, ...dataEntrantRecipients])];
+	if (recipients.length === 0) {
+		console.warn("[EmailService] No recipients for re-applicant alert. Email not sent.");
+		return { success: false, error: "No recipients configured" };
+	}
+
+	const matchLabel =
+		params.matchedOn === "id_number"
+			? "ID number"
+			: params.matchedOn === "board_member_id"
+				? "board member ID"
+				: params.matchedOn === "cellphone"
+					? "cellphone"
+					: params.matchedOn === "board_member_name"
+						? "board member name"
+						: "bank account";
+
+	const message = `A re-applicant was detected and the workflow has been automatically terminated.
+
+Company: ${params.companyName}
+Applicant ID: ${params.applicantId}
+Workflow ID: ${params.workflowId}
+
+Matched on: ${matchLabel}
+Matched value: ${params.matchedValue}
+
+The applicant was previously declined and has reapplied. They can contact Stratcol or support to resolve the issue.`;
+
+	try {
+		const emailHtml = await render(
+			<InternalAlert
+				title="Re-Applicant Denied — Workflow Terminated"
+				message={message}
+				workflowId={params.workflowId}
+				applicantId={params.applicantId}
+				type="warning"
+				actionUrl={`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/workflows/${params.workflowId}`}
+			/>
+		);
+
+		const { data, error } = await resend.emails.send({
+			from: fromEmail,
+			to: recipients,
+			subject: "[WARNING] Re-Applicant Denied — Workflow Terminated",
+			html: emailHtml,
+		});
+
+		if (error) {
+			console.error("[EmailService] Failed to send re-applicant alert:", error);
+			return { success: false, error: error.message };
+		}
+
+		return { success: true, messageId: data?.id || "unknown" };
+	} catch (error) {
+		console.error("[EmailService] Exception sending re-applicant email:", error);
 		return { success: false, error: String(error) };
 	}
 }

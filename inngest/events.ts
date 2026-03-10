@@ -593,6 +593,7 @@ export type Events = {
 			applicantId: number;
 			reason:
 				| "PROCUREMENT_DENIED"
+				| "RE_APPLICANT_DENIED"
 				| "COMPLIANCE_VIOLATION"
 				| "FRAUD_DETECTED"
 				| "TIMEOUT_TERMINATION"
