@@ -5,19 +5,19 @@
  * Renders the appropriate form based on the formType parameter
  */
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { RiArrowLeftLine, RiLoader4Line } from "@remixicon/react";
-import { DashboardLayout } from "@/components/dashboard";
-import { Button } from "@/components/ui/button";
-import {
-	StratcolAgreementForm,
-	FacilityApplicationForm,
-	Absa6995Form,
-	FicaUploadForm,
-} from "@/components/onboarding-forms";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { DashboardLayout } from "@/components/dashboard";
+import {
+	Absa6995Form,
+	FacilityApplicationForm,
+	FicaUploadForm,
+	StratcolAgreementForm,
+} from "@/components/onboarding-forms";
+import { Button } from "@/components/ui/button";
 
 // ============================================
 // Types
@@ -187,6 +187,7 @@ export default function FormPage({
 			onSubmit: handleSubmit,
 			onSaveDraft: handleSaveDraft,
 			readOnly: isReadOnly,
+			isSubmitting,
 		};
 
 		switch (formType) {
@@ -211,12 +212,14 @@ export default function FormPage({
 		<DashboardLayout
 			actions={
 				<div className="flex items-center gap-4">
+					{formTitle}
 					<Link href={`/dashboard/applications/${workflowId}/forms`}>
 						<Button variant="ghost" size="sm" className="gap-1.5">
 							<RiArrowLeftLine className="h-4 w-4" />
 							Back to Forms
 						</Button>
 					</Link>
+					form
 				</div>
 			}>
 			<div className="max-w-4xl mx-auto">{renderForm()}</div>

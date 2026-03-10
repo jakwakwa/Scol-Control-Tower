@@ -65,6 +65,8 @@ interface FicaUploadFormProps {
 		name: string;
 		role: "director" | "beneficial_owner" | "authorised_representative";
 	}>;
+	/** External submitting state */
+	isSubmitting?: boolean;
 }
 
 // ============================================
@@ -213,6 +215,7 @@ export function FicaUploadForm({
 	onFileUpload,
 	readOnly = false,
 	individuals = [],
+	isSubmitting: externalIsSubmitting = false,
 }: FicaUploadFormProps) {
 	const [currentStep, setCurrentStep] = React.useState(0);
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -316,7 +319,7 @@ export function FicaUploadForm({
 					onSubmit={handleSubmit(handleFormSubmit)}
 					onSaveDraft={onSaveDraft ? handleSaveDraft : undefined}
 					title="FICA & Support Documents"
-					isSubmitting={isSubmitting}
+					isSubmitting={isSubmitting || externalIsSubmitting}
 					storageKey={`fica-documents-${workflowId}`}
 					submitButtonText="Submit Documents">
 					{({ currentStep }) => (

@@ -10,25 +10,48 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/dashboard";
-import {
-	RiskReviewDetail,
-	type RiskReviewItem,
-	RiskReviewQueue,
-} from "@/components/dashboard/risk-review";
-import type { OverrideData } from "@/components/dashboard/risk-review/risk-review-queue";
+import { RiskEntitiesTable } from "@/components/dashboard/risk-entities-table";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getDecisionEndpoint } from "@/lib/utils";
 
+interface OverrideData {
+	overrideCategory?: string;
+	overrideSubcategory?: string;
+	overrideDetails?: string;
+}
+
+interface RiskReviewItem {
+	id: number;
+	applicantId: string;
+	decisionType: string;
+	targetResource: string;
+	reviewType: string;
+	stage: string;
+	anomalies?: string[];
+	procurementCheckFailed?: boolean;
+	procurementScore?: number;
+	procurementRecommendedAction?: string;
+	recommendation?: string;
+	procurementFailureReason?: string;
+	procurementFailureSource?: string;
+	procurementFailureGuidance?: string;
+	clientName: string;
+	companyName: string;
+	aiTrustScore?: number;
+	createdAt: string | Date;
+}
+
 export default function RiskReviewPage() {
 	const [searchTerm, setSearchTerm] = useState("");
-	const [items, setItems] = useState<RiskReviewItem[]>([]);
+	const [items, setItems] = useState([]);
 	const [isLoading, setIsLoading] = useState(true);
-	const [selectedItem, setSelectedItem] = useState<RiskReviewItem | null>(null);
-	const [isDetailOpen, setIsDetailOpen] = useState(false);
+	const [_selectedItem, setSelectedItem] = useState(null);
+	const [_isDetailOpen, setIsDetailOpen] = useState(false);
 	const [showHistory, setShowHistory] = useState(false);
 
-	const isProcurementReview = (item: RiskReviewItem): boolean =>
+	const isProcurementReview = (item: { reviewType: string }): boolean =>
 		item.reviewType === "procurement";
 
 	const normalizeProcurementRecommendation = (
@@ -49,11 +72,7 @@ export default function RiskReviewPage() {
 		return "MANUAL_REVIEW";
 	};
 
-	const submitDecision = async (
-		item: RiskReviewItem,
-		action: "approve" | "reject",
-		overrideData: OverrideData
-	) => {
+	const submitDecision = async (item, action: "approve" | "reject", overrideData) => {
 		const endpoint = getDecisionEndpoint({
 			decisionType: item.decisionType,
 			targetResource: item.targetResource,
@@ -169,7 +188,7 @@ export default function RiskReviewPage() {
 		fetchRiskReviewItems();
 	}, [fetchRiskReviewItems]);
 
-	const handleApprove = async (id: number, overrideData: OverrideData) => {
+	const _handleApprove = async (id: number, overrideData: OverrideData) => {
 		const item = items.find(i => i.id === id);
 		if (!item) {
 			toast.error("Workflow not found");
@@ -190,7 +209,7 @@ export default function RiskReviewPage() {
 		}
 	};
 
-	const handleReject = async (id: number, overrideData: OverrideData) => {
+	const _handleReject = async (id: number, overrideData: OverrideData) => {
 		const item = items.find(i => i.id === id);
 		if (!item) {
 			toast.error("Workflow not found");
@@ -211,13 +230,13 @@ export default function RiskReviewPage() {
 		}
 	};
 
-	const handleViewDetails = (item: RiskReviewItem) => {
+	const _handleViewDetails = (item: RiskReviewItem) => {
 		setSelectedItem(item);
 		setIsDetailOpen(true);
 	};
 
 	// Filter items based on search
-	const filteredItems = items.filter(
+	const _filteredItems = items.filter(
 		item =>
 			item.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			item.companyName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -275,30 +294,11 @@ export default function RiskReviewPage() {
 				</div>
 			</div>
 
-			{/* Risk Review Queue */}
-			<RiskReviewQueue
-				items={filteredItems}
-				isLoading={isLoading}
-				onApprove={handleApprove}
-				onReject={handleReject}
-				onViewDetails={handleViewDetails}
-				onRefresh={fetchRiskReviewItems}
-			/>
-
-			{/* Detail Sheet */}
-			<RiskReviewDetail
-				item={selectedItem}
-				open={isDetailOpen}
-				onOpenChange={setIsDetailOpen}
-				onApprove={async (id, overrideData) => {
-					await handleApprove(id, overrideData);
-					setIsDetailOpen(false);
-				}}
-				onReject={async (id, overrideData) => {
-					await handleReject(id, overrideData);
-					setIsDetailOpen(false);
-				}}
-			/>
+			{/* Applicant Entities Table */}
+			<div className="mt-8">
+				<h2 className="text-lg font-semibold mb-4">Applicant Entities</h2>
+				<RiskEntitiesTable />
+			</div>
 		</DashboardLayout>
 	);
 }

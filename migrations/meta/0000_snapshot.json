@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "9b6ae8f5-f905-49b6-b7cd-5e0f5cf4be43",
+  "id": "0b242729-58b2-4ea2-adce-2950f10b7a91",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "activity_logs": {
@@ -48,7 +48,7 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false,
-          "default": "'\"2026-02-19T21:50:17.238Z\"'"
+          "default": "'\"2026-03-10T17:44:36.366Z\"'"
         }
       },
       "indexes": {},
@@ -493,6 +493,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "related_failure_event_id": {
+          "name": "related_failure_event_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "consumed_for_retraining": {
           "name": "consumed_for_retraining",
           "type": "integer",
@@ -530,6 +537,19 @@
           "tableTo": "applicants",
           "columnsFrom": [
             "applicant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "ai_feedback_logs_related_failure_event_id_workflow_events_id_fk": {
+          "name": "ai_feedback_logs_related_failure_event_id_workflow_events_id_fk",
+          "tableFrom": "ai_feedback_logs",
+          "tableTo": "workflow_events",
+          "columnsFrom": [
+            "related_failure_event_id"
           ],
           "columnsTo": [
             "id"
@@ -859,6 +879,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "id_number": {
+          "name": "id_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "email": {
           "name": "email",
           "type": "text",
@@ -917,6 +944,13 @@
         },
         "mandate_volume": {
           "name": "mandate_volume",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "estimated_transactions_per_month": {
+          "name": "estimated_transactions_per_month",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
@@ -1067,6 +1101,13 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "file_content": {
+          "name": "file_content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "mime_type": {
@@ -1229,6 +1270,20 @@
         },
         "file_name": {
           "name": "file_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "file_content": {
+          "name": "file_content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mime_type": {
+          "name": "mime_type",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -1564,6 +1619,21 @@
           "notNull": false,
           "autoincrement": false,
           "default": false
+        },
+        "severity": {
+          "name": "severity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'medium'"
+        },
+        "group_key": {
+          "name": "group_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {},
@@ -1722,6 +1792,105 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "re_applicant_attempts": {
+      "name": "re_applicant_attempts",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "applicant_id": {
+          "name": "applicant_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "workflow_id": {
+          "name": "workflow_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "matched_deny_list_id": {
+          "name": "matched_deny_list_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "matched_on": {
+          "name": "matched_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "matched_value": {
+          "name": "matched_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "denied_at": {
+          "name": "denied_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "re_applicant_attempts_applicant_id_applicants_id_fk": {
+          "name": "re_applicant_attempts_applicant_id_applicants_id_fk",
+          "tableFrom": "re_applicant_attempts",
+          "tableTo": "applicants",
+          "columnsFrom": [
+            "applicant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "re_applicant_attempts_workflow_id_workflows_id_fk": {
+          "name": "re_applicant_attempts_workflow_id_workflows_id_fk",
+          "tableFrom": "re_applicant_attempts",
+          "tableTo": "workflows",
+          "columnsFrom": [
+            "workflow_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "re_applicant_attempts_matched_deny_list_id_workflow_termination_deny_list_id_fk": {
+          "name": "re_applicant_attempts_matched_deny_list_id_workflow_termination_deny_list_id_fk",
+          "tableFrom": "re_applicant_attempts",
+          "tableTo": "workflow_termination_deny_list",
+          "columnsFrom": [
+            "matched_deny_list_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "risk_assessments": {
       "name": "risk_assessments",
       "columns": {
@@ -1739,8 +1908,50 @@
           "notNull": true,
           "autoincrement": false
         },
+        "overall_score": {
+          "name": "overall_score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "overall_status": {
+          "name": "overall_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "overall_risk": {
           "name": "overall_risk",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "procurement_data": {
+          "name": "procurement_data",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "itc_data": {
+          "name": "itc_data",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sanctions_data": {
+          "name": "sanctions_data",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "fica_data": {
+          "name": "fica_data",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -1815,7 +2026,7 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false,
-          "default": "'\"2026-02-19T21:50:17.238Z\"'"
+          "default": "'\"2026-03-10T17:44:36.366Z\"'"
         }
       },
       "indexes": {},
@@ -2151,6 +2362,195 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "workflow_termination_deny_list": {
+      "name": "workflow_termination_deny_list",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "workflow_id": {
+          "name": "workflow_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "applicant_id": {
+          "name": "applicant_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "id_numbers": {
+          "name": "id_numbers",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "board_member_ids": {
+          "name": "board_member_ids",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cellphones": {
+          "name": "cellphones",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bank_accounts": {
+          "name": "bank_accounts",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "board_member_names": {
+          "name": "board_member_names",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "termination_reason": {
+          "name": "termination_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "terminated_at": {
+          "name": "terminated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "workflow_termination_deny_list_workflow_id_workflows_id_fk": {
+          "name": "workflow_termination_deny_list_workflow_id_workflows_id_fk",
+          "tableFrom": "workflow_termination_deny_list",
+          "tableTo": "workflows",
+          "columnsFrom": [
+            "workflow_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "workflow_termination_deny_list_applicant_id_applicants_id_fk": {
+          "name": "workflow_termination_deny_list_applicant_id_applicants_id_fk",
+          "tableFrom": "workflow_termination_deny_list",
+          "tableTo": "applicants",
+          "columnsFrom": [
+            "applicant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "workflow_termination_screening": {
+      "name": "workflow_termination_screening",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "deny_list_id": {
+          "name": "deny_list_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value_type": {
+          "name": "value_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "workflow_termination_screening_value_type_value_idx": {
+          "name": "workflow_termination_screening_value_type_value_idx",
+          "columns": [
+            "value_type",
+            "value"
+          ],
+          "isUnique": false
+        },
+        "workflow_termination_screening_deny_list_id_idx": {
+          "name": "workflow_termination_screening_deny_list_id_idx",
+          "columns": [
+            "deny_list_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "workflow_termination_screening_deny_list_id_workflow_termination_deny_list_id_fk": {
+          "name": "workflow_termination_screening_deny_list_id_workflow_termination_deny_list_id_fk",
+          "tableFrom": "workflow_termination_screening",
+          "tableTo": "workflow_termination_deny_list",
+          "columnsFrom": [
+            "deny_list_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "workflows": {
       "name": "workflows",
       "columns": {
@@ -2341,6 +2741,42 @@
         },
         "review_type": {
           "name": "review_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "decision_type": {
+          "name": "decision_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "target_resource": {
+          "name": "target_resource",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "state_lock_version": {
+          "name": "state_lock_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "state_locked_at": {
+          "name": "state_locked_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "state_locked_by": {
+          "name": "state_locked_by",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

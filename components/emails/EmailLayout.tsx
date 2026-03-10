@@ -9,7 +9,7 @@ import {
 	Tailwind,
 	Text,
 } from "@react-email/components";
-import * as React from "react";
+import type * as React from "react";
 
 interface EmailLayoutProps {
 	preview: string;
@@ -36,7 +36,7 @@ export const EmailLayout = ({ preview, children }: EmailLayoutProps) => {
 					<Container className="border border-solid border-[#eaeaea] rounded my-[40px] mx-auto p-[20px] max-w-[465px]">
 						<Section className="mt-[32px]">
 							<Img
-								src={`${process.env.NEXT_PUBLIC_APP_URL || 'https://stratcol-onboard-ai.vercel.app'}/assets/logo-dark.svg`}
+								src={`${process.env.NEXT_PUBLIC_APP_URL || "https://stratcol-onboard-ai.vercel.app"}/assets/control_tower_logo_.svg`}
 								width="150"
 								height="50"
 								alt="StratCol"

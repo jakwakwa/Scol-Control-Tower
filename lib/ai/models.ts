@@ -1,7 +1,7 @@
 /**
  * AI Models Configuration
  *
- * Uses Vercel AI SDK v6 with AI GoogleGenAI for centralized model access.
+ * Uses GoogleGenAI for centralized model access.
  * Requires GOOGLE_GENAI_KEY environment variable.
  *
  * Available models through the GoogleGenAI:

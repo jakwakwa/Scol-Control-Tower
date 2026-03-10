@@ -1,0 +1,5 @@
+-- Optional: Turso FTS index for workflow_termination_screening
+-- Run manually when Turso supports FTS (experimental as of 2026):
+--   CREATE INDEX idx_screening_value_fts ON workflow_termination_screening USING fts (value);
+-- This enables full-text search on screening values (id_number, board_member_id, cellphone,
+-- bank_account, board_member_name) for vertex/vector-style queries.

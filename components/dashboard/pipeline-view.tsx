@@ -176,7 +176,7 @@ export function PipelineView({ workflows }: { workflows: PipelineWorkflow[] }) {
 	);
 
 	return (
-		<div className="h-full overflow-x-auto  dotted-grid-container rounded-4xl border border-sidebar-border  m-0 shadow-[inset_-10px_-1px_10px_rgba(0,0,0,0.12)] bg-linear-to-br from-zinc-900 from-0% via-zinc-900/80 via-60% to-amber-950/10 to-95%">
+		<div className="h-full overflow-x-auto  dotted-grid-container rounded-4xl border border-sidebar-borde  m-0 shadow-[inset_-10px_-1px_10px_rgba(0,0,0,0.12)] bg-linear-to-br from-zinc-900 from-0% via-zinc-900/80 via-60% to-amber-950/10 to-95%">
 			{/* 6-column layout with reduced gaps for smaller screens */}
 			<div className="flex gap-3 min-w-[1400px] dotted-grid p-3">
 				{PIPELINE_STAGES.map(stage => (
