@@ -36,7 +36,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: bun ci
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
@@ -79,7 +79,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: bun ci
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
@@ -108,7 +108,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: bun ci
 
       - name: Download blob reports
         uses: actions/download-artifact@v4
@@ -147,7 +147,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: bun ci
 
       - name: Run tests
         run: npx playwright test
@@ -165,7 +165,7 @@ FROM mcr.microsoft.com/playwright:v1.40.0-jammy
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN bun ci
 
 COPY . .
 
@@ -363,14 +363,14 @@ test("login", async ({ page }) => {
     cache: "npm"
 
 - name: Install dependencies
-  run: npm ci
+  run: bun ci
 ```
 
 ## Best Practices
 
 | Practice                      | Benefit                   |
 | ----------------------------- | ------------------------- |
-| Use `npm ci`                  | Deterministic installs    |
+| Use `bun ci`                  | Deterministic installs    |
 | Run headless in CI            | Faster, no display needed |
 | Set retries in CI only        | Handle flakiness          |
 | Upload artifacts on failure   | Debug failures            |

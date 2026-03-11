@@ -13,7 +13,7 @@
 ### Project Setup
 
 ```bash
-npm init playwright@latest
+bun init playwright@latest
 ```
 
 ## Configuration
@@ -45,7 +45,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
+    command: "bun run dev",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
   },
@@ -113,7 +113,7 @@ test.describe("Checkout Flow", () => {
 Test individual components in isolation using Playwright Component Testing.
 
 ```bash
-npm init playwright@latest -- --ct
+bun init playwright@latest -- --ct
 ```
 
 For comprehensive component testing patterns including mounting, props, events, slots, mocking, and framework-specific examples (React, Vue, Svelte), see **[component-testing.md](component-testing.md)**.

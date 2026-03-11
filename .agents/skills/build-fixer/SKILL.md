@@ -12,7 +12,7 @@ Fix build and TypeScript errors quickly with minimal code changes. Get the build
 This skill activates when:
 - User says "fix the build", "build is broken"
 - TypeScript compilation fails
-- `npm run build` or `tsc` reports errors
+- `bun run build` or `tsc` reports errors
 - User requests "minimal fixes" for errors
 
 ## What It Does
@@ -21,7 +21,7 @@ Delegates to the `build-fixer` agent (Sonnet model) to:
 
 1. **Collect Errors**
    - Run `npx tsc --noEmit` to get all TypeScript errors
-   - Or run `npm run build` to get build failures
+   - Or run `bun run build` to get build failures
    - Categorize errors by type and severity
 
 2. **Fix Strategically**
@@ -70,7 +70,7 @@ Output: Build error resolution report with:
 
 The build-fixer agent stops when:
 - `npx tsc --noEmit` exits with code 0
-- `npm run build` completes successfully
+- `bun run build` completes successfully
 - No new errors introduced
 
 ## Output Format

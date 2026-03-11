@@ -15,7 +15,7 @@
 ### Installation
 
 ```bash
-npm install -D @playwright/test electron
+bun install -D @playwright/test electron
 ```
 
 ### Basic Configuration

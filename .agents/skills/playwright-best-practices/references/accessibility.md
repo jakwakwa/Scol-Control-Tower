@@ -13,7 +13,7 @@
 ### Setup
 
 ```bash
-npm install -D @axe-core/playwright
+bun install -D @axe-core/playwright
 ```
 
 ### Basic A11y Test

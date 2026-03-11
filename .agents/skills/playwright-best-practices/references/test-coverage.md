@@ -18,7 +18,7 @@
 # No additional dependencies needed
 
 # For Istanbul-based coverage (more features)
-npm install -D nyc @istanbuljs/nyc-config-typescript
+bun install -D nyc @istanbuljs/nyc-config-typescript
 ```
 
 ### Basic Configuration
@@ -223,7 +223,7 @@ npx nyc report --reporter=html --reporter=text --temp-dir=./coverage
 {
   "scripts": {
     "test": "playwright test",
-    "test:coverage": "playwright test && npm run coverage:report",
+    "test:coverage": "playwright test && bun run coverage:report",
     "coverage:report": "npx nyc report --reporter=html --reporter=lcov --temp-dir=./coverage"
   }
 }
@@ -458,11 +458,11 @@ jobs:
         with:
           node-version: 20
 
-      - run: npm ci
+      - run: bun ci
       - run: npx playwright install --with-deps
 
       - name: Run tests with coverage
-        run: npm run test:coverage
+        run: bun run test:coverage
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3

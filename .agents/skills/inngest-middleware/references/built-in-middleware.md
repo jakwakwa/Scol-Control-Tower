@@ -9,7 +9,7 @@ Inngest provides `dependencyInjectionMiddleware` as a built-in export from the `
 Install the package:
 
 ```bash
-npm install @inngest/middleware-encryption
+bun install @inngest/middleware-encryption
 ```
 
 ```typescript
@@ -151,7 +151,7 @@ const inngest = new Inngest({
 Install the package:
 
 ```bash
-npm install @inngest/middleware-sentry
+bun install @inngest/middleware-sentry
 ```
 
 Requires `@sentry/*@>=8.0.0` and `inngest@>=3.0.0`.

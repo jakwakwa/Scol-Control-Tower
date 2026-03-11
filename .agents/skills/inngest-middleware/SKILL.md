@@ -169,7 +169,7 @@ Beyond `dependencyInjectionMiddleware` (built-in, shown above), Inngest provides
 ### Encryption Middleware
 
 ```bash
-npm install @inngest/middleware-encryption
+bun install @inngest/middleware-encryption
 ```
 
 ```typescript
@@ -190,7 +190,7 @@ Automatically encrypts all step data, function output, and event `data.encrypted
 ### Sentry Error Tracking
 
 ```bash
-npm install @inngest/middleware-sentry
+bun install @inngest/middleware-sentry
 ```
 
 ```typescript

@@ -17,14 +17,14 @@ This skill sets up Inngest in a TypeScript project from scratch, covering instal
 
 ## Step 1: Install the Inngest SDK
 
-Install the `inngest` npm package in your project:
+Install the `inngest` bun package in your project:
 
 ```bash
-npm install inngest
+bun install inngest
 # or
 yarn add inngest
 # or
-pnpm add inngest
+pbun add inngest
 # or
 bun add inngest
 ```

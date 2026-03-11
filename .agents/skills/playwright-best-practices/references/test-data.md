@@ -157,7 +157,7 @@ const bigOrder = createOrder({
 ### Setup Faker
 
 ```bash
-npm install -D @faker-js/faker
+bun install -D @faker-js/faker
 ```
 
 ```typescript
