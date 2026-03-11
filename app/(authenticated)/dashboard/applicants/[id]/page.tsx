@@ -201,6 +201,14 @@ export default function ApplicantDetailPage() {
 	const [financialStatementNotes, setFinancialStatementNotes] = useState("");
 	const [killSwitchNotes, setKillSwitchNotes] = useState("");
 
+	// Two-factor approval state (Stage 6)
+	const [approvalLoading, setApprovalLoading] = useState<string | null>(null);
+	const [approvalMessage, setApprovalMessage] = useState<string | null>(null);
+
+	// Contract review state (Stage 5)
+	const [contractReviewLoading, setContractReviewLoading] = useState(false);
+	const [contractReviewMessage, setContractReviewMessage] = useState<string | null>(null);
+
 	// Confirmation dialog state
 	const [retryDialogOpen, setRetryDialogOpen] = useState(false);
 	const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
@@ -460,6 +468,54 @@ export default function ApplicantDetailPage() {
 		}
 	};
 
+	const handleContractReviewed = async () => {
+		if (!(workflow?.id && applicant)) return;
+		setContractReviewLoading(true);
+		setContractReviewMessage(null);
+		try {
+			const res = await fetch(`/api/workflows/${workflow.id}/contract/review`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ applicantId: applicant.id }),
+			});
+			const json = await res.json();
+			if (!res.ok) throw new Error(json.error || "Contract review failed");
+			setContractReviewMessage("Contract review recorded. Workflow advancing.");
+			await refreshApplicantData();
+		} catch (err) {
+			setContractReviewMessage(err instanceof Error ? err.message : "Failed");
+		} finally {
+			setContractReviewLoading(false);
+		}
+	};
+
+	const handleTwoFactorApproval = async (role: "risk_manager" | "account_manager") => {
+		if (!(workflow?.id && applicant)) return;
+		setApprovalLoading(role);
+		setApprovalMessage(null);
+		try {
+			const res = await fetch("/api/onboarding/approve", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					workflowId: workflow.id,
+					applicantId: applicant.id,
+					role,
+					decision: "APPROVED",
+				}),
+			});
+			const json = await res.json();
+			if (!res.ok) throw new Error(json.error || "Approval failed");
+			const label = role === "risk_manager" ? "Risk Manager" : "Account Manager";
+			setApprovalMessage(`${label} approval recorded.${json.bothApproved ? " Both approvals complete." : ""}`);
+			await refreshApplicantData();
+		} catch (err) {
+			setApprovalMessage(err instanceof Error ? err.message : "Approval failed");
+		} finally {
+			setApprovalLoading(null);
+		}
+	};
+
 	const handleDownloadDocument = (doc: ApplicantDocument) => {
 		if (doc.storageUrl) {
 			window.open(doc.storageUrl, "_blank");
@@ -650,17 +706,17 @@ export default function ApplicantDetailPage() {
 				actions={
 					<div className="flex gap-2">
 
-						{workflowStage === 5 ? (
-							<Link href={`/dashboard/applicants/${id}/agreement-form`}>
-								<Button size="sm" variant="outline">
-									Contract Review
-								</Button>
-							</Link>
-						) : (
-							<Button size="sm" variant="outline" disabled>
+					{workflowStage === 5 ? (
+						<Link href={`/dashboard/applicants/${id}/contract`}>
+							<Button size="sm" variant="outline">
 								Contract Review
 							</Button>
-						)}
+						</Link>
+					) : (
+						<Button size="sm" variant="outline" disabled>
+							Contract Review
+						</Button>
+					)}
 						<Button
 							size="sm"
 							className="bg-action hover:bg-action/85"
@@ -1334,6 +1390,68 @@ export default function ApplicantDetailPage() {
 											</GlassCard>
 										) : null;
 									})()}
+
+									{/* Contract Review (Stage 5) */}
+									<GlassCard className="mb-6 border-l-4 border-l-amber-500">
+										<h4 className="text-sm font-bold uppercase text-muted-foreground mb-2">
+											Contract Draft Review
+										</h4>
+										<p className="text-sm text-muted-foreground mb-4">
+											Confirm that the contract draft has been reviewed and is ready to send to the client.
+										</p>
+										<Button
+											onClick={handleContractReviewed}
+											disabled={contractReviewLoading}
+											className="gap-2 bg-amber-600 hover:bg-amber-700">
+											{contractReviewLoading ? (
+												<RiLoader4Line className="h-4 w-4 animate-spin" />
+											) : (
+												<RiFileTextLine className="h-4 w-4" />
+											)}
+											Mark Contract Reviewed
+										</Button>
+										{contractReviewMessage && (
+											<p className="mt-3 text-sm text-amber-700">{contractReviewMessage}</p>
+										)}
+									</GlassCard>
+
+									{/* Two-Factor Approval (Stage 6) */}
+									<GlassCard className="mb-6 border-l-4 border-l-blue-500">
+										<h4 className="text-sm font-bold uppercase text-muted-foreground mb-2">
+											Two-Factor Final Approval
+										</h4>
+										<p className="text-sm text-muted-foreground mb-4">
+											Both Risk Manager and Account Manager must approve to complete onboarding.
+										</p>
+										<div className="flex flex-wrap gap-3">
+											<Button
+												onClick={() => handleTwoFactorApproval("risk_manager")}
+												disabled={approvalLoading !== null}
+												className="gap-2 bg-teal-600 hover:bg-teal-700">
+												{approvalLoading === "risk_manager" ? (
+													<RiLoader4Line className="h-4 w-4 animate-spin" />
+												) : (
+													<RiShieldCheckLine className="h-4 w-4" />
+												)}
+												RM Approve
+											</Button>
+											<Button
+												onClick={() => handleTwoFactorApproval("account_manager")}
+												disabled={approvalLoading !== null}
+												className="gap-2 bg-blue-600 hover:bg-blue-700">
+												{approvalLoading === "account_manager" ? (
+													<RiLoader4Line className="h-4 w-4 animate-spin" />
+												) : (
+													<RiCheckLine className="h-4 w-4" />
+												)}
+												AM Approve
+											</Button>
+										</div>
+										{approvalMessage && (
+											<p className="mt-3 text-sm text-amber-700">{approvalMessage}</p>
+										)}
+									</GlassCard>
+
 									<div className="flex items-center justify-between">
 										<h3 className="font-bold text-slate-300 text-xl mt-4 pt-0 pl-4">
 											Quote Review

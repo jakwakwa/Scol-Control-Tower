@@ -1,4 +1,4 @@
-import type { RiskReviewData, SectionStatus } from "@/components/dashboard/risk-review/risk-review-detail";
+import type { RiskReviewData, SectionStatus } from "@/lib/risk-review/types";
 import type { RiskCheckRow } from "@/lib/services/risk-check.service";
 
 type ApplicantRow = {
@@ -200,6 +200,8 @@ export function buildReportData(
 		: null;
 
 	return {
+		workflowId: workflow?.id ?? 0,
+		applicantId,
 		globalData: {
 			transactionId,
 			generatedAt,

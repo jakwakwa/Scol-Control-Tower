@@ -2,9 +2,11 @@
 
 ## Learned User Preferences
 
-- Use bun (and bunx when needed) as the preferred package manager for all projects
+- Use bun as the preferred package manager and command runner; do not use bunx
+- For Playwright, default to `bun run test:e2e` exactly; avoid custom env/CLI overrides unless the user explicitly asks for them
 - Use Biome as the linter and formatter for TypeScript files and projects
-- Run `bun run build` and `bun run lint` after implementing changes to verify the solution works
+- Run `bun run build` and `bun run lint` after implementing changes unless the user explicitly asks to skip verification to preserve an in-progress runtime workflow
+- Avoid restarting active workflow/dev-server processes unless the user explicitly approves it
 - Implement large refactors as verification-gated waves, not one large parallel change; prove each wave before starting the next
 - Each wave should be small enough to fit inside an agent context window
 - Prefer safe, slower rollout cadence over maximum throughput; pause and verify ground truth when uncertainty arises
@@ -17,9 +19,11 @@
 - Database reset and migration renumbering is acceptable when the app is pre-production with no users
 - The repo uses Drizzle ORM with Turso (libSQL/SQLite), not Prisma; schema lives in `db/schema.ts`
 - Inngest is the workflow orchestration engine; `cancelOn` only interrupts between steps, not mid-step
-- The onboarding workflow has exactly 4 risk check families: PROCUREMENT, ITC, SANCTIONS, and FICA — stored in a dedicated `risk_check_results` table
+- The onboarding workflow has exactly 4 risk check families: PROCUREMENT, ITC, SANCTIONS, and FICA — stored in `risk_check_results`; they must run 100% independently with no bundling in shared step.run or Promise.all pairs
 - External sanctions ingestion is the intended primary signal; the manual compliance route at `/api/sanctions` is the fallback/override
 - The Stage 6 `AGREEMENT_CONTRACT` CEL predicate is the canonical contract signature gate (not Stage 5)
 - `terminateRun()` wraps `executeKillSwitch()` and always throws `NonRetriableError` to exit Inngest runs cleanly
 - `riskAssessments` is a derived aggregate/report snapshot, not the source of truth for per-check progress
-- Pre-existing test failures in `FormFacilitySubmittedSchema` are known and unrelated to current work
+- No combined AI overview in the risk-review critical path; risk manager summary uses client-side/runtime AI outside Inngest
+- Manually-created migration SQL files must be registered in `migrations/meta/_journal.json`; `drizzle-kit migrate` silently skips unregistered files
+- `scripts/drop-all-tables.ts` has a hardcoded table list — new tables must be added manually

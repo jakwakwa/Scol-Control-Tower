@@ -4,7 +4,7 @@ CREATE TABLE `activity_logs` (
 	`action` text NOT NULL,
 	`description` text NOT NULL,
 	`performed_by` text,
-	`created_at` integer DEFAULT '"2026-03-10T17:44:36.366Z"',
+	`created_at` integer DEFAULT '"2026-03-11T12:15:25.175Z"',
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -284,7 +284,30 @@ CREATE TABLE `risk_assessments` (
 	`reviewed_by` text,
 	`reviewed_at` integer,
 	`notes` text,
-	`created_at` integer DEFAULT '"2026-03-10T17:44:36.366Z"',
+	`created_at` integer DEFAULT '"2026-03-11T12:15:25.175Z"',
+	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE TABLE `risk_check_results` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`workflow_id` integer NOT NULL,
+	`applicant_id` integer NOT NULL,
+	`check_type` text NOT NULL,
+	`machine_state` text DEFAULT 'pending' NOT NULL,
+	`review_state` text DEFAULT 'pending' NOT NULL,
+	`provider` text,
+	`external_check_id` text,
+	`payload` text,
+	`raw_payload` text,
+	`error_details` text,
+	`started_at` integer,
+	`completed_at` integer,
+	`reviewed_by` text,
+	`reviewed_at` integer,
+	`review_notes` text,
+	`created_at` integer,
+	`updated_at` integer,
+	FOREIGN KEY (`workflow_id`) REFERENCES `workflows`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
