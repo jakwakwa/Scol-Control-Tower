@@ -214,7 +214,7 @@ const count = await page.getByRole("listitem").count();
 const exists = (await page.getByRole("button").count()) > 0;
 
 // Use Playwright Inspector
-// PWDEBUG=1 npx playwright test
+// PWDEBUG=1 bun run test:e2e:debug
 ```
 
 ## Common Issues & Solutions
