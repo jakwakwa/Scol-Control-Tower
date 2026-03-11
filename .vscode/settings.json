@@ -77,4 +77,5 @@
 	"[jsonc]": {
 		"editor.defaultFormatter": "vscode.json-language-features"
 	},
+	"git.ignoreLimitWarning": true,
 }
