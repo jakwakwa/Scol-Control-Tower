@@ -551,18 +551,43 @@ export async function executeStage3({
 			});
 		});
 
-		const clearanceEvent = await step.waitForEvent("wait-sanction-clearance", {
-			event: "sanction/cleared",
+		const adjudicationEvent = await step.waitForEvent("wait-sanction-adjudication", {
+			event: "sanction/adjudicated",
 			timeout: "30d",
 			match: "data.workflowId",
 		});
 
-		if (!clearanceEvent) {
+		if (!adjudicationEvent) {
 			return {
 				status: "terminated",
 				stage: 3,
-				reason: "Sanction clearance timed out",
+				reason: "Sanction adjudication timed out",
 			};
+		}
+
+		if (adjudicationEvent.data.action === "confirm") {
+			await step.run("sanction-confirmed-cleanup", async () => {
+				await logWorkflowEvent({
+					workflowId,
+					eventType: "sanctions_confirmed",
+					payload: {
+						officerId: adjudicationEvent.data.officerId,
+						reason: adjudicationEvent.data.reason,
+						confirmedAt: adjudicationEvent.data.timestamp,
+					},
+				});
+
+				// Perform any other cleanup here if needed
+				// e.g. Notify account manager, update internal audit logs, etc.
+			});
+
+			return terminateRun({
+				workflowId,
+				applicantId,
+				stage: 3,
+				reason: "COMPLIANCE_VIOLATION",
+				notes: `Sanction hit confirmed by officer ${adjudicationEvent.data.officerId}: ${adjudicationEvent.data.reason}`,
+			});
 		}
 
 		await step.run("resume-from-sanction-pause", async () => {
@@ -577,9 +602,9 @@ export async function executeStage3({
 
 			await updateRiskCheckMachineState(workflowId, "SANCTIONS", "completed", {
 				payload: {
-					clearedBy: clearanceEvent.data.officerId,
-					clearedAt: clearanceEvent.data.clearedAt,
-					clearanceReason: clearanceEvent.data.reason,
+					clearedBy: adjudicationEvent.data.officerId,
+					clearedAt: adjudicationEvent.data.timestamp,
+					clearanceReason: adjudicationEvent.data.reason,
 				},
 			});
 
@@ -587,9 +612,9 @@ export async function executeStage3({
 				workflowId,
 				eventType: "sanction_cleared",
 				payload: {
-					officerId: clearanceEvent.data.officerId,
-					reason: clearanceEvent.data.reason,
-					clearedAt: clearanceEvent.data.clearedAt,
+					officerId: adjudicationEvent.data.officerId,
+					reason: adjudicationEvent.data.reason,
+					clearedAt: adjudicationEvent.data.timestamp,
 				},
 			});
 		});

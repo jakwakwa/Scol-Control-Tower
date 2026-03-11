@@ -217,13 +217,14 @@ export async function POST(request: NextRequest) {
 			);
 
 			await inngest.send({
-				name: "sanction/cleared",
+				name: "sanction/adjudicated",
 				data: {
 					workflowId,
 					applicantId,
+					action: "clear",
 					officerId: userId,
 					reason,
-					clearedAt: new Date().toISOString(),
+					timestamp: new Date().toISOString(),
 				},
 			});
 
@@ -235,6 +236,7 @@ export async function POST(request: NextRequest) {
 			});
 		}
 
+		// Action === 'confirm'
 		await db
 			.update(applicants)
 			.set({ sanctionStatus: "confirmed_hit" })
@@ -248,16 +250,24 @@ export async function POST(request: NextRequest) {
 			"Sanction hit confirmed as true positive"
 		);
 
-		// Trigger kill switch so the active Inngest workflow run is cancelled immediately
-		await executeKillSwitch({
-			workflowId,
-			applicantId,
-			reason: "COMPLIANCE_VIOLATION",
-			decidedBy: userId,
-			notes: "Sanction hit confirmed as true positive by Compliance Officer",
+		// We no longer call executeKillSwitch here directly.
+		// Instead, we emit 'sanction/adjudicated' and let the workflow handle it.
+		// This allows for post-confirmation cleanup/logging within the Inngest run.
+
+		await inngest.send({
+			name: "sanction/adjudicated",
+			data: {
+				workflowId,
+				applicantId,
+				action: "confirm",
+				officerId: userId,
+				reason: "Sanction hit confirmed as true positive by Compliance Officer",
+				timestamp: new Date().toISOString(),
+			},
 		});
 
-		// Send Inngest event to terminate workflow
+		// We still send the legacy 'sanction/confirmed' for backward compatibility
+		// or other non-ControlTower listeners, but it won't cancel CT anymore.
 		await inngest.send({
 			name: "sanction/confirmed",
 			data: {
@@ -270,7 +280,7 @@ export async function POST(request: NextRequest) {
 
 		return NextResponse.json({
 			success: true,
-			message: "Sanction confirmed — workflow terminated",
+			message: "Sanction confirmed — workflow will process termination",
 			applicantId,
 			workflowId,
 		});

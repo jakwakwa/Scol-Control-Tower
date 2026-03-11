@@ -691,6 +691,18 @@ export type Events = {
 			confirmedAt: string;
 		};
 	};
+	
+	/** Unified sanction adjudication event (clear or confirm) */
+	"sanction/adjudicated": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			action: "clear" | "confirm";
+			officerId: string;
+			reason: string;
+			timestamp: string;
+		};
+	};
 
 	/** Escalation tier changed (Document Collection) */
 	"escalation/tier.changed": {

@@ -57,6 +57,7 @@ export interface LogEventParams {
 		| "documents_requested"
 		| "validation_completed"
 		| "sanctions_completed"
+		| "sanctions_confirmed"
 		| "sanction_cleared"
 		| "risk_analysis_completed"
 		| "risk_manager_review"

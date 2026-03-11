@@ -54,10 +54,6 @@ export const controlTowerWorkflow = inngest.createFunction(
 				event: "workflow/terminated",
 				match: "data.workflowId",
 			},
-			{
-				event: "sanction/confirmed",
-				match: "data.workflowId",
-			},
 		],
 	},
 	{ event: "onboarding/lead.created" },
