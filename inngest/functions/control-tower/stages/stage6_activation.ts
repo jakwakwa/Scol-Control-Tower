@@ -27,7 +27,6 @@ export async function executeStage6({
 	// Note: These variables were passed from earlier stages in the monolith.
 	// We handle them by asserting or fetching if missing, or passing them via context.data.
 	const mandateInfo = (context.mandateInfo || { businessType: "UNKNOWN" }) as any;
-	const aiAnalysis = (context.aiAnalysis || { scores: { aggregatedScore: 0 } }) as any;
 	// Risk Manager + Account Manager must both approve
 	// ================================================================
 
@@ -352,7 +351,6 @@ export async function executeStage6({
 				riskManagerApproval: riskManagerApproval.data.approvedBy,
 				accountManagerApproval: accountManagerApproval.data.approvedBy,
 				businessType: mandateInfo.businessType,
-				aiScore: aiAnalysis.scores.aggregatedScore,
 			},
 		});
 	});

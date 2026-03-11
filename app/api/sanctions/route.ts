@@ -13,9 +13,10 @@ import { and, desc, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getDatabaseClient } from "@/app/utils";
-import { aiAnalysisLogs, applicants, sanctionClearance, workflows } from "@/db/schema";
+import { applicants, riskCheckResults, sanctionClearance, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import { executeKillSwitch } from "@/lib/services/kill-switch.service";
+import { updateRiskCheckReviewState } from "@/lib/services/risk-check.service";
 
 // ============================================
 // Schemas
@@ -67,34 +68,30 @@ export async function GET(_request: NextRequest) {
 			.where(eq(applicants.sanctionStatus, "flagged"))
 			.orderBy(desc(applicants.createdAt));
 
-		// For each flagged applicant, fetch the sanctions agent analysis
 		const itemsWithDetails = await Promise.all(
 			flaggedApplicants.map(async app => {
-				// Get the sanctions agent output
-				const sanctionsAnalysis = await db
-					.select()
-					.from(aiAnalysisLogs)
-					.where(
-						and(
-							eq(aiAnalysisLogs.applicantId, app.applicantId),
-							eq(aiAnalysisLogs.agentName, "sanctions")
-						)
-					)
-					.orderBy(desc(aiAnalysisLogs.createdAt))
-					.limit(1);
+				let matchDetails: Record<string, unknown> | null = null;
+				let provider: string | null = null;
 
-				const analysis = sanctionsAnalysis[0];
-				let parsedOutput: Record<string, unknown> | null = null;
-				if (analysis?.rawOutput) {
-					try {
-						parsedOutput = JSON.parse(analysis.rawOutput);
-					} catch {
-						// Ignore parse errors
+				if (app.workflowId) {
+					const [sanctionsRow] = await db
+						.select()
+						.from(riskCheckResults)
+						.where(
+							and(
+								eq(riskCheckResults.workflowId, app.workflowId),
+								eq(riskCheckResults.checkType, "SANCTIONS")
+							)
+						)
+						.limit(1);
+
+					if (sanctionsRow?.payload) {
+						try {
+							matchDetails = JSON.parse(sanctionsRow.payload);
+						} catch { /* ignore */ }
+						provider = sanctionsRow.provider;
 					}
 				}
-
-				// Extract sanction match details from agent output
-				const matchDetails = parsedOutput as Record<string, unknown> | null;
 
 				return {
 					applicantId: app.applicantId,
@@ -110,18 +107,17 @@ export async function GET(_request: NextRequest) {
 					workflowId: app.workflowId,
 					workflowStatus: app.workflowStatus,
 					workflowStage: app.workflowStage,
-					// Sanctions agent details
 					sanctionListSource:
-						(matchDetails?.sanctionList as string) || "OFAC/UN 1267/FIC",
+						(matchDetails?.sanctionList as string) || provider || "OFAC/UN 1267/FIC",
 					matchConfidence: (matchDetails?.matchConfidence as number) || undefined,
 					matchedEntity: (matchDetails?.matchedEntity as string) || undefined,
 					matchedListId: (matchDetails?.listEntryId as string) || undefined,
 					adverseMediaCount: (matchDetails?.adverseMediaCount as number) || 0,
 					isPEP: matchDetails?.isPEP as boolean,
 					riskLevel: (matchDetails?.riskLevel as string) || "BLOCKED",
-					narrative: analysis?.narrative || undefined,
 					dataSource:
 						((matchDetails?.metadata as Record<string, unknown>)?.dataSource as string) ||
+						provider ||
 						null,
 					deepLinks: buildDeepLinks(matchDetails),
 				};
@@ -199,7 +195,6 @@ export async function POST(request: NextRequest) {
 		}
 
 		if (action === "clear") {
-			// Insert clearance record
 			await db.insert(sanctionClearance).values({
 				applicantId,
 				workflowId,
@@ -208,13 +203,19 @@ export async function POST(request: NextRequest) {
 				isFalsePositive,
 			});
 
-			// Update applicant status
 			await db
 				.update(applicants)
 				.set({ sanctionStatus: "clear" })
 				.where(eq(applicants.id, applicantId));
 
-			// Send Inngest event to resume workflow
+			await updateRiskCheckReviewState(
+				workflowId,
+				"SANCTIONS",
+				"approved",
+				userId,
+				reason
+			);
+
 			await inngest.send({
 				name: "sanction/cleared",
 				data: {
@@ -234,12 +235,18 @@ export async function POST(request: NextRequest) {
 			});
 		}
 
-		// action === "confirm"
-		// Update applicant status to confirmed_hit
 		await db
 			.update(applicants)
 			.set({ sanctionStatus: "confirmed_hit" })
 			.where(eq(applicants.id, applicantId));
+
+		await updateRiskCheckReviewState(
+			workflowId,
+			"SANCTIONS",
+			"rejected",
+			userId,
+			"Sanction hit confirmed as true positive"
+		);
 
 		// Trigger kill switch so the active Inngest workflow run is cancelled immediately
 		await executeKillSwitch({

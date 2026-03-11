@@ -110,9 +110,70 @@ export interface RiskReviewData {
 	};
 }
 
-// AI Service helpers have been extracted to Server Actions
+const MACHINE_STATE_CONFIG: Record<
+	SectionStatus["machineState"],
+	{ label: string; variant: "default" | "success" | "warning" | "danger" | "gold"; icon: string }
+> = {
+	pending: { label: "Pending", variant: "default", icon: "⏳" },
+	in_progress: { label: "In Progress", variant: "gold", icon: "⟳" },
+	completed: { label: "Complete", variant: "success", icon: "✓" },
+	failed: { label: "Failed", variant: "danger", icon: "✗" },
+	manual_required: { label: "Manual Review Required", variant: "warning", icon: "⚠" },
+};
 
-// --- Screen UI Components ---
+const REVIEW_STATE_CONFIG: Record<
+	SectionStatus["reviewState"],
+	{ label: string; variant: "default" | "success" | "warning" | "danger" }
+> = {
+	pending: { label: "Awaiting Review", variant: "default" },
+	acknowledged: { label: "Acknowledged", variant: "gold" as "default" },
+	approved: { label: "Approved", variant: "success" },
+	rejected: { label: "Rejected", variant: "danger" },
+	not_required: { label: "N/A", variant: "default" },
+};
+
+function SectionStatusBanner({ status, label }: { status?: SectionStatus; label: string }) {
+	if (!status || (status.machineState === "completed" && status.reviewState !== "pending")) {
+		return null;
+	}
+
+	const machineConfig = MACHINE_STATE_CONFIG[status.machineState];
+	const reviewConfig = REVIEW_STATE_CONFIG[status.reviewState];
+
+	const isTerminal = ["completed", "failed", "manual_required"].includes(status.machineState);
+
+	return (
+		<div
+			className={`flex flex-wrap items-center gap-3 px-4 py-3 mb-4 rounded-lg border text-sm ${
+				status.machineState === "failed"
+					? "bg-destructive/10 border-destructive/20"
+					: status.machineState === "manual_required"
+						? "bg-warning/10 border-warning/20"
+						: status.machineState === "in_progress"
+							? "bg-primary/5 border-primary/20"
+							: "bg-muted/30 border-border"
+			}`}>
+			<span className="font-medium text-foreground">
+				{machineConfig.icon} {label}: {machineConfig.label}
+			</span>
+			{isTerminal && status.reviewState !== "not_required" && (
+				<span className="text-muted-foreground">
+					| Review: {reviewConfig.label}
+				</span>
+			)}
+			{status.provider && (
+				<span className="text-xs text-muted-foreground">
+					Provider: {status.provider}
+				</span>
+			)}
+			{status.errorDetails && (
+				<span className="text-xs text-destructive-foreground">
+					{status.errorDetails}
+				</span>
+			)}
+		</div>
+	);
+}
 
 const Badge = ({
 	children,
@@ -212,7 +273,6 @@ const ScoreGauge = ({
 	);
 };
 
-// --- Printable Master Report Component (Hidden on Screen) ---
 const PrintableAuditReport = ({
 	aiSummary,
 	data,
@@ -239,7 +299,6 @@ const PrintableAuditReport = ({
 				</div>
 			</div>
 
-			{/* AI Executive Summary injected into PDF if available */}
 			{aiSummary && (
 				<div className="mb-8 border-2 border-indigo-900 bg-indigo-50 p-4 rounded-sm">
 					<h2 className="text-lg font-bold uppercase border-b border-indigo-200 pb-1 mb-3 text-indigo-900">
@@ -490,13 +549,10 @@ const PrintableAuditReport = ({
 	);
 };
 
-// --- Main App Component ---
-
 function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 	const [primaryTab, setPrimaryTab] = useState("procurement");
 	const [activeSubTab, setActiveSubTab] = useState("overview");
 
-	// AI Feature States
 	const [aiSummary, setAiSummary] = useState<string | null>(null);
 	const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
 	const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -565,7 +621,6 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 
 	return (
 		<>
-			{/* Screen UI */}
 			<div className="min-h-screen card-form text-foreground font-sans p-4 md:p-8 selection:bg-primary/30 print:hidden">
 				<div className="max-w-6xl mx-auto space-y-6">
 					<header className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-6 border-b border-border">
@@ -612,7 +667,6 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 						</div>
 					</header>
 
-					{/* AI Executive Summary Card */}
 					{(isGeneratingSummary || aiSummary || summaryError) && (
 						<div className="animate-in fade-in slide-in-from-top-4 duration-500">
 							<div className="relative p-1 rounded-xl bg-linear-to-r from-violet-400/10 via-indigo-700/20 to-purple-900/05 bg-size-[200%_auto] animate-gradient-x border-teal-900">
@@ -648,7 +702,6 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 						</div>
 					)}
 
-					{/* Global Summary Row */}
 					<div className="grid grid-cols-1 md:grid-cols-4 gap-6">
 						<Card className="col-span-1 md:col-span-3 p-6 flex flex-col justify-center">
 							<div className="flex items-center gap-4 mb-4">
@@ -687,7 +740,6 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 						</Card>
 					</div>
 
-					{/* Primary Navigation (Pills) */}
 					<div className="flex flex-wrap gap-4 py-2">
 						{tabs.map(tab => (
 							<Button
@@ -709,11 +761,13 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 						))}
 					</div>
 
-					{/* Dynamic Content Area */}
 					<div className="mt-6">
-						{/* PROCUREMENT VIEW */}
 						{primaryTab === "procurement" && (
 							<div className="space-y-6 animate-in fade-in duration-500">
+								<SectionStatusBanner
+									status={data.sectionStatuses?.procurement}
+									label="Procurement"
+								/>
 								{procurementData.riskAlerts.length > 0 && (
 									<div className="space-y-3">
 										<h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
@@ -869,9 +923,12 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 							</div>
 						)}
 
-						{/* ITC VIEW */}
 						{primaryTab === "itc" && (
 							<div className="space-y-6 animate-in fade-in duration-500">
+								<SectionStatusBanner
+									status={data.sectionStatuses?.itc}
+									label="ITC Credit"
+								/>
 								<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 									<Card className="col-span-1 p-6 flex flex-col items-center justify-center bg-muted/30">
 										<ScoreGauge
@@ -938,9 +995,12 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 							</div>
 						)}
 
-						{/* SANCTIONS VIEW */}
 						{primaryTab === "sanctions" && (
 							<div className="space-y-6 animate-in fade-in duration-500">
+								<SectionStatusBanner
+									status={data.sectionStatuses?.sanctions}
+									label="Sanctions & AML"
+								/>
 								<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
 									<Card className="p-5 flex items-center justify-between">
 										<div>
@@ -1001,7 +1061,6 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 													</div>
 
 													<div className="flex gap-2">
-														{/* AI Action Button for specific alert */}
 														<Button
 															onClick={() => _handleAnalyzeMedia(idx, alert)}
 															disabled={analyzingMediaId === idx}
@@ -1019,7 +1078,6 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 													</div>
 												</div>
 
-												{/* Expandable AI Analysis Result */}
 												{mediaAnalyses[idx] && (
 													<div className="mt-4 p-3 bg-primary/5 border border-primary/20 rounded-md text-sm text-foreground animate-in slide-in-from-top-2">
 														<p className="flex items-center gap-2 mb-1 font-medium text-primary">
@@ -1035,9 +1093,12 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 							</div>
 						)}
 
-						{/* FICA VIEW */}
 						{primaryTab === "fica" && (
 							<div className="space-y-6 animate-in fade-in duration-500">
+								<SectionStatusBanner
+									status={data.sectionStatuses?.fica}
+									label="FICA / KYC"
+								/>
 								<div className="flex items-center justify-between bg-muted/30 p-4 rounded-xl border border-border">
 									<div className="flex items-center gap-3">
 										<FileCheck className="w-5 h-5 text-chart-4" />
@@ -1178,11 +1239,6 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 				</div>
 			</div>
 
-			{/* Printable Report (Receives AI Summary */}
-			<div className="hidden">
-				<PrintableAuditReport aiSummary={aiSummary} data={data} />
-			</div>
-			{/* Printable Report (Receives AI Summary */}
 			<div className="hidden">
 				<PrintableAuditReport aiSummary={aiSummary} data={data} />
 			</div>

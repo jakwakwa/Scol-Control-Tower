@@ -6,7 +6,7 @@ import { getDatabaseClient } from "@/app/utils";
 import { DashboardLayout } from "@/components/dashboard";
 import { RiskReviewDetail } from "@/components/dashboard/risk-review";
 import { Button } from "@/components/ui/button";
-import { applicants, riskAssessments, workflows } from "@/db/schema";
+import { applicants, riskCheckResults, workflows } from "@/db/schema";
 import { buildReportData } from "@/lib/risk-review/build-report-data";
 
 export default async function RiskReviewReportPage({
@@ -26,13 +26,8 @@ export default async function RiskReviewReportPage({
 		throw new Error("Database connection failed");
 	}
 
-	const [applicantRows, assessmentRows, workflowRows] = await Promise.all([
+	const [applicantRows, workflowRows] = await Promise.all([
 		db.select().from(applicants).where(eq(applicants.id, applicantId)).limit(1),
-		db
-			.select()
-			.from(riskAssessments)
-			.where(eq(riskAssessments.applicantId, applicantId))
-			.limit(1),
 		db
 			.select({
 				id: workflows.id,
@@ -46,14 +41,20 @@ export default async function RiskReviewReportPage({
 	]);
 
 	const applicant = applicantRows[0] ?? null;
-	const riskAssessment = assessmentRows[0] ?? null;
 	const workflow = workflowRows[0] ?? null;
 
 	if (!applicant) {
 		notFound();
 	}
 
-	const reportData = buildReportData(applicant, riskAssessment, workflow);
+	const riskChecks = workflow
+		? await db
+				.select()
+				.from(riskCheckResults)
+				.where(eq(riskCheckResults.workflowId, workflow.id))
+		: [];
+
+	const reportData = buildReportData(applicant, workflow, riskChecks);
 
 	return (
 		<DashboardLayout

@@ -27,6 +27,7 @@ import { sendReApplicantDeniedEmail } from "@/lib/services/email.service";
 import { executeKillSwitch } from "@/lib/services/kill-switch.service";
 import { logWorkflowEvent } from "@/lib/services/notification-events.service";
 import { terminateRun } from "@/lib/services/terminate-run.service";
+import { ensureRiskChecksExist } from "@/lib/services/risk-check.service";
 import { LeadCreatedSchema } from "@/lib/validations/control-tower/onboarding-schemas";
 import { validatePerimeter } from "@/lib/validations/control-tower/perimeter-validation";
 import { inngest } from "../client";
@@ -164,6 +165,10 @@ export const controlTowerWorkflow = inngest.createFunction(
 			});
 			return; // Terminate workflow run
 		}
+
+		await step.run("seed-risk-check-rows", () =>
+			ensureRiskChecksExist(workflowId, applicantId)
+		);
 
 		console.info("[ControlTower] Routing to Modular Orchestrator");
 		const { runControlTowerOrchestrator } = await import(

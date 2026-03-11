@@ -8,6 +8,7 @@ import {
 	createWorkflowNotification,
 	logWorkflowEvent,
 } from "@/lib/services/notification-events.service";
+import { getHybridGateStatus } from "@/lib/services/risk-check.service";
 import { terminateRun } from "@/lib/services/terminate-run.service";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 import { guardKillSwitch, notifyApplicantDecline } from "../helpers";
@@ -18,29 +19,33 @@ export async function executeStage4({
 	context,
 }: StageDependencies): Promise<StageResult> {
 	const { workflowId, applicantId } = context;
-	const aiAnalysis = context.aiAnalysis as any;
-	// Risk Manager final analysis review (NO auto-approve bypass per SOP)
-	// ================================================================
 
 	await step.run("stage-4-start", async () => {
 		await guardKillSwitch(workflowId, "stage-4-start");
 		return updateWorkflowStatus(workflowId, "processing", 4);
 	});
 
-	// Always require Risk Manager review per SOP (no auto-approve)
+	const gateStatus = await step.run("read-hybrid-gate", () =>
+		getHybridGateStatus(workflowId)
+	);
+
+	const checkSummary = gateStatus.checks
+		.map(c => `${c.checkType}: ${c.machineState}`)
+		.join(", ");
+
 	await step.run("notify-final-review", async () => {
 		await createWorkflowNotification({
 			workflowId,
 			applicantId,
 			type: "warning",
 			title: "Risk Manager Review Required",
-			message: `Aggregated AI score: ${aiAnalysis.scores.aggregatedScore}%. Recommendation: ${aiAnalysis.overall.recommendation}. Flags: ${aiAnalysis.overall.flags.join(", ") || "None"}`,
+			message: `All risk checks complete. Status: ${checkSummary}. Risk Manager must review and approve each section.`,
 			actionable: true,
 		});
 
 		await sendInternalAlertEmail({
 			title: "Risk Manager Review Required",
-			message: `Application requires Risk Manager final review.\nAggregated Score: ${aiAnalysis.scores.aggregatedScore}%\nRecommendation: ${aiAnalysis.overall.recommendation}\nFlags: ${aiAnalysis.overall.flags.join(", ") || "None"}`,
+			message: `Application requires Risk Manager final review.\nCheck results: ${checkSummary}`,
 			workflowId,
 			applicantId,
 			type: "warning",

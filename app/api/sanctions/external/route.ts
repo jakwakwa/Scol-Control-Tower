@@ -1,25 +1,10 @@
-/**
- * External Sanctions Ingress
- *
- * POST /api/sanctions/external
- *
- * Provider-agnostic ingress for sanctions check results.
- * Validates against the canonical schema, deduplicates by externalCheckId,
- * logs structured failures, and routes blocking outcomes through the
- * kill-switch path.
- *
- * Feature-flagged by provider: only enabled providers are accepted.
- * The manual compliance route at /api/sanctions remains the fallback.
- */
-
 import { and, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants, workflowEvents } from "@/db/schema";
-import { inngest } from "@/inngest/client";
-import { executeKillSwitch } from "@/lib/services/kill-switch.service";
-import { logWorkflowEvent } from "@/lib/services/notification-events.service";
 import { requireAuthOrBearer } from "@/lib/auth/api-auth";
+import { logWorkflowEvent } from "@/lib/services/notification-events.service";
+import { updateRiskCheckMachineState } from "@/lib/services/risk-check.service";
 import {
 	ExternalSanctionsIngressSchema,
 	type SanctionsProvider,
@@ -99,7 +84,6 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Idempotency: dedupe by externalCheckId stored in event payload
 		const existing = await db
 			.select({ id: workflowEvents.id })
 			.from(workflowEvents)
@@ -141,63 +125,46 @@ export async function POST(request: NextRequest) {
 			actorId: data.externalCheckId,
 		});
 
-		if (data.isBlocked) {
-			await db
-				.update(applicants)
-				.set({ sanctionStatus: "flagged" })
-				.where(eq(applicants.id, data.applicantId));
+		const isBlockingOutcome = data.isBlocked || data.riskLevel === "BLOCKED";
+		const requiresReview =
+			!data.passed || data.riskLevel === "HIGH" || data.isPEP || data.requiresEDD;
 
-			await executeKillSwitch({
-				workflowId: data.workflowId,
-				applicantId: data.applicantId,
-				reason: "SANCTIONS_EXTERNAL_BLOCKED",
-				decidedBy: `system:${data.provider}`,
-				notes: `External sanctions check blocked. Provider: ${data.provider}, Check ID: ${data.externalCheckId}`,
-			});
+		const machineState = isBlockingOutcome || requiresReview
+			? ("manual_required" as const)
+			: ("completed" as const);
 
-			return NextResponse.json({
-				success: true,
-				action: "blocked_and_terminated",
-				workflowId: data.workflowId,
-				provider: data.provider,
-				externalCheckId: data.externalCheckId,
-			});
-		}
-
-		if (!data.passed || data.riskLevel === "HIGH" || data.riskLevel === "BLOCKED") {
-			await db
-				.update(applicants)
-				.set({ sanctionStatus: "flagged" })
-				.where(eq(applicants.id, data.applicantId));
-
-			return NextResponse.json({
-				success: true,
-				action: "flagged_for_adjudication",
-				workflowId: data.workflowId,
-				provider: data.provider,
-				externalCheckId: data.externalCheckId,
-			});
-		}
+		await updateRiskCheckMachineState(data.workflowId, "SANCTIONS", machineState, {
+			provider: data.provider,
+			externalCheckId: data.externalCheckId,
+			payload: {
+				passed: data.passed,
+				isBlocked: data.isBlocked,
+				riskLevel: data.riskLevel,
+				isPEP: data.isPEP,
+				requiresEDD: data.requiresEDD,
+				adverseMediaCount: data.adverseMediaCount,
+				matchDetails: data.matchDetails,
+				checkedAt: data.checkedAt,
+			},
+			rawPayload: data.rawPayload ?? undefined,
+		});
 
 		await db
 			.update(applicants)
-			.set({ sanctionStatus: "clear" })
+			.set({
+				sanctionStatus: machineState === "completed" ? "clear" : "flagged",
+			})
 			.where(eq(applicants.id, data.applicantId));
 
-		await inngest.send({
-			name: "sanction/cleared",
-			data: {
-				workflowId: data.workflowId,
-				applicantId: data.applicantId,
-				officerId: `system:${data.provider}`,
-				reason: `Automated clearance via ${data.provider} (check: ${data.externalCheckId})`,
-				clearedAt: data.checkedAt,
-			},
-		});
+		const action = isBlockingOutcome
+			? "blocked_for_review"
+			: requiresReview
+				? "flagged_for_review"
+				: "cleared";
 
 		return NextResponse.json({
 			success: true,
-			action: "cleared",
+			action,
 			workflowId: data.workflowId,
 			provider: data.provider,
 			externalCheckId: data.externalCheckId,

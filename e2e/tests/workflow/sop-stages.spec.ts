@@ -4,7 +4,7 @@
  * Tests the SOP-aligned 6-stage onboarding flow:
  * Stage 1: Lead Capture
  * Stage 2: Facility & Quote
- * Stage 3: Procurement & AI
+ * Stage 3: Independent Risk Checks
  * Stage 4: Risk Review
  * Stage 5: Contract
  * Stage 6: Final Approval (Two-Factor)
@@ -117,7 +117,7 @@ test.describe("SOP Workflow — API Endpoints", () => {
 			expect(data).toHaveProperty("count");
 			expect(Array.isArray(data.items)).toBeTruthy();
 
-			// If items exist, they should have Reporter Agent fields
+			// If items exist, verify core API contract fields
 			if (data.items.length > 0) {
 				const item = data.items[0];
 				expect(item).toHaveProperty("workflowId");

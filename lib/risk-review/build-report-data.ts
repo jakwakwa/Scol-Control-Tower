@@ -10,16 +10,6 @@ type ApplicantRow = {
 	entityType: string | null;
 };
 
-type RiskAssessmentRow = {
-	overallScore: number | null;
-	overallStatus: string | null;
-	procurementData: string | null;
-	itcData: string | null;
-	sanctionsData: string | null;
-	ficaData: string | null;
-	createdAt: Date | null;
-};
-
 type WorkflowRow = {
 	id: number;
 	applicantId: number;
@@ -176,64 +166,45 @@ function buildSectionStatus(check: RiskCheckRow | undefined): SectionStatus {
 
 export function buildReportData(
 	applicant: ApplicantRow | null,
-	riskAssessment: RiskAssessmentRow | null,
 	workflow: WorkflowRow | null,
-	riskChecks?: RiskCheckRow[]
+	riskChecks: RiskCheckRow[]
 ): RiskReviewData {
 	const applicantId = applicant?.id ?? 0;
 	const transactionId = workflow?.id ? `workflow-${workflow.id}` : `risk-${applicantId}`;
-	const generatedAt = (() => {
-		const ts = riskAssessment?.createdAt ?? workflow?.startedAt;
-		return ts ? new Date(ts).toISOString() : new Date().toISOString();
-	})();
-	const overallStatus = riskAssessment?.overallStatus ?? "PENDING";
-	const overallRiskScore = riskAssessment?.overallScore ?? 0;
+	const generatedAt = workflow?.startedAt
+		? new Date(workflow.startedAt).toISOString()
+		: new Date().toISOString();
 
 	const checkMap = new Map(
-		(riskChecks ?? []).map(c => [c.checkType, c])
+		riskChecks.map(c => [c.checkType, c])
 	);
 
 	const procCheck = checkMap.get("PROCUREMENT");
-	const procPayload = procCheck?.payload
+	const procurementParsed = procCheck?.payload
 		? safeJsonParse<Partial<RiskReviewData["procurementData"]>>(procCheck.payload, null)
 		: null;
-	const procurementParsed = procPayload ?? safeJsonParse<Partial<
-		RiskReviewData["procurementData"]
-	> | null>(riskAssessment?.procurementData ?? null, null);
 
 	const itcCheck = checkMap.get("ITC");
-	const itcPayload = itcCheck?.payload
+	const itcParsed = itcCheck?.payload
 		? safeJsonParse<Partial<RiskReviewData["itcData"]>>(itcCheck.payload, null)
 		: null;
-	const itcParsed = itcPayload ?? safeJsonParse<Partial<RiskReviewData["itcData"]> | null>(
-		riskAssessment?.itcData ?? null,
-		null
-	);
 
 	const sancCheck = checkMap.get("SANCTIONS");
-	const sancPayload = sancCheck?.payload
+	const sanctionsParsed = sancCheck?.payload
 		? safeJsonParse<Partial<RiskReviewData["sanctionsData"]>>(sancCheck.payload, null)
 		: null;
-	const sanctionsParsed = sancPayload ?? safeJsonParse<Partial<RiskReviewData["sanctionsData"]> | null>(
-		riskAssessment?.sanctionsData ?? null,
-		null
-	);
 
 	const ficaCheck = checkMap.get("FICA");
-	const ficaPayload = ficaCheck?.payload
+	const ficaParsed = ficaCheck?.payload
 		? safeJsonParse<Partial<RiskReviewData["ficaData"]>>(ficaCheck.payload, null)
 		: null;
-	const ficaParsed = ficaPayload ?? safeJsonParse<Partial<RiskReviewData["ficaData"]> | null>(
-		riskAssessment?.ficaData ?? null,
-		null
-	);
 
 	return {
 		globalData: {
 			transactionId,
 			generatedAt,
-			overallStatus,
-			overallRiskScore,
+			overallStatus: "PENDING",
+			overallRiskScore: 0,
 			entity: {
 				name: applicant?.companyName ?? "Unknown",
 				tradingAs: applicant?.tradingName ?? undefined,

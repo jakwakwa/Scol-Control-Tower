@@ -112,7 +112,7 @@ describe("Inngest Event Validation Schemas", () => {
 				workflowId: 1,
 				applicantId: 2,
 				submissionId: 3,
-				formData: { mandateVolume: 100000 },
+				formData: { mandateVolume: 100000, mandateType: "EFT", businessType: "SOLE_PROPRIETOR" },
 				submittedAt: "2026-03-03T10:00:00Z",
 			};
 			expect(() => FormFacilitySubmittedSchema.parse(data)).not.toThrow();
@@ -126,7 +126,8 @@ describe("Inngest Event Validation Schemas", () => {
 				formData: {
 					mandateVolume: 100000,
 					mandateType: "EFT",
-					nested: { key: "value" },
+					businessType: "CLOSE_CORPORATION",
+					facilityApplicationData: { key: "value" },
 				},
 				submittedAt: "2026-03-03T10:00:00Z",
 			};

@@ -71,20 +71,13 @@ export interface LogEventParams {
 		| "stale_data_flagged"
 		| "state_lock_acquired"
 		| "re_applicant_denied"
-		| "sanctions_ingress_received";
+		| "sanctions_ingress_received"
+		| "fica_check_completed";
 	payload: object;
 	actorType?: "user" | "agent" | "platform";
 	actorId?: string;
 }
 
-/**
- * Create a notification in the Control Tower UI.
- *
- * Tiered behaviour:
- * - low severity: no notification created (log-only via caller)
- * - medium severity with groupKey: upserts into an existing group summary
- * - high/critical severity: always creates a new notification
- */
 export async function createWorkflowNotification(
 	params: CreateNotificationParams
 ): Promise<void> {
@@ -96,7 +89,6 @@ export async function createWorkflowNotification(
 
 	const severity = params.severity ?? "medium";
 
-	// Low severity: no dashboard notification — caller should log only
 	if (severity === "low") {
 		console.info(
 			`[NotificationEvents] Low severity — skipping notification: ${params.title}`
@@ -105,7 +97,6 @@ export async function createWorkflowNotification(
 	}
 
 	try {
-		// Medium severity with groupKey: batch into a single summary notification
 		if (severity === "medium" && params.groupKey) {
 			const existing = await db
 				.select()
@@ -125,13 +116,11 @@ export async function createWorkflowNotification(
 						createdAt: new Date(),
 					})
 					.where(eq(notifications.id, current.id));
-				// Broadcast update to connected clients
 				broadcast({ type: "update", notificationId: current.id });
 				return;
 			}
 		}
 
-		// Insert new notification and broadcast
 		const result = await db
 			.insert(notifications)
 			.values([
@@ -157,9 +146,6 @@ export async function createWorkflowNotification(
 	}
 }
 
-/**
- * Log a workflow event to the activity feed
- */
 export async function logWorkflowEvent(params: LogEventParams): Promise<void> {
 	const db = getDatabaseClient();
 	if (!db) {
