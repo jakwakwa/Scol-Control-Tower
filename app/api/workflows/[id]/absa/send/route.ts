@@ -7,8 +7,11 @@ import { applicants, documentUploads, workflows } from "@/db/schema";
 import { sendAbsaPacketEmail } from "@/lib/services/email.service";
 import {
 	createWorkflowNotification,
-	logWorkflowEvent,
 } from "@/lib/services/notification-events.service";
+import {
+	logWorkflowEventOnce,
+	markStage5GateOnce,
+} from "@/lib/services/workflow-command.service";
 
 const SendAbsaSchema = z.object({
 	applicantId: z.number().int().positive(),
@@ -97,13 +100,29 @@ export async function POST(
 			);
 		}
 
-		await logWorkflowEvent({
+		const applied = await markStage5GateOnce({
+			workflowId,
+			gate: "absa_packet_sent",
+			actorId: userId,
+		});
+		if (!applied) {
+			return NextResponse.json({
+				success: true,
+				workflowId,
+				applicantId,
+				message: "ABSA packet was already sent for this workflow",
+				alreadySent: true,
+			});
+		}
+
+		const sentAt = new Date().toISOString();
+		await logWorkflowEventOnce({
 			workflowId,
 			eventType: "absa_packet_sent",
 			payload: {
 				documentUploadId,
 				sentBy: userId,
-				sentAt: new Date().toISOString(),
+				sentAt,
 				targetEmail: process.env.ABSA_TEST_EMAIL ?? "(configured)",
 			},
 			actorType: "user",
@@ -124,6 +143,7 @@ export async function POST(
 			workflowId,
 			applicantId,
 			message: "ABSA packet sent successfully",
+			alreadySent: false,
 		});
 	} catch (error) {
 		console.error("[AbsaSend] Error:", error);

@@ -200,28 +200,8 @@ export async function GET(
 			}
 
 			// ABSA contract flow state for Stage 5
-			const [contractReviewedRows, absaPacketSentRows, absaFormRows, absaDocRows] =
+			const [absaFormRows, absaDocRows] =
 				await Promise.all([
-					db
-						.select()
-						.from(workflowEvents)
-						.where(
-							and(
-								eq(workflowEvents.workflowId, latestWorkflow.id),
-								eq(workflowEvents.eventType, "contract_draft_reviewed")
-							)
-						)
-						.limit(1),
-					db
-						.select()
-						.from(workflowEvents)
-						.where(
-							and(
-								eq(workflowEvents.workflowId, latestWorkflow.id),
-								eq(workflowEvents.eventType, "absa_packet_sent")
-							)
-						)
-						.limit(1),
 					db
 						.select()
 						.from(internalForms)
@@ -255,8 +235,8 @@ export async function GET(
 				absaSubmission = sub ?? null;
 			}
 
-			contractReviewed = contractReviewedRows.length > 0;
-			absaPacketSent = absaPacketSentRows.length > 0;
+			contractReviewed = Boolean(latestWorkflow.contractDraftReviewedAt);
+			absaPacketSent = Boolean(latestWorkflow.absaPacketSentAt);
 			absaFormData = absaForm
 				? {
 						form: { id: absaForm.id, status: absaForm.status },

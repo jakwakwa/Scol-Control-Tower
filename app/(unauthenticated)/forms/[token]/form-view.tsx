@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import DecisionActions from "@/components/forms/decision-actions";
 import styles from "@/components/forms/external/external-form-theme.module.css";
 import FormRenderer from "@/components/forms/form-renderer";
 import FormStatusMessage from "@/components/forms/form-status-message";
 import type { FormType } from "@/lib/types";
 import { formContent } from "./content";
+import { toast } from "sonner";
 
 interface FormViewProps {
 	token: string;
@@ -43,6 +44,8 @@ export default function FormView({
 	const hasResponded = initialDecisionStatus === "responded" || Boolean(decisionOutcome);
 	const isDecisionEnabled = Boolean(decisionConfig?.enabled);
 	const isSubmittedOnly = initialFormStatus === "submitted" && !submitted;
+	const submitLockRef = useRef(false);
+	const decisionLockRef = useRef(false);
 
 	useEffect(() => {
 		let active = true;
@@ -77,23 +80,31 @@ export default function FormView({
 		decision: "APPROVED" | "DECLINED",
 		reason?: string
 	) => {
-		const response = await fetch(`/api/forms/${token}/decision`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ decision, reason }),
-		});
-
-		if (!response.ok) {
-			const payload = await response.json().catch(() => ({}));
-			throw new Error(payload?.error || "Failed to record decision");
+		if (decisionLockRef.current) {
+			return;
 		}
+		decisionLockRef.current = true;
+		try {
+			const response = await fetch(`/api/forms/${token}/decision`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ decision, reason }),
+			});
 
-		setDecisionOutcome(decision.toLowerCase());
-		setSubmitMessage(
-			decision === "APPROVED"
-				? "Thank you. Your approval has been recorded."
-				: "Your decline decision has been recorded."
-		);
+			if (!response.ok) {
+				const payload = await response.json().catch(() => ({}));
+				throw new Error(payload?.error || "Failed to record decision");
+			}
+
+			setDecisionOutcome(decision.toLowerCase());
+			setSubmitMessage(
+				decision === "APPROVED"
+					? "Thank you. Your approval has been recorded."
+					: "Your decline decision has been recorded."
+			);
+		} finally {
+			decisionLockRef.current = false;
+		}
 	};
 
 	if (hasResponded) {
@@ -169,10 +180,18 @@ export default function FormView({
 						requiresDeclineReason={decisionConfig.requiresDeclineReason}
 						approveButtonType="button"
 						onApprove={async () => {
-							await callDecisionEndpoint("APPROVED");
+							await toast.promise(callDecisionEndpoint("APPROVED"), {
+								loading: "Recording approval...",
+								success: "Approval recorded.",
+								error: "Failed to record approval.",
+							});
 						}}
 						onDecline={async reason => {
-							await callDecisionEndpoint("DECLINED", reason);
+							await toast.promise(callDecisionEndpoint("DECLINED", reason), {
+								loading: "Recording decline...",
+								success: "Decline recorded.",
+								error: "Failed to record decline.",
+							});
 						}}
 					/>
 				</div>
@@ -193,7 +212,11 @@ export default function FormView({
 									initialFormStatus === "revoked" || initialFormStatus === "expired"
 								}
 								onDecline={async reason => {
-									await callDecisionEndpoint("DECLINED", reason);
+									await toast.promise(callDecisionEndpoint("DECLINED", reason), {
+										loading: "Recording decline...",
+										success: "Decline recorded.",
+										error: "Failed to record decline.",
+									});
 								}}
 							/>
 						) : (
@@ -203,6 +226,8 @@ export default function FormView({
 						)
 					}
 					onSubmit={async values => {
+						if (submitLockRef.current) return;
+						submitLockRef.current = true;
 						const response = await fetch("/api/forms/submit", {
 							method: "POST",
 							headers: { "Content-Type": "application/json" },
@@ -213,17 +238,25 @@ export default function FormView({
 							}),
 						});
 
-						if (!response.ok) {
-							const payload = await response.json().catch(() => ({}));
-							throw new Error(payload?.error || "Submission failed");
-						}
+						try {
+							if (!response.ok) {
+								const payload = await response.json().catch(() => ({}));
+								throw new Error(payload?.error || "Submission failed");
+							}
 
-						const payload = await response.json();
-						setSubmitMessage(payload?.message || null);
-						setSubmitted(true);
+							const payload = await response.json();
+							setSubmitMessage(payload?.message || null);
+							setSubmitted(true);
 
-						if (isDecisionEnabled) {
-							await callDecisionEndpoint("APPROVED");
+							if (isDecisionEnabled) {
+								await toast.promise(callDecisionEndpoint("APPROVED"), {
+									loading: "Recording approval...",
+									success: "Approval recorded.",
+									error: "Failed to record approval.",
+								});
+							}
+						} finally {
+							submitLockRef.current = false;
 						}
 					}}
 				/>

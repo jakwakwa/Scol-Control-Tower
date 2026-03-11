@@ -197,6 +197,17 @@ export const workflows = sqliteTable("workflows", {
 	// Two-factor approval tracking (Stage 6)
 	riskManagerApproval: text("risk_manager_approval"), // JSON: { approvedBy, timestamp, decision }
 	accountManagerApproval: text("account_manager_approval"), // JSON: { approvedBy, timestamp, decision }
+	// Stage 5 one-shot gate tracking (atomic idempotency)
+	contractDraftReviewedAt: integer("contract_draft_reviewed_at", {
+		mode: "timestamp",
+	}),
+	contractDraftReviewedBy: text("contract_draft_reviewed_by"),
+	absaPacketSentAt: integer("absa_packet_sent_at", { mode: "timestamp" }),
+	absaPacketSentBy: text("absa_packet_sent_by"),
+	absaApprovalConfirmedAt: integer("absa_approval_confirmed_at", {
+		mode: "timestamp",
+	}),
+	absaApprovalConfirmedBy: text("absa_approval_confirmed_by"),
 	// Stage 2 sales/pre-risk + applicant decision tracking
 	salesEvaluationStatus: text("sales_evaluation_status"), // pending, approved, issues_found
 	salesIssuesSummary: text("sales_issues_summary"),

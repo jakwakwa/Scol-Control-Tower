@@ -547,6 +547,19 @@ export default function ApplicantDetailPage() {
 		return data;
 	}, [id, applyApplicantPayload]);
 
+	useEffect(() => {
+		if (workflow?.status !== "awaiting_human") return;
+		if (!(workflow.stage === 5 || workflow.stage === 6)) return;
+
+		const timer = setInterval(() => {
+			void refreshApplicantData().catch(pollError => {
+				console.error("Failed to poll applicant workflow state:", pollError);
+			});
+		}, 4000);
+
+		return () => clearInterval(timer);
+	}, [workflow?.status, workflow?.stage, refreshApplicantData]);
+
 	const waitForPreRiskOutcome = useCallback(
 		async (expectedOutcome: "approved" | "rejected") => {
 			const attempts = 6;

@@ -3,17 +3,19 @@
 import {
 	RiArrowLeftLine,
 	RiCheckLine,
-	RiLoader4Line,
 	RiSendPlaneLine,
 } from "@remixicon/react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import { DashboardLayout, GlassCard } from "@/components/dashboard";
 import { AbsaPacketSection } from "@/components/dashboard/contract/absa-packet-section";
+import ConfirmActionDrawer from "@/components/shared/confirm-action-drawer";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { Absa6995FormData } from "@/lib/validations/onboarding";
 import { contractReviewContent } from "./content";
+import { toast } from "sonner";
 
 interface ApplicantSummary {
 	id: number;
@@ -49,48 +51,27 @@ interface ContractReviewClientProps {
 }
 
 const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
-	const [payload, setPayload] = useState<ApplicantPayload | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
 	const [actionLoading, setActionLoading] = useState<ActionLoadingState>(null);
 	const [actionMessage, setActionMessage] = useState<string | null>(null);
 	const [contractReviewNotes, setContractReviewNotes] = useState("");
 	const [absaConfirmNotes, setAbsaConfirmNotes] = useState("");
-
-	const refreshApplicantData = useCallback(async () => {
-		const response = await fetch(`/api/applicants/${applicantId}`);
-		if (!response.ok) {
-			throw new Error("Failed to fetch applicant");
-		}
-		const data = (await response.json()) as ApplicantPayload;
-		setPayload(data);
-		return data;
-	}, [applicantId]);
-
-	useEffect(() => {
-		let mounted = true;
-		const load = async () => {
-			try {
-				const data = await refreshApplicantData();
-				if (!mounted) return;
-				setPayload(data);
-			} catch (loadError) {
-				if (!mounted) return;
-				setError(
-					loadError instanceof Error ? loadError.message : "Failed to load applicant"
-				);
-			} finally {
-				if (mounted) {
-					setLoading(false);
-				}
+	const { data: payload, isLoading, error, mutate } = useSWR<ApplicantPayload>(
+		`/api/applicants/${applicantId}`,
+		async (url: string) => {
+			const response = await fetch(url);
+			if (!response.ok) {
+				throw new Error("Failed to fetch applicant");
 			}
-		};
-
-		load();
-		return () => {
-			mounted = false;
-		};
-	}, [refreshApplicantData]);
+			return (await response.json()) as ApplicantPayload;
+		},
+		{
+			refreshInterval: current => {
+				const stage = current?.workflow?.stage;
+				const status = current?.workflow?.status;
+				return status === "awaiting_human" && (stage === 5 || stage === 6) ? 4000 : 0;
+			},
+		}
+	);
 
 	const canPerformActions =
 		payload?.workflow?.stage === 5 && payload.workflow.status !== "terminated";
@@ -122,13 +103,14 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 			}
 			setActionMessage("Contract draft review recorded. Workflow contract gate updated.");
 			setContractReviewNotes("");
-			await refreshApplicantData();
+			await mutate();
 		} catch (actionError) {
 			setActionMessage(
 				actionError instanceof Error
 					? actionError.message
 					: "Failed to mark contract draft reviewed"
 			);
+			throw actionError;
 		} finally {
 			setActionLoading(null);
 		}
@@ -153,17 +135,18 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 			}
 			setActionMessage("ABSA approval confirmed. Workflow advancing.");
 			setAbsaConfirmNotes("");
-			await refreshApplicantData();
+			await mutate();
 		} catch (actionError) {
 			setActionMessage(
 				actionError instanceof Error ? actionError.message : "Failed to confirm ABSA approval"
 			);
+			throw actionError;
 		} finally {
 			setActionLoading(null);
 		}
 	};
 
-	if (loading) {
+	if (isLoading) {
 		return (
 			<DashboardLayout title="Loading..." description="Fetching contract review details">
 				<p className="text-sm text-muted-foreground">Loading contract review...</p>
@@ -174,7 +157,9 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 	if (error || !payload?.applicant) {
 		return (
 			<DashboardLayout title="Applicant not found" description="Unable to load applicant">
-				<p className="text-sm text-destructive">{error || "Applicant not found"}</p>
+				<p className="text-sm text-destructive">
+					{error instanceof Error ? error.message : "Applicant not found"}
+				</p>
 			</DashboardLayout>
 		);
 	}
@@ -211,17 +196,28 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 						className="min-h-[88px]"
 						disabled={actionLoading !== null || !canPerformActions}
 					/>
-					<Button
-						onClick={handleContractDraftReviewed}
+					<ConfirmActionDrawer
 						disabled={actionLoading !== null || !canPerformActions}
-						className="gap-2">
-						{actionLoading === "contract-review" ? (
-							<RiLoader4Line className="h-4 w-4 animate-spin" />
-						) : (
-							<RiCheckLine className="h-4 w-4" />
-						)}
-						{contractReviewContent.contractGate.actionLabel}
-					</Button>
+						isLoading={actionLoading === "contract-review"}
+						title="Approve contract review?"
+						description="Are you sure? This records the contract as reviewed and unlocks the ABSA gate."
+						confirmLabel="Yes, approve review"
+						cancelLabel="No, cancel"
+						onConfirm={async () => {
+							await toast.promise(handleContractDraftReviewed(), {
+								loading: "Recording contract review...",
+								success: "Contract review recorded.",
+								error: error =>
+									error instanceof Error ? error.message : "Failed to record review",
+							});
+						}}
+						trigger={
+							<Button disabled={actionLoading !== null || !canPerformActions} className="gap-2">
+								<RiCheckLine className="h-4 w-4" />
+								{contractReviewContent.contractGate.actionLabel}
+							</Button>
+						}
+					/>
 				</GlassCard>
 
 				{canPerformActions && payload?.workflow?.id && (
@@ -237,7 +233,7 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 						}
 						absaDocuments={payload.absaDocuments ?? []}
 						disabled={!contractReviewed}
-						onRefresh={refreshApplicantData}
+						onRefresh={mutate}
 					/>
 				)}
 
@@ -260,18 +256,33 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 						className="min-h-[88px]"
 						disabled={actionLoading !== null || !canConfirmAbsa}
 					/>
-					<Button
-						variant="secondary"
-						onClick={handleConfirmAbsaApproved}
+					<ConfirmActionDrawer
 						disabled={actionLoading !== null || !canConfirmAbsa}
-						className="gap-2 bg-action hover:bg-action/85">
-						{actionLoading === "absa-confirm" ? (
-							<RiLoader4Line className="h-4 w-4 animate-spin" />
-						) : (
-							<RiSendPlaneLine className="h-4 w-4" />
-						)}
-						{contractReviewContent.absaConfirmGate.actionLabel}
-					</Button>
+						isLoading={actionLoading === "absa-confirm"}
+						title="Confirm ABSA approved?"
+						description="Are you sure? This advances Stage 5 once ABSA approval is confirmed."
+						confirmLabel="Yes, confirm ABSA"
+						cancelLabel="No, cancel"
+						onConfirm={async () => {
+							await toast.promise(handleConfirmAbsaApproved(), {
+								loading: "Confirming ABSA approval...",
+								success: "ABSA approval confirmed.",
+								error: error =>
+									error instanceof Error
+										? error.message
+										: "Failed to confirm ABSA approval",
+							});
+						}}
+						trigger={
+							<Button
+								variant="secondary"
+								disabled={actionLoading !== null || !canConfirmAbsa}
+								className="gap-2 bg-action hover:bg-action/85">
+								<RiSendPlaneLine className="h-4 w-4" />
+								{contractReviewContent.absaConfirmGate.actionLabel}
+							</Button>
+						}
+					/>
 				</GlassCard>
 				{actionMessage ? <p className="text-sm text-amber-700">{actionMessage}</p> : null}
 				{!canPerformActions ? (

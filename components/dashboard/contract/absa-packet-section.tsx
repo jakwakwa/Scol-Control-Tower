@@ -2,12 +2,11 @@
 
 import {
 	RiFileUploadLine,
-	RiLoader4Line,
-	RiSendPlaneLine,
 } from "@remixicon/react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Absa6995Form } from "@/components/onboarding-forms";
+import AsyncActionButton from "@/components/shared/async-action-button";
 import type { Absa6995FormData } from "@/lib/validations/onboarding";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,20 +48,24 @@ export function AbsaPacketSection({
 		fd.set("workflowId", String(workflowId));
 		fd.set("category", "standard");
 		fd.set("documentType", "ABSA_6995_PDF");
-		try {
-			const res = await fetch("/api/onboarding/documents/upload", {
-				method: "POST",
-				body: fd,
-			});
-			if (!res.ok) {
-				const err = await res.json().catch(() => ({}));
-				throw new Error(err?.error ?? "Upload failed");
+		await toast.promise(
+			(async () => {
+				const res = await fetch("/api/onboarding/documents/upload", {
+					method: "POST",
+					body: fd,
+				});
+				if (!res.ok) {
+					const err = await res.json().catch(() => ({}));
+					throw new Error(err?.error ?? "Upload failed");
+				}
+				await onRefresh();
+			})(),
+			{
+				loading: "Uploading PDF...",
+				success: "PDF uploaded",
+				error: err => (err instanceof Error ? err.message : "Upload failed"),
 			}
-			toast.success("PDF uploaded");
-			await onRefresh();
-		} catch (err) {
-			toast.error(err instanceof Error ? err.message : "Upload failed");
-		}
+		);
 		e.target.value = "";
 	};
 
@@ -70,22 +73,28 @@ export function AbsaPacketSection({
 		if (!(applicantId != null)) return;
 		setAbsaSending(true);
 		try {
-			const res = await fetch(`/api/workflows/${workflowId}/absa/send`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					applicantId,
-					documentUploadId: docId,
-				}),
-			});
-			if (!res.ok) {
-				const err = await res.json().catch(() => ({}));
-				throw new Error(err?.error ?? err?.message ?? "Send failed");
-			}
-			toast.success("ABSA packet sent to test address");
-			await onRefresh();
-		} catch (err) {
-			toast.error(err instanceof Error ? err.message : "Send failed");
+			await toast.promise(
+				(async () => {
+					const res = await fetch(`/api/workflows/${workflowId}/absa/send`, {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							applicantId,
+							documentUploadId: docId,
+						}),
+					});
+					if (!res.ok) {
+						const err = await res.json().catch(() => ({}));
+						throw new Error(err?.error ?? err?.message ?? "Send failed");
+					}
+					await onRefresh();
+				})(),
+				{
+					loading: "Sending ABSA packet...",
+					success: "ABSA packet sent to test address",
+					error: err => (err instanceof Error ? err.message : "Send failed"),
+				}
+			);
 		} finally {
 			setAbsaSending(false);
 		}
@@ -94,40 +103,47 @@ export function AbsaPacketSection({
 	const handleSubmit = async (data: Absa6995FormData) => {
 		setIsSubmitting(true);
 		try {
-			const response = await fetch(
-				`/api/onboarding/forms/${workflowId}/absa_6995`,
+			await toast.promise(
+				(async () => {
+					const response = await fetch(
+						`/api/onboarding/forms/${workflowId}/absa_6995`,
+						{
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({ formData: data, isDraft: false }),
+						}
+					);
+					if (!response.ok) throw new Error("Failed to submit form");
+					await onRefresh();
+				})(),
 				{
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ formData: data, isDraft: false }),
+					loading: "Saving ABSA form...",
+					success: "ABSA form saved",
+					error: "Failed to save ABSA form",
 				}
 			);
-			if (!response.ok) throw new Error("Failed to submit form");
-			toast.success("ABSA form saved");
-			await onRefresh();
-		} catch (_err) {
-			toast.error("Failed to save ABSA form");
 		} finally {
 			setIsSubmitting(false);
 		}
 	};
 
 	const handleSaveDraft = async (data: Partial<Absa6995FormData>) => {
-		try {
-			const response = await fetch(
-				`/api/onboarding/forms/${workflowId}/absa_6995`,
-				{
+		await toast.promise(
+			(async () => {
+				const response = await fetch(`/api/onboarding/forms/${workflowId}/absa_6995`, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ formData: data, isDraft: true }),
-				}
-			);
-			if (!response.ok) throw new Error("Failed to save draft");
-			toast.success("Draft saved");
-			await onRefresh();
-		} catch (_err) {
-			toast.error("Failed to save draft");
-		}
+				});
+				if (!response.ok) throw new Error("Failed to save draft");
+				await onRefresh();
+			})(),
+			{
+				loading: "Saving draft...",
+				success: "Draft saved",
+				error: "Failed to save draft",
+			}
+		);
 	};
 
 	return (
@@ -201,21 +217,15 @@ export function AbsaPacketSection({
 											className="flex items-center justify-between rounded-lg border p-3"
 										>
 											<span className="text-sm">{doc.fileName ?? "PDF"}</span>
-											<Button
+											<AsyncActionButton
 												size="sm"
-												onClick={() => handleSendToAbsa(doc.id)}
-												disabled={
-													absaSending || applicantId == null || disabled
-												}
 												className="gap-1.5"
-											>
-												{absaSending ? (
-													<RiLoader4Line className="h-4 w-4 animate-spin" />
-												) : (
-													<RiSendPlaneLine className="h-4 w-4" />
-												)}
-												Send to ABSA
-											</Button>
+												label="Send to ABSA"
+												loadingLabel="Sending..."
+												isLoading={absaSending}
+												disabled={applicantId == null || disabled}
+												onClick={() => handleSendToAbsa(doc.id)}
+											/>
 										</li>
 									))}
 								</ul>

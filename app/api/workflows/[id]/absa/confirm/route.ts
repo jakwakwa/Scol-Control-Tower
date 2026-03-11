@@ -7,8 +7,11 @@ import { workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import {
 	createWorkflowNotification,
-	logWorkflowEvent,
 } from "@/lib/services/notification-events.service";
+import {
+	logWorkflowEventOnce,
+	markStage5GateOnce,
+} from "@/lib/services/workflow-command.service";
 
 const ConfirmAbsaSchema = z.object({
 	applicantId: z.number().int().positive(),
@@ -62,13 +65,29 @@ export async function POST(
 			return NextResponse.json({ error: "Applicant/workflow mismatch" }, { status: 409 });
 		}
 
-		await logWorkflowEvent({
+		const applied = await markStage5GateOnce({
+			workflowId,
+			gate: "absa_approval_confirmed",
+			actorId: userId,
+		});
+		if (!applied) {
+			return NextResponse.json({
+				success: true,
+				workflowId,
+				applicantId,
+				message: "ABSA approval was already confirmed",
+				alreadyConfirmed: true,
+			});
+		}
+
+		const confirmedAt = new Date().toISOString();
+		await logWorkflowEventOnce({
 			workflowId,
 			eventType: "absa_approval_confirmed",
 			payload: {
 				confirmedBy: userId,
 				notes,
-				timestamp: new Date().toISOString(),
+				timestamp: confirmedAt,
 			},
 			actorType: "user",
 			actorId: userId,
@@ -88,7 +107,7 @@ export async function POST(
 			data: {
 				workflowId,
 				applicantId,
-				completedAt: new Date().toISOString(),
+				completedAt: confirmedAt,
 			},
 		});
 
@@ -97,6 +116,7 @@ export async function POST(
 			workflowId,
 			applicantId,
 			message: "ABSA approval confirmed and workflow advanced",
+			alreadyConfirmed: false,
 		});
 	} catch (error) {
 		console.error("[AbsaConfirm] Error:", error);

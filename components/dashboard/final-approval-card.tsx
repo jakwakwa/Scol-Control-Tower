@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
 	RiCheckLine,
 	RiCheckboxCircleLine,
@@ -11,6 +11,7 @@ import {
 	RiShieldCheckLine,
 	RiUserLine,
 } from "@remixicon/react";
+import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -20,6 +21,7 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 // ============================================
 // Types
@@ -29,6 +31,16 @@ interface ApprovalStatus {
 	approvedBy: string;
 	decision: "APPROVED" | "REJECTED";
 	timestamp: string;
+}
+
+interface ApprovalStatusResponse {
+	workflowId: number;
+	applicantId: number;
+	status: string;
+	stage: number;
+	riskManagerApproval: ApprovalStatus | null;
+	accountManagerApproval: ApprovalStatus | null;
+	bothApproved: boolean;
 }
 
 interface FinalApprovalProps {
@@ -130,25 +142,25 @@ export function FinalApprovalCard({
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState(false);
-	const [riskManagerApproval, setRiskManagerApproval] = useState<ApprovalStatus | null>(null);
-	const [accountManagerApproval, setAccountManagerApproval] = useState<ApprovalStatus | null>(null);
-
-	// Fetch current approval status
-	useEffect(() => {
-		const fetchApprovalStatus = async () => {
-			try {
-				const response = await fetch(`/api/onboarding/approve?workflowId=${workflowId}`);
-				if (response.ok) {
-					const data = await response.json();
-					setRiskManagerApproval(data.riskManagerApproval || null);
-					setAccountManagerApproval(data.accountManagerApproval || null);
-				}
-			} catch {
-				// Silently fail — approvals will show as pending
+	const { data: approvalData, mutate: mutateApprovalStatus } = useSWR<ApprovalStatusResponse>(
+		`/api/onboarding/approve?workflowId=${workflowId}`,
+		async (url: string) => {
+			const response = await fetch(url);
+			if (!response.ok) {
+				throw new Error("Failed to fetch approval status");
 			}
-		};
-		fetchApprovalStatus();
-	}, [workflowId]);
+			return (await response.json()) as ApprovalStatusResponse;
+		},
+		{
+			refreshInterval: current => {
+				if (!current) return 4000;
+				return current.bothApproved || workflowStatus === "completed" ? 0 : 4000;
+			},
+		}
+	);
+
+	const riskManagerApproval = approvalData?.riskManagerApproval ?? null;
+	const accountManagerApproval = approvalData?.accountManagerApproval ?? null;
 
 	const canApprove = contractSigned && absaFormComplete;
 	const bothApproved =
@@ -203,37 +215,32 @@ export function FinalApprovalCard({
 		setError(null);
 
 		try {
-			const response = await fetch("/api/onboarding/approve", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					workflowId,
-					applicantId,
-					role: userRole,
-					decision,
-				}),
+			const approvalPromise = (async () => {
+				const response = await fetch("/api/onboarding/approve", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						workflowId,
+						applicantId,
+						role: userRole,
+						decision,
+					}),
+				});
+
+				if (!response.ok) {
+					const data = await response.json().catch(() => ({}));
+					throw new Error(data.error || "Failed to submit approval");
+				}
+
+				return await response.json();
+			})();
+			await toast.promise(approvalPromise, {
+				loading: "Recording approval...",
+				success: "Approval recorded.",
+				error: err => (err instanceof Error ? err.message : "Failed to submit approval"),
 			});
-
-			if (!response.ok) {
-				const data = await response.json().catch(() => ({}));
-				throw new Error(data.error || "Failed to submit approval");
-			}
-
-			const result = await response.json();
-
-			// Update local state
-			const approvalData: ApprovalStatus = {
-				approvedBy: result.approvedBy,
-				decision,
-				timestamp: result.timestamp,
-			};
-
-			if (userRole === "risk_manager") {
-				setRiskManagerApproval(approvalData);
-			} else {
-				setAccountManagerApproval(approvalData);
-			}
-
+			const result = await approvalPromise;
+			await mutateApprovalStatus();
 			if (result.bothApproved) {
 				setSuccess(true);
 				onApprovalComplete?.();

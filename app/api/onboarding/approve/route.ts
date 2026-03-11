@@ -16,6 +16,7 @@ import { workflows, workflowEvents, applicants } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@clerk/nextjs/server";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
+import { recordFinalApprovalDecision } from "@/lib/services/workflow-command.service";
 
 // ============================================
 // Request Schema
@@ -93,51 +94,48 @@ export async function POST(request: NextRequest) {
 		// Acquire state lock to prevent ghost processes from overwriting finalized approval
 		await acquireStateLock(workflowId, userId);
 
-		// Log the approval event
-		await db.insert(workflowEvents).values({
+		const timestamp = new Date().toISOString();
+		const approvalState = await recordFinalApprovalDecision({
 			workflowId,
-			eventType: `two_factor_approval_${role}`,
-			payload: JSON.stringify({
-				role,
-				decision,
-				reason,
-				fromStage: workflow.stage,
-			}),
-			actorId: userId,
-			actorType: "user",
+			role,
+			decision,
+			reason,
+			approvedBy: userId,
+			timestamp,
 		});
 
-		// Send the appropriate Inngest event
-		const eventName = role === "risk_manager"
-			? "approval/risk-manager.received" as const
-			: "approval/account-manager.received" as const;
-
-		await inngest.send({
-			name: eventName,
-			data: {
+		if (!approvalState.alreadyRecorded) {
+			// Log the approval event
+			await db.insert(workflowEvents).values({
 				workflowId,
-				applicantId,
-				approvedBy: userId,
-				decision,
-				reason,
-				timestamp: new Date().toISOString(),
-			},
-		});
+				eventType: `two_factor_approval_${role}`,
+				payload: JSON.stringify({
+					role,
+					decision,
+					reason,
+					fromStage: workflow.stage,
+				}),
+				actorId: userId,
+				actorType: "user",
+			});
 
-		// Check if both approvals are now present
-		const riskApproval = role === "risk_manager"
-			? { approvedBy: userId, decision, timestamp: new Date().toISOString() }
-			: workflow.riskManagerApproval
-				? JSON.parse(workflow.riskManagerApproval)
-				: null;
+			// Send the appropriate Inngest event
+			const eventName = role === "risk_manager"
+				? "approval/risk-manager.received" as const
+				: "approval/account-manager.received" as const;
 
-		const accountApproval = role === "account_manager"
-			? { approvedBy: userId, decision, timestamp: new Date().toISOString() }
-			: workflow.accountManagerApproval
-				? JSON.parse(workflow.accountManagerApproval)
-				: null;
-
-		const bothApproved = riskApproval?.decision === "APPROVED" && accountApproval?.decision === "APPROVED";
+			await inngest.send({
+				name: eventName,
+				data: {
+					workflowId,
+					applicantId,
+					approvedBy: userId,
+					decision,
+					reason,
+					timestamp,
+				},
+			});
+		}
 
 		return NextResponse.json({
 			success: true,
@@ -147,8 +145,9 @@ export async function POST(request: NextRequest) {
 			approvedBy: userId,
 			role,
 			decision,
-			bothApproved,
-			timestamp: new Date().toISOString(),
+			bothApproved: approvalState.bothApproved,
+			timestamp,
+			alreadyRecorded: approvalState.alreadyRecorded,
 		});
 	} catch (error) {
 		console.error("[TwoFactorApproval] Error processing approval:", error);
