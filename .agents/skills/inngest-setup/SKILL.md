@@ -13,19 +13,13 @@ This skill sets up Inngest in a TypeScript project from scratch, covering instal
 
 - Node.js 18+ (Node.js 22.4+ recommended for WebSocket support)
 - TypeScript project
-- Package manager (npm, yarn, pnpm, or bun)
+- Bun 1.0+ (this repo uses Bun as the only package manager)
 
 ## Step 1: Install the Inngest SDK
 
-Install the `inngest` bun package in your project:
+Install the `inngest` package in your project using Bun:
 
 ```bash
-bun install inngest
-# or
-yarn add inngest
-# or
-pbun add inngest
-# or
 bun add inngest
 ```
 
