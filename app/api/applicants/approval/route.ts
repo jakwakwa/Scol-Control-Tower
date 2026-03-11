@@ -41,7 +41,6 @@ export async function POST(request: NextRequest) {
 		}
 
 		const rawBody = await request.text();
-		console.log(`[API] Applicant Approval/Callback Raw Body: ${rawBody}`);
 
 		let body;
 		try {
@@ -97,7 +96,7 @@ export async function POST(request: NextRequest) {
 		// 4. Fallback: Infer from workflow decisionType metadata, then stage/status.
 
 		let eventName = "";
-		let eventData: any = { workflowId, applicantId: data.applicantId };
+		const eventData: any = { workflowId, applicantId: data.applicantId };
 
 		const resolvedDecisionType = data.decisionType || workflow?.decisionType;
 
@@ -126,7 +125,6 @@ export async function POST(request: NextRequest) {
 						amount: 0,
 						terms: "Standard terms (Inferred)",
 					};
-					console.log("[API] Inferred QUOTE event based on workflow status");
 				} else if (workflow.status === "awaiting_human") {
 					eventName = "onboarding/quality-gate-passed";
 					eventData.result = {
@@ -135,7 +133,6 @@ export async function POST(request: NextRequest) {
 						comments: "Approved via external callback (Inferred)",
 						timestamp: new Date().toISOString(),
 					};
-					console.log("[API] Inferred QUALITY GATE event based on workflow status");
 				}
 			}
 
@@ -164,7 +161,6 @@ export async function POST(request: NextRequest) {
 				name: eventName as any,
 				data: eventData,
 			});
-			console.log(`[API] Sent Inngest event ${eventName} to workflow ${workflowId}`);
 		}
 
 		return NextResponse.json(

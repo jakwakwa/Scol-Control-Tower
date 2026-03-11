@@ -10,7 +10,7 @@ export function AiBriefingPanel({
 	aiSummary: string | null;
 	summaryError: string | null;
 }) {
-	if (!isGeneratingSummary && !aiSummary && !summaryError) {
+	if (!((isGeneratingSummary || aiSummary ) || summaryError)) {
 		return null;
 	}
 

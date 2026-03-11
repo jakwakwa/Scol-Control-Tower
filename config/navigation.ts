@@ -5,8 +5,6 @@ import {
 	RiTeamLine, // Clients icon
 	RiSettings4Line, // Settings
 	RiQuestionLine, // Help
-	RiLogoutBoxLine, // Logout/Profile? Using UserButton for now but placing it visually
-	RiSignalTowerFill,
 } from "@remixicon/react";
 
 export const START_COL_NAV_ITEMS = [

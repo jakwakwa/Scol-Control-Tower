@@ -85,7 +85,7 @@ function FormField({ label, required, error, children, className }: FormFieldPro
 // Section Components
 // ============================================
 
-function EntityDetailsSection() {
+function _EntityDetailsSection() {
 	const {
 		register,
 		formState: { errors },

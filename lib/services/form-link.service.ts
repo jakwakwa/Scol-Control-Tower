@@ -21,7 +21,6 @@ export async function generateFormLinks(options: {
 		"FACILITY_APPLICATION",
 		"SIGNED_QUOTATION",
 		"AGREEMENT_CONTRACT",
-		"ABSA_6995",
 		"DOCUMENT_UPLOADS",
 	];
 

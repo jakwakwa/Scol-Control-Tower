@@ -21,11 +21,8 @@ export interface DispatchPayload {
 export async function dispatchToPlatform(
 	payload: DispatchPayload,
 ): Promise<void> {
-	console.log(
-		`[NotificationService] Dispatching to Platform: Workflow ${payload.workflowId}`,
-	);
 
-	let clientName = "Unknown Client";
+	let _clientName = "Unknown Client";
 
 	if (payload.applicantId) {
 		const db = getDatabaseClient();
@@ -36,19 +33,13 @@ export async function dispatchToPlatform(
 					.from(applicants)
 					.where(eq(applicants.id, payload.applicantId));
 				if (applicantResults.length > 0 && applicantResults[0]) {
-					clientName = applicantResults[0].companyName;
+					_clientName = applicantResults[0].companyName;
 				}
 			} catch (err) {
 				console.error("[NotificationService] Failed to fetch applicant:", err);
 			}
 		}
 	}
-
-	console.log(`[NotificationService] Platform dispatch for: ${clientName}`, {
-		workflowId: payload.workflowId,
-		riskScore: payload.riskScore,
-		anomalies: payload.anomalies,
-	});
 }
 
 export interface EscalationPayload {

@@ -8,7 +8,7 @@
  * Body: { workflowId, applicantId, role: "risk_manager" | "account_manager", decision, reason? }
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { inngest } from "@/inngest/client";
 import { getDatabaseClient } from "@/app/utils";
@@ -57,11 +57,6 @@ export async function POST(request: NextRequest) {
 		}
 
 		const { workflowId, applicantId, role, decision, reason } = validationResult.data;
-
-		console.log(`[TwoFactorApproval] ${role} decision for workflow ${workflowId}:`, {
-			decision,
-			approvedBy: userId,
-		});
 
 		const db = getDatabaseClient();
 		if (!db) {
@@ -128,8 +123,6 @@ export async function POST(request: NextRequest) {
 				timestamp: new Date().toISOString(),
 			},
 		});
-
-		console.log(`[TwoFactorApproval] ${role} event sent for workflow ${workflowId}`);
 
 		// Check if both approvals are now present
 		const riskApproval = role === "risk_manager"
@@ -199,7 +192,7 @@ export async function GET(request: NextRequest) {
 		const workflowResult = await db
 			.select()
 			.from(workflows)
-			.where(eq(workflows.id, parseInt(workflowId)));
+			.where(eq(workflows.id, parseInt(workflowId, 10)));
 
 		const workflow = workflowResult[0];
 		if (!workflow) {

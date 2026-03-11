@@ -64,6 +64,8 @@ export interface LogEventParams {
 		| "contract_draft_reviewed"
 		| "contract_signed"
 		| "absa_form_completed"
+		| "absa_approval_confirmed"
+		| "absa_packet_sent"
 		| "two_factor_approval_risk_manager"
 		| "two_factor_approval_account_manager"
 		| "final_approval"

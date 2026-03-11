@@ -36,7 +36,7 @@ interface FinalApprovalProps {
 	applicantId: number;
 	/** Whether the contract has been signed */
 	contractSigned: boolean;
-	/** Whether the Absa 6995 form is complete */
+	/** Whether ABSA approval has been confirmed (internal handoff) */
 	absaFormComplete: boolean;
 	/** Current workflow status */
 	workflowStatus?: string;
@@ -169,7 +169,7 @@ export function FinalApprovalCard({
 		},
 		{
 			id: "absa_form",
-			label: "Absa 6995 Form Complete",
+			label: "ABSA Approval Confirmed",
 			description: "Bank integration form has been completed and verified",
 			checked: absaFormComplete,
 			icon: RiFileTextLine,
@@ -363,9 +363,9 @@ export function FinalApprovalCard({
 				)}
 
 				{/* Helper Text */}
-				{!canApprove && !hasUserApproved && (
+				{!(canApprove || hasUserApproved ) && (
 					<p className="text-xs text-muted-foreground text-center">
-						Contract and ABSA form must be completed before approval
+						Contract and ABSA approval must be confirmed before approval
 					</p>
 				)}
 			</CardContent>

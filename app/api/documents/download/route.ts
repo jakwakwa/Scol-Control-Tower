@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 			const [doc] = await db
 				.select()
 				.from(documents)
-				.where(eq(documents.id, parseInt(documentId)));
+				.where(eq(documents.id, parseInt(documentId, 10)));
 
 			if (!doc?.fileContent) {
 				return NextResponse.json(
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 			const [doc] = await db
 				.select()
 				.from(documentUploads)
-				.where(eq(documentUploads.id, parseInt(documentUploadId)));
+				.where(eq(documentUploads.id, parseInt(documentUploadId, 10)));
 
 			if (!doc?.fileContent) {
 				return NextResponse.json(
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
 				.from(documents)
 				.where(
 					and(
-						eq(documents.applicantId, parseInt(applicantId)),
+						eq(documents.applicantId, parseInt(applicantId, 10)),
 						eq(documents.type, type),
 						eq(documents.fileName, fileName)
 					)

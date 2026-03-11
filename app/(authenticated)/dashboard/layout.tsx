@@ -50,8 +50,8 @@ export default async function DashboardRootLayout({
 				type: n.type as WorkflowNotification["type"],
 				message: n.message,
 				timestamp: n.createdAt,
-				read: n.read || false,
-				actionable: n.actionable || false,
+				read: n.read,
+				actionable: n.actionable,
 			}));
 		} catch (error) {
 			console.error("Failed to fetch notifications:", error);

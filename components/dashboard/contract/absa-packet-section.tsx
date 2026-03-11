@@ -1,0 +1,229 @@
+"use client";
+
+import {
+	RiFileUploadLine,
+	RiLoader4Line,
+	RiSendPlaneLine,
+} from "@remixicon/react";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
+import { Absa6995Form } from "@/components/onboarding-forms";
+import type { Absa6995FormData } from "@/lib/validations/onboarding";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { GlassCard } from "@/components/dashboard";
+import { contractReviewContent } from "@/app/(authenticated)/dashboard/applicants/[id]/contract/content";
+
+interface DocumentUpload {
+	id: number;
+	fileName: string | null;
+}
+
+interface AbsaPacketSectionProps {
+	workflowId: number;
+	applicantId: number | null;
+	initialFormData?: Partial<Absa6995FormData>;
+	absaDocuments: DocumentUpload[];
+	disabled: boolean;
+	onRefresh: () => Promise<unknown>;
+}
+
+export function AbsaPacketSection({
+	workflowId,
+	applicantId,
+	initialFormData,
+	absaDocuments,
+	disabled,
+	onRefresh,
+}: AbsaPacketSectionProps) {
+	const fileInputRef = useRef<HTMLInputElement>(null);
+	const [absaSending, setAbsaSending] = useState(false);
+	const [isSubmitting, setIsSubmitting] = useState(false);
+
+	const handleAbsaPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!(file && workflowId)) return;
+		const fd = new FormData();
+		fd.set("file", file);
+		fd.set("workflowId", String(workflowId));
+		fd.set("category", "standard");
+		fd.set("documentType", "ABSA_6995_PDF");
+		try {
+			const res = await fetch("/api/onboarding/documents/upload", {
+				method: "POST",
+				body: fd,
+			});
+			if (!res.ok) {
+				const err = await res.json().catch(() => ({}));
+				throw new Error(err?.error ?? "Upload failed");
+			}
+			toast.success("PDF uploaded");
+			await onRefresh();
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Upload failed");
+		}
+		e.target.value = "";
+	};
+
+	const handleSendToAbsa = async (docId: number) => {
+		if (!(applicantId != null)) return;
+		setAbsaSending(true);
+		try {
+			const res = await fetch(`/api/workflows/${workflowId}/absa/send`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					applicantId,
+					documentUploadId: docId,
+				}),
+			});
+			if (!res.ok) {
+				const err = await res.json().catch(() => ({}));
+				throw new Error(err?.error ?? err?.message ?? "Send failed");
+			}
+			toast.success("ABSA packet sent to test address");
+			await onRefresh();
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Send failed");
+		} finally {
+			setAbsaSending(false);
+		}
+	};
+
+	const handleSubmit = async (data: Absa6995FormData) => {
+		setIsSubmitting(true);
+		try {
+			const response = await fetch(
+				`/api/onboarding/forms/${workflowId}/absa_6995`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ formData: data, isDraft: false }),
+				}
+			);
+			if (!response.ok) throw new Error("Failed to submit form");
+			toast.success("ABSA form saved");
+			await onRefresh();
+		} catch (_err) {
+			toast.error("Failed to save ABSA form");
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	const handleSaveDraft = async (data: Partial<Absa6995FormData>) => {
+		try {
+			const response = await fetch(
+				`/api/onboarding/forms/${workflowId}/absa_6995`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ formData: data, isDraft: true }),
+				}
+			);
+			if (!response.ok) throw new Error("Failed to save draft");
+			toast.success("Draft saved");
+			await onRefresh();
+		} catch (_err) {
+			toast.error("Failed to save draft");
+		}
+	};
+
+	return (
+		<GlassCard className="space-y-6">
+			<div>
+				<p className="text-base uppercase text-secondary-foreground font-medium">
+					{contractReviewContent.absaPacketSection.label}
+				</p>
+				<p className="text-stone-300/70 mt-1">
+					{contractReviewContent.absaPacketSection.description}
+				</p>
+				{disabled && (
+					<p className="text-sm text-amber-300/80 mt-2">
+						{contractReviewContent.absaPacketSection.lockedHint}
+					</p>
+				)}
+			</div>
+
+			<div className={disabled ? "pointer-events-none opacity-60" : ""}>
+				<Absa6995Form
+					workflowId={workflowId}
+					initialData={initialFormData}
+					onSubmit={handleSubmit}
+					onSaveDraft={handleSaveDraft}
+					readOnly={disabled}
+					isSubmitting={isSubmitting}
+				/>
+
+				<Card className="mt-6">
+					<CardHeader>
+						<CardTitle className="text-base">Prefilled ABSA PDF</CardTitle>
+						<p className="text-sm text-muted-foreground">
+							Upload the prefilled ABSA 6995 form (PDF). Mock send goes to{" "}
+							{process.env.NEXT_PUBLIC_APP_URL
+								? "ABSA_TEST_EMAIL"
+								: "configured test address"}
+							.
+						</p>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						<div className="flex flex-col gap-2">
+							<Label>Upload PDF</Label>
+							<div className="flex gap-2">
+								<input
+									ref={fileInputRef}
+									type="file"
+									accept="application/pdf"
+									onChange={handleAbsaPdfUpload}
+									className="hidden"
+								/>
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={() => fileInputRef.current?.click()}
+									className="gap-1.5"
+									disabled={disabled}
+								>
+									<RiFileUploadLine className="h-4 w-4" />
+									Choose PDF
+								</Button>
+							</div>
+						</div>
+						{absaDocuments.length > 0 && (
+							<div className="space-y-2">
+								<Label>Uploaded PDFs</Label>
+								<ul className="space-y-2">
+									{absaDocuments.map(doc => (
+										<li
+											key={doc.id}
+											className="flex items-center justify-between rounded-lg border p-3"
+										>
+											<span className="text-sm">{doc.fileName ?? "PDF"}</span>
+											<Button
+												size="sm"
+												onClick={() => handleSendToAbsa(doc.id)}
+												disabled={
+													absaSending || applicantId == null || disabled
+												}
+												className="gap-1.5"
+											>
+												{absaSending ? (
+													<RiLoader4Line className="h-4 w-4 animate-spin" />
+												) : (
+													<RiSendPlaneLine className="h-4 w-4" />
+												)}
+												Send to ABSA
+											</Button>
+										</li>
+									))}
+								</ul>
+							</div>
+						)}
+					</CardContent>
+				</Card>
+			</div>
+		</GlassCard>
+	);
+}

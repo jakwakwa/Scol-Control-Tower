@@ -6,7 +6,10 @@ import {
 	applicantMagiclinkForms,
 	applicantSubmissions,
 	applicants,
+	documentUploads,
 	documents,
+	internalForms,
+	internalSubmissions,
 	quotes,
 	riskAssessments,
 	workflowEvents,
@@ -31,7 +34,7 @@ export async function PUT(
 
 		// Await params in Next.js 15
 		const resolvedParams = await params;
-		const id = parseInt(resolvedParams.id);
+		const id = parseInt(resolvedParams.id, 10);
 
 		if (Number.isNaN(id)) {
 			return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
@@ -93,7 +96,7 @@ export async function GET(
 		}
 
 		const resolvedParams = await params;
-		const id = parseInt(resolvedParams.id);
+		const id = parseInt(resolvedParams.id, 10);
 
 		if (Number.isNaN(id)) {
 			return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
@@ -130,6 +133,14 @@ export async function GET(
 
 		// Fetch quote for the most recent workflow if exists
 		let quote = null;
+		let contractReviewed = false;
+		let absaPacketSent = false;
+		let absaFormData: {
+			form: { id: number; status: string };
+			submission: { formData: string } | null;
+			applicantId: number | null;
+		} | null = null;
+		let absaDocuments: { id: number; fileName: string | null }[] = [];
 		let sanctionsCheck: {
 			source: string;
 			reused: boolean;
@@ -187,6 +198,75 @@ export async function GET(
 					isBlocked: typeof payload?.isBlocked === "boolean" ? payload.isBlocked : null,
 				};
 			}
+
+			// ABSA contract flow state for Stage 5
+			const [contractReviewedRows, absaPacketSentRows, absaFormRows, absaDocRows] =
+				await Promise.all([
+					db
+						.select()
+						.from(workflowEvents)
+						.where(
+							and(
+								eq(workflowEvents.workflowId, latestWorkflow.id),
+								eq(workflowEvents.eventType, "contract_draft_reviewed")
+							)
+						)
+						.limit(1),
+					db
+						.select()
+						.from(workflowEvents)
+						.where(
+							and(
+								eq(workflowEvents.workflowId, latestWorkflow.id),
+								eq(workflowEvents.eventType, "absa_packet_sent")
+							)
+						)
+						.limit(1),
+					db
+						.select()
+						.from(internalForms)
+						.where(
+							and(
+								eq(internalForms.workflowId, latestWorkflow.id),
+								eq(internalForms.formType, "absa_6995")
+							)
+						)
+						.limit(1),
+					db
+						.select({ id: documentUploads.id, fileName: documentUploads.fileName })
+						.from(documentUploads)
+						.where(
+							and(
+								eq(documentUploads.workflowId, latestWorkflow.id),
+								eq(documentUploads.documentType, "ABSA_6995_PDF")
+							)
+						),
+				]);
+
+			const absaForm = absaFormRows[0] ?? null;
+			let absaSubmission: (typeof internalSubmissions.$inferSelect) | null = null;
+			if (absaForm) {
+				const [sub] = await db
+					.select()
+					.from(internalSubmissions)
+					.where(eq(internalSubmissions.internalFormId, absaForm.id))
+					.orderBy(desc(internalSubmissions.version))
+					.limit(1);
+				absaSubmission = sub ?? null;
+			}
+
+			contractReviewed = contractReviewedRows.length > 0;
+			absaPacketSent = absaPacketSentRows.length > 0;
+			absaFormData = absaForm
+				? {
+						form: { id: absaForm.id, status: absaForm.status },
+						submission: absaSubmission
+							? { formData: absaSubmission.formData }
+							: null,
+						applicantId: latestWorkflow.applicantId,
+					}
+				: null;
+			absaDocuments = absaDocRows;
 		}
 
 		return NextResponse.json({
@@ -198,6 +278,10 @@ export async function GET(
 			workflow: workflowRows[0] || null,
 			quote,
 			sanctionsCheck,
+			contractReviewed,
+			absaPacketSent,
+			absaFormData,
+			absaDocuments,
 		});
 	} catch (error) {
 		console.error("Error fetching applicant:", error);

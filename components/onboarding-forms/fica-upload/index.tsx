@@ -37,7 +37,6 @@ import {
 	DocumentCategory,
 	getFicaDocumentsDefaultValues,
 	type FicaDocumentsFormData,
-	type DocumentUploadItem,
 } from "@/lib/validations/onboarding";
 
 // ============================================
@@ -195,7 +194,7 @@ function DocumentUploadItem({
 // Category Icons
 // ============================================
 
-const CATEGORY_ICONS = {
+const _CATEGORY_ICONS = {
 	[DocumentCategory.STANDARD]: RiFolderLine,
 	[DocumentCategory.INDIVIDUAL]: RiUserLine,
 	[DocumentCategory.FINANCIAL]: RiBankLine,
@@ -306,7 +305,7 @@ export function FicaUploadForm({
 	};
 
 	// Get documents by category
-	const getDocumentsByCategory = (category: string) =>
+	const _getDocumentsByCategory = (category: string) =>
 		DOCUMENT_REQUIREMENTS.filter(doc => doc.category === category);
 
 	return (

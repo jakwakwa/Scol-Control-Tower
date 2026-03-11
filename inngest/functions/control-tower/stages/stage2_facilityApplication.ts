@@ -22,7 +22,6 @@ import {
 	logWorkflowEvent,
 } from "@/lib/services/notification-events.service";
 import { generateQuote } from "@/lib/services/quote.service";
-import { terminateRun } from "@/lib/services/terminate-run.service";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 import type { FormType } from "@/lib/types";
 import { inngest } from "../../../client";

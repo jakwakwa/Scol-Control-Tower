@@ -208,6 +208,58 @@ The applicant was previously declined and has reapplied. They can contact Stratc
 	}
 }
 
+/**
+ * Send ABSA 6995 packet (mock) to ABSA_TEST_EMAIL.
+ * Used for internal handoff: staff uploads prefilled PDF, system sends to test address.
+ */
+export async function sendAbsaPacketEmail(params: {
+	workflowId: number;
+	applicantId: number;
+	companyName: string;
+	fileName: string;
+	fileContentBase64: string;
+	mimeType?: string;
+}): Promise<EmailResult> {
+	const toEmail = process.env.ABSA_TEST_EMAIL?.trim();
+	if (!toEmail) {
+		console.warn("[EmailService] ABSA_TEST_EMAIL not configured. ABSA packet not sent.");
+		return { success: false, error: "ABSA_TEST_EMAIL not configured" };
+	}
+	if (!resend) {
+		console.warn("[EmailService] Resend not configured. ABSA packet not sent.");
+		return { success: false, error: "Resend not configured" };
+	}
+
+	try {
+		const buffer = Buffer.from(params.fileContentBase64, "base64");
+		const { data, error } = await resend.emails.send({
+			from: fromEmail,
+			to: toEmail,
+			subject: `[ABSA 6995] ${params.companyName} — Workflow ${params.workflowId}`,
+			html: `
+				<p>Internal ABSA 6995 packet submission for workflow ${params.workflowId}, applicant ${params.applicantId}.</p>
+				<p>Company: ${params.companyName}</p>
+				<p>This is a mock send — packet is attached for your records.</p>
+			`,
+			attachments: [
+				{
+					filename: params.fileName || "absa-6995.pdf",
+					content: buffer,
+				},
+			],
+		});
+
+		if (error) {
+			console.error("[EmailService] Failed to send ABSA packet:", error);
+			return { success: false, error: error.message };
+		}
+		return { success: true, messageId: data?.id || "unknown" };
+	} catch (error) {
+		console.error("[EmailService] Exception sending ABSA packet:", error);
+		return { success: false, error: String(error) };
+	}
+}
+
 export async function sendApplicantStatusEmail(params: {
 	email: string;
 	subject: string;

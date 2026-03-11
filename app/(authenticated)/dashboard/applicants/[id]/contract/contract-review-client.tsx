@@ -9,8 +9,10 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardLayout, GlassCard } from "@/components/dashboard";
+import { AbsaPacketSection } from "@/components/dashboard/contract/absa-packet-section";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import type { Absa6995FormData } from "@/lib/validations/onboarding";
 import { contractReviewContent } from "./content";
 
 interface ApplicantSummary {
@@ -25,12 +27,22 @@ interface WorkflowSummary {
 	status?: string | null;
 }
 
+interface AbsaFormData {
+	form: { id: number; status: string };
+	submission: { formData: string } | null;
+	applicantId: number | null;
+}
+
 interface ApplicantPayload {
 	applicant: ApplicantSummary;
 	workflow: WorkflowSummary | null;
+	contractReviewed?: boolean;
+	absaPacketSent?: boolean;
+	absaFormData?: AbsaFormData | null;
+	absaDocuments?: { id: number; fileName: string | null }[];
 }
 
-type ActionLoadingState = "contract-review" | "absa-mock" | null;
+type ActionLoadingState = "contract-review" | "absa-confirm" | null;
 
 interface ContractReviewClientProps {
 	applicantId: string;
@@ -43,7 +55,7 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 	const [actionLoading, setActionLoading] = useState<ActionLoadingState>(null);
 	const [actionMessage, setActionMessage] = useState<string | null>(null);
 	const [contractReviewNotes, setContractReviewNotes] = useState("");
-	const [absaMockNotes, setAbsaMockNotes] = useState("");
+	const [absaConfirmNotes, setAbsaConfirmNotes] = useState("");
 
 	const refreshApplicantData = useCallback(async () => {
 		const response = await fetch(`/api/applicants/${applicantId}`);
@@ -82,6 +94,9 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 
 	const canPerformActions =
 		payload?.workflow?.stage === 5 && payload.workflow.status !== "terminated";
+	const contractReviewed = payload?.contractReviewed ?? false;
+	const absaPacketSent = payload?.absaPacketSent ?? false;
+	const canConfirmAbsa = canPerformActions && absaPacketSent;
 
 	const handleContractDraftReviewed = async () => {
 		if (!(payload?.workflow?.id && payload?.applicant?.id)) return;
@@ -119,29 +134,29 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 		}
 	};
 
-	const handleMockAbsaSend = async () => {
+	const handleConfirmAbsaApproved = async () => {
 		if (!(payload?.workflow?.id && payload?.applicant?.id)) return;
-		setActionLoading("absa-mock");
+		setActionLoading("absa-confirm");
 		setActionMessage(null);
 		try {
-			const response = await fetch(`/api/workflows/${payload.workflow.id}/absa/mock`, {
+			const response = await fetch(`/api/workflows/${payload.workflow.id}/absa/confirm`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					applicantId: payload.applicant.id,
-					notes: absaMockNotes.trim() || undefined,
+					notes: absaConfirmNotes.trim() || undefined,
 				}),
 			});
 			if (!response.ok) {
 				const responsePayload = await response.json().catch(() => ({}));
-				throw new Error(responsePayload?.error || "Failed to mock ABSA handoff");
+				throw new Error(responsePayload?.error || "Failed to confirm ABSA approval");
 			}
-			setActionMessage("ABSA handoff mocked and completion signal emitted to workflow.");
-			setAbsaMockNotes("");
+			setActionMessage("ABSA approval confirmed. Workflow advancing.");
+			setAbsaConfirmNotes("");
 			await refreshApplicantData();
 		} catch (actionError) {
 			setActionMessage(
-				actionError instanceof Error ? actionError.message : "Failed to mock ABSA handoff"
+				actionError instanceof Error ? actionError.message : "Failed to confirm ABSA approval"
 			);
 		} finally {
 			setActionLoading(null);
@@ -208,31 +223,54 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 						{contractReviewContent.contractGate.actionLabel}
 					</Button>
 				</GlassCard>
+
+				{canPerformActions && payload?.workflow?.id && (
+					<AbsaPacketSection
+						workflowId={payload.workflow.id}
+						applicantId={payload.applicant?.id ?? null}
+						initialFormData={
+							payload.absaFormData?.submission?.formData
+								? (JSON.parse(
+										payload.absaFormData.submission.formData
+									) as Partial<Absa6995FormData>)
+								: undefined
+						}
+						absaDocuments={payload.absaDocuments ?? []}
+						disabled={!contractReviewed}
+						onRefresh={refreshApplicantData}
+					/>
+				)}
+
 				<GlassCard className="space-y-3">
 					<p className="text-base uppercase text-secondary-foreground font-medium">
-						{contractReviewContent.absaMockGate.label}
+						{contractReviewContent.absaConfirmGate.label}
 					</p>
 					<p className="text-stone-300/70">
-						{contractReviewContent.absaMockGate.description}
+						{contractReviewContent.absaConfirmGate.description}
 					</p>
+					{!absaPacketSent && canPerformActions && (
+						<p className="text-sm text-amber-300/80">
+							Send the ABSA packet above first, then confirm once ABSA has approved.
+						</p>
+					)}
 					<Textarea
-						value={absaMockNotes}
-						onChange={e => setAbsaMockNotes(e.target.value)}
-						placeholder={contractReviewContent.absaMockGate.placeholder}
+						value={absaConfirmNotes}
+						onChange={e => setAbsaConfirmNotes(e.target.value)}
+						placeholder={contractReviewContent.absaConfirmGate.placeholder}
 						className="min-h-[88px]"
-						disabled={actionLoading !== null || !canPerformActions}
+						disabled={actionLoading !== null || !canConfirmAbsa}
 					/>
 					<Button
 						variant="secondary"
-						onClick={handleMockAbsaSend}
-						disabled={actionLoading !== null || !canPerformActions}
+						onClick={handleConfirmAbsaApproved}
+						disabled={actionLoading !== null || !canConfirmAbsa}
 						className="gap-2 bg-action hover:bg-action/85">
-						{actionLoading === "absa-mock" ? (
+						{actionLoading === "absa-confirm" ? (
 							<RiLoader4Line className="h-4 w-4 animate-spin" />
 						) : (
 							<RiSendPlaneLine className="h-4 w-4" />
 						)}
-						{contractReviewContent.absaMockGate.actionLabel}
+						{contractReviewContent.absaConfirmGate.actionLabel}
 					</Button>
 				</GlassCard>
 				{actionMessage ? <p className="text-sm text-amber-700">{actionMessage}</p> : null}

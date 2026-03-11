@@ -44,14 +44,11 @@ async function main() {
 		.from(workflows)
 		.where(eq(workflows.status, "timeout"));
 
-	console.log(`Found ${timeoutWorkflows.length} workflows with status="timeout"`);
-
 	if (timeoutWorkflows.length === 0) {
-		console.log("Nothing to migrate.");
 		return;
 	}
 
-	let migrated = 0;
+	let _migrated = 0;
 
 	for (const wf of timeoutWorkflows) {
 		let reason = wf.terminationReason;
@@ -90,12 +87,8 @@ async function main() {
 				terminatedBy: "system:migration",
 			})
 			.where(eq(workflows.id, wf.id));
-
-		console.log(`  Migrated workflow ${wf.id} (stage ${wf.stage}) → terminated (${reason})`);
-		migrated++;
+		_migrated++;
 	}
-
-	console.log(`\nMigration complete: ${migrated}/${timeoutWorkflows.length} workflows updated.`);
 }
 
 main().catch(err => {

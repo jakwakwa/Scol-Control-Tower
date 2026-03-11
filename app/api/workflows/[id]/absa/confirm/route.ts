@@ -10,11 +10,16 @@ import {
 	logWorkflowEvent,
 } from "@/lib/services/notification-events.service";
 
-const MockAbsaSchema = z.object({
+const ConfirmAbsaSchema = z.object({
 	applicantId: z.number().int().positive(),
 	notes: z.string().max(2000).optional(),
 });
 
+/**
+ * POST /api/workflows/[id]/absa/confirm
+ * Manually confirm that ABSA has approved the contract.
+ * Emits form/absa-6995.completed to advance Stage 5.
+ */
 export async function POST(
 	request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> }
@@ -32,7 +37,7 @@ export async function POST(
 		}
 
 		const payload = await request.json();
-		const parsed = MockAbsaSchema.safeParse(payload);
+		const parsed = ConfirmAbsaSchema.safeParse(payload);
 		if (!parsed.success) {
 			return NextResponse.json(
 				{ error: "Validation failed", details: parsed.error.flatten().fieldErrors },
@@ -59,10 +64,9 @@ export async function POST(
 
 		await logWorkflowEvent({
 			workflowId,
-			eventType: "absa_form_completed",
+			eventType: "absa_approval_confirmed",
 			payload: {
-				mode: "mock",
-				mockedBy: userId,
+				confirmedBy: userId,
 				notes,
 				timestamp: new Date().toISOString(),
 			},
@@ -73,9 +77,9 @@ export async function POST(
 		await createWorkflowNotification({
 			workflowId,
 			applicantId,
-			type: "info",
-			title: "ABSA Handoff Mocked",
-			message: "ABSA form handoff was manually marked as completed for this workflow.",
+			type: "success",
+			title: "ABSA Approval Confirmed",
+			message: "ABSA contract approval was manually confirmed. Workflow advancing.",
 			actionable: false,
 		});
 
@@ -92,10 +96,10 @@ export async function POST(
 			success: true,
 			workflowId,
 			applicantId,
-			message: "ABSA handoff mocked and completion signal emitted",
+			message: "ABSA approval confirmed and workflow advanced",
 		});
 	} catch (error) {
-		console.error("[MockABSA] Error:", error);
+		console.error("[AbsaConfirm] Error:", error);
 		return NextResponse.json(
 			{
 				error: "Internal server error",
