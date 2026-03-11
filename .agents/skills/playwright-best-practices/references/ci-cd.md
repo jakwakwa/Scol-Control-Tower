@@ -30,19 +30,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v1
         with:
-          node-version: 20
-          cache: "npm"
+          bun-version: 1.0.0
+
+      - uses: actions/cache@v4
+        name: Cache Bun dependencies
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
 
       - name: Install dependencies
-        run: bun ci
+        run: bun install
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        run: bunx playwright install --with-deps
 
       - name: Run Playwright tests
-        run: npx playwright test
+        run: bunx playwright test
 
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
