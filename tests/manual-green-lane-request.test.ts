@@ -73,9 +73,7 @@ describe("requestManualGreenLane", () => {
 
 		expect(result.success).toBe(false);
 		expect(result.disallowedState).toBe(true);
-		expect(result.error).toBe(
-			"Green Lane cannot be requested after the workflow is completed or terminated."
-		);
+		expect(result.error).toContain("completed");
 		expect(updateWhereMock).not.toHaveBeenCalled();
 		expect(logWorkflowEventMock).not.toHaveBeenCalled();
 	});
@@ -88,6 +86,30 @@ describe("requestManualGreenLane", () => {
 		expect(result.success).toBe(false);
 		expect(result.disallowedState).toBe(true);
 		expect(result.error).toBe("Green Lane is only available through Stage 4.");
+		expect(updateWhereMock).not.toHaveBeenCalled();
+		expect(logWorkflowEventMock).not.toHaveBeenCalled();
+	});
+
+	it("rejects when the workflow is terminated", async () => {
+		workflowRow.status = "terminated";
+
+		const result = await requestManualGreenLane(1, 2, "actor-1");
+
+		expect(result.success).toBe(false);
+		expect(result.disallowedState).toBe(true);
+		expect(result.error).toContain("terminated");
+		expect(updateWhereMock).not.toHaveBeenCalled();
+		expect(logWorkflowEventMock).not.toHaveBeenCalled();
+	});
+
+	it("rejects when the workflow has failed", async () => {
+		workflowRow.status = "failed";
+
+		const result = await requestManualGreenLane(1, 2, "actor-1");
+
+		expect(result.success).toBe(false);
+		expect(result.disallowedState).toBe(true);
+		expect(result.error).toContain("failed");
 		expect(updateWhereMock).not.toHaveBeenCalled();
 		expect(logWorkflowEventMock).not.toHaveBeenCalled();
 	});

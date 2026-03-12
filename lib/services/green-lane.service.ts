@@ -5,6 +5,7 @@ import {
 	applicants,
 	RISK_CHECK_TYPES,
 	type WorkflowStatus,
+	WORKFLOW_STATUSES,
 	workflows,
 } from "@/db/schema";
 import { getRiskChecksForWorkflow, updateRiskCheckReviewState } from "@/lib/services/risk-check.service";
@@ -368,13 +369,15 @@ export async function getGreenLaneWorkflowStatus(
 			greenLaneConsumedAt: workflows.greenLaneConsumedAt,
 		})
 		.from(workflows)
-		.where(eq(workflows.id, workflowId));
+	.where(eq(workflows.id, workflowId));
 
 	if (!row) return null;
 
+	const normalizedStatus = normalizeWorkflowStatus(row.status);
+
 	return {
 		stage: row.stage ?? null,
-		status: row.status ?? null,
+		status: normalizedStatus,
 		greenLaneRequestedAt: row.greenLaneRequestedAt,
 		greenLaneRequestedBy: row.greenLaneRequestedBy,
 		greenLaneRequestNotes: row.greenLaneRequestNotes,
@@ -383,12 +386,19 @@ export async function getGreenLaneWorkflowStatus(
 	};
 }
 
+const TERMINAL_WORKFLOW_STATUSES = new Set<WorkflowStatus>([
+	"completed",
+	"terminated",
+	"failed",
+	"timeout",
+]);
+
 export function getManualGreenLaneBlockReason(
 	stage: number | null,
 	status: WorkflowStatus | null
 ): string | null {
-	if (status === "completed" || status === "terminated") {
-		return "Green Lane cannot be requested after the workflow is completed or terminated.";
+	if (status && TERMINAL_WORKFLOW_STATUSES.has(status)) {
+		return "Green Lane cannot be requested after the workflow is completed, failed, timed out, or terminated.";
 	}
 
 	if (typeof stage === "number" && stage > 4) {
@@ -561,4 +571,11 @@ export async function requestManualGreenLane(
 	});
 
 	return { success: true, workflowId, applicantId };
+}
+
+function normalizeWorkflowStatus(value: unknown): WorkflowStatus | null {
+	if (typeof value !== "string") return null;
+	return (WORKFLOW_STATUSES as readonly string[]).includes(value)
+		? (value as WorkflowStatus)
+		: null;
 }
