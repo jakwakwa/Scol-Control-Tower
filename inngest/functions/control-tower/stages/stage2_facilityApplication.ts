@@ -710,7 +710,7 @@ export async function executeStage2({
 	// NOTE: The active document upload path emits `upload/fica.received`.
 	let mandateDocsReceived = await step.waitForEvent("wait-mandate-docs", {
 		event: "upload/fica.received",
-		timeout: "7d", // Standard 7-day cycle
+		timeout: WORKFLOW_TIMEOUTS.MANDATE_RETRY,
 		match: "data.workflowId",
 	});
 
@@ -858,7 +858,7 @@ export async function executeStage2({
 				`wait-mandate-docs-retry-${retryCount}`,
 				{
 					event: "upload/fica.received",
-					timeout: "7d",
+					timeout: WORKFLOW_TIMEOUTS.MANDATE_RETRY,
 					match: "data.workflowId",
 				}
 			);
