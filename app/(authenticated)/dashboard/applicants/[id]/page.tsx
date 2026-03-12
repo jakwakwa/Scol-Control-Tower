@@ -42,6 +42,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { retryFacilitySubmission } from "@/lib/actions/workflow.actions";
 import { buildAgreementPreviewEntries } from "@/lib/utils/agreement-defaults";
 import { Card } from "@/components/ui/card";
+import GreenLanePassCard from "@/components/dashboard/applicants/green-lane-pass-card";
 
 interface ApplicantDetail {
 	id: number;
@@ -135,6 +136,15 @@ interface SanctionsCheckSnapshot {
 	isBlocked: boolean | null;
 }
 
+interface GreenLaneStatus {
+	signedQuotePrerequisite: boolean;
+	requested: boolean;
+	requestedBy: string | null;
+	requestedAt: string | null;
+	consumed: boolean;
+	consumedAt: string | null;
+}
+
 const formatDate = (value?: string | number | Date | null) => {
 	if (!value) return "-";
 	const date = value instanceof Date ? value : new Date(value);
@@ -176,6 +186,14 @@ export default function ApplicantDetailPage() {
 	const [sanctionsCheck, setSanctionsCheck] = useState<SanctionsCheckSnapshot | null>(
 		null
 	);
+	const [greenLaneStatus, setGreenLaneStatus] = useState<GreenLaneStatus>({
+		signedQuotePrerequisite: false,
+		requested: false,
+		requestedBy: null,
+		requestedAt: null,
+		consumed: false,
+		consumedAt: null,
+	});
 	const [loading, setLoading] = useState(true);
 	const [actionLoading, setActionLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -535,6 +553,16 @@ export default function ApplicantDetailPage() {
 		setQuote((data.quote as Quote | null) || null);
 		setWorkflow((data.workflow as Workflow | null) || null);
 		setSanctionsCheck((data.sanctionsCheck as SanctionsCheckSnapshot | null) || null);
+		setGreenLaneStatus(
+			(data.greenLaneStatus as GreenLaneStatus) ?? {
+				signedQuotePrerequisite: false,
+				requested: false,
+				requestedBy: null,
+				requestedAt: null,
+				consumed: false,
+				consumedAt: null,
+			}
+		);
 	}, []);
 
 	const refreshApplicantData = useCallback(async () => {
@@ -1176,6 +1204,16 @@ export default function ApplicantDetailPage() {
 							</TabsContent>
 
 							<TabsContent value="risk">
+								{workflow?.id && (
+									<div className="mb-6">
+										<GreenLanePassCard
+											workflowId={workflow.id}
+											applicantId={applicant.id}
+											greenLaneStatus={greenLaneStatus}
+											onSuccess={refreshApplicantData}
+										/>
+									</div>
+								)}
 								<div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
 									<GlassCard>
 										<h4 className="text-sm font-bold uppercase text-muted-foreground mb-4">

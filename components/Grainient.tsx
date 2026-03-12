@@ -129,12 +129,18 @@ const Grainient = ({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const renderer = new Renderer({
-      webgl: 2,
-      alpha: true,
-      antialias: false,
-      dpr: Math.min(window.devicePixelRatio || 1, 2)
-    });
+    let renderer: Renderer;
+    try {
+      renderer = new Renderer({
+        webgl: 2,
+        alpha: true,
+        antialias: false,
+        dpr: Math.min(window.devicePixelRatio || 1, 2)
+      });
+    } catch (error) {
+      console.warn("Grainient disabled: WebGL context unavailable", error);
+      return;
+    }
 
     const gl = renderer.gl;
     const canvas = gl.canvas;

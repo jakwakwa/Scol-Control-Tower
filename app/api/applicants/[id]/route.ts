@@ -249,6 +249,49 @@ export async function GET(
 			absaDocuments = absaDocRows;
 		}
 
+		// Green Lane status for applicant detail page
+		let greenLaneStatus: {
+			signedQuotePrerequisite: boolean;
+			requested: boolean;
+			requestedBy: string | null;
+			requestedAt: string | null;
+			consumed: boolean;
+			consumedAt: string | null;
+		} = {
+			signedQuotePrerequisite: false,
+			requested: false,
+			requestedBy: null,
+			requestedAt: null,
+			consumed: false,
+			consumedAt: null,
+		};
+		if (workflowRows.length > 0) {
+			const latestWorkflow = workflowRows[0];
+			const [signedQuoteRow] = await db
+				.select({ id: applicantMagiclinkForms.id })
+				.from(applicantMagiclinkForms)
+				.where(
+					and(
+						eq(applicantMagiclinkForms.workflowId, latestWorkflow.id),
+						eq(applicantMagiclinkForms.formType, "SIGNED_QUOTATION"),
+						eq(applicantMagiclinkForms.status, "submitted")
+					)
+				)
+				.limit(1);
+			greenLaneStatus = {
+				signedQuotePrerequisite: signedQuoteRow !== undefined,
+				requested: latestWorkflow.greenLaneRequestedAt !== null,
+				requestedBy: latestWorkflow.greenLaneRequestedBy,
+				requestedAt: latestWorkflow.greenLaneRequestedAt
+					? new Date(latestWorkflow.greenLaneRequestedAt).toISOString()
+					: null,
+				consumed: latestWorkflow.greenLaneConsumedAt !== null,
+				consumedAt: latestWorkflow.greenLaneConsumedAt
+					? new Date(latestWorkflow.greenLaneConsumedAt).toISOString()
+					: null,
+			};
+		}
+
 		return NextResponse.json({
 			applicant,
 			documents: applicantDocuments,
@@ -262,6 +305,7 @@ export async function GET(
 			absaPacketSent,
 			absaFormData,
 			absaDocuments,
+			greenLaneStatus,
 		});
 	} catch (error) {
 		console.error("Error fetching applicant:", error);

@@ -352,7 +352,9 @@ export type Events = {
 				decidedBy: string; // Risk Manager email/ID
 				reason?: string;
 				conditions?: string[];
-				timestamp: string;
+				timestamp?: string;
+				/** Set to "manual_green_lane" when AM grants Green Lane while Stage 4 is awaiting review */
+				source?: "manual_green_lane";
 			};
 		};
 	};
