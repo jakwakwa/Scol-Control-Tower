@@ -350,7 +350,7 @@ test("login", async ({ page }) => {
   id: playwright-cache
   with:
     path: ~/.cache/ms-playwright
-    key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+    key: playwright-${{ runner.os }}-${{ hashFiles('bun.lockb') }}
 
 - name: Install Playwright browsers
   if: steps.playwright-cache.outputs.cache-hit != 'true'
