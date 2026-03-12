@@ -3,6 +3,11 @@ import { getBaseUrl, getDatabaseClient } from "@/app/utils";
 import { applicants } from "@/db/schema";
 import { WORKFLOW_TIMEOUTS } from "@/lib/constants/workflow-timeouts";
 import { sendInternalAlertEmail } from "@/lib/services/email.service";
+import {
+	applyGreenLanePass,
+	hasManualGreenLaneRequest,
+	isGreenLaneEligible,
+} from "@/lib/services/green-lane.service";
 import { executeKillSwitch } from "@/lib/services/kill-switch.service";
 import {
 	createWorkflowNotification,
@@ -32,6 +37,37 @@ export async function executeStage4({
 	const checkSummary = gateStatus.checks
 		.map(c => `${c.checkType}: ${c.machineState}`)
 		.join(", ");
+
+	// Manual Green Lane: AM already granted before Stage 4 — short-circuit like auto
+	const manualGreenLane = await step.run("check-manual-green-lane", () =>
+		hasManualGreenLaneRequest(workflowId)
+	);
+
+	if (manualGreenLane) {
+		await step.run("apply-manual-green-lane-pass", () =>
+			applyGreenLanePass(workflowId, {
+				source: "manual_am",
+				checkSummary,
+			})
+		);
+		return { status: "completed", stage: 4 };
+	}
+
+	// Automatic Green Lane: eligibility-based bypass
+	const greenLaneEligibility = await step.run("check-green-lane-eligibility", () =>
+		isGreenLaneEligible(workflowId)
+	);
+
+	if (greenLaneEligibility.eligible) {
+		await step.run("apply-automatic-green-lane-pass", () =>
+			applyGreenLanePass(workflowId, {
+				source: "automatic",
+				checkSummary,
+				eligibilitySummary: greenLaneEligibility.summary,
+			})
+		);
+		return { status: "completed", stage: 4 };
+	}
 
 	await step.run("notify-final-review", async () => {
 		await createWorkflowNotification({
@@ -112,6 +148,18 @@ export async function executeStage4({
 			});
 		});
 		return { status: "terminated", stage: 4, reason: "Rejected by Risk Manager" };
+	}
+
+	// Manual Green Lane granted while Stage 4 was awaiting review — apply pass and skip high-risk branch
+	const decisionPayload = riskDecision.data.decision as { source?: string };
+	if (decisionPayload.source === "manual_green_lane") {
+		await step.run("apply-manual-green-lane-pass-from-event", () =>
+			applyGreenLanePass(workflowId, {
+				source: "manual_am",
+				checkSummary: "Manual Green Lane granted while awaiting review",
+			})
+		);
+		return { status: "completed", stage: 4 };
 	}
 
 	// ================================================================

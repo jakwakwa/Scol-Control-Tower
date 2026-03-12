@@ -231,6 +231,13 @@ export const workflows = sqliteTable("workflows", {
 	stateLockedAt: integer("state_locked_at", { mode: "timestamp" }),
 	stateLockedBy: text("state_locked_by"), // User ID or "system"
 
+	// Green Lane — Manual AM-triggered bypass (same path as automatic Green Lane)
+	greenLaneRequestedAt: integer("green_lane_requested_at", { mode: "timestamp" }),
+	greenLaneRequestedBy: text("green_lane_requested_by"),
+	greenLaneRequestNotes: text("green_lane_request_notes"),
+	greenLaneRequestSource: text("green_lane_request_source"), // manual_am | automatic
+	greenLaneConsumedAt: integer("green_lane_consumed_at", { mode: "timestamp" }),
+
 	// System
 	metadata: text("metadata"),
 });

@@ -14,12 +14,16 @@ export function removeController(
 export function broadcast(event: { type: string; notificationId?: number }) {
 	const data = `data: ${JSON.stringify(event)}\n\n`;
 	const encoded = encoder.encode(data);
-	for (const controller of controllers) {
-		try {
-			controller.enqueue(encoded);
-		} catch (_e) {
-			// If enqueue fails (e.g., closed), remove the controller
-			controllers.delete(controller);
+	const fanOutTargets = Array.from(controllers);
+
+	queueMicrotask(() => {
+		for (const controller of fanOutTargets) {
+			try {
+				controller.enqueue(encoded);
+			} catch (_e) {
+				// If enqueue fails (e.g., closed), remove the controller
+				controllers.delete(controller);
+			}
 		}
-	}
+	});
 }

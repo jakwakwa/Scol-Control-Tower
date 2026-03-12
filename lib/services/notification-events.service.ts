@@ -75,7 +75,9 @@ export interface LogEventParams {
 		| "state_lock_acquired"
 		| "re_applicant_denied"
 		| "sanctions_ingress_received"
-		| "fica_check_completed";
+		| "fica_check_completed"
+		| "green_lane_approved"
+		| "green_lane_requested";
 	payload: object;
 	actorType?: "user" | "agent" | "platform";
 	actorId?: string;

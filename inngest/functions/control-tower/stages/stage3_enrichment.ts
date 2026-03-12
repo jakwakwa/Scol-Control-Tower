@@ -198,6 +198,7 @@ export async function executeStage3({
 				eventType: "itc_check_completed",
 				payload: {
 					creditScore: itcResult.creditScore,
+					riskCategory: itcResult.riskCategory,
 					recommendation: itcResult.recommendation,
 					passed: itcResult.passed,
 					executedAt: new Date().toISOString(),
@@ -205,12 +206,23 @@ export async function executeStage3({
 				},
 			});
 
+			const rawPayload =
+				itcResult.rawResponse &&
+				typeof itcResult.rawResponse === "object" &&
+				!Array.isArray(itcResult.rawResponse)
+					? (itcResult.rawResponse as Record<string, unknown>)
+					: undefined;
+
 			await updateRiskCheckMachineState(workflowId, "ITC", "completed", {
 				payload: {
 					creditScore: itcResult.creditScore,
+					riskCategory: itcResult.riskCategory,
 					recommendation: itcResult.recommendation,
 					passed: itcResult.passed,
+					adverseListings: itcResult.adverseListings ?? [],
+					checkedAt: itcResult.checkedAt.toISOString(),
 				},
+				rawPayload,
 			});
 
 			await createWorkflowNotification({
