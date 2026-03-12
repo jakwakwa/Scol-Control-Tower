@@ -42,8 +42,8 @@ jobs:
             node_modules
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
 
-      - name: Install dependencies
-        run: bun install
+      - name: Install dependencies (frozen via bun.lockb)
+        run: bun ci
 
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps
