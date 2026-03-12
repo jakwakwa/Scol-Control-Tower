@@ -15,7 +15,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getBaseUrl, getDatabaseClient } from "@/app/utils";
-import { workflows } from "@/db/schema";
+import { type WorkflowStatus, WORKFLOW_STATUSES, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import {
 	getManualGreenLaneBlockReason,
@@ -90,9 +90,15 @@ export async function POST(
 			);
 		}
 
+		const workflowStage = typeof workflow.stage === "number" ? workflow.stage : null;
+		const workflowStatus: WorkflowStatus | null = WORKFLOW_STATUSES.includes(
+			workflow.status as WorkflowStatus
+		)
+			? (workflow.status as WorkflowStatus)
+			: null;
 		const disallowedStateMessage = getManualGreenLaneBlockReason(
-			workflow.stage ?? null,
-			workflow.status ?? null
+			workflowStage,
+			workflowStatus
 		);
 		if (disallowedStateMessage) {
 			return NextResponse.json(
