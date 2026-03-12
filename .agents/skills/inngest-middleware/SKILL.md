@@ -122,8 +122,6 @@ const loggingMiddleware = new InngestMiddleware({
 
 Python middleware follows a similar pattern. See [Dependency Injection Reference](./references/dependency-injection.md) for complete Python examples.
 
-````
-
 ## Dependency Injection
 
 Share expensive or stateful clients across all functions. **See [Dependency Injection Reference](./references/dependency-injection.md) for detailed patterns.**
