@@ -37,10 +37,12 @@ const isGreenLaneEligibleMock = mock(async () => ({
 const guardKillSwitchMock = mock(async () => undefined);
 const notifyApplicantDeclineMock = mock(async () => undefined);
 
+let applicantRiskLevel = "green";
+
 const fakeDatabaseClient = {
 	select: () => ({
 		from: () => ({
-			where: async () => [{ riskLevel: "green" }],
+			where: async () => [{ riskLevel: applicantRiskLevel }],
 		}),
 	}),
 };
@@ -100,9 +102,22 @@ const { executeStage4 } = await import(
 	"../inngest/functions/control-tower/stages/stage4_guardKillSwitch"
 );
 
-function createStep(waitForEventResult?: unknown) {
+function createStep(waitForEventResult?: unknown | unknown[]) {
 	const runIds: string[] = [];
-	const waitForEvent = mock(async () => waitForEventResult ?? null);
+	const results = Array.isArray(waitForEventResult)
+		? waitForEventResult
+		: waitForEventResult === undefined
+			? []
+			: [waitForEventResult];
+	let waitForEventCall = 0;
+	const waitForEvent = mock(async () => {
+		if (waitForEventCall < results.length) {
+			const result = results[waitForEventCall];
+			waitForEventCall += 1;
+			return result ?? null;
+		}
+		return null;
+	});
 
 	return {
 		runIds,
@@ -119,6 +134,7 @@ function createStep(waitForEventResult?: unknown) {
 
 describe("executeStage4 Green Lane", () => {
 	beforeEach(() => {
+		applicantRiskLevel = "green";
 		sendInternalAlertEmailMock.mockClear();
 		executeKillSwitchMock.mockClear();
 		createWorkflowNotificationMock.mockClear();
@@ -264,5 +280,57 @@ describe("executeStage4 Green Lane", () => {
 			source: "manual_am",
 			checkSummary: "Manual Green Lane granted while awaiting review",
 		});
+	});
+
+	it("requires financial statements for high-risk applicants even when manual Green Lane exists", async () => {
+		applicantRiskLevel = "red";
+		hasManualGreenLaneRequestMock.mockResolvedValueOnce(true);
+		isGreenLaneEligibleMock.mockResolvedValueOnce({
+			eligible: false,
+			reason: "Applicant is high risk",
+			summary: {
+				applicantRiskLevel: "red",
+				creditScore: 760,
+				itcRiskCategory: "LOW",
+				procurementAnomalyCount: 0,
+				itcAdverseListingCount: 0,
+				sanctionsRiskLevel: "CLEAR",
+				sanctionsBlocked: false,
+				ficaOverallRecommendation: "PROCEED",
+				ficaCriticalMismatchCount: 0,
+			},
+		});
+
+		const { step, runIds, waitForEvent } = createStep([
+			{
+				data: {
+					decision: {
+						outcome: "APPROVED" as const,
+						decidedBy: "risk-manager",
+						source: "manual_green_lane" as const,
+						reason: "Manual Green Lane",
+					},
+				},
+			},
+			{
+				data: {
+					confirmedBy: "risk-manager",
+					confirmedAt: new Date().toISOString(),
+				},
+			},
+		]);
+
+		const result = await executeStage4({
+			step: step as never,
+			context: {
+				workflowId: 10,
+				applicantId: 20,
+			},
+		} as never);
+
+		expect(result).toEqual({ status: "completed", stage: 4 });
+		expect(waitForEvent).toHaveBeenCalledTimes(2);
+		expect(runIds).toContain("stage-4-awaiting-financial-statements");
+		expect(applyGreenLanePassMock).not.toHaveBeenCalled();
 	});
 });

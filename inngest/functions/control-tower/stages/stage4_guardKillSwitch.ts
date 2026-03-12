@@ -38,19 +38,42 @@ export async function executeStage4({
 		.map(c => `${c.checkType}: ${c.machineState}`)
 		.join(", ");
 
+	const isHighRisk = await step.run("check-high-risk", async () => {
+		const db = getDatabaseClient();
+		if (!db) return false;
+		const [applicant] = await db
+			.select()
+			.from(applicants)
+			.where(eq(applicants.id, applicantId));
+		return applicant?.riskLevel === "red";
+	});
+
 	// Manual Green Lane: AM already granted before Stage 4 — short-circuit like auto
 	const manualGreenLane = await step.run("check-manual-green-lane", () =>
 		hasManualGreenLaneRequest(workflowId)
 	);
 
 	if (manualGreenLane) {
-		await step.run("apply-manual-green-lane-pass", () =>
-			applyGreenLanePass(workflowId, {
-				source: "manual_am",
-				checkSummary,
+		if (!isHighRisk) {
+			await step.run("apply-manual-green-lane-pass", () =>
+				applyGreenLanePass(workflowId, {
+					source: "manual_am",
+					checkSummary,
+				})
+			);
+			return { status: "completed", stage: 4 };
+		}
+
+		await step.run("log-manual-green-lane-blocked-high-risk", () =>
+			logWorkflowEvent({
+				workflowId,
+				eventType: "green_lane_blocked",
+				payload: {
+					reason: "high_risk_requires_financial_statements",
+					checkSummary,
+				},
 			})
 		);
-		return { status: "completed", stage: 4 };
 	}
 
 	// Automatic Green Lane: eligibility-based bypass
@@ -153,28 +176,31 @@ export async function executeStage4({
 	// Manual Green Lane granted while Stage 4 was awaiting review — apply pass and skip high-risk branch
 	const decisionPayload = riskDecision.data.decision as { source?: string };
 	if (decisionPayload.source === "manual_green_lane") {
-		await step.run("apply-manual-green-lane-pass-from-event", () =>
-			applyGreenLanePass(workflowId, {
-				source: "manual_am",
-				checkSummary: "Manual Green Lane granted while awaiting review",
+		if (!isHighRisk) {
+			await step.run("apply-manual-green-lane-pass-from-event", () =>
+				applyGreenLanePass(workflowId, {
+					source: "manual_am",
+					checkSummary: "Manual Green Lane granted while awaiting review",
+				})
+			);
+			return { status: "completed", stage: 4 };
+		}
+
+		await step.run("log-manual-green-lane-blocked-high-risk-from-event", () =>
+			logWorkflowEvent({
+				workflowId,
+				eventType: "green_lane_blocked",
+				payload: {
+					reason: "high_risk_requires_financial_statements",
+					checkSummary: "Manual Green Lane granted while awaiting review",
+				},
 			})
 		);
-		return { status: "completed", stage: 4 };
 	}
 
 	// ================================================================
 	// HIGH-RISK: Financial Statements Confirmation
 	// ================================================================
-
-	const isHighRisk = await step.run("check-high-risk", async () => {
-		const db = getDatabaseClient();
-		if (!db) return false;
-		const [applicant] = await db
-			.select()
-			.from(applicants)
-			.where(eq(applicants.id, applicantId));
-		return applicant?.riskLevel === "red";
-	});
 
 	if (isHighRisk) {
 		await step.run("notify-financial-statements-required", async () => {
