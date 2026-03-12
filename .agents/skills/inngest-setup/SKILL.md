@@ -23,10 +23,6 @@ Install the `inngest` package in your project using Bun:
 bun add inngest
 ```
 
-## Step 2: Create an Inngest Client
-
-Create a shared client file that you'll import throughout your codebase:
-
 ```typescript
 // src/inngest/client.ts
 import { Inngest } from "inngest";
