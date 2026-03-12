@@ -91,11 +91,11 @@ export async function POST(
 		}
 
 		const workflowStage = typeof workflow.stage === "number" ? workflow.stage : null;
-		const workflowStatus: WorkflowStatus | null = WORKFLOW_STATUSES.includes(
-			workflow.status as WorkflowStatus
-		)
-			? (workflow.status as WorkflowStatus)
-			: null;
+		const workflowStatus: WorkflowStatus | null =
+			typeof workflow.status === "string" &&
+			(WORKFLOW_STATUSES as readonly string[]).includes(workflow.status)
+				? (workflow.status as WorkflowStatus)
+				: null;
 		const disallowedStateMessage = getManualGreenLaneBlockReason(
 			workflowStage,
 			workflowStatus
