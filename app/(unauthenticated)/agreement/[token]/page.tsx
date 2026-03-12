@@ -1,7 +1,12 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import ExternalStatusCard from "@/components/forms/external/external-status-card";
-import { applicantSubmissions, applicants } from "@/db/schema";
+import {
+	applicantSubmissions,
+	applicants,
+	internalForms,
+	internalSubmissions,
+} from "@/db/schema";
 import {
 	getFormInstanceByToken,
 	markFormInstanceStatus,
@@ -69,13 +74,40 @@ export default async function ContractPage({ params }: ContractPageProps) {
 			.from(applicantSubmissions)
 			.where(eq(applicantSubmissions.applicantId, formInstance.applicantId));
 
+		let absaSubmission: { formType: string; data?: string | null } | null =
+			submissionRows.find(s => s.formType === "ABSA_6995") ?? null;
+
+		// Fallback to internal ABSA submission when no applicant ABSA (internal-only flow)
+		if (!absaSubmission && formInstance.workflowId) {
+			const [absaForm] = await db
+				.select()
+				.from(internalForms)
+				.where(
+					and(
+						eq(internalForms.workflowId, formInstance.workflowId),
+						eq(internalForms.formType, "absa_6995")
+					)
+				)
+				.limit(1);
+			if (absaForm) {
+				const [latest] = await db
+					.select({ formData: internalSubmissions.formData })
+					.from(internalSubmissions)
+					.where(eq(internalSubmissions.internalFormId, absaForm.id))
+					.orderBy(desc(internalSubmissions.createdAt))
+					.limit(1);
+				if (latest?.formData) {
+					absaSubmission = { formType: "absa_6995", data: latest.formData };
+				}
+			}
+		}
+
 		if (applicantRow) {
 			const facility = submissionRows.find(s => s.formType === "FACILITY_APPLICATION");
-			const absa = submissionRows.find(s => s.formType === "ABSA_6995");
 			defaultValues = buildAgreementDefaults({
 				applicant: applicantRow,
 				facilitySubmission: facility ?? null,
-				absaSubmission: absa ?? null,
+				absaSubmission,
 			});
 		}
 	}

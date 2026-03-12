@@ -66,33 +66,47 @@ export const documentAggregator = inngest.createFunction(
 
 		const requirements = docReqs.documents.filter(req => req.required).map(req => req.id);
 
-		const uploadedTypes = applicantDocs.map(d => d.type);
+		// 4. Filter documents to only those with complete required metadata
+		// (valid type, non-empty fileName, non-empty storageUrl, and uploadedAt)
+		const validDocs = applicantDocs.flatMap(d => {
+			const parsedType = DocumentTypeSchema.safeParse(d.type);
+			if (!parsedType.success) return [];
+			if (!d.fileName || d.fileName.trim() === "") return [];
+			if (!d.storageUrl || d.storageUrl.trim() === "") return [];
+			if (d.uploadedAt == null) return [];
 
+			return [
+				{
+					rawType: d.type,
+					parsedType: parsedType.data,
+					fileName: d.fileName,
+					storageUrl: d.storageUrl,
+					uploadedAt: d.uploadedAt,
+				},
+			];
+		});
+
+		// 5. Determine uploaded document types from valid documents only
+		const uploadedTypes = validDocs.map(d => d.rawType);
+
+		// 6. Check for any missing required documents
 		const missing = requirements.filter(req => !uploadedTypes.includes(req));
 
 		if (missing.length > 0) {
 			return {
 				status: "pending",
 				missing,
-				uploadedCount: applicantDocs.length,
+				uploadedCount: validDocs.length,
 			};
 		}
 
-		// 3. Emit the bundle event expected by onboarding.ts
-		// Map db documents to the shape expected by onboarding.ts event; validate type with Zod
-		const payloadDocuments = applicantDocs.map(d => {
-			// Use parse() instead of safeParse() for type safety - throws if invalid
-			// This is safe because upstream filters ensure validity
-			const type = DocumentTypeSchema.parse(d.type);
-			return {
-				type,
-				filename: d.fileName || "unknown",
-				url: d.storageUrl || "",
-				uploadedAt: d.uploadedAt
-					? new Date(d.uploadedAt).toISOString()
-					: new Date().toISOString(),
-			};
-		});
+		// 7. Build payload documents (no fallbacks; guaranteed valid)
+		const payloadDocuments = validDocs.map(d => ({
+			type: d.parsedType,
+			filename: d.fileName,
+			url: d.storageUrl,
+			uploadedAt: new Date(d.uploadedAt).toISOString(),
+		}));
 
 		await step.run("emit-fica-received", async () => {
 			await inngest.send({

@@ -45,15 +45,6 @@ const FORMS: FormEntry[] = [
 		color: "#c9a356",
 	},
 	{
-		type: "ABSA_6995",
-		title: "Absa 6995 Pre-screening",
-		description:
-			"Comprehensive user pre-screening assessment with applicant, banking, ratios, and declarations.",
-		route: "/forms",
-		sections: 12,
-		color: "#ef4444",
-	},
-	{
 		type: "CALL_CENTRE_APPLICATION",
 		title: "Call Centre Application",
 		description:
@@ -146,6 +137,7 @@ export default function DevFormsPage() {
 										) : null}
 									</div>
 									<button
+										type="button"
 										onClick={() => generateToken(form.type)}
 										disabled={loading === form.type}
 										className={styles.primaryButton}>

@@ -1,49 +1,29 @@
- # AGENTS.md
+# AGENTS.md
 
-## Cursor Cloud specific instructions
+## Learned User Preferences
 
-### Product overview
+- Use bun as the preferred package manager and command runner; do not use bunx
+- For Playwright, default to `bun run test:e2e` exactly; avoid custom env/CLI overrides unless the user explicitly asks for them
+- Use Biome as the linter and formatter for TypeScript files and projects
+- Run `bun run build` and `bun run lint` after implementing changes unless the user explicitly asks to skip verification to preserve an in-progress runtime workflow
+- Avoid restarting active workflow/dev-server processes unless the user explicitly approves it
+- Implement large refactors as verification-gated waves, not one large parallel change; prove each wave before starting the next
+- Each wave should be small enough to fit inside an agent context window
+- Prefer safe, slower rollout cadence over maximum throughput; pause and verify ground truth when uncertainty arises
+- Do not generalize data models beyond the current known requirements; cross future bridges when they arrive
+- Split Inngest `step.run` blocks so each step contains only one side effect (email, notification, DB write) to avoid duplicate side effects on retries
 
-SCOL Watchtower is a Next.js 16 onboarding automation platform using Bun, Turso (LibSQL), Clerk auth, and Inngest for background workflows. See `README.md` for full architecture details.
+## Learned Workspace Facts
 
-### Running services
-
-- **Dev server**: `bun run dev` (runs `next dev --turbo` on port 3000)
-- **Dev server + Inngest**: `bun run dev:all` (runs `setup-dev.sh`, starts both Next.js and Inngest dev server)
-- Inngest dev UI available at `http://localhost:8288` when using `dev:all`
-
-### Linting
-
-- This project uses **Biome** (`@biomejs/biome`) for linting and formatting, not ESLint. `next lint` was removed in Next.js 16.
-- Run: `npx @biomejs/biome check .` (lint + format) or `npx @biomejs/biome lint .` (lint only)
-- Config: `biome.json`
-
-### Build
-
-- `bun run build` — note: there is a pre-existing TypeScript error (`stageName` column referenced but missing from `workflows` schema in `db/schema.ts`). This blocks `next build` but does **not** affect the dev server (Turbopack transpiles without type-checking).
-
-### Testing
-
-- E2E tests use Playwright: `bun run test:e2e`
-- Playwright config: `playwright.config.ts`
-- Test DB reset: `bun run test:db:reset`
-
-### Database
-
-- Uses Turso (cloud-hosted LibSQL) — no local database server needed
-- Drizzle ORM with schema at `db/schema.ts`
-- Migrations: `bun run db:migrate`
-- DB studio: `bun run db:studio`
-
-### Environment variables
-
-- Secrets are injected as environment variables in Cloud Agent VMs
-- `.env.local` must be created from environment variables for Next.js to read them (Next.js loads `.env.local` at startup via `@next/env`)
-- Required: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `DATABASE_URL`, `TURSO_*` vars
-- See `.env.example` for the full list
-
-### Gotchas
-
-- Bun must be installed separately (not pre-installed in VM); the update script handles this
-- The `bun run lint` script calls `next lint` which is removed in Next.js 16 — use Biome directly instead
-- Hot reload works in dev mode; no restart needed after code changes (but dependency changes require `bun install`)
+- `bun run lint` runs Biome (not next lint)
+- Database reset and migration renumbering is acceptable when the app is pre-production with no users
+- The repo uses Drizzle ORM with Turso (libSQL/SQLite), not Prisma; schema lives in `db/schema.ts`
+- Inngest is the workflow orchestration engine; `cancelOn` only interrupts between steps, not mid-step
+- The onboarding workflow has exactly 4 risk check families: PROCUREMENT, ITC, SANCTIONS, and FICA — stored in `risk_check_results`; they must run 100% independently with no bundling in shared step.run or Promise.all pairs
+- External sanctions ingestion is the intended primary signal; the manual compliance route at `/api/sanctions` is the fallback/override
+- The Stage 6 `AGREEMENT_CONTRACT` CEL predicate is the canonical contract signature gate (not Stage 5)
+- `terminateRun()` wraps `executeKillSwitch()` and always throws `NonRetriableError` to exit Inngest runs cleanly
+- `riskAssessments` is a derived aggregate/report snapshot, not the source of truth for per-check progress
+- No combined AI overview in the risk-review critical path; risk manager summary uses client-side/runtime AI outside Inngest
+- Manually-created migration SQL files must be registered in `migrations/meta/_journal.json`; `drizzle-kit migrate` silently skips unregistered files
+- `scripts/drop-all-tables.ts` has a hardcoded table list — new tables must be added manually

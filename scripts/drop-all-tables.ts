@@ -19,46 +19,24 @@ if (!url) {
 
 const client = createClient({ url, authToken });
 
-const TABLES = [
-	// Leaf tables first (most FK dependencies)
-	"signatures",
-	"internal_submissions",
-	"document_uploads",
-	"ai_feedback_logs",
-	"ai_analysis_logs",
-	"sanction_clearance",
-	"agent_callbacks",
-	"xt_callbacks",
-	"applicant_submissions",
-	"applicant_magiclink_forms",
-	"quotes",
-	"workflow_events",
-	"notifications",
-	"activity_logs",
-	"risk_assessments",
-	"documents",
-	"internal_forms",
-	"workflows",
-	"applicants",
-	"agents",
-	"todos",
-	// Drizzle internal migration tracking
-	"__drizzle_migrations",
-];
-
 async function dropAll() {
-	// Disable FK enforcement so we can drop in any order
 	await client.execute("PRAGMA foreign_keys = OFF");
 
-	for (const table of TABLES) {
-		try {
-			await client.execute(`DROP TABLE IF EXISTS \`${table}\``);
-		} catch (err) {
-			console.warn(`  ⚠ could not drop ${table}:`, (err as Error).message);
+	const objects = await client.execute(
+		"SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%'"
+	);
+
+	for (const row of objects.rows) {
+		if (typeof row.name !== "string" || typeof row.type !== "string") {
+			continue;
 		}
+
+		const keyword = row.type === "view" ? "VIEW" : "TABLE";
+		await client.execute(`DROP ${keyword} IF EXISTS "${row.name}"`);
 	}
 
 	await client.execute("PRAGMA foreign_keys = ON");
+	client.close();
 }
 
 dropAll().catch(err => {

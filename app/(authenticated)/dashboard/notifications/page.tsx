@@ -36,7 +36,7 @@ async function markAsRead(formData: FormData) {
 	await db
 		.update(notifications)
 		.set({ read: true })
-		.where(eq(notifications.id, parseInt(id.toString())));
+		.where(eq(notifications.id, parseInt(id.toString(), 10)));
 
 	revalidatePath("/dashboard/notifications");
 }
@@ -49,7 +49,7 @@ async function deleteNotification(formData: FormData) {
 	const db = getDatabaseClient();
 	if (!db) return;
 
-	await db.delete(notifications).where(eq(notifications.id, parseInt(id.toString())));
+	await db.delete(notifications).where(eq(notifications.id, parseInt(id.toString(), 10)));
 
 	revalidatePath("/dashboard/notifications");
 }

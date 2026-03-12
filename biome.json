@@ -23,7 +23,9 @@
 			"!**/gcs",
 			"**/globals.d.ts",
 			"!**/prisma/app/generated",
-			"!**/migrations"
+			"!**/migrations",
+			"!**/.vercel",
+			"!**/node_modules"
 		]
 	},
 	"formatter": {

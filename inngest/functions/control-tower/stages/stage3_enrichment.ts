@@ -3,8 +3,8 @@ import { getBaseUrl, getDatabaseClient } from "@/app/utils";
 import { applicants, documents, documentUploads } from "@/db/schema";
 import { WORKFLOW_TIMEOUTS } from "@/lib/constants/workflow-timeouts";
 import {
-	type AggregatedAnalysisResult,
-	performAggregatedAnalysis,
+	type BatchValidationResult,
+	validateDocumentsBatch,
 } from "@/lib/services/agents";
 import { getDocumentRequirements } from "@/lib/services/document-requirements.service";
 import { sendInternalAlertEmail } from "@/lib/services/email.service";
@@ -17,6 +17,7 @@ import {
 	createWorkflowNotification,
 	logWorkflowEvent,
 } from "@/lib/services/notification-events.service";
+import { updateRiskCheckMachineState } from "@/lib/services/risk-check.service";
 import { analyzeRisk as runProcureCheck } from "@/lib/services/risk.service";
 import {
 	getStateLockInfo,
@@ -26,26 +27,30 @@ import { terminateRun } from "@/lib/services/terminate-run.service";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 import { inngest } from "../../../client";
 import { guardKillSwitch, runSanctionsForWorkflow } from "../helpers";
-import type { StageDependencies, StageResult } from "../types";
+import type { Stage2Output, StageDependencies, StageResult } from "../types";
 
 export async function executeStage3({
 	step,
 	context,
 }: StageDependencies): Promise<StageResult> {
 	const { workflowId, applicantId } = context;
-	const mandateInfo = context.mandateInfo as any;
-	const facilitySubmission = context.facilitySubmission as any;
-	const mandateVerified = context.mandateVerified as any;
-	// Stream A: Procurement Risk Assessment (can trigger kill switch)
-	// Stream B: Document Collection & AI Analysis
-	// ================================================================
+	const mandateInfo = context.mandateInfo as Stage2Output["mandateInfo"];
+	const facilitySubmission = context.facilitySubmission as
+		| {
+				data?: {
+					formData?: {
+						ficaComparisonContext?: Record<string, unknown>;
+					};
+				};
+		  }
+		| undefined;
+	const mandateVerified = context.mandateVerified as Stage2Output["mandateVerified"];
 
 	await step.run("stage-3-start", async () => {
 		await guardKillSwitch(workflowId, "stage-3-start");
 		return updateWorkflowStatus(workflowId, "processing", 3);
 	});
 
-	// Emit business type determined event
 	await step.run("emit-business-type-event", async () => {
 		const docRequirements = getDocumentRequirements(mandateInfo.businessType);
 		await inngest.send({
@@ -64,9 +69,6 @@ export async function executeStage3({
 		});
 	});
 
-	// Phase 1: Capture the current state lock version before launching parallel streams.
-	// This version is the "checkpoint" — if it changes during execution,
-	// a human has finalized the record and background data must be discarded.
 	const preLockState = await step.run("capture-state-lock-version", async () => {
 		const lockInfo = await getStateLockInfo(workflowId);
 		console.info(
@@ -75,142 +77,241 @@ export async function executeStage3({
 		return { version: lockInfo.version };
 	});
 
-	// ================================================================
-	// PARALLEL STREAM A: Procurement Risk Assessment
-	// ================================================================
-
-	interface ProcurementStreamResult {
-		cleared: boolean;
-		requiresReview: boolean;
-		killSwitchTriggered: boolean;
-		stateLockCollision?: boolean;
-		reason?: string;
-		error?: string;
-		result?: Awaited<ReturnType<typeof runProcureCheck>>;
-	}
-
-	const procurementStream = step.run(
-		"stream-a-procurement",
-		async (): Promise<ProcurementStreamResult> => {
-			const terminated = await isWorkflowTerminated(workflowId);
-			if (terminated) {
-				return {
-					cleared: false,
-					reason: "Workflow terminated",
-					killSwitchTriggered: true,
-					requiresReview: false,
-				};
-			}
-
-			// Phase 1: Ghost Process Guard — check if a human has finalized
-			// this record since we started. If so, discard our results.
-			const currentLock = await getStateLockInfo(workflowId);
-			if (currentLock.version !== preLockState.version) {
-				console.warn(
-					`[ControlTower] Stream A: State collision detected — ` +
-						`expected v${preLockState.version}, found v${currentLock.version}. ` +
-						`Discarding procurement results.`
-				);
-				await handleStateCollision(workflowId, "stream-a-procurement", {
-					stream: "procurement",
-					expectedVersion: preLockState.version,
-					actualVersion: currentLock.version,
-					lockedBy: currentLock.lockedBy,
-				});
-				return {
-					cleared: false,
-					requiresReview: false,
-					killSwitchTriggered: false,
-					stateLockCollision: true,
-					reason: `State lock collision: human decision (v${currentLock.version}) overrides background data`,
-				};
-			}
-
-			try {
-				const procureResult = await runProcureCheck(applicantId);
-
-				await logWorkflowEvent({
-					workflowId,
-					eventType: "procurement_check_completed",
-					payload: {
-						riskScore: procureResult.riskScore,
-						anomalies: procureResult.anomalies,
-						recommendedAction: procureResult.recommendedAction,
-					},
-				});
-
-				// Always require manual review per SOP
-				return {
-					cleared: false,
-					result: procureResult,
-					requiresReview: true,
-					killSwitchTriggered: false,
-				};
-			} catch (error) {
-				const errorMessage = error instanceof Error ? error.message : String(error);
-				console.error("[ControlTower] Procurement check execution failed:", error);
-
-				const manualReviewGuidance =
-					"Automated ProcureCheck could not run. Risk Manager must perform a full manual procurement check.";
-
-				await logWorkflowEvent({
-					workflowId,
-					eventType: "error",
-					payload: {
-						error: errorMessage,
-						context: "procurement_check_failed",
-						source: "procurecheck",
-						stage: 3,
-						manualReviewRequired: true,
-						fallbackMode: "manual_human_procurement_check",
-						failedAreas: [
-							"Automated procurement vendor screening",
-							"Automated procurement risk scoring",
-						],
-						guidance: manualReviewGuidance,
-					},
-				});
-
-				return {
-					cleared: false,
-					requiresReview: true,
-					error: errorMessage,
-					killSwitchTriggered: false,
-				};
-			}
-		}
-	);
-
-	// ================================================================
-	// PARALLEL STREAM B: FICA Document Collection & AI Analysis
-	// ================================================================
-
-	const documentStream = step.run("stream-b-fica-and-ai", async () => {
+	const procurementCheck = step.run("check-procurement", async () => {
 		const terminated = await isWorkflowTerminated(workflowId);
 		if (terminated) {
-			return { requested: false, reason: "Workflow terminated" };
+			return { killSwitchTriggered: true, isBlocked: false };
 		}
 
-		// Phase 1: Ghost Process Guard — check if a human has finalized
-		// this record since we started. If so, don't request more documents.
 		const currentLock = await getStateLockInfo(workflowId);
 		if (currentLock.version !== preLockState.version) {
 			console.warn(
-				`[ControlTower] Stream B: State collision detected — ` +
-					`expected v${preLockState.version}, found v${currentLock.version}. ` +
-					`Skipping FICA document request.`
+				`[ControlTower] Procurement: State collision detected — ` +
+					`expected v${preLockState.version}, found v${currentLock.version}`
 			);
-			await handleStateCollision(workflowId, "stream-b-fica-and-ai", {
-				stream: "fica_and_ai",
+			await handleStateCollision(workflowId, "check-procurement", {
+				stream: "procurement",
 				expectedVersion: preLockState.version,
 				actualVersion: currentLock.version,
 				lockedBy: currentLock.lockedBy,
 			});
-			return {
-				requested: false,
-				reason: "State lock collision — human decision overrides",
-			};
+			await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "manual_required", {
+				errorDetails: "State lock collision — human decision overrides automated check",
+			});
+			return { killSwitchTriggered: false, isBlocked: false };
 		}
+
+		await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "in_progress", {
+			provider: "procurecheck",
+		});
+
+		try {
+			const result = await runProcureCheck(applicantId);
+
+			await logWorkflowEvent({
+				workflowId,
+				eventType: "procurement_check_completed",
+				payload: {
+					riskScore: result.riskScore,
+					anomalies: result.anomalies,
+					recommendedAction: result.recommendedAction,
+				},
+			});
+
+			await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "completed", {
+				payload: {
+					riskScore: result.riskScore,
+					anomalies: result.anomalies,
+					recommendedAction: result.recommendedAction,
+					procureCheckId: result.procureCheckId,
+				},
+				rawPayload: result.procureCheckData,
+			});
+
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: "warning",
+				title: "Procurement Result Added To Risk Review",
+				message: `ProcureCheck score: ${result.riskScore}. Action: ${result.recommendedAction}.`,
+				actionable: false,
+			});
+
+			return { killSwitchTriggered: false, isBlocked: false };
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			console.error("[ControlTower] Procurement check execution failed:", error);
+
+			await logWorkflowEvent({
+				workflowId,
+				eventType: "error",
+				payload: {
+					error: errorMessage,
+					context: "procurement_check_failed",
+					source: "procurecheck",
+					stage: 3,
+					manualReviewRequired: true,
+				},
+			});
+
+			await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "manual_required", {
+				errorDetails: errorMessage,
+			});
+
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: "warning",
+				title: "Procurement Automation Offline",
+				message:
+					"Automated ProcureCheck failed. Manual procurement evidence required at risk review.",
+				actionable: false,
+			});
+
+			return { killSwitchTriggered: false, isBlocked: false };
+		}
+	});
+
+	const itcCheck = step.run("check-itc", async () => {
+		await guardKillSwitch(workflowId, "check-itc");
+
+		await updateRiskCheckMachineState(workflowId, "ITC", "in_progress", {
+			provider: "itc",
+		});
+
+		try {
+			const itcResult = await performITCCheck({ applicantId, workflowId });
+
+			const db = getDatabaseClient();
+			if (db) {
+				await db
+					.update(applicants)
+					.set({
+						itcScore: itcResult.creditScore,
+						itcStatus: itcResult.recommendation,
+					})
+					.where(eq(applicants.id, applicantId));
+			}
+
+			await logWorkflowEvent({
+				workflowId,
+				eventType: "itc_check_completed",
+				payload: {
+					creditScore: itcResult.creditScore,
+					recommendation: itcResult.recommendation,
+					passed: itcResult.passed,
+					executedAt: new Date().toISOString(),
+					stage: 3,
+				},
+			});
+
+			await updateRiskCheckMachineState(workflowId, "ITC", "completed", {
+				payload: {
+					creditScore: itcResult.creditScore,
+					recommendation: itcResult.recommendation,
+					passed: itcResult.passed,
+				},
+			});
+
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: "info",
+				title: "ITC Check Complete",
+				message: `ITC recommendation: ${itcResult.recommendation}. Credit score: ${itcResult.creditScore}.`,
+				actionable: false,
+			});
+
+			return { killSwitchTriggered: false };
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			console.error("[ControlTower] ITC check execution failed:", error);
+
+			await updateRiskCheckMachineState(workflowId, "ITC", "failed", {
+				errorDetails: errorMessage,
+			});
+
+			return { killSwitchTriggered: false };
+		}
+	});
+
+	const sanctionsCheck = step.run("check-sanctions", async () => {
+		await guardKillSwitch(workflowId, "check-sanctions");
+
+		await updateRiskCheckMachineState(workflowId, "SANCTIONS", "in_progress");
+
+		try {
+			const sanctions = await runSanctionsForWorkflow(
+				applicantId,
+				workflowId,
+				"itc_main",
+				{ allowReuse: true }
+			);
+
+			const machineState = sanctions.isBlocked ? "manual_required" as const : "completed" as const;
+			await updateRiskCheckMachineState(workflowId, "SANCTIONS", machineState, {
+				provider: sanctions.result.metadata.dataSource || "opensanctions+firecrawl",
+				payload: {
+					riskLevel: sanctions.riskLevel,
+					isBlocked: sanctions.isBlocked,
+					passed: sanctions.result.overall.passed,
+					isPEP: sanctions.result.pepScreening.isPEP,
+					requiresEDD: sanctions.result.overall.requiresEDD,
+					adverseMediaCount: sanctions.result.adverseMedia.alertsFound,
+					reused: sanctions.reused,
+					checkedAt: sanctions.checkedAt,
+				},
+				rawPayload: sanctions.result as unknown as object,
+			});
+
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: sanctions.isBlocked ? "warning" : "info",
+				title: "Sanctions Check Complete",
+				message: `Sanctions risk: ${sanctions.riskLevel}${sanctions.reused ? " (reused within 7-day window)" : ""}.`,
+				actionable: false,
+			});
+
+			return {
+				killSwitchTriggered: false,
+				isBlocked: sanctions.isBlocked,
+				isSanctionHit:
+					sanctions.result.overall.riskLevel === "BLOCKED" ||
+					sanctions.result.unSanctions.matchFound === true,
+			};
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			console.error("[ControlTower] Sanctions check execution failed:", error);
+
+			await updateRiskCheckMachineState(workflowId, "SANCTIONS", "manual_required", {
+				errorDetails: errorMessage,
+			});
+
+			return { killSwitchTriggered: false, isBlocked: false, isSanctionHit: false };
+		}
+	});
+
+	const ficaDocRequest = step.run("fica-request-docs", async () => {
+		const terminated = await isWorkflowTerminated(workflowId);
+		if (terminated) return { requested: false };
+
+		const currentLock = await getStateLockInfo(workflowId);
+		if (currentLock.version !== preLockState.version) {
+			console.warn(
+				`[ControlTower] FICA: State collision detected — ` +
+					`expected v${preLockState.version}, found v${currentLock.version}`
+			);
+			await handleStateCollision(workflowId, "fica-request-docs", {
+				stream: "fica",
+				expectedVersion: preLockState.version,
+				actualVersion: currentLock.version,
+				lockedBy: currentLock.lockedBy,
+			});
+			return { requested: false };
+		}
+
+		await updateRiskCheckMachineState(workflowId, "FICA", "in_progress");
 
 		await createWorkflowNotification({
 			workflowId,
@@ -224,94 +325,25 @@ export async function executeStage3({
 		return { requested: true };
 	});
 
-	// Execute both streams in parallel
-	// We use Promise.all to ensure both streams are started.
-	// However, we need to handle the waiting logic carefully.
-	// The original logic waited sequentially for procurement review THEN fica docs.
-	// We need to wait for BOTH potential outcomes in parallel.
-
-	const [procurementStreamResult, _documentStreamResult] = await Promise.all([
-		procurementStream,
-		documentStream,
+	const [procResult, , sanctionsResult] = await Promise.all([
+		procurementCheck,
+		itcCheck,
+		sanctionsCheck,
+		ficaDocRequest,
 	]);
 
-	// Check if kill switch was triggered by procurement
-	if (procurementStreamResult.killSwitchTriggered) {
-		return {
-			status: "terminated",
-			stage: 3,
-			reason: "Procurement check triggered kill switch",
-		};
+	if (procResult.killSwitchTriggered) {
+		return { status: "terminated", stage: 3, reason: "Kill switch triggered" };
 	}
 
-	// Phase 1: Check if a state lock collision was detected in the parallel streams.
-	// This means a human finalized the record while the background streams were running.
-	// The stale data has already been handled — log and continue gracefully.
-	if (procurementStreamResult.stateLockCollision) {
-		console.info(
-			`[ControlTower] State lock collision handled in Stream A for workflow ${workflowId}. ` +
-				`Human decision takes precedence. Continuing with manual review path.`
-		);
-
-		await step.run("log-state-collision-handled", async () => {
-			await logWorkflowEvent({
-				workflowId,
-				eventType: "stale_data_flagged",
-				payload: {
-					source: "parallel_stream_collision",
-					resolution: "human_decision_preserved",
-					collisionInStreams: ["stream-a-procurement"],
-					detectedAt: new Date().toISOString(),
-				},
-			});
-		});
-	}
-
-	// Stage 3 now has a single manual gate after reporter synthesis.
-	// Procurement always contributes evidence but does not block downstream checks.
-	if (procurementStreamResult.requiresReview) {
-		await step.run("stage-3-log-procurement-result", async () => {
-			if (procurementStreamResult.result) {
-				const procureResult = procurementStreamResult.result;
-				await createWorkflowNotification({
-					workflowId,
-					applicantId,
-					type: "warning",
-					title: "Procurement Result Added To Risk Review",
-					message: `ProcureCheck score: ${procureResult.riskScore}. Action: ${procureResult.recommendedAction}. Included in final Stage 4 review bundle.`,
-					actionable: false,
-				});
-			} else if (procurementStreamResult.error) {
-				await createWorkflowNotification({
-					workflowId,
-					applicantId,
-					type: "warning",
-					title: "Procurement Automation Offline",
-					message:
-						"Automated ProcureCheck failed. Workflow continues with manual procurement evidence required at final risk review.",
-					actionable: false,
-				});
-			}
-		});
-	}
-
-	const ficaPromise = mandateVerified.documentsComplete
-		? Promise.resolve({
-				data: {
-					workflowId,
-					applicantId,
-					source: "stage2_documents_already_complete",
-				},
-			})
-		: step.waitForEvent("wait-fica-docs", {
+	const ficaDocsReceived = mandateVerified.documentsComplete
+		? { data: { workflowId, applicantId, source: "stage2_documents_already_complete" } }
+		: await step.waitForEvent("wait-fica-docs", {
 				event: "upload/fica.received",
 				timeout: WORKFLOW_TIMEOUTS.STAGE,
 				match: "data.workflowId",
 			});
 
-	const ficaDocsReceived = await ficaPromise;
-
-	// Handle FICA Docs
 	if (!ficaDocsReceived) {
 		await step.run("notify-am-fica-timeout", async () => {
 			await guardKillSwitch(workflowId, "notify-am-fica-timeout");
@@ -333,6 +365,13 @@ export async function executeStage3({
 				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
 			});
 		});
+
+		await step.run("fica-timeout-update-row", () =>
+			updateRiskCheckMachineState(workflowId, "FICA", "failed", {
+				errorDetails: "FICA document upload timed out",
+			})
+		);
+
 		await step.run("terminate-fica-timeout", () =>
 			terminateRun({
 				workflowId,
@@ -368,62 +407,8 @@ export async function executeStage3({
 		});
 	}
 
-	// Update status to processing once the required human intervention is resolved
-	await step.run("resume-processing-after-review", () =>
-		updateWorkflowStatus(workflowId, "processing", 3)
-	);
-
-	// ================================================================
-	// PARALLEL: ITC/Sanctions Check + AI Analysis (Validation Agent)
-	// Per SOP diagram: these two paths run independently, both must
-	// complete ("both green") before the Reporter Agent synthesizes.
-	// ================================================================
-
-	const itcStep = step.run("run-main-itc-and-sanctions", async () => {
-		await guardKillSwitch(workflowId, "run-main-itc-and-sanctions");
-
-		const itcResult = await performITCCheck({ applicantId, workflowId });
-		const db = getDatabaseClient();
-		if (db) {
-			await db
-				.update(applicants)
-				.set({
-					itcScore: itcResult.creditScore,
-					itcStatus: itcResult.recommendation,
-				})
-				.where(eq(applicants.id, applicantId));
-		}
-
-		await logWorkflowEvent({
-			workflowId,
-			eventType: "itc_check_completed",
-			payload: {
-				creditScore: itcResult.creditScore,
-				recommendation: itcResult.recommendation,
-				passed: itcResult.passed,
-				executedAt: new Date().toISOString(),
-				stage: 3,
-			},
-		});
-
-		const sanctions = await runSanctionsForWorkflow(applicantId, workflowId, "itc_main", {
-			allowReuse: true,
-		});
-
-		await createWorkflowNotification({
-			workflowId,
-			applicantId,
-			type: sanctions.isBlocked ? "warning" : "info",
-			title: "ITC & Sanctions Check Complete",
-			message: `ITC recommendation: ${itcResult.recommendation}. Sanctions risk: ${sanctions.riskLevel}${sanctions.reused ? " (reused within 7-day window)" : ""}.`,
-			actionable: false,
-		});
-
-		return { itcResult, sanctions };
-	});
-
-	const aiStep = step.run("run-ai-analysis", async () => {
-		await guardKillSwitch(workflowId, "run-ai-analysis");
+	await step.run("check-fica-validation", async () => {
+		await guardKillSwitch(workflowId, "check-fica-validation");
 
 		const db = getDatabaseClient();
 		const [applicant] = db
@@ -469,220 +454,184 @@ export async function executeStage3({
 			}
 		}
 
-		const bankStatementDoc = aiDocuments.find(doc =>
-			/bank[_\s-]?statement/i.test(doc.type)
-		);
+		if (aiDocuments.length === 0) {
+			await updateRiskCheckMachineState(workflowId, "FICA", "manual_required", {
+				errorDetails: "No documents available for automated FICA validation",
+			});
+			return;
+		}
 
-		const result = await performAggregatedAnalysis({
-			workflowId,
-			applicantId,
-			applicantData: {
-				companyName: applicant?.companyName || "Unknown",
-				contactName: applicant?.contactName,
-				registrationNumber: applicant?.registrationNumber || undefined,
-				industry: applicant?.industry || undefined,
-				countryCode: "ZA",
-			},
-			documents: aiDocuments.length > 0 ? aiDocuments : undefined,
-			bankStatementBase64: bankStatementDoc?.content,
-			requestedAmount: mandateInfo.mandateVolume,
-			facilityApplicationData: (
-				facilitySubmission.data.formData as {
-					facilityApplicationData?: Record<string, unknown>;
-				}
-			).facilityApplicationData,
-			ficaComparisonContext: (
-				facilitySubmission.data.formData as {
-					ficaComparisonContext?: Record<string, unknown>;
-				}
-			).ficaComparisonContext,
-		});
+		const ficaComparisonContext = facilitySubmission?.data?.formData?.ficaComparisonContext;
 
-		return result;
+		try {
+			const validationResult: BatchValidationResult = await validateDocumentsBatch({
+				documents: aiDocuments,
+				applicantData: {
+					companyName: applicant?.companyName || "Unknown",
+					contactName: applicant?.contactName,
+					registrationNumber: applicant?.registrationNumber || undefined,
+				},
+				ficaComparisonContext,
+				workflowId,
+			});
+
+			const ficaComparisons = validationResult.results
+				.map(r => r.validation.ficaComparison)
+				.filter(Boolean);
+
+			const hasCriticalFailures = ficaComparisons.some(
+				fc => fc?.summary?.overallStatus === "MISMATCHED"
+			);
+
+			const machineState =
+				validationResult.summary.overallRecommendation === "STOP" || hasCriticalFailures
+					? ("manual_required" as const)
+					: ("completed" as const);
+
+			await updateRiskCheckMachineState(workflowId, "FICA", machineState, {
+				provider: "validation-agent",
+				payload: {
+					summary: validationResult.summary,
+					ficaComparisons,
+					documentCount: validationResult.results.length,
+					overallRecommendation: validationResult.summary.overallRecommendation,
+				},
+				rawPayload: validationResult as unknown as object,
+			});
+
+			await logWorkflowEvent({
+				workflowId,
+				eventType: "fica_check_completed",
+				payload: {
+					documentCount: validationResult.results.length,
+					overallRecommendation: validationResult.summary.overallRecommendation,
+					hasCriticalFailures,
+				},
+			});
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			console.error("[ControlTower] FICA validation failed:", error);
+
+			await updateRiskCheckMachineState(workflowId, "FICA", "manual_required", {
+				errorDetails: errorMessage,
+			});
+		}
 	});
 
-	// "Both green" — wait for ITC and AI analysis to complete in parallel
-	const [itcAndSanctions, aiAnalysisResult] = await Promise.all([itcStep, aiStep]);
+	if (sanctionsResult.isBlocked && sanctionsResult.isSanctionHit) {
+		await step.run("enter-sanction-pause", async () => {
+			await updateWorkflowStatus(workflowId, "paused", 3);
 
-	// Reporter Agent: synthesize ITC + AI results into consolidated report
-	const aiAnalysis = await step.run(
-		"reporter-agent-synthesis",
-		async (): Promise<AggregatedAnalysisResult> => {
-			const combinedFlags = [
-				...aiAnalysisResult.overall.flags,
-				...(itcAndSanctions.sanctions.isBlocked ? ["ITC_SANCTIONS_BLOCKED"] : []),
-				...(!itcAndSanctions.itcResult.passed ? ["ITC_CHECK_FAILED"] : []),
-			];
-
-			await inngest.send({
-				name: "agent/analysis.aggregated",
-				data: {
-					workflowId,
-					applicantId,
-					aggregatedScore: aiAnalysisResult.scores.aggregatedScore,
-					canAutoApprove: aiAnalysisResult.overall.canAutoApprove,
-					requiresManualReview: aiAnalysisResult.overall.requiresManualReview,
-					isBlocked:
-						aiAnalysisResult.overall.isBlocked || itcAndSanctions.sanctions.isBlocked,
-					recommendation: aiAnalysisResult.overall.recommendation,
-					flags: combinedFlags,
-				},
-			});
-
-			await inngest.send({
-				name: "reporter/analysis.completed",
-				data: {
-					workflowId,
-					applicantId,
-					report: {
-						validationSummary: aiAnalysisResult.agents.validation || {},
-						riskSummary: aiAnalysisResult.agents.risk || {},
-						sanctionsSummary: aiAnalysisResult.agents.sanctions || {},
-						itcSummary: {
-							creditScore: itcAndSanctions.itcResult.creditScore,
-							recommendation: itcAndSanctions.itcResult.recommendation,
-							passed: itcAndSanctions.itcResult.passed,
-							sanctionsRiskLevel: itcAndSanctions.sanctions.riskLevel,
-							sanctionsBlocked: itcAndSanctions.sanctions.isBlocked,
-						},
-						overallRecommendation:
-							aiAnalysisResult.overall.recommendation === "AUTO_APPROVE"
-								? "APPROVE"
-								: aiAnalysisResult.overall.recommendation === "BLOCK"
-									? "DECLINE"
-									: aiAnalysisResult.overall.recommendation === "MANUAL_REVIEW"
-										? "MANUAL_REVIEW"
-										: "CONDITIONAL_APPROVE",
-						aggregatedScore: aiAnalysisResult.scores.aggregatedScore,
-						flags: combinedFlags,
-					},
-					completedAt: new Date().toISOString(),
-				},
-			});
-
-			return {
-				...aiAnalysisResult,
-				overall: {
-					...aiAnalysisResult.overall,
-					isBlocked:
-						aiAnalysisResult.overall.isBlocked || itcAndSanctions.sanctions.isBlocked,
-					flags: combinedFlags,
-				},
-			} as AggregatedAnalysisResult;
-		}
-	);
-
-	context.aiAnalysisComplete = true;
-
-	// Check if blocked by sanctions (SOP v3.1.0) — from either AI agents or ITC path
-	if (aiAnalysis.overall.isBlocked || itcAndSanctions.sanctions.isBlocked) {
-		// Detect if it is specifically a sanctions hit
-		const sanctionsResult = aiAnalysis.sanctions;
-		const isSanctionHit =
-			sanctionsResult?.overall.riskLevel === "BLOCKED" ||
-			sanctionsResult?.unSanctions.matchFound === true;
-
-		if (isSanctionHit) {
-			// SANCTION PAUSE PROTOCOL
-			await step.run("enter-sanction-pause", async () => {
-				await updateWorkflowStatus(workflowId, "paused", 3);
-
-				const db = getDatabaseClient();
-				if (db) {
-					await db
-						.update(applicants)
-						.set({ sanctionStatus: "flagged" })
-						.where(eq(applicants.id, applicantId));
-				}
-
-				await createWorkflowNotification({
-					workflowId,
-					applicantId,
-					type: "error",
-					title: "CRITICAL: Sanction Hit Detected",
-					message:
-						"Workflow PAUSED. Compliance Officer clearance required. 'Retry' is forbidden.",
-					actionable: true,
-				});
-
-				await sendInternalAlertEmail({
-					title: "CRITICAL: Sanction Hit Paused Workflow",
-					message:
-						"A potential sanction hit has paused the workflow. Compliance Officer must adjudicate via Sanction Clearance Interface.",
-					workflowId,
-					applicantId,
-					type: "error",
-					actionUrl: `${getBaseUrl()}/dashboard/compliance/sanctions/${applicantId}`,
-				});
-			});
-
-			// Wait for Clearance or Confirmation
-			const clearanceEvent = await step.waitForEvent("wait-sanction-clearance", {
-				event: "sanction/cleared",
-				timeout: "30d", // Long timeout for compliance
-				match: "data.workflowId",
-			});
-
-			// We also need to listen for "sanction/confirmed" but inngest waitForEvent is single event.
-			// For now, we assume if "sanction/cleared" isn't fired, it might be terminated via other means (kill switch)
-			// OR we can use race() if Inngest supports it (in current SDK it might not easily).
-			// workaround: The "Confirm Hit" action in UI should probably trigger "workflow/terminated" event directly (Kill Switch) OR fire "sanction/confirmed".
-			// IF we receive "sanction/cleared", we resume.
-			// IF we don't, we time out or get killed.
-
-			if (!clearanceEvent) {
-				// Timeout or Killed
-				return {
-					status: "terminated",
-					stage: 3,
-					reason: "Sanction clearance timed out",
-				};
+			const db = getDatabaseClient();
+			if (db) {
+				await db
+					.update(applicants)
+					.set({ sanctionStatus: "flagged" })
+					.where(eq(applicants.id, applicantId));
 			}
 
-			// If Cleared
-			await step.run("resume-from-sanction-pause", async () => {
-				await updateWorkflowStatus(workflowId, "processing", 3);
-				const db = getDatabaseClient();
-				if (db) {
-					await db
-						.update(applicants)
-						.set({ sanctionStatus: "clear" })
-						.where(eq(applicants.id, applicantId));
-				}
-
-				await logWorkflowEvent({
-					workflowId,
-					eventType: "sanction_cleared",
-					payload: {
-						officerId: clearanceEvent.data.officerId,
-						reason: clearanceEvent.data.reason,
-						clearedAt: clearanceEvent.data.clearedAt,
-					},
-				});
-			});
-
-			// Continue normally...
-		} else {
-			// Other blocking reasons (Fraud, etc)
-			await executeKillSwitch({
+			await createWorkflowNotification({
 				workflowId,
 				applicantId,
-				reason: "COMPLIANCE_VIOLATION",
-				decidedBy: "ai_sanctions_agent",
-				notes: `Blocked by AI checks: ${aiAnalysis.overall.reasoning}`,
+				type: "error",
+				title: "CRITICAL: Sanction Hit Detected",
+				message:
+					"Workflow PAUSED. Compliance Officer clearance required. 'Retry' is forbidden.",
+				actionable: true,
 			});
+
+			await sendInternalAlertEmail({
+				title: "CRITICAL: Sanction Hit Paused Workflow",
+				message:
+					"A potential sanction hit has paused the workflow. Compliance Officer must adjudicate via Sanction Clearance Interface.",
+				workflowId,
+				applicantId,
+				type: "error",
+				actionUrl: `${getBaseUrl()}/dashboard/compliance/sanctions/${applicantId}`,
+			});
+		});
+
+		const adjudicationEvent = await step.waitForEvent("wait-sanction-adjudication", {
+			event: "sanction/adjudicated",
+			timeout: "30d",
+			match: "data.workflowId",
+		});
+
+		if (!adjudicationEvent) {
 			return {
 				status: "terminated",
 				stage: 3,
-				reason: "Blocked by sanctions screening",
+				reason: "Sanction adjudication timed out",
 			};
 		}
+
+		if (adjudicationEvent.data.action === "confirm") {
+			await step.run("sanction-confirmed-cleanup", async () => {
+				await logWorkflowEvent({
+					workflowId,
+					eventType: "sanctions_confirmed",
+					payload: {
+						officerId: adjudicationEvent.data.officerId,
+						reason: adjudicationEvent.data.reason,
+						confirmedAt: adjudicationEvent.data.timestamp,
+					},
+				});
+
+				// Perform any other cleanup here if needed
+				// e.g. Notify account manager, update internal audit logs, etc.
+			});
+
+			return terminateRun({
+				workflowId,
+				applicantId,
+				stage: 3,
+				reason: "COMPLIANCE_VIOLATION",
+				notes: `Sanction hit confirmed by officer ${adjudicationEvent.data.officerId}: ${adjudicationEvent.data.reason}`,
+			});
+		}
+
+		await step.run("resume-from-sanction-pause", async () => {
+			await updateWorkflowStatus(workflowId, "processing", 3);
+			const db = getDatabaseClient();
+			if (db) {
+				await db
+					.update(applicants)
+					.set({ sanctionStatus: "clear" })
+					.where(eq(applicants.id, applicantId));
+			}
+
+			await updateRiskCheckMachineState(workflowId, "SANCTIONS", "completed", {
+				payload: {
+					clearedBy: adjudicationEvent.data.officerId,
+					clearedAt: adjudicationEvent.data.timestamp,
+					clearanceReason: adjudicationEvent.data.reason,
+				},
+			});
+
+			await logWorkflowEvent({
+				workflowId,
+				eventType: "sanction_cleared",
+				payload: {
+					officerId: adjudicationEvent.data.officerId,
+					reason: adjudicationEvent.data.reason,
+					clearedAt: adjudicationEvent.data.timestamp,
+				},
+			});
+		});
+	} else if (sanctionsResult.isBlocked) {
+		await executeKillSwitch({
+			workflowId,
+			applicantId,
+			reason: "COMPLIANCE_VIOLATION",
+			decidedBy: "ai_sanctions_agent",
+			notes: "Blocked by sanctions screening (non-sanctions block)",
+		});
+		return {
+			status: "terminated",
+			stage: 3,
+			reason: "Blocked by sanctions screening",
+		};
 	}
 
-	// ================================================================
-	return {
-		status: "completed",
-		stage: 3,
-		data: { aiAnalysis },
-	};
+	return { status: "completed", stage: 3 };
 }

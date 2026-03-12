@@ -110,7 +110,7 @@ export function StepIndicator({
 								"h-8 w-8 text-xs",
 								isCompleted && "bg-teal-500/40 text-teal-700",
 								isCurrent && "bg-stone-500/20 text-stone-400 ring-2 ring-stone-500/30",
-								!isCompleted && !isCurrent && "bg-muted text-muted-foreground",
+								!(isCompleted || isCurrent ) && "bg-muted text-muted-foreground",
 								isClickable && "cursor-pointer hover:opacity-80",
 								!isClickable && "cursor-default"
 							)}
@@ -200,7 +200,7 @@ export function FormWizard({
 			const savedStep = localStorage.getItem(`${storageKey}_step`);
 			if (savedStep) {
 				const step = parseInt(savedStep, 10);
-				if (!isNaN(step) && step >= 0 && step < activeSteps.length) {
+				if (!Number.isNaN(step) && step >= 0 && step < activeSteps.length) {
 					if (controlledStep === undefined) {
 						setInternalStep(step);
 					} else {

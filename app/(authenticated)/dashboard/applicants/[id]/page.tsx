@@ -41,6 +41,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { retryFacilitySubmission } from "@/lib/actions/workflow.actions";
 import { buildAgreementPreviewEntries } from "@/lib/utils/agreement-defaults";
+import { Card } from "@/components/ui/card";
 
 interface ApplicantDetail {
 	id: number;
@@ -199,6 +200,14 @@ export default function ApplicantDetailPage() {
 	const [workflowActionMessage, setWorkflowActionMessage] = useState<string | null>(null);
 	const [financialStatementNotes, setFinancialStatementNotes] = useState("");
 	const [killSwitchNotes, setKillSwitchNotes] = useState("");
+
+	// Two-factor approval state (Stage 6)
+	const [approvalLoading, setApprovalLoading] = useState<string | null>(null);
+	const [approvalMessage, setApprovalMessage] = useState<string | null>(null);
+
+	// Contract review state (Stage 5)
+	const [contractReviewLoading, setContractReviewLoading] = useState(false);
+	const [contractReviewMessage, setContractReviewMessage] = useState<string | null>(null);
 
 	// Confirmation dialog state
 	const [retryDialogOpen, setRetryDialogOpen] = useState(false);
@@ -459,6 +468,54 @@ export default function ApplicantDetailPage() {
 		}
 	};
 
+	const handleContractReviewed = async () => {
+		if (!(workflow?.id && applicant)) return;
+		setContractReviewLoading(true);
+		setContractReviewMessage(null);
+		try {
+			const res = await fetch(`/api/workflows/${workflow.id}/contract/review`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ applicantId: applicant.id }),
+			});
+			const json = await res.json();
+			if (!res.ok) throw new Error(json.error || "Contract review failed");
+			setContractReviewMessage("Contract review recorded. Workflow advancing.");
+			await refreshApplicantData();
+		} catch (err) {
+			setContractReviewMessage(err instanceof Error ? err.message : "Failed");
+		} finally {
+			setContractReviewLoading(false);
+		}
+	};
+
+	const handleTwoFactorApproval = async (role: "risk_manager" | "account_manager") => {
+		if (!(workflow?.id && applicant)) return;
+		setApprovalLoading(role);
+		setApprovalMessage(null);
+		try {
+			const res = await fetch("/api/onboarding/approve", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					workflowId: workflow.id,
+					applicantId: applicant.id,
+					role,
+					decision: "APPROVED",
+				}),
+			});
+			const json = await res.json();
+			if (!res.ok) throw new Error(json.error || "Approval failed");
+			const label = role === "risk_manager" ? "Risk Manager" : "Account Manager";
+			setApprovalMessage(`${label} approval recorded.${json.bothApproved ? " Both approvals complete." : ""}`);
+			await refreshApplicantData();
+		} catch (err) {
+			setApprovalMessage(err instanceof Error ? err.message : "Approval failed");
+		} finally {
+			setApprovalLoading(null);
+		}
+	};
+
 	const handleDownloadDocument = (doc: ApplicantDocument) => {
 		if (doc.storageUrl) {
 			window.open(doc.storageUrl, "_blank");
@@ -489,6 +546,19 @@ export default function ApplicantDetailPage() {
 		applyApplicantPayload(data);
 		return data;
 	}, [id, applyApplicantPayload]);
+
+	useEffect(() => {
+		if (workflow?.status !== "awaiting_human") return;
+		if (!(workflow.stage === 5 || workflow.stage === 6)) return;
+
+		const timer = setInterval(() => {
+			void refreshApplicantData().catch(pollError => {
+				console.error("Failed to poll applicant workflow state:", pollError);
+			});
+		}, 4000);
+
+		return () => clearInterval(timer);
+	}, [workflow?.status, workflow?.stage, refreshApplicantData]);
 
 	const waitForPreRiskOutcome = useCallback(
 		async (expectedOutcome: "approved" | "rejected") => {
@@ -648,11 +718,18 @@ export default function ApplicantDetailPage() {
 				description={`Registration: ${client.registrationNumber || "N/A"}`}
 				actions={
 					<div className="flex gap-2">
-						<Link href={`/dashboard/applicants/${id}/agreement-form`}>
+
+					{workflowStage === 5 ? (
+						<Link href={`/dashboard/applicants/${id}/contract`}>
 							<Button size="sm" variant="outline">
 								Contract Review
 							</Button>
 						</Link>
+					) : (
+						<Button size="sm" variant="outline" disabled>
+							Contract Review
+						</Button>
+					)}
 						<Button
 							size="sm"
 							className="bg-action hover:bg-action/85"
@@ -943,7 +1020,7 @@ export default function ApplicantDetailPage() {
 										documents.map(doc => (
 											<div
 												key={doc.id}
-												className="flex items-center justify-between p-4 rounded-xl border-2 border-b-white bg-card hover:bg-secondary/10 transition-colors">
+												className="flex items-center justify-between p-4 rounded-xl border-2 border-b-white/5 bg-card hover:bg-secondary/10 transition-colors">
 												<div className="flex items-center gap-4">
 													<div className="h-10 w-10 rounded-lg flex items-center justify-center bg-secondary/40 text-secondary-foreground">
 														<RiFileTextLine className="h-5 w-5" />
@@ -1311,23 +1388,85 @@ export default function ApplicantDetailPage() {
 												<p className="text-sm text-muted-foreground mb-4">
 													Applicant details for contract prefill (key/value).
 												</p>
-												<div className="grid grid-cols-2 gap-2">
+												<div className="grid grid-cols-2 gap-0.5">
 													{previewEntries.map(({ label, value }) => (
-														<div
+														<Card
 															key={label}
-															className="flex flex-col p-4 justify-start gap-1 bg-card text-foreground/60 shadow-lg shadow-secondary/10 rounded-lg border border-border/60">
-															<span className="capitalize font-bold">{label}</span>
-															<span className="font-medium capitalize font-sans text-muted-foreground/80">
+															className="flex flex-col px-4 py-2 justify-start gap-0.5 rounded-lg border border-border/60 rounded-sm mb-0">
+															<span className="capitalize text-xs text-muted-foreground font-medium">{label}</span>
+															<span className="font-light  font-mono text-sm capitalize font-sans my-1 text-muted-foreground/80">
 																{value}
 															</span>
-														</div>
+														</Card>
 													))}
 												</div>
 											</GlassCard>
 										) : null;
 									})()}
+
+									{/* Contract Review (Stage 5) */}
+									<GlassCard className="mb-6 border-l-4 border-l-amber-500">
+										<h4 className="text-sm font-bold uppercase text-muted-foreground mb-2">
+											Contract Draft Review
+										</h4>
+										<p className="text-sm text-muted-foreground mb-4">
+											Confirm that the contract draft has been reviewed and is ready to send to the client.
+										</p>
+										<Button
+											onClick={handleContractReviewed}
+											disabled={contractReviewLoading}
+											className="gap-2 bg-amber-600 hover:bg-amber-700">
+											{contractReviewLoading ? (
+												<RiLoader4Line className="h-4 w-4 animate-spin" />
+											) : (
+												<RiFileTextLine className="h-4 w-4" />
+											)}
+											Mark Contract Reviewed
+										</Button>
+										{contractReviewMessage && (
+											<p className="mt-3 text-sm text-amber-700">{contractReviewMessage}</p>
+										)}
+									</GlassCard>
+
+									{/* Two-Factor Approval (Stage 6) */}
+									<GlassCard className="mb-6 border-l-4 border-l-blue-500">
+										<h4 className="text-sm font-bold uppercase text-muted-foreground mb-2">
+											Two-Factor Final Approval
+										</h4>
+										<p className="text-sm text-muted-foreground mb-4">
+											Both Risk Manager and Account Manager must approve to complete onboarding.
+										</p>
+										<div className="flex flex-wrap gap-3">
+											<Button
+												onClick={() => handleTwoFactorApproval("risk_manager")}
+												disabled={approvalLoading !== null}
+												className="gap-2 bg-teal-600 hover:bg-teal-700">
+												{approvalLoading === "risk_manager" ? (
+													<RiLoader4Line className="h-4 w-4 animate-spin" />
+												) : (
+													<RiShieldCheckLine className="h-4 w-4" />
+												)}
+												RM Approve
+											</Button>
+											<Button
+												onClick={() => handleTwoFactorApproval("account_manager")}
+												disabled={approvalLoading !== null}
+												className="gap-2 bg-blue-600 hover:bg-blue-700">
+												{approvalLoading === "account_manager" ? (
+													<RiLoader4Line className="h-4 w-4 animate-spin" />
+												) : (
+													<RiCheckLine className="h-4 w-4" />
+												)}
+												AM Approve
+											</Button>
+										</div>
+										{approvalMessage && (
+											<p className="mt-3 text-sm text-amber-700">{approvalMessage}</p>
+										)}
+									</GlassCard>
+
 									<div className="flex items-center justify-between">
-										<h3 className="font-bold text-slate-300 text-3xl mt-4 pt-4 pl-4">
+										<h3 className="font-bold text-slate-300 text-xl mt-4 pt-0 pl-4">
 											Quote Review
 										</h3>
 										{quote && canEditQuote && !isEditingQuote && (

@@ -103,9 +103,9 @@ export default async function WorkflowDetailsPage({
 	params: Promise<{ id: string }>;
 }) {
 	const { id } = await params;
-	const workflowId = parseInt(id);
+	const workflowId = parseInt(id, 10);
 
-	if (isNaN(workflowId)) {
+	if (Number.isNaN(workflowId)) {
 		notFound();
 	}
 

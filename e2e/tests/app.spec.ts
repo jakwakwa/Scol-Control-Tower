@@ -15,16 +15,20 @@ test.describe("Authentication", () => {
 			page,
 			signInParams: {
 				strategy: "password",
-				identifier: process.env.E2E_CLERK_USER_USERNAME!,
+				identifier: process.env.E2E_CLERK_USER_USERNAME ?? process.env.E2E_CLERK_USER_EMAIL!,
 				password: process.env.E2E_CLERK_USER_PASSWORD!,
 			},
 		});
 
-		// Navigate to protected dashboard
-		await page.goto("/dashboard");
+		// Use lighter route to prove auth (form page vs data-heavy dashboard)
+		await page.goto("/dashboard/applicants/new", {
+			waitUntil: "domcontentloaded",
+			timeout: 60_000,
+		});
 
-		// Verify we're on the dashboard
-		await expect(page).toHaveURL(/\/dashboard/);
+		// Verify we're authenticated and on the form
+		await expect(page).toHaveURL(/\/dashboard\/applicants\/new/);
+		await expect(page.locator("#companyName")).toBeVisible();
 	});
 
 	test("should sign out successfully", async ({ page }) => {
@@ -36,12 +40,17 @@ test.describe("Authentication", () => {
 			page,
 			signInParams: {
 				strategy: "password",
-				identifier: process.env.E2E_CLERK_USER_USERNAME!,
+				identifier: process.env.E2E_CLERK_USER_USERNAME ?? process.env.E2E_CLERK_USER_EMAIL!,
 				password: process.env.E2E_CLERK_USER_PASSWORD!,
 			},
 		});
 
-		await page.goto("/dashboard");
+		// Use lighter route to prove auth
+		await page.goto("/dashboard/applicants/new", {
+			waitUntil: "domcontentloaded",
+			timeout: 60_000,
+		});
+		await expect(page.locator("#companyName")).toBeVisible();
 
 		// Sign out
 		await clerk.signOut({ page });

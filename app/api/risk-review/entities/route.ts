@@ -1,8 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
-import { and, count, desc, eq, notInArray } from "drizzle-orm";
+import { count, desc, eq, notInArray } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
-import { applicants, riskAssessments, workflowEvents, workflows } from "@/db/schema";
+import { applicants, riskCheckResults, workflows } from "@/db/schema";
 
 // --- Types ---
 
@@ -10,18 +10,25 @@ export interface RiskEntityRow {
 	id: number;
 	applicantId: number;
 	companyName: string;
-	procurementStatus: "pending" | "cleared" | "manual_required" | "failed";
-	itcStatus: "pending" | "cleared" | "manual_required" | "failed";
-	sanctionStatus: "clear" | "flagged" | "confirmed_hit" | "pending";
-	ficaStatus: "pending" | "submitted" | "verified" | "rejected";
+	procurementStatus: string;
+	itcStatus: string;
+	sanctionStatus: string;
+	ficaStatus: string;
+	procurementReviewState: string;
+	itcReviewState: string;
+	sanctionsReviewState: string;
+	ficaReviewState: string;
 	finalReportReady: boolean;
 }
+
+const TERMINAL_MACHINE_STATES = ["completed", "failed", "manual_required"];
+const REVIEWED_STATES = ["acknowledged", "approved", "not_required"];
 
 /**
  * GET /api/risk-review/entities?page=1&pageSize=10
  *
  * Returns paginated applicants with in-progress workflows and their
- * check statuses (procurement, ITC, sanctions, FICA).
+ * check statuses from the canonical risk_check_results table.
  */
 export async function GET(request: NextRequest) {
 	try {
@@ -43,10 +50,8 @@ export async function GET(request: NextRequest) {
 		);
 		const offset = (page - 1) * pageSize;
 
-		// Terminal statuses — exclude from in-progress list
 		const terminalStatuses = ["completed", "terminated", "failed"];
 
-		// Total count for pagination
 		const [totalResult] = await db
 			.select({ value: count() })
 			.from(workflows)
@@ -55,19 +60,11 @@ export async function GET(request: NextRequest) {
 
 		const totalCount = totalResult?.value ?? 0;
 
-		// Fetch paginated rows ordered by most recent first
 		const rows = await db
 			.select({
 				workflowId: workflows.id,
 				applicantId: workflows.applicantId,
 				companyName: applicants.companyName,
-				stage: workflows.stage,
-				status: workflows.status,
-				procurementCleared: workflows.procurementCleared,
-				itcScore: applicants.itcScore,
-				itcStatusDb: applicants.itcStatus,
-				sanctionStatusDb: applicants.sanctionStatus,
-				riskLevel: applicants.riskLevel,
 			})
 			.from(workflows)
 			.leftJoin(applicants, eq(workflows.applicantId, applicants.id))
@@ -76,90 +73,46 @@ export async function GET(request: NextRequest) {
 			.limit(pageSize)
 			.offset(offset);
 
-		// Enrich each row with check statuses
 		const items: RiskEntityRow[] = await Promise.all(
 			rows.map(async row => {
-				// --- Procurement status ---
-				let procurementStatus: RiskEntityRow["procurementStatus"] = "pending";
-				if (row.procurementCleared) {
-					procurementStatus = "cleared";
-				} else {
-					// Check for procurement failure events
-					const failureEvents = await db
-						.select({ id: workflowEvents.id })
-						.from(workflowEvents)
-						.where(
-							and(
-								eq(workflowEvents.workflowId, row.workflowId),
-								eq(workflowEvents.eventType, "error")
-							)
-						)
-						.limit(1);
-
-					if (failureEvents.length > 0) {
-						procurementStatus = "manual_required";
-					}
-				}
-
-				// --- ITC status ---
-				let itcStatus: RiskEntityRow["itcStatus"] = "pending";
-				const itcVal = (row.itcStatusDb || "").toUpperCase();
-				if (itcVal === "CLEARED" || itcVal === "PASSED") {
-					itcStatus = "cleared";
-				} else if (itcVal === "MANUAL_REVIEW") {
-					itcStatus = "manual_required";
-				} else if (itcVal === "FAILED" || itcVal === "REJECTED") {
-					itcStatus = "failed";
-				}
-
-				// --- Sanctions status ---
-				let sanctionStatus: RiskEntityRow["sanctionStatus"] = "pending";
-				const sanctionVal = row.sanctionStatusDb || "pending";
-				if (
-					sanctionVal === "clear" ||
-					sanctionVal === "flagged" ||
-					sanctionVal === "confirmed_hit"
-				) {
-					sanctionStatus = sanctionVal;
-				}
-
-				// --- FICA status ---
-				// Derive from risk assessment and document state
-				let ficaStatus: RiskEntityRow["ficaStatus"] = "pending";
-				const assessments = await db
+				const checks = await db
 					.select({
-						aiAnalysis: riskAssessments.aiAnalysis,
-						reviewedBy: riskAssessments.reviewedBy,
+						checkType: riskCheckResults.checkType,
+						machineState: riskCheckResults.machineState,
+						reviewState: riskCheckResults.reviewState,
 					})
-					.from(riskAssessments)
-					.where(eq(riskAssessments.applicantId, row.applicantId))
-					.limit(1);
+					.from(riskCheckResults)
+					.where(eq(riskCheckResults.workflowId, row.workflowId));
 
-				if (assessments.length > 0) {
-					const assessment = assessments[0];
-					if (assessment.reviewedBy) {
-						ficaStatus = "verified";
-					} else if (assessment.aiAnalysis) {
-						ficaStatus = "submitted";
-					}
-				}
+				const checkMap = new Map(
+					checks.map(c => [c.checkType, c])
+				);
 
-				// --- Final report readiness ---
-				const finalReportReady =
-					procurementStatus === "cleared" &&
-					itcStatus === "cleared" &&
-					sanctionStatus === "clear" &&
-					ficaStatus === "verified";
+				const proc = checkMap.get("PROCUREMENT");
+				const itc = checkMap.get("ITC");
+				const sanc = checkMap.get("SANCTIONS");
+				const fica = checkMap.get("FICA");
+
+				const allTerminal =
+					checks.length === 4 &&
+					checks.every(c => TERMINAL_MACHINE_STATES.includes(c.machineState));
+				const allReviewed =
+					checks.length === 4 &&
+					checks.every(c => REVIEWED_STATES.includes(c.reviewState));
 
 				return {
 					id: row.workflowId,
 					applicantId: row.applicantId,
 					companyName: row.companyName || "Unknown Company",
-					procurementStatus,
-					itcStatus,
-					sanctionStatus,
-					ficaStatus,
-					finalReportReady,
+					procurementStatus: proc?.machineState ?? "pending",
+					itcStatus: itc?.machineState ?? "pending",
+					sanctionStatus: sanc?.machineState ?? "pending",
+					ficaStatus: fica?.machineState ?? "pending",
+					procurementReviewState: proc?.reviewState ?? "pending",
+					itcReviewState: itc?.reviewState ?? "pending",
+					sanctionsReviewState: sanc?.reviewState ?? "pending",
+					ficaReviewState: fica?.reviewState ?? "pending",
+					finalReportReady: allTerminal && allReviewed,
 				};
 			})
 		);

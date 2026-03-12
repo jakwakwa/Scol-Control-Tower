@@ -1,70 +1,60 @@
+#!/usr/bin/env bun
 /**
- * Test Database Reset Script
- * Resets the local test SQLite database for E2E tests
+ * Reset the E2E test database (Turso).
+ * Loads .env.test only (not .env.local) so TEST_* vars are used.
+ *
+ * Usage: bun run test:db:reset
  */
-import { existsSync, unlinkSync } from "node:fs";
+import { config } from "dotenv";
+import { execSync } from "node:child_process";
 import { resolve } from "node:path";
-import { createClient } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
-import { migrate } from "drizzle-orm/libsql/migrator";
-import * as schema from "../db/schema";
 
-const TEST_DB_PATH = resolve(__dirname, "../e2e/test.db");
-const MIGRATIONS_PATH = resolve(__dirname, "../migrations");
+// Load .env.test only — avoid .env.local so we use the test database
+config({ path: resolve(process.cwd(), ".env.test"), override: true });
 
-async function resetTestDatabase() {
+const url = process.env.TEST_DATABASE_URL;
+const authToken = process.env.TEST_TURSO_GROUP_AUTH_TOKEN;
+
+if (!url) {
+	console.error("❌ TEST_DATABASE_URL is not defined in .env.test");
+	console.error("   Copy .env.test.example to .env.test and add your test database URL.");
+	process.exit(1);
+}
+
+const { createClient } = await import("@libsql/client");
+const client = createClient({ url, authToken });
+
+async function reset() {
 	console.info("🧹 Resetting test database...");
 
-	// Remove existing test database
-	if (existsSync(TEST_DB_PATH)) {
-		unlinkSync(TEST_DB_PATH);
-		console.info("   Removed existing test.db");
+	await client.execute("PRAGMA foreign_keys = OFF");
+
+	const objects = await client.execute(
+		"SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%'"
+	);
+
+	for (const row of objects.rows) {
+		if (typeof row.name !== "string" || typeof row.type !== "string") {
+			continue;
+		}
+
+		const keyword = row.type === "view" ? "VIEW" : "TABLE";
+		await client.execute(`DROP ${keyword} IF EXISTS "${row.name}"`);
 	}
 
-	// Create fresh database with migrations
-	const client = createClient({
-		url: `file:${TEST_DB_PATH}`,
-	});
-
-	const db = drizzle(client, { schema });
-
-	// Run migrations
-	console.info("   Running migrations...");
-	await migrate(db, { migrationsFolder: MIGRATIONS_PATH });
-
-	// Seed with test data
-	console.info("   Seeding test data...");
-	await seedTestData(db);
-
-	console.info("✅ Test database ready!");
+	await client.execute("PRAGMA foreign_keys = ON");
 	client.close();
-}
 
-async function seedTestData(db: ReturnType<typeof drizzle>) {
-	// Create test applicant
-	const [applicant] = await db
-		.insert(schema.applicants)
-		.values({
-			companyName: "Test Company Pty Ltd",
-			tradingName: "TestCo",
-			registrationNumber: "2024/123456/07",
-			contactName: "John Test",
-			email: "test@testco.co.za",
-			phone: "+27821234567",
-			status: "pending",
-		})
-		.returning();
-
-	// Create workflow for the applicant
-	await db.insert(schema.workflows).values({
-		applicantId: applicant.id,
-		status: "pending",
-		stage: 1,
+	// Run migrations against test DB (uses drizzle.test.config.ts)
+	execSync("bun run db:migrate:test", {
+		stdio: "inherit",
+		cwd: process.cwd(),
 	});
 
-	console.info(
-		`   Created test applicant: ${applicant.companyName} (ID: ${applicant.id})`
-	);
+	console.info("✅ Test database reset complete");
 }
 
-resetTestDatabase().catch(console.error);
+reset().catch(err => {
+	console.error("❌ Failed:", err);
+	process.exit(1);
+});

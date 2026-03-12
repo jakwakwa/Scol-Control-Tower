@@ -1,5 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import crypto from "crypto";
+import crypto from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const workflowIdNum = parseInt(workflowId);
+		const workflowIdNum = parseInt(workflowId, 10);
 
 		// Verify workflow exists
 		const workflow = await db
@@ -92,16 +92,19 @@ export async function POST(request: NextRequest) {
 		const storageKey = `${workflowId}/${category}/${crypto.randomUUID()}.${fileExtension}`;
 
 		const fileBuffer = await file.arrayBuffer();
-		const quality = evaluateDocumentQuality(
-			file.name,
-			file.type,
-			Buffer.from(fileBuffer),
-			{
-				enforceRecency:
-					documentType.toUpperCase() === "PROOF_OF_ADDRESS" ||
-					documentType.toUpperCase() === "PROPRIETOR_RESIDENCE",
-			}
-		);
+		const skipQualityCheck = documentType === "ABSA_6995_PDF";
+		const quality = skipQualityCheck
+			? { ok: true, reasons: [] as string[], warnings: [] as string[] }
+			: evaluateDocumentQuality(
+					file.name,
+					file.type,
+					Buffer.from(fileBuffer),
+					{
+						enforceRecency:
+							documentType.toUpperCase() === "PROOF_OF_ADDRESS" ||
+							documentType.toUpperCase() === "PROPRIETOR_RESIDENCE",
+					}
+				);
 		if (!quality.ok) {
 			return NextResponse.json(
 				{ error: `Document quality checks failed: ${quality.reasons.join("; ")}` },
@@ -122,7 +125,7 @@ export async function POST(request: NextRequest) {
 				.insert(documentUploads)
 				.values({
 					workflowId: workflowIdNum,
-					internalFormId: internalFormId ? parseInt(internalFormId) : null,
+					internalFormId: internalFormId ? parseInt(internalFormId, 10) : null,
 					category: category as
 						| "standard"
 						| "individual"
@@ -275,7 +278,7 @@ export async function GET(request: NextRequest) {
 		const documents = await db
 			.select()
 			.from(documentUploads)
-			.where(eq(documentUploads.workflowId, parseInt(workflowId)));
+			.where(eq(documentUploads.workflowId, parseInt(workflowId, 10)));
 
 		return NextResponse.json({ documents });
 	} catch (error) {

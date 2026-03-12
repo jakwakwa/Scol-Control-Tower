@@ -3,7 +3,7 @@ import { desc, eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
-import { applicants, riskAssessments, workflows } from "@/db/schema";
+import { applicants, riskCheckResults, workflows } from "@/db/schema";
 import { buildReportData } from "@/lib/risk-review/build-report-data";
 
 /**
@@ -34,13 +34,8 @@ export async function GET(
 			return NextResponse.json({ error: "Invalid applicant ID" }, { status: 400 });
 		}
 
-		const [applicantRows, assessmentRows, workflowRows] = await Promise.all([
+		const [applicantRows, workflowRows] = await Promise.all([
 			db.select().from(applicants).where(eq(applicants.id, applicantId)).limit(1),
-			db
-				.select()
-				.from(riskAssessments)
-				.where(eq(riskAssessments.applicantId, applicantId))
-				.limit(1),
 			db
 				.select({
 					id: workflows.id,
@@ -54,14 +49,20 @@ export async function GET(
 		]);
 
 		const applicant = applicantRows[0] ?? null;
-		const riskAssessment = assessmentRows[0] ?? null;
 		const workflow = workflowRows[0] ?? null;
 
 		if (!applicant) {
 			return NextResponse.json({ error: "Applicant not found" }, { status: 404 });
 		}
 
-		const reportData = buildReportData(applicant, riskAssessment, workflow);
+		const riskChecks = workflow
+			? await db
+					.select()
+					.from(riskCheckResults)
+					.where(eq(riskCheckResults.workflowId, workflow.id))
+			: [];
+
+		const reportData = buildReportData(applicant, workflow, riskChecks);
 
 		return NextResponse.json(reportData);
 	} catch (error) {

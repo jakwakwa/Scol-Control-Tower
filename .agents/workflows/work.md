@@ -116,7 +116,7 @@ This command takes a work document (plan, specification, or todo file) and execu
    **Commit workflow:**
    ```bash
    # 1. Verify tests pass (use project's test command)
-   # Examples: bin/rails test, npm test, pytest, go test, etc.
+   # Examples: bin/rails test, bun test, pytest, go test, etc.
 
    # 2. Stage only files related to this logical unit (not `git add .`)
    git add <files related to this logical unit>
@@ -167,7 +167,7 @@ This command takes a work document (plan, specification, or todo file) and execu
 
    ```bash
    # Run full test suite (use project's test command)
-   # Examples: bin/rails test, npm test, pytest, go test, etc.
+   # Examples: bin/rails test, bun test, pytest, go test, etc.
 
    # Run linting (per CLAUDE.md)
    # Use linting-agent before pushing to origin

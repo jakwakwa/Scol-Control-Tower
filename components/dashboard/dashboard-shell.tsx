@@ -2,11 +2,12 @@
 
 import { UserButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useDashboardStore } from "@/lib/dashboard-store";
 import { cn } from "@/lib/utils";
 import { NotificationsPanel, type WorkflowNotification } from "./notifications-panel";
 import { Sidebar } from "./sidebar";
+import Grainient from "../Grainient";
 
 interface DashboardShellProps {
 	children: React.ReactNode;
@@ -53,75 +54,64 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 		setIsMounted(true);
 	}, []);
 
-	// Auto-refresh notifications every 30 seconds (paused when tab is hidden)
-	const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	// Real-time updates via SSE
 
 	useEffect(() => {
-		const startPolling = () => {
-			if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
-			refreshIntervalRef.current = setInterval(() => {
-				if (!document.hidden) {
+		const eventSource = new EventSource('/api/notifications/stream');
+
+		eventSource.onmessage = (event) => {
+			try {
+				const data = JSON.parse(event.data);
+				if (data && (data.type === 'notification' || data.type === 'update')) {
 					router.refresh();
 				}
-			}, 30_000);
-		};
-
-		startPolling();
-
-		const handleVisibility = () => {
-			if (!document.hidden) {
-				router.refresh();
-				startPolling();
+			} catch (e) {
+				console.error('Failed to parse notification event', e);
 			}
 		};
 
-		document.addEventListener("visibilitychange", handleVisibility);
+		eventSource.onerror = (error) => {
+			console.error('EventSource failed', error);
+			// EventSource automatically reconnects
+		};
 
 		return () => {
-			if (refreshIntervalRef.current) {
-				clearInterval(refreshIntervalRef.current);
-			}
-			document.removeEventListener("visibilitychange", handleVisibility);
+			eventSource.close();
 		};
 	}, [router]);
 
 	return (
-		<div className="min-h-screen dotted-grid-main">
-			{/* <svg
-				aria-hidden="true"
-				className="pointer-events-none absolute h-0 w-0 overflow-hidden"
-				focusable="false">
-				<defs>
-					<filter id="container-glass" x="0%" y="0%" width="100%" height="100%">
-						<feTurbulence
-							type="fractalNoise"
-							baseFrequency="0.008 0.008"
-							numOctaves="2"
-							seed="92"
-							result="noise"
-						/>
-						<feGaussianBlur in="noise" stdDeviation="0.02" result="blur" />
-						<feDisplacementMap
-							in="SourceGraphic"
-							in2="blur"
-							scale="77"
-							xChannelSelector="R"
-							yChannelSelector="G"
-						/>
-					</filter>
-					<filter id="btn-glass" primitiveUnits="objectBoundingBox">
-						<feGaussianBlur in="SourceGraphic" stdDeviation="0.01" result="blur" />
-						<feDisplacementMap
-							id="disp"
-							in="blur"
-							in2="blur"
-							scale="1"
-							xChannelSelector="R"
-							yChannelSelector="G"
-						/>
-					</filter>
-				</defs>
-			</svg> */}
+		<>
+		<div style={{ width: '100vw', height: '1080px', position: 'fixed',  zIndex: "-3"}}>
+ 
+ 
+		<Grainient
+    color1="#543c08"
+    color2="#8a581e"
+    color3="#65461a"
+    timeSpeed={0.3}
+    colorBalance={-0.17}
+    warpStrength={0.7}
+    warpFrequency={5}
+    warpSpeed={0.9}
+    warpAmplitude={50}
+    blendAngle={0}
+    blendSoftness={0.35}
+    rotationAmount={310}
+    noiseScale={2.25}
+    grainAmount={0.06}
+    grainScale={2}
+    grainAnimated={false}
+    contrast={1.1}
+    gamma={0.85}
+    saturation={0.8}
+    centerX={-0.44}
+    centerY={0}
+    zoom={0.9}
+  /></div>
+
+		
+			
 			<Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
 
 			{/* Main content */}
@@ -219,6 +209,9 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 				{/* Page content */}
 				<div className="p-8">{children}</div>
 			</main>
-		</div>
+</>
+	
 	);
-}
+
+
+};

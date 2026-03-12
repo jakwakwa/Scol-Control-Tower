@@ -163,7 +163,7 @@ export function percentageSchema(fieldName: string) {
 			val => {
 				if (!val || val === "") return true;
 				const num = parseFloat(val);
-				return !isNaN(num) && num >= 0 && num <= 100;
+				return !Number.isNaN(num) && num >= 0 && num <= 100;
 			},
 			{ message: `${fieldName} must be between 0 and 100` }
 		);
@@ -180,7 +180,7 @@ export function currencySchema(fieldName: string) {
 			val => {
 				if (!val || val === "") return true;
 				const num = parseFloat(val.replace(/[R,\s]/g, ""));
-				return !isNaN(num) && num >= 0;
+				return !Number.isNaN(num) && num >= 0;
 			},
 			{ message: `${fieldName} must be a valid amount` }
 		);

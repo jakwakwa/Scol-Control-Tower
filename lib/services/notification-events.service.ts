@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import type { NotificationSeverity } from "@/db/schema";
 import { notifications, workflowEvents } from "@/db/schema";
+import { broadcast } from "@/lib/notification-broadcaster";
 
 export interface CreateNotificationParams {
 	workflowId: number;
@@ -56,6 +57,7 @@ export interface LogEventParams {
 		| "documents_requested"
 		| "validation_completed"
 		| "sanctions_completed"
+		| "sanctions_confirmed"
 		| "sanction_cleared"
 		| "risk_analysis_completed"
 		| "risk_manager_review"
@@ -63,25 +65,22 @@ export interface LogEventParams {
 		| "contract_draft_reviewed"
 		| "contract_signed"
 		| "absa_form_completed"
+		| "absa_approval_confirmed"
+		| "absa_packet_sent"
 		| "two_factor_approval_risk_manager"
 		| "two_factor_approval_account_manager"
 		| "final_approval"
 		| "management_escalation"
 		| "stale_data_flagged"
-		| "state_lock_acquired";
+		| "state_lock_acquired"
+		| "re_applicant_denied"
+		| "sanctions_ingress_received"
+		| "fica_check_completed";
 	payload: object;
 	actorType?: "user" | "agent" | "platform";
 	actorId?: string;
 }
 
-/**
- * Create a notification in the Control Tower UI.
- *
- * Tiered behaviour:
- * - low severity: no notification created (log-only via caller)
- * - medium severity with groupKey: upserts into an existing group summary
- * - high/critical severity: always creates a new notification
- */
 export async function createWorkflowNotification(
 	params: CreateNotificationParams
 ): Promise<void> {
@@ -93,7 +92,6 @@ export async function createWorkflowNotification(
 
 	const severity = params.severity ?? "medium";
 
-	// Low severity: no dashboard notification — caller should log only
 	if (severity === "low") {
 		console.info(
 			`[NotificationEvents] Low severity — skipping notification: ${params.title}`
@@ -102,7 +100,6 @@ export async function createWorkflowNotification(
 	}
 
 	try {
-		// Medium severity with groupKey: batch into a single summary notification
 		if (severity === "medium" && params.groupKey) {
 			const existing = await db
 				.select()
@@ -122,30 +119,36 @@ export async function createWorkflowNotification(
 						createdAt: new Date(),
 					})
 					.where(eq(notifications.id, current.id));
+				broadcast({ type: "update", notificationId: current.id });
 				return;
 			}
 		}
 
-		await db.insert(notifications).values([
-			{
-				workflowId: params.workflowId,
-				applicantId: params.applicantId,
-				type: params.type,
-				message: `${params.title}: ${params.message}`,
-				actionable: params.actionable ?? true,
-				read: false,
-				severity,
-				groupKey: params.groupKey,
-			},
-		]);
+		const result = await db
+			.insert(notifications)
+			.values([
+				{
+					workflowId: params.workflowId,
+					applicantId: params.applicantId,
+					type: params.type,
+					message: `${params.title}: ${params.message}`,
+					actionable: params.actionable ?? true,
+					read: false,
+					severity,
+					groupKey: params.groupKey,
+				},
+			])
+			.returning({ id: notifications.id });
+
+		const insertedId = result[0]?.id;
+		if (insertedId) {
+			broadcast({ type: "notification", notificationId: insertedId });
+		}
 	} catch (error) {
 		console.error("[NotificationEvents] Failed to create notification:", error);
 	}
 }
 
-/**
- * Log a workflow event to the activity feed
- */
 export async function logWorkflowEvent(params: LogEventParams): Promise<void> {
 	const db = getDatabaseClient();
 	if (!db) {

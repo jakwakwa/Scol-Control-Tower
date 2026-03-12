@@ -42,7 +42,7 @@ export async function POST(req: Request) {
 		});
 	}
 
-	const { id } = evt.data;
+	const { id: _id } = evt.data;
 	const _eventType = evt.type;
 
 	return new Response("Webhook received", { status: 200 });

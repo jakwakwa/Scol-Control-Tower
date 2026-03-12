@@ -1,5 +1,5 @@
 import { inngest } from "@/inngest/client";
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/api-auth";
 
 export async function POST(
@@ -12,9 +12,9 @@ export async function POST(
 	}
 
 	const { id } = await params;
-	const workflowId = parseInt(id);
+	const workflowId = parseInt(id, 10);
 
-	if (isNaN(workflowId)) {
+	if (Number.isNaN(workflowId)) {
 		return NextResponse.json({ error: "Invalid Workflow ID" }, { status: 400 });
 	}
 

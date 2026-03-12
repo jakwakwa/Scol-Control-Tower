@@ -8,7 +8,7 @@
  * Body: { reason, notes? }
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { getDatabaseClient } from "@/app/utils";
@@ -106,10 +106,6 @@ export async function POST(
 			);
 		}
 
-		console.log(
-			`[KillSwitch API] Executing kill switch for workflow ${workflowId}, reason: ${reason}`
-		);
-
 		// Execute kill switch
 		const result = await executeKillSwitch({
 			workflowId,
@@ -151,7 +147,7 @@ export async function POST(
 // ============================================
 
 export async function GET(
-	request: NextRequest,
+	_request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
