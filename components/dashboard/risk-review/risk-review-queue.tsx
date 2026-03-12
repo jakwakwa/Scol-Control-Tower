@@ -8,6 +8,7 @@ import {
 	RiCloseLine,
 	RiErrorWarningLine,
 	RiEyeLine,
+	RiFlashlightLine,
 	RiPercentLine,
 	RiRefreshLine,
 	RiScalesLine,
@@ -116,6 +117,8 @@ export interface RiskReviewItem {
 		sanctions: "available" | "manual_required";
 		itc: "available" | "manual_required";
 	};
+	/** Green Lane: auto-approved by system_green_lane */
+	greenLaneApproved?: boolean;
 }
 
 interface RiskReviewCardProps {
@@ -337,6 +340,15 @@ export function RiskReviewCard({
 								)}
 								{/* Data source badge (mock vs live) */}
 								<DataSourceBadge dataSource={item.dataSource} />
+								{/* Green Lane indicator */}
+								{item.greenLaneApproved && (
+									<Badge
+										variant="outline"
+										className="text-[10px] shrink-0 gap-1 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 border-emerald-500/30">
+										<RiFlashlightLine className="h-3 w-3" />
+										Green Lane
+									</Badge>
+								)}
 								{requiresManualProcurementCheck && (
 									<Badge
 										variant="outline"

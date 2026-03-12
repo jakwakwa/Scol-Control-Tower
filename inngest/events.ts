@@ -921,4 +921,37 @@ export type Events = {
 			humanOutcome: string;
 		};
 	};
+
+	// ================================================================
+	// Green Lane Automatic Approval Events
+	// ================================================================
+
+	/** Applicant auto-approved via Green Lane pathway (score >= 85%, LOW risk, zero flags) */
+	"greenLane/approval.completed": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			approvedBy: "system_green_lane";
+			approvedAt: string;
+			eligibility: {
+				aggregatedScore: number;
+				riskLevel: string;
+				flagCount: number;
+			};
+		};
+	};
+
+	/** Green Lane eligibility evaluated but not met */
+	"greenLane/eligibility.failed": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			reasons: string[];
+			eligibility: {
+				aggregatedScore: number;
+				riskLevel: string | null;
+				flagCount: number;
+			};
+		};
+	};
 };

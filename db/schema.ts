@@ -213,6 +213,10 @@ export const workflows = sqliteTable("workflows", {
 	stateLockedAt: integer("state_locked_at", { mode: "timestamp" }),
 	stateLockedBy: text("state_locked_by"), // User ID or "system"
 
+	// Green Lane automatic approval (PRD: auto-approve eligible applicants)
+	// Stores synthetic approval record: { approvedBy: "system_green_lane", approvedAt, eligibilityResult }
+	greenLaneApproval: text("green_lane_approval"),
+
 	// System
 	metadata: text("metadata"),
 });

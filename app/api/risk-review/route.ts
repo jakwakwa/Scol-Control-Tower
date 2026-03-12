@@ -281,6 +281,10 @@ export async function GET(_request: NextRequest) {
 						e => e.eventType === "procurement_decision"
 					),
 					riskManagerDecisionMade: events.some(e => e.eventType === "human_override"),
+					// Green Lane approval info (if auto-approved)
+					greenLaneApproved: events.some(
+						e => e.eventType === "green_lane_auto_approved" || e.eventType === "green_lane_approval"
+					),
 				};
 			})
 		);

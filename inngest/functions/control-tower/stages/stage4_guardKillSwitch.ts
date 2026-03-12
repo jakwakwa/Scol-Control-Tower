@@ -3,6 +3,10 @@ import { getBaseUrl, getDatabaseClient } from "@/app/utils";
 import { applicants } from "@/db/schema";
 import { WORKFLOW_TIMEOUTS } from "@/lib/constants/workflow-timeouts";
 import { sendInternalAlertEmail } from "@/lib/services/email.service";
+import {
+	GREEN_LANE_APPROVER_ID,
+	processGreenLaneApproval,
+} from "@/lib/services/green-lane.service";
 import { executeKillSwitch } from "@/lib/services/kill-switch.service";
 import {
 	createWorkflowNotification,
@@ -19,7 +23,8 @@ export async function executeStage4({
 }: StageDependencies): Promise<StageResult> {
 	const { workflowId, applicantId } = context;
 	const aiAnalysis = context.aiAnalysis as any;
-	// Risk Manager final analysis review (NO auto-approve bypass per SOP)
+	// Risk Manager final analysis review
+	// Green Lane: eligible applicants (score >= 85%, LOW risk, zero flags) bypass manual review
 	// ================================================================
 
 	await step.run("stage-4-start", async () => {
@@ -27,7 +32,64 @@ export async function executeStage4({
 		return updateWorkflowStatus(workflowId, "processing", 4);
 	});
 
-	// Always require Risk Manager review per SOP (no auto-approve)
+	// ================================================================
+	// GREEN LANE CHECK: Auto-approve eligible applicants
+	// Criteria: aggregatedScore >= 85%, riskLevel = "green", zero flags
+	// ================================================================
+
+	const greenLaneResult = await step.run("check-green-lane-eligibility", async () => {
+		return processGreenLaneApproval(workflowId, applicantId, aiAnalysis);
+	});
+
+	if (greenLaneResult.approved && greenLaneResult.approvalRecord) {
+		await step.run("log-green-lane-approval", async () => {
+			await logWorkflowEvent({
+				workflowId,
+				eventType: "green_lane_auto_approved",
+				payload: {
+					approvedBy: GREEN_LANE_APPROVER_ID,
+					approvedAt: greenLaneResult.approvalRecord!.approvedAt,
+					eligibilityCriteria: greenLaneResult.eligibilityResult.criteria,
+					stage: 4,
+				},
+				actorType: "platform",
+				actorId: GREEN_LANE_APPROVER_ID,
+			});
+
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: "success",
+				title: "Green Lane: Automatic Approval",
+				message: `Applicant auto-approved via Green Lane. Score: ${greenLaneResult.eligibilityResult.criteria.scoreCheck.value}%, Risk: ${greenLaneResult.eligibilityResult.criteria.riskLevelCheck.value}, Flags: 0. Bypassing manual Stage 4 review.`,
+				actionable: false,
+			});
+
+			await sendInternalAlertEmail({
+				title: "Green Lane: Automatic Approval",
+				message: `Applicant has been automatically approved via Green Lane pathway.\n\nEligibility Details:\n- Aggregated Score: ${greenLaneResult.eligibilityResult.criteria.scoreCheck.value}%\n- Risk Level: ${greenLaneResult.eligibilityResult.criteria.riskLevelCheck.value}\n- Flags: None\n\nApproved by: ${GREEN_LANE_APPROVER_ID}\n\nThe applicant will proceed directly to Stage 5 (Contract Review).`,
+				workflowId,
+				applicantId,
+				type: "success",
+				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
+			});
+		});
+
+		console.info(
+			`[Stage4] Green Lane approved: workflow=${workflowId}, applicant=${applicantId}`
+		);
+
+		return {
+			status: "completed",
+			stage: 4,
+			data: { greenLaneApproved: true, approvedBy: GREEN_LANE_APPROVER_ID },
+		};
+	}
+
+	// ================================================================
+	// STANDARD PATH: Manual Risk Manager review required
+	// ================================================================
+
 	await step.run("notify-final-review", async () => {
 		await createWorkflowNotification({
 			workflowId,

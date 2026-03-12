@@ -68,7 +68,9 @@ export interface LogEventParams {
 		| "final_approval"
 		| "management_escalation"
 		| "stale_data_flagged"
-		| "state_lock_acquired";
+		| "state_lock_acquired"
+		| "green_lane_approval"
+		| "green_lane_auto_approved";
 	payload: object;
 	actorType?: "user" | "agent" | "platform";
 	actorId?: string;
