@@ -219,19 +219,19 @@ Start the Inngest Dev Server for local development:
 
 ```bash
 # Auto-discover your app on common ports/endpoints
-npx --ignore-scripts=false inngest-cli@latest dev
+bunx inngest-cli@latest dev
 
 # Specify your app's URL manually
-npx --ignore-scripts=false inngest-cli@latest dev -u http://localhost:3000/api/inngest
+bunx inngest-cli@latest dev -u http://localhost:3000/api/inngest
 
 # Custom port for dev server
-npx --ignore-scripts=false inngest-cli@latest dev -p 9999
+bunx inngest-cli@latest dev -p 9999
 
 # Disable auto-discovery
-npx --ignore-scripts=false inngest-cli@latest dev --no-discovery -u http://localhost:3000/api/inngest
+bunx inngest-cli@latest dev --no-discovery -u http://localhost:3000/api/inngest
 
 # Multiple apps
-npx --ignore-scripts=false inngest-cli@latest dev -u http://localhost:3000/api/inngest -u http://localhost:4000/api/inngest
+bunx inngest-cli@latest dev -u http://localhost:3000/api/inngest -u http://localhost:4000/api/inngest
 ```
 
 The dev server will be available at `http://localhost:8288` by default.
