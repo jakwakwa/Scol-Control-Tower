@@ -18,6 +18,7 @@ import { getBaseUrl, getDatabaseClient } from "@/app/utils";
 import { workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import {
+	getManualGreenLaneBlockReason,
 	hasSignedQuotePrerequisite,
 	requestManualGreenLane,
 } from "@/lib/services/green-lane.service";
@@ -89,11 +90,31 @@ export async function POST(
 			);
 		}
 
+		const disallowedStateMessage = getManualGreenLaneBlockReason(
+			workflow.stage ?? null,
+			workflow.status ?? null
+		);
+		if (disallowedStateMessage) {
+			return NextResponse.json(
+				{
+					error: disallowedStateMessage,
+					disallowedState: true,
+				},
+				{ status: 409 }
+			);
+		}
+
 		await acquireStateLock(workflowId, userId);
 
 		const result = await requestManualGreenLane(workflowId, applicantId, userId, notes);
 
 		if (!result.success) {
+			if (result.disallowedState) {
+				return NextResponse.json(
+					{ error: result.error, disallowedState: true },
+					{ status: 409 }
+				);
+			}
 			if (result.alreadyRequested || result.alreadyConsumed) {
 				return NextResponse.json(
 					{ error: result.error, alreadyRequested: result.alreadyRequested, alreadyConsumed: result.alreadyConsumed },
