@@ -15,7 +15,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getBaseUrl, getDatabaseClient } from "@/app/utils";
-import { type WorkflowStatus, WORKFLOW_STATUSES, workflows } from "@/db/schema";
+import { applicants, type WorkflowStatus, WORKFLOW_STATUSES, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import {
 	getManualGreenLaneBlockReason,
@@ -90,6 +90,26 @@ export async function POST(
 			);
 		}
 
+		const [applicant] = await db
+			.select({ riskLevel: applicants.riskLevel })
+			.from(applicants)
+			.where(eq(applicants.id, applicantId))
+			.limit(1);
+
+		if (!applicant) {
+			return NextResponse.json({ error: "Applicant not found" }, { status: 404 });
+		}
+
+		if (applicant.riskLevel === "red") {
+			return NextResponse.json(
+				{
+					error: "High-risk applicants must complete financial statements review",
+					message: "Manual Green Lane is not available for high-risk workflows.",
+				},
+				{ status: 400 }
+			);
+		}
+
 		const workflowStage = typeof workflow.stage === "number" ? workflow.stage : null;
 		const workflowStatus: WorkflowStatus | null =
 			typeof workflow.status === "string" &&
@@ -109,6 +129,8 @@ export async function POST(
 				{ status: 409 }
 			);
 		}
+
+		await acquireStateLock(workflowId, userId);
 
 		const result = await requestManualGreenLane(workflowId, applicantId, userId, notes);
 
