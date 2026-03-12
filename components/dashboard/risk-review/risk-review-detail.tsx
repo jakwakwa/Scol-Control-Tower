@@ -21,6 +21,15 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import type { RiskReviewData } from "@/lib/risk-review/types";
 import {
 	OVERRIDE_CATEGORIES,
@@ -190,35 +199,28 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 
 					<div className="space-y-4">
 						<div className="space-y-2">
-							<label
-								htmlFor="override-category"
-								className="text-sm font-medium text-foreground">
-								Override Category
-							</label>
-							<select
-								id="override-category"
-								className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+							<Label htmlFor="override-category">Override Category</Label>
+							<Select
 								value={overrideCategory}
-								onChange={e =>
-									setOverrideCategory(e.target.value as OverrideCategory)
-								}
+								onValueChange={value => setOverrideCategory(value as OverrideCategory)}
 								disabled={adjudicationSubmitting}>
-								{OVERRIDE_CATEGORIES.map(cat => (
-									<option key={cat} value={cat}>
-										{OVERRIDE_CATEGORY_LABELS[cat]}
-									</option>
-								))}
-							</select>
+								<SelectTrigger id="override-category" className="w-full">
+									<SelectValue placeholder="Select override category" />
+								</SelectTrigger>
+								<SelectContent>
+									{OVERRIDE_CATEGORIES.map(cat => (
+										<SelectItem key={cat} value={cat}>
+											{OVERRIDE_CATEGORY_LABELS[cat]}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
 						</div>
 						<div className="space-y-2">
-							<label
-								htmlFor="adjudication-reason"
-								className="text-sm font-medium text-foreground">
-								Reason / Notes
-							</label>
-							<textarea
+							<Label htmlFor="adjudication-reason">Reason / Notes</Label>
+							<Textarea
 								id="adjudication-reason"
-								className="w-full min-h-[100px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+								className="min-h-[100px]"
 								placeholder="Provide your rationale for the decision..."
 								value={adjudicationReason}
 								onChange={e => setAdjudicationReason(e.target.value)}

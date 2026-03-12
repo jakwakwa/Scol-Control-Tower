@@ -1020,7 +1020,7 @@ export default function ApplicantDetailPage() {
 										documents.map(doc => (
 											<div
 												key={doc.id}
-												className="flex items-center justify-between p-4 rounded-xl border-2 border-b-white bg-card hover:bg-secondary/10 transition-colors">
+												className="flex items-center justify-between p-4 rounded-xl border-2 border-b-white/5 bg-card hover:bg-secondary/10 transition-colors">
 												<div className="flex items-center gap-4">
 													<div className="h-10 w-10 rounded-lg flex items-center justify-center bg-secondary/40 text-secondary-foreground">
 														<RiFileTextLine className="h-5 w-5" />

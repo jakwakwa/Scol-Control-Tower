@@ -1,4 +1,4 @@
-import { Activity } from "lucide-react";
+import { Activity, CircleGauge } from "lucide-react";
 
 export function ScoreGauge({
 	score,
@@ -23,36 +23,16 @@ export function ScoreGauge({
 		return "text-destructive";
 	};
 
-	const percentage = (score / max) * 100;
-	const dashoffset = 351.85 - (351.85 * percentage) / 100;
-
 	return (
 		<div className="flex flex-col items-center justify-center relative">
 			<h3 className="text-sm text-muted-foreground font-medium mb-4 flex items-center gap-2">
 				<Activity className="w-4 h-4" /> {label}
 			</h3>
 			<div className="relative flex items-center justify-center mb-2">
-				<svg className="w-28 h-28 transform -rotate-90">
-					<circle
-						cx="56"
-						cy="56"
-						r="48"
-						className="text-muted stroke-current"
-						strokeWidth="8"
-						fill="transparent"
-					/>
-					<circle
-						cx="56"
-						cy="56"
-						r="48"
-						className={`${getColour(score)} stroke-current transition-all duration-1000 ease-out`}
-						strokeWidth="8"
-						fill="transparent"
-						strokeDasharray="351.85"
-						strokeDashoffset={dashoffset}
-						strokeLinecap="round"
-					/>
-				</svg>
+				<CircleGauge
+					className={`w-28 h-28 ${getColour(score)} transition-all duration-1000 ease-out`}
+					strokeWidth={1.75}
+				/>
 				<div className="absolute inset-0 flex flex-col items-center justify-center">
 					<span className={`text-3xl font-bold ${getColour(score)}`}>{score}</span>
 				</div>

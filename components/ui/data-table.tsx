@@ -114,7 +114,7 @@ export function DataTable<TData, TValue>({
 									return (
 										<TableHead
 											key={header.id}
-											className="px-3 py-2 text-xs font-light text-muted-foreground/80 tracking-tight">
+											className="px-3 py-2 text-xs font-light text-muted-foregroun tracking-tight">
 											{header.isPlaceholder
 												? null
 												: flexRender(header.column.columnDef.header, header.getContext())}

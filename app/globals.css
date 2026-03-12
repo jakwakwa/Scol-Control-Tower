@@ -162,38 +162,38 @@
   --charcoal-700: #1c1c1e;
   --charcoal-800: #151517;
   --charcoal-900: #0e0e10;
- --background: #10191f; /* charcoal-900 — deepest surface  */
-  --foreground: #ddad82; /* warm white — primary text       */
-  --card: #1c130b15; /* charcoal-700 — card surfaces    */
+ --background: #3e342112; /* charcoal-900 — deepest surface  */
+  --foreground: #a29386; /* warm white — primary text       */
+  --card: #2b1c0c98; /* charcoal-700 — card surfaces    */
   --card-foreground: #ddad82;
-  --popover: #05283c99;
+  --popover: #918a7f1d;
   --popover-foreground: #fce0c3;
-  --primary: #d3a946; /* gold-500 — main accent / CTAs   */
-  --primary-foreground: #f2af58; /* dark text on gold buttons       */
+  --primary: #2a1e03; /* gold-500 — main accent / CTAs   */
+  --primary-foreground: #e0d4c4; /* dark text on gold buttons       */
   --secondary: #3b2d01e6; /* charcoal-500 — secondary bg     */
-  --secondary-foreground: #a0744d;
-  --muted: #846a45; /* charcoal-600 — muted surfaces   */
-  --muted-foreground: #8c8170ae; /* warm gray — secondary text      */
-  --accent: #048c6afa;  
-  --accent-foreground: #ddad82;
+  --secondary-foreground: #827366;
+  --muted: #4e402e; /* charcoal-600 — muted surfaces   */
+  --muted-foreground: #dedfdf90; /* warm gray — secondary text      */
+  --accent: #aa6c0121;  
+  --accent-foreground: #b5957a;
   --destructive: #f24c52; /* warm red                        */
   --destructive-foreground: #ee9b9b;
-  --border: rgba(212, 156, 3, 0.335);
-  --input: rgba(104, 124, 127, 0.367);
-  --ring: #0b7089; /* teal focus ring                  */
+  --border: rgba(150, 117, 60, 0.816);
+  --input: rgba(49, 76, 81, 0.946);
+  --ring: #d4920f; /* teal focus ring                  */
   --chart-1: #f5c87e; /* gold-500                        */
   --chart-2: #1ad42a; /* bright green (chart accent)     */
   --chart-3: #e5484d; /* warm red                        */
   --chart-4: #4ade80; /* green (success)                 */
   --chart-5: #f0c88b; /* gold-400                        */
   --radius: 0.875rem; /* 14px — premium rounded feel     */
-  --sidebar: #080b0f; /* charcoal-800                    */
-  --sidebar-foreground: #f09a4e;
-  --sidebar-primary: #ddad82;
+  --sidebar: #0d0d0fac; /* charcoal-800                    */
+  --sidebar-foreground: #d6af7cad;
+  --sidebar-primary: #d2a770;
   --sidebar-primary-foreground:#ddad82;
-  --sidebar-accent: #ce6408;
+  --sidebar-accent: #b5a48681;
   --sidebar-accent-foreground: #90774e;
-  --sidebar-border: rgba(255 255 255 / 0.06);
+  --sidebar-border: rgba(170, 163, 211, 0.091);
   --sidebar-ring: #e19858;
 }
 
@@ -278,12 +278,21 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 }
+@layer template {
 
+  .bg-accent {
+    /* bg-accent; */
+
+    background-image: radial-gradient(circle, rgba(124, 95, 15, 0.974) 1px, transparent 1px) !important;
+  }
+}
 
 @layer components {
   .border-border {
     @apply border-border;
   }
+
+
 
   
 .glass-card {
@@ -305,6 +314,7 @@
   position: relative;
   inset: 0;
   z-index: 2;
+  background:#050504 !important;
   padding-bottom: 19px !important;
   margin-bottom: 20px !important;
   /* overflow: hidden; */
@@ -329,8 +339,8 @@
     /* z-index: -12; */
     inset: 1;
     border-radius: 20px;
-    -webkit-backdrop-filter: blur(1px) !important;
-            backdrop-filter: blur(1px) !important;
+    -webkit-backdrop-filter: blur(5px) !important;
+            backdrop-filter: blur(5px) !important;
     /* -webkit-filter: url(#container-glass); */
             /* filter: url(#container-glass); */
        
@@ -345,8 +355,8 @@
     z-index: -1;
     inset: 0;
     border-radius: 20px;
-    -webkit-backdrop-filter: blur(3px);
-            backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(8px) !important;
+            backdrop-filter: blur(8px) !important;
     /* -webkit-filter: url(#container-glass); */
             /* filter: url(#container-glass); */
        
@@ -387,8 +397,6 @@
   background-position: 0 0; 
 }
 
-
-
 .dotted-grid-container {
  
   width: 100%;
@@ -396,11 +404,13 @@
   padding: 15px;
   position: relative;
   z-index: 0;
-  background: #090a0b !important;
+  background: #111314 !important;
 }
+
 label { 
   color: var(--color-stone-400) !important;
 }
+
  .dotted-grid {
       position: relative;
       inset: -1;
@@ -410,23 +420,22 @@ label {
       padding: 0 !important;
       min-height: 100vh;
       background-image: 
-        linear-gradient(to right, rgba(117, 91, 12, 0.086) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(168, 155, 19, 0.099) 1px, transparent 1px),
+        linear-gradient(to right, rgba(48, 38, 7, 0.364) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(19, 168, 153, 0.095) 1px, transparent 1px),
         radial-gradient(circle, rgba(184, 142, 17, 0.323) 1px, transparent 1px)  !important;
-      background-size: 34px 34px, 34px 34px, 34px 34px;
+      background-size: 22px 22px, 22px 22px, 22px 22px;
       background-position: 0 0, 0 0, 0 0;
     } 
    
     .dotted-grid-main {
       position: absolute;
-      mix-blend-mode: multiply !important;
-      inset: 1;
-      z-index: -10;
-      background-color: #06191f !important;
-      background:  repeating-linear-gradient(45deg, rgba(1, 28, 31, 0.05), rgba(0, 0, 0, 0.99) 1px, transparent 1px, transparent 5px),
-      repeating-linear-gradient(-45deg, rgba(8, 84, 111, 0.116), rgb(80, 51, 11) 1px, transparent 1px, transparent 12px),
-      repeating-linear-gradient(90deg, rgba(33, 24, 14, 0.856) 0, rgba(2, 74, 85, 0.31) 1px, transparent 1px, transparent 4px);
-   
+      /* mix-blend-mode: multiply !important; */
+      inset: -1;
+      z-index: -2;
+      background-size: 88px 88px, 88px 88px, 88px 88px;
+      background-color: #1c1d20 !important;
+
+         
     }
 
 
@@ -442,15 +451,15 @@ label {
 }
 
 
-
+.dotted-grid-main::after,
 .glass-card::after {
   content: '';
   position: absolute;
     z-index: -1;
     inset: 1;
     border-radius: 20px;
-    -webkit-backdrop-filter: blur(2px);
-            backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(0.5px);
+            backdrop-filter: blur(0.5px);
     -webkit-filter: url(#container-glass);
             filter: url(#container-glass);
        
@@ -491,7 +500,7 @@ label {
     overflow: hidden;
     border-radius: 9999px;
     -webkit-box-shadow: inset 2px 2px 0px -2px rgba(255, 255, 255, 0.7), inset 0 0 3px 1px rgba(255, 255, 255, 0.7);
-            box-shadow: inset 2px 2px 0px -2px rgba(255, 255, 255, 0.7), inset 0 0 3px 1px rgba(255, 255, 255, 0.7);
+            box-shadow: inset 2px 2px 0px -2px rgba(255, 255, 255, 0.7), inset 0 0 3px 1px rgba(62, 49, 49, 0.7);
     background-color: rgb(255 255 255 / 10%);
 }
 
