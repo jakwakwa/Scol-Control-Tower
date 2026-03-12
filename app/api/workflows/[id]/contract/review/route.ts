@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getDatabaseClient } from "@/app/utils";
 import { workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
+import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import {
 	logWorkflowEventOnce,
 	markStage5GateOnce,
@@ -20,9 +21,15 @@ export async function POST(
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const { userId } = await auth();
+		const { userId, has, orgRole } = await auth();
 		if (!userId) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		if (!hasPermissionOrAdmin(has, orgRole, "org:quote:approve")) {
+			return NextResponse.json(
+				{ error: "Forbidden - Missing org:quote:approve permission" },
+				{ status: 403 }
+			);
 		}
 
 		const { id } = await params;

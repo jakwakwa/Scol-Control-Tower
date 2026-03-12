@@ -106,16 +106,8 @@ export async function isGreenLaneEligible(
 	workflowId: number
 ): Promise<GreenLaneEligibilityResult> {
 	const checks = await getRiskChecksForWorkflow(workflowId);
-
-	if (checks.length !== REQUIRED_GREEN_LANE_CHECK_TYPES.length) {
-		return {
-			eligible: false,
-			reason: "Missing one or more risk checks",
-			summary: DEFAULT_SUMMARY,
-		};
-	}
-
 	const checksByType = new Map(checks.map(check => [check.checkType, check]));
+
 	for (const checkType of REQUIRED_GREEN_LANE_CHECK_TYPES) {
 		const check = checksByType.get(checkType);
 		if (!check) {
@@ -134,7 +126,8 @@ export async function isGreenLaneEligible(
 		}
 	}
 
-	const applicantRiskLevel = await getApplicantRiskLevel(checks[0].applicantId);
+	const firstRequiredCheck = checksByType.get(REQUIRED_GREEN_LANE_CHECK_TYPES[0])!;
+	const applicantRiskLevel = await getApplicantRiskLevel(firstRequiredCheck.applicantId);
 	const procurementCheck = checksByType.get("PROCUREMENT");
 	const itcCheck = checksByType.get("ITC");
 	const sanctionsCheck = checksByType.get("SANCTIONS");

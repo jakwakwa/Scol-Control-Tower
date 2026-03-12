@@ -21,6 +21,7 @@ import { z } from "zod";
 import { getDatabaseClient } from "@/app/utils";
 import { workflowEvents, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
+import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { OVERRIDE_CATEGORIES } from "@/lib/constants/override-taxonomy";
 import { recordFeedbackLog } from "@/lib/services/divergence.service";
 import { executeKillSwitch } from "@/lib/services/kill-switch.service";
@@ -54,8 +55,8 @@ const ProcurementDecisionSchema = z.object({
 
 export async function POST(request: NextRequest) {
 	try {
-		// Authenticate the request
-		const { userId } = await auth();
+		// Authenticate and check permission (org:risk_assessment — risk_manager, admin)
+		const { userId, has, orgRole } = await auth();
 		if (!userId) {
 			return NextResponse.json(
 				{ error: "Unauthorized - Authentication required" },
@@ -79,6 +80,22 @@ export async function POST(request: NextRequest) {
 
 		const { workflowId, applicantId, procureCheckResult, decision } =
 			validationResult.data;
+
+		// CLEARED needs approve, DENIED needs override_denied
+		const canApprove = hasPermissionOrAdmin(has, orgRole, "org:risk_assessment:approve");
+		const canOverrideDenied = hasPermissionOrAdmin(has, orgRole, "org:risk_assessment:override_denied");
+		if (decision.outcome === "CLEARED" && !canApprove) {
+			return NextResponse.json(
+				{ error: "Forbidden - Missing org:risk_assessment:approve permission" },
+				{ status: 403 }
+			);
+		}
+		if (decision.outcome === "DENIED" && !canOverrideDenied) {
+			return NextResponse.json(
+				{ error: "Forbidden - Missing org:risk_assessment:override_denied permission" },
+				{ status: 403 }
+			);
+		}
 
 		// Verify workflow exists
 		const db = getDatabaseClient();

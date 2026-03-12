@@ -79,6 +79,17 @@
 | `bun run db:studio` | Open Drizzle Studio |
 | `bun run test:e2e` | Run Playwright E2E tests |
 
+### GitHub MCP (Cursor)
+
+The project includes a GitHub MCP server for AI-assisted GitHub workflows (PRs, issues, file ops, search). Configure it:
+
+1. Copy the example config: `cp .cursor/mcp.json.example .cursor/mcp.json`
+2. Create a [Personal Access Token](https://github.com/settings/tokens) with `repo` scope.
+3. Add your token to `.cursor/mcp.json` under `mcpServers.github.env.GITHUB_PERSONAL_ACCESS_TOKEN`.
+4. Restart Cursor for changes to take effect.
+
+**Alternative:** Install the [GitHub CLI](https://cli.github.com/) (`gh`) for terminal-based GitHub workflows.
+
 ### Running the app
 
 ```bash
