@@ -1,13 +1,25 @@
 {
   "version": 1,
   "transcripts": {
+    "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/20024ca9-7234-4ec4-a823-10b2bf877bd9/20024ca9-7234-4ec4-a823-10b2bf877bd9.jsonl": {
+      "mtimeMs": 1773289497000,
+      "lastProcessedAt": "2026-03-12T10:00:00.000Z"
+    },
     "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/215b5c84-fd52-458e-94d3-caf2661585e0/215b5c84-fd52-458e-94d3-caf2661585e0.jsonl": {
       "mtimeMs": 1773158319355,
       "lastProcessedAt": "2026-03-11T03:22:07.000Z"
     },
-    "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/6d908a2e-1240-47e4-9539-743b7d6c6204/6d908a2e-1240-47e4-9539-743b7d6c6204.jsonl": {
-      "mtimeMs": 1773174225525,
-      "lastProcessedAt": "2026-03-11T03:22:07.000Z"
+    "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/55ec58d8-3ce7-4c69-baa2-a94a8ea69da8/55ec58d8-3ce7-4c69-baa2-a94a8ea69da8.jsonl": {
+      "mtimeMs": 1773261745000,
+      "lastProcessedAt": "2026-03-12T10:00:00.000Z"
+    },
+    "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/709cf2cf-9774-44dd-941a-31eb0f5bd804/709cf2cf-9774-44dd-941a-31eb0f5bd804.jsonl": {
+      "mtimeMs": 1773289888000,
+      "lastProcessedAt": "2026-03-12T10:00:00.000Z"
+    },
+    "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/8563ec49-0a40-41f1-8ed0-1dbdf45546eb/8563ec49-0a40-41f1-8ed0-1dbdf45546eb.jsonl": {
+      "mtimeMs": 1773286811000,
+      "lastProcessedAt": "2026-03-12T10:00:00.000Z"
     },
     "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/86a742e3-2458-4427-b5ed-378698c4befc/86a742e3-2458-4427-b5ed-378698c4befc.jsonl": {
       "mtimeMs": 1773160526398,
@@ -16,6 +28,10 @@
     "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/998baf1d-69d3-4ae3-a40b-71ec95a30c7e/998baf1d-69d3-4ae3-a40b-71ec95a30c7e.jsonl": {
       "mtimeMs": 1773153213517,
       "lastProcessedAt": "2026-03-11T03:22:07.000Z"
+    },
+    "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/99e65a0d-2cac-4b25-bfc1-33179691f559/99e65a0d-2cac-4b25-bfc1-33179691f559.jsonl": {
+      "mtimeMs": 1773236867000,
+      "lastProcessedAt": "2026-03-12T10:00:00.000Z"
     },
     "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/b4fefe1b-dd01-47c9-8ae1-703c112d654c/b4fefe1b-dd01-47c9-8ae1-703c112d654c.jsonl": {
       "mtimeMs": 1773164890482,
@@ -26,12 +42,20 @@
       "lastProcessedAt": "2026-03-11T03:22:07.000Z"
     },
     "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/bbdbe692-6da4-4b98-aae0-e373ae32227d/bbdbe692-6da4-4b98-aae0-e373ae32227d.jsonl": {
-      "mtimeMs": 1773207990000,
-      "lastProcessedAt": "2026-03-11T04:30:00.000Z"
+      "mtimeMs": 1773230705000,
+      "lastProcessedAt": "2026-03-12T10:00:00.000Z"
     },
     "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/bcabe952-f9b7-4f5e-8b03-c64b12c32911/bcabe952-f9b7-4f5e-8b03-c64b12c32911.jsonl": {
       "mtimeMs": 1773189121372,
       "lastProcessedAt": "2026-03-11T03:22:07.000Z"
+    },
+    "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/ce6979ca-4610-45e3-b641-522d58873e29/ce6979ca-4610-45e3-b641-522d58873e29.jsonl": {
+      "mtimeMs": 1773262585000,
+      "lastProcessedAt": "2026-03-12T10:00:00.000Z"
+    },
+    "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/d74c13fa-249b-486a-b8d9-e82565c8cd5b/d74c13fa-249b-486a-b8d9-e82565c8cd5b.jsonl": {
+      "mtimeMs": 1773231530000,
+      "lastProcessedAt": "2026-03-12T10:00:00.000Z"
     },
     "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/dc6ac0fd-5bc1-49c7-bd41-b9c3d1398739/dc6ac0fd-5bc1-49c7-bd41-b9c3d1398739.jsonl": {
       "mtimeMs": 1773150534015,
@@ -43,6 +67,14 @@
     },
     "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/f27b3292-7816-42e1-bf75-0c7b850bc96c/f27b3292-7816-42e1-bf75-0c7b850bc96c.jsonl": {
       "mtimeMs": 1773160224725,
+      "lastProcessedAt": "2026-03-11T03:22:07.000Z"
+    },
+    "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/f2ff365e-2083-442d-8d96-fcd04d806daf/f2ff365e-2083-442d-8d96-fcd04d806daf.jsonl": {
+      "mtimeMs": 1773289543000,
+      "lastProcessedAt": "2026-03-12T10:00:00.000Z"
+    },
+    "/Users/jacobkotzee/.cursor/projects/Users-jacobkotzee-Projects-REPOS-ai-webapps-sc-onboard-controltower/agent-transcripts/6d908a2e-1240-47e4-9539-743b7d6c6204/6d908a2e-1240-47e4-9539-743b7d6c6204.jsonl": {
+      "mtimeMs": 1773174225525,
       "lastProcessedAt": "2026-03-11T03:22:07.000Z"
     }
   }

@@ -50,14 +50,26 @@ For more control, create custom encryption middleware:
 
 ```typescript
 import { InngestMiddleware } from "inngest";
-import { createCipher, createDecipher, randomBytes } from "crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  randomBytes,
+  scryptSync,
+} from "crypto";
 
 const createCustomEncryptionMiddleware = (encryptionKey: string) => {
   const algorithm = "aes-256-gcm";
+  const IV_LENGTH = 12; // 96 bits recommended for GCM
+  const KEY_LENGTH = 32;
+
+  // Derive a 32-byte key: use raw hex key if 64 chars, else scrypt (avoids weak MD5 in deprecated createCipher)
+  const key = /^[0-9a-fA-F]{64}$/.test(encryptionKey)
+    ? Buffer.from(encryptionKey, "hex")
+    : scryptSync(encryptionKey, "inngest-salt", KEY_LENGTH);
 
   const encrypt = (text: string): string => {
-    const iv = randomBytes(16);
-    const cipher = createCipher(algorithm, encryptionKey);
+    const iv = randomBytes(IV_LENGTH);
+    const cipher = createCipheriv(algorithm, key, iv);
     cipher.setAAD(Buffer.from("inngest-data"));
 
     let encrypted = cipher.update(text, "utf8", "hex");
@@ -72,7 +84,7 @@ const createCustomEncryptionMiddleware = (encryptionKey: string) => {
     const iv = Buffer.from(ivHex, "hex");
     const authTag = Buffer.from(authTagHex, "hex");
 
-    const decipher = createDecipher(algorithm, encryptionKey);
+    const decipher = createDecipheriv(algorithm, key, iv);
     decipher.setAAD(Buffer.from("inngest-data"));
     decipher.setAuthTag(authTag);
 
