@@ -15,7 +15,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getBaseUrl, getDatabaseClient } from "@/app/utils";
-import { workflows } from "@/db/schema";
+import { applicants, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import {
 	hasSignedQuotePrerequisite,
@@ -84,6 +84,26 @@ export async function POST(
 				{
 					error: "Signed quote prerequisite not met",
 					message: "Green Lane is only available after the quote has been signed.",
+				},
+				{ status: 400 }
+			);
+		}
+
+		const [applicant] = await db
+			.select({ riskLevel: applicants.riskLevel })
+			.from(applicants)
+			.where(eq(applicants.id, applicantId))
+			.limit(1);
+
+		if (!applicant) {
+			return NextResponse.json({ error: "Applicant not found" }, { status: 404 });
+		}
+
+		if (applicant.riskLevel === "red") {
+			return NextResponse.json(
+				{
+					error: "High-risk applicants must complete financial statements review",
+					message: "Manual Green Lane is not available for high-risk workflows.",
 				},
 				{ status: 400 }
 			);
