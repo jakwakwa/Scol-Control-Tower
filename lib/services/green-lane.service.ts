@@ -1,6 +1,13 @@
 import { and, eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
-import { applicantMagiclinkForms, applicants, RISK_CHECK_TYPES, workflows } from "@/db/schema";
+import {
+	applicantMagiclinkForms,
+	applicants,
+	RISK_CHECK_TYPES,
+	type WorkflowStatus,
+	WORKFLOW_STATUSES,
+	workflows,
+} from "@/db/schema";
 import { getRiskChecksForWorkflow, updateRiskCheckReviewState } from "@/lib/services/risk-check.service";
 import { logWorkflowEvent } from "@/lib/services/notification-events.service";
 import { mapProcureCheckRiskCategory } from "./procure-check.types";
@@ -336,6 +343,8 @@ function isItcRiskCategory(value: string | null): value is ItcRiskCategory {
 // ============================================
 
 export interface GreenLaneWorkflowStatus {
+	stage: number | null;
+	status: WorkflowStatus | null;
 	greenLaneRequestedAt: Date | null;
 	greenLaneRequestedBy: string | null;
 	greenLaneRequestNotes: string | null;
@@ -351,6 +360,8 @@ export async function getGreenLaneWorkflowStatus(
 
 	const [row] = await db
 		.select({
+			stage: workflows.stage,
+			status: workflows.status,
 			greenLaneRequestedAt: workflows.greenLaneRequestedAt,
 			greenLaneRequestedBy: workflows.greenLaneRequestedBy,
 			greenLaneRequestNotes: workflows.greenLaneRequestNotes,
@@ -358,17 +369,43 @@ export async function getGreenLaneWorkflowStatus(
 			greenLaneConsumedAt: workflows.greenLaneConsumedAt,
 		})
 		.from(workflows)
-		.where(eq(workflows.id, workflowId));
+	.where(eq(workflows.id, workflowId));
 
 	if (!row) return null;
 
+	const normalizedStatus = normalizeWorkflowStatus(row.status);
+
 	return {
+		stage: row.stage ?? null,
+		status: normalizedStatus,
 		greenLaneRequestedAt: row.greenLaneRequestedAt,
 		greenLaneRequestedBy: row.greenLaneRequestedBy,
 		greenLaneRequestNotes: row.greenLaneRequestNotes,
 		greenLaneRequestSource: row.greenLaneRequestSource,
 		greenLaneConsumedAt: row.greenLaneConsumedAt,
 	};
+}
+
+const TERMINAL_WORKFLOW_STATUSES = new Set<WorkflowStatus>([
+	"completed",
+	"terminated",
+	"failed",
+	"timeout",
+]);
+
+export function getManualGreenLaneBlockReason(
+	stage: number | null,
+	status: WorkflowStatus | null
+): string | null {
+	if (status && TERMINAL_WORKFLOW_STATUSES.has(status)) {
+		return "Green Lane cannot be requested after the workflow is completed, failed, timed out, or terminated.";
+	}
+
+	if (typeof stage === "number" && stage > 4) {
+		return "Green Lane is only available through Stage 4.";
+	}
+
+	return null;
 }
 
 /** Returns true if a manual Green Lane request exists and has not been consumed. */
@@ -456,6 +493,7 @@ export interface RequestManualGreenLaneResult {
 	applicantId: number;
 	alreadyRequested?: boolean;
 	alreadyConsumed?: boolean;
+	disallowedState?: boolean;
 	error?: string;
 }
 
@@ -478,6 +516,18 @@ export async function requestManualGreenLane(
 	if (!status) {
 		return { success: false, workflowId, applicantId, error: "Workflow not found" };
 	}
+
+	const blockReason = getManualGreenLaneBlockReason(status.stage, status.status);
+	if (blockReason) {
+		return {
+			success: false,
+			workflowId,
+			applicantId,
+			disallowedState: true,
+			error: blockReason,
+		};
+	}
+
 	if (status.greenLaneConsumedAt) {
 		return {
 			success: false,
@@ -521,4 +571,11 @@ export async function requestManualGreenLane(
 	});
 
 	return { success: true, workflowId, applicantId };
+}
+
+function normalizeWorkflowStatus(value: unknown): WorkflowStatus | null {
+	if (typeof value !== "string") return null;
+	return (WORKFLOW_STATUSES as readonly string[]).includes(value)
+		? (value as WorkflowStatus)
+		: null;
 }

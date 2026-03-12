@@ -15,9 +15,10 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getBaseUrl, getDatabaseClient } from "@/app/utils";
-import { workflows } from "@/db/schema";
+import { type WorkflowStatus, WORKFLOW_STATUSES, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import {
+	getManualGreenLaneBlockReason,
 	hasSignedQuotePrerequisite,
 	requestManualGreenLane,
 } from "@/lib/services/green-lane.service";
@@ -89,11 +90,35 @@ export async function POST(
 			);
 		}
 
-		await acquireStateLock(workflowId, userId);
+		const workflowStage = typeof workflow.stage === "number" ? workflow.stage : null;
+		const workflowStatus: WorkflowStatus | null =
+			typeof workflow.status === "string" &&
+			(WORKFLOW_STATUSES as readonly string[]).includes(workflow.status)
+				? (workflow.status as WorkflowStatus)
+				: null;
+		const disallowedStateMessage = getManualGreenLaneBlockReason(
+			workflowStage,
+			workflowStatus
+		);
+		if (disallowedStateMessage) {
+			return NextResponse.json(
+				{
+					error: disallowedStateMessage,
+					disallowedState: true,
+				},
+				{ status: 409 }
+			);
+		}
 
 		const result = await requestManualGreenLane(workflowId, applicantId, userId, notes);
 
 		if (!result.success) {
+			if (result.disallowedState) {
+				return NextResponse.json(
+					{ error: result.error, disallowedState: true },
+					{ status: 409 }
+				);
+			}
 			if (result.alreadyRequested || result.alreadyConsumed) {
 				return NextResponse.json(
 					{ error: result.error, alreadyRequested: result.alreadyRequested, alreadyConsumed: result.alreadyConsumed },
