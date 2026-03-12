@@ -194,4 +194,75 @@ describe("executeStage4 Green Lane", () => {
 		expect(runIds).toContain("stage-4-awaiting-review");
 		expect(updateRiskCheckReviewStateMock).not.toHaveBeenCalled();
 	});
+
+	it("applies manual Green Lane when request already exists and skips review wait", async () => {
+		hasManualGreenLaneRequestMock.mockResolvedValueOnce(true);
+
+		const { step, runIds, waitForEvent } = createStep();
+
+		const result = await executeStage4({
+			step: step as never,
+			context: {
+				workflowId: 10,
+				applicantId: 20,
+			},
+		} as never);
+
+		expect(result).toEqual({ status: "completed", stage: 4 });
+		expect(waitForEvent).not.toHaveBeenCalled();
+		expect(runIds).toContain("apply-manual-green-lane-pass");
+		expect(runIds).not.toContain("check-green-lane-eligibility");
+		expect(runIds).not.toContain("notify-final-review");
+		expect(applyGreenLanePassMock).toHaveBeenCalledWith(10, {
+			source: "manual_am",
+			checkSummary:
+				"PROCUREMENT: completed, ITC: completed, SANCTIONS: completed, FICA: completed",
+		});
+	});
+
+	it("consumes manual Green Lane grant received while awaiting review", async () => {
+		isGreenLaneEligibleMock.mockResolvedValueOnce({
+			eligible: false,
+			reason: "ITC credit score is below threshold",
+			summary: {
+				applicantRiskLevel: "green",
+				creditScore: 420,
+				itcRiskCategory: "HIGH",
+				procurementAnomalyCount: 0,
+				itcAdverseListingCount: 0,
+				sanctionsRiskLevel: "CLEAR",
+				sanctionsBlocked: false,
+				ficaOverallRecommendation: "PROCEED",
+				ficaCriticalMismatchCount: 0,
+			},
+		});
+
+		const { step, runIds, waitForEvent } = createStep({
+			data: {
+				decision: {
+					outcome: "APPROVED",
+					decidedBy: "risk-manager",
+					source: "manual_green_lane",
+				},
+			},
+		});
+
+		const result = await executeStage4({
+			step: step as never,
+			context: {
+				workflowId: 10,
+				applicantId: 20,
+			},
+		} as never);
+
+		expect(result).toEqual({ status: "completed", stage: 4 });
+		expect(waitForEvent).toHaveBeenCalledTimes(1);
+		expect(runIds).toContain("notify-final-review");
+		expect(runIds).toContain("stage-4-awaiting-review");
+		expect(runIds).toContain("apply-manual-green-lane-pass-from-event");
+		expect(applyGreenLanePassMock).toHaveBeenCalledWith(10, {
+			source: "manual_am",
+			checkSummary: "Manual Green Lane granted while awaiting review",
+		});
+	});
 });
