@@ -19,6 +19,7 @@ import { z } from "zod";
 import { getDatabaseClient } from "@/app/utils";
 import { aiAnalysisLogs, workflowEvents, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
+import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { OVERRIDE_CATEGORIES } from "@/lib/constants/override-taxonomy";
 import { recordFeedbackLog } from "@/lib/services/divergence.service";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
@@ -47,15 +48,14 @@ const RiskDecisionSchema = z.object({
 
 export async function POST(request: NextRequest) {
 	try {
-		// Authenticate the request
-		const { userId } = await auth();
+		// Authenticate and check permission (org:risk_assessment:approve or override_denied — risk_manager)
+		const { userId, has, orgRole } = await auth();
 		if (!userId) {
 			return NextResponse.json(
 				{ error: "Unauthorized - Authentication required" },
 				{ status: 401 }
 			);
 		}
-
 		// Parse and validate request body
 		const body = await request.json();
 		const validationResult = RiskDecisionSchema.safeParse(body);
@@ -71,6 +71,24 @@ export async function POST(request: NextRequest) {
 		}
 
 		const { workflowId, applicantId, decision, relatedFailureEventId } = validationResult.data;
+
+		// Check outcome-specific permission (org:risk_assessment — risk_manager, admin)
+		const canApprove = hasPermissionOrAdmin(has, orgRole, "org:risk_assessment:approve");
+		const canOverrideDenied = hasPermissionOrAdmin(has, orgRole, "org:risk_assessment:override_denied");
+		const needsApprove = decision.outcome === "APPROVED" || decision.outcome === "REQUEST_MORE_INFO";
+		const needsOverride = decision.outcome === "REJECTED";
+		if (needsApprove && !canApprove) {
+			return NextResponse.json(
+				{ error: "Forbidden - Missing org:risk_assessment:approve permission" },
+				{ status: 403 }
+			);
+		}
+		if (needsOverride && !canOverrideDenied) {
+			return NextResponse.json(
+				{ error: "Forbidden - Missing org:risk_assessment:override_denied permission" },
+				{ status: 403 }
+			);
+		}
 
 		// Verify workflow exists and is in awaiting_human state
 		const db = getDatabaseClient();

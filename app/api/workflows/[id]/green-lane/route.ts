@@ -24,6 +24,7 @@ import {
 } from "@/lib/services/green-lane.service";
 import { createWorkflowNotification } from "@/lib/services/notification-events.service";
 import { sendInternalAlertEmail } from "@/lib/services/email.service";
+import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
 
 const GreenLaneRequestSchema = z.object({
@@ -36,9 +37,15 @@ export async function POST(
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const { userId } = await auth();
+		const { userId, has, orgRole } = await auth();
 		if (!userId) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		if (!hasPermissionOrAdmin(has, orgRole, "org:green_lane:approve")) {
+			return NextResponse.json(
+				{ error: "Forbidden - Missing org:green_lane:approve permission" },
+				{ status: 403 }
+			);
 		}
 
 		const { id } = await params;
@@ -198,10 +205,7 @@ export async function POST(
 	} catch (error) {
 		console.error("[GreenLane] Error:", error);
 		return NextResponse.json(
-			{
-				error: "Internal server error",
-				message: error instanceof Error ? error.message : "Unknown error",
-			},
+			{ error: "Internal server error" },
 			{ status: 500 }
 		);
 	}

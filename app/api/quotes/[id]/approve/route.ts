@@ -1,24 +1,35 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { getDatabaseClient } from "@/app/utils";
 import { quotes, workflows } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { inngest } from "@/inngest";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
-import { requireAuth } from "@/lib/auth/api-auth";
 
 /**
  * POST /api/quotes/[id]/approve
- * Mark quote as approved by staff and notify workflow
+ * Mark quote as approved by staff and notify workflow.
+ * Requires org:quote:approve (account_manager).
  */
 export async function POST(
 	_request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const authResult = await requireAuth();
-		if (authResult instanceof NextResponse) {
-			return authResult;
+		const { userId, has, orgRole } = await auth();
+		if (!userId) {
+			return NextResponse.json(
+				{ error: "Unauthorized - Authentication required" },
+				{ status: 401 }
+			);
+		}
+		if (!hasPermissionOrAdmin(has, orgRole, "org:quote:approve")) {
+			return NextResponse.json(
+				{ error: "Forbidden - Missing org:quote:approve permission" },
+				{ status: 403 }
+			);
 		}
 
 		const db = await getDatabaseClient();
