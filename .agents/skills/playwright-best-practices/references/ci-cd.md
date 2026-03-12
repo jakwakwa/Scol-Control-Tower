@@ -171,12 +171,17 @@ FROM mcr.microsoft.com/playwright:v1.40.0-jammy
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN bun ci
+# Install Bun
+RUN curl -fsSL https://bun.sh/install | bash && \
+    mv /root/.bun/bin/bun* /usr/local/bin/
+
+# Copy dependency manifests including Bun lockfile for reproducible installs
+COPY package.json bun.lockb ./
+RUN bun install --frozen-lockfile
 
 COPY . .
 
-CMD ["npx", "playwright", "test"]
+CMD ["bunx", "playwright", "test"]
 ```
 
 ### Docker Compose
