@@ -77,6 +77,7 @@ export interface LogEventParams {
 		| "sanctions_ingress_received"
 		| "fica_check_completed"
 		| "green_lane_approved"
+		| "green_lane_blocked"
 		| "green_lane_requested";
 	payload: object;
 	actorType?: "user" | "agent" | "platform";
