@@ -876,8 +876,8 @@ export default function ApplicantDetailPage() {
 					</div>
 
 					{/* Main Content Area */}
-					<div className="lg:col-span-2">
-						<Tabs defaultValue={defaultTab} className="w-full">
+					<div className="lg:col-span-2 rounded-xl overflow-hidden">
+						<Tabs defaultValue={defaultTab} className="w-full ">
 							<TabsList className="mb-0 bg-primary/40 w-full justify-start border-b border-border/40 rounded-b-none rounded-t-xl h-auto p-0 gap-2">
 								<TabsTrigger
 									value="overview"
@@ -1048,7 +1048,7 @@ export default function ApplicantDetailPage() {
 										documents.map(doc => (
 											<div
 												key={doc.id}
-												className="flex items-center justify-between p-4 rounded-xl border-2 border-b-white/5 bg-card hover:bg-secondary/10 transition-colors">
+												className="flex items-center justify-between p-4 bg-popover/20 border-primary/45 rounded-sm border-1 border-t-white/10 bg-card gap-4 shadow-b-sm shadow-black/10  transition-colors">
 												<div className="flex items-center gap-4">
 													<div className="h-10 w-10 rounded-lg flex items-center justify-center bg-secondary/40 text-secondary-foreground">
 														<RiFileTextLine className="h-5 w-5" />
@@ -1174,7 +1174,7 @@ export default function ApplicantDetailPage() {
 																	{Object.entries(submissionData).map(([key, value]) => (
 																		<div
 																			key={key}
-																			className="flex justify-between items-start p-2 rounded-lg bg-card border border-border/40">
+																			className="flex justify-between items-start p-2 rounded-lg ">
 																			<span className="text-xs text-muted-foreground capitalize">
 																				{key
 																					.replace(/([A-Z])/g, " $1")
