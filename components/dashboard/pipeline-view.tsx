@@ -301,13 +301,13 @@ function PipelineCard({ workflow }: { workflow: PipelineWorkflow }) {
 			{/* Footer: Details & Time */}
 			<div className="flex items-center justify-between pt-3 border-t border-sidebar-border/50 mt-2">
 				<div className="flex flex-col">
-					<span className="text-[11px] font-semibold text-secondary/50">
+					<span className="text-[11px] font-semibold text-muted-foreground/80">
 						{workflow.payload?.mandateType || "Debit Order"}
 					</span>
 				</div>
 
 				<div className="flex flex-col items-end">
-					<span className="text-[11px] text-secondary/80">
+					<span className="text-[11px] text-muted-foreground/80">
 						{formatRelativeTime(workflow.startedAt)}
 					</span>
 				</div>
