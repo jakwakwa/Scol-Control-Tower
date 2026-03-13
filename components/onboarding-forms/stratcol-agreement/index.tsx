@@ -52,6 +52,8 @@ interface StratcolAgreementFormProps {
 	onSaveDraft?: (data: Partial<StratcolAgreementFormData>) => Promise<void>;
 	/** Whether the form is in read-only mode */
 	readOnly?: boolean;
+	/** External submitting state */
+	isSubmitting?: boolean;
 }
 
 // ============================================
@@ -83,7 +85,7 @@ function FormField({ label, required, error, children, className }: FormFieldPro
 // Section Components
 // ============================================
 
-function EntityDetailsSection() {
+function _EntityDetailsSection() {
 	const {
 		register,
 		formState: { errors },
@@ -352,6 +354,7 @@ export function StratcolAgreementForm({
 	onSubmit,
 	onSaveDraft,
 	readOnly = false,
+	isSubmitting: externalIsSubmitting = false,
 }: StratcolAgreementFormProps) {
 	const [currentStep, setCurrentStep] = React.useState(0);
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -436,7 +439,7 @@ export function StratcolAgreementForm({
 					onSubmit={handleSubmit(handleFormSubmit)}
 					onSaveDraft={onSaveDraft ? handleSaveDraft : undefined}
 					title="StratCol Agreement"
-					isSubmitting={isSubmitting}
+					isSubmitting={isSubmitting || externalIsSubmitting}
 					storageKey={`stratcol-agreement-${workflowId}`}
 					submitButtonText="Submit Agreement">
 					{({ currentStep, isLastStep }) => (

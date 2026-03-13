@@ -3,11 +3,17 @@ import { getBaseUrl, getDatabaseClient } from "@/app/utils";
 import { applicants } from "@/db/schema";
 import { WORKFLOW_TIMEOUTS } from "@/lib/constants/workflow-timeouts";
 import { sendInternalAlertEmail } from "@/lib/services/email.service";
+import {
+	applyGreenLanePass,
+	hasManualGreenLaneRequest,
+	isGreenLaneEligible,
+} from "@/lib/services/green-lane.service";
 import { executeKillSwitch } from "@/lib/services/kill-switch.service";
 import {
 	createWorkflowNotification,
 	logWorkflowEvent,
 } from "@/lib/services/notification-events.service";
+import { getHybridGateStatus } from "@/lib/services/risk-check.service";
 import { terminateRun } from "@/lib/services/terminate-run.service";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 import { guardKillSwitch, notifyApplicantDecline } from "../helpers";
@@ -18,29 +24,87 @@ export async function executeStage4({
 	context,
 }: StageDependencies): Promise<StageResult> {
 	const { workflowId, applicantId } = context;
-	const aiAnalysis = context.aiAnalysis as any;
-	// Risk Manager final analysis review (NO auto-approve bypass per SOP)
-	// ================================================================
 
 	await step.run("stage-4-start", async () => {
 		await guardKillSwitch(workflowId, "stage-4-start");
 		return updateWorkflowStatus(workflowId, "processing", 4);
 	});
 
-	// Always require Risk Manager review per SOP (no auto-approve)
+	const gateStatus = await step.run("read-hybrid-gate", () =>
+		getHybridGateStatus(workflowId)
+	);
+
+	const checkSummary = gateStatus.checks
+		.map(c => `${c.checkType}: ${c.machineState}`)
+		.join(", ");
+
+	const isHighRisk = await step.run("check-high-risk", async () => {
+		const db = getDatabaseClient();
+		if (!db) return false;
+		const [applicant] = await db
+			.select()
+			.from(applicants)
+			.where(eq(applicants.id, applicantId));
+		return applicant?.riskLevel === "red";
+	});
+
+	// Manual Green Lane: AM already granted before Stage 4 — short-circuit like auto
+	const manualGreenLane = await step.run("check-manual-green-lane", () =>
+		hasManualGreenLaneRequest(workflowId)
+	);
+
+	if (manualGreenLane) {
+		if (!isHighRisk) {
+			await step.run("apply-manual-green-lane-pass", () =>
+				applyGreenLanePass(workflowId, {
+					source: "manual_am",
+					checkSummary,
+				})
+			);
+			return { status: "completed", stage: 4 };
+		}
+
+		await step.run("log-manual-green-lane-blocked-high-risk", () =>
+			logWorkflowEvent({
+				workflowId,
+				eventType: "green_lane_blocked",
+				payload: {
+					reason: "high_risk_requires_financial_statements",
+					checkSummary,
+				},
+			})
+		);
+	}
+
+	// Automatic Green Lane: eligibility-based bypass
+	const greenLaneEligibility = await step.run("check-green-lane-eligibility", () =>
+		isGreenLaneEligible(workflowId)
+	);
+
+	if (greenLaneEligibility.eligible) {
+		await step.run("apply-automatic-green-lane-pass", () =>
+			applyGreenLanePass(workflowId, {
+				source: "automatic",
+				checkSummary,
+				eligibilitySummary: greenLaneEligibility.summary,
+			})
+		);
+		return { status: "completed", stage: 4 };
+	}
+
 	await step.run("notify-final-review", async () => {
 		await createWorkflowNotification({
 			workflowId,
 			applicantId,
 			type: "warning",
 			title: "Risk Manager Review Required",
-			message: `Aggregated AI score: ${aiAnalysis.scores.aggregatedScore}%. Recommendation: ${aiAnalysis.overall.recommendation}. Flags: ${aiAnalysis.overall.flags.join(", ") || "None"}`,
+			message: `All risk checks complete. Status: ${checkSummary}. Risk Manager must review and approve each section.`,
 			actionable: true,
 		});
 
 		await sendInternalAlertEmail({
 			title: "Risk Manager Review Required",
-			message: `Application requires Risk Manager final review.\nAggregated Score: ${aiAnalysis.scores.aggregatedScore}%\nRecommendation: ${aiAnalysis.overall.recommendation}\nFlags: ${aiAnalysis.overall.flags.join(", ") || "None"}`,
+			message: `Application requires Risk Manager final review.\nCheck results: ${checkSummary}`,
 			workflowId,
 			applicantId,
 			type: "warning",
@@ -109,19 +173,34 @@ export async function executeStage4({
 		return { status: "terminated", stage: 4, reason: "Rejected by Risk Manager" };
 	}
 
+	// Manual Green Lane granted while Stage 4 was awaiting review — apply pass and skip high-risk branch
+	const decisionPayload = riskDecision.data.decision as { source?: string };
+	if (decisionPayload.source === "manual_green_lane") {
+		if (!isHighRisk) {
+			await step.run("apply-manual-green-lane-pass-from-event", () =>
+				applyGreenLanePass(workflowId, {
+					source: "manual_am",
+					checkSummary: "Manual Green Lane granted while awaiting review",
+				})
+			);
+			return { status: "completed", stage: 4 };
+		}
+
+		await step.run("log-manual-green-lane-blocked-high-risk-from-event", () =>
+			logWorkflowEvent({
+				workflowId,
+				eventType: "green_lane_blocked",
+				payload: {
+					reason: "high_risk_requires_financial_statements",
+					checkSummary: "Manual Green Lane granted while awaiting review",
+				},
+			})
+		);
+	}
+
 	// ================================================================
 	// HIGH-RISK: Financial Statements Confirmation
 	// ================================================================
-
-	const isHighRisk = await step.run("check-high-risk", async () => {
-		const db = getDatabaseClient();
-		if (!db) return false;
-		const [applicant] = await db
-			.select()
-			.from(applicants)
-			.where(eq(applicants.id, applicantId));
-		return applicant?.riskLevel === "red";
-	});
 
 	if (isHighRisk) {
 		await step.run("notify-financial-statements-required", async () => {

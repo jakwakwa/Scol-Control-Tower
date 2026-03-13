@@ -6,7 +6,10 @@ import {
 	applicantMagiclinkForms,
 	applicantSubmissions,
 	applicants,
+	documentUploads,
 	documents,
+	internalForms,
+	internalSubmissions,
 	quotes,
 	riskAssessments,
 	workflowEvents,
@@ -31,7 +34,7 @@ export async function PUT(
 
 		// Await params in Next.js 15
 		const resolvedParams = await params;
-		const id = parseInt(resolvedParams.id);
+		const id = parseInt(resolvedParams.id, 10);
 
 		if (Number.isNaN(id)) {
 			return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
@@ -93,7 +96,7 @@ export async function GET(
 		}
 
 		const resolvedParams = await params;
-		const id = parseInt(resolvedParams.id);
+		const id = parseInt(resolvedParams.id, 10);
 
 		if (Number.isNaN(id)) {
 			return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
@@ -130,6 +133,14 @@ export async function GET(
 
 		// Fetch quote for the most recent workflow if exists
 		let quote = null;
+		let contractReviewed = false;
+		let absaPacketSent = false;
+		let absaFormData: {
+			form: { id: number; status: string };
+			submission: { formData: string } | null;
+			applicantId: number | null;
+		} | null = null;
+		let absaDocuments: { id: number; fileName: string | null }[] = [];
 		let sanctionsCheck: {
 			source: string;
 			reused: boolean;
@@ -187,6 +198,98 @@ export async function GET(
 					isBlocked: typeof payload?.isBlocked === "boolean" ? payload.isBlocked : null,
 				};
 			}
+
+			// ABSA contract flow state for Stage 5
+			const [absaFormRows, absaDocRows] =
+				await Promise.all([
+					db
+						.select()
+						.from(internalForms)
+						.where(
+							and(
+								eq(internalForms.workflowId, latestWorkflow.id),
+								eq(internalForms.formType, "absa_6995")
+							)
+						)
+						.limit(1),
+					db
+						.select({ id: documentUploads.id, fileName: documentUploads.fileName })
+						.from(documentUploads)
+						.where(
+							and(
+								eq(documentUploads.workflowId, latestWorkflow.id),
+								eq(documentUploads.documentType, "ABSA_6995_PDF")
+							)
+						),
+				]);
+
+			const absaForm = absaFormRows[0] ?? null;
+			let absaSubmission: (typeof internalSubmissions.$inferSelect) | null = null;
+			if (absaForm) {
+				const [sub] = await db
+					.select()
+					.from(internalSubmissions)
+					.where(eq(internalSubmissions.internalFormId, absaForm.id))
+					.orderBy(desc(internalSubmissions.version))
+					.limit(1);
+				absaSubmission = sub ?? null;
+			}
+
+			contractReviewed = Boolean(latestWorkflow.contractDraftReviewedAt);
+			absaPacketSent = Boolean(latestWorkflow.absaPacketSentAt);
+			absaFormData = absaForm
+				? {
+						form: { id: absaForm.id, status: absaForm.status },
+						submission: absaSubmission
+							? { formData: absaSubmission.formData }
+							: null,
+						applicantId: latestWorkflow.applicantId,
+					}
+				: null;
+			absaDocuments = absaDocRows;
+		}
+
+		// Green Lane status for applicant detail page
+		let greenLaneStatus: {
+			signedQuotePrerequisite: boolean;
+			requested: boolean;
+			requestedBy: string | null;
+			requestedAt: string | null;
+			consumed: boolean;
+			consumedAt: string | null;
+		} = {
+			signedQuotePrerequisite: false,
+			requested: false,
+			requestedBy: null,
+			requestedAt: null,
+			consumed: false,
+			consumedAt: null,
+		};
+		if (workflowRows.length > 0) {
+			const latestWorkflow = workflowRows[0];
+			const [signedQuoteRow] = await db
+				.select({ id: applicantMagiclinkForms.id })
+				.from(applicantMagiclinkForms)
+				.where(
+					and(
+						eq(applicantMagiclinkForms.workflowId, latestWorkflow.id),
+						eq(applicantMagiclinkForms.formType, "SIGNED_QUOTATION"),
+						eq(applicantMagiclinkForms.status, "submitted")
+					)
+				)
+				.limit(1);
+			greenLaneStatus = {
+				signedQuotePrerequisite: signedQuoteRow !== undefined,
+				requested: latestWorkflow.greenLaneRequestedAt !== null,
+				requestedBy: latestWorkflow.greenLaneRequestedBy,
+				requestedAt: latestWorkflow.greenLaneRequestedAt
+					? new Date(latestWorkflow.greenLaneRequestedAt).toISOString()
+					: null,
+				consumed: latestWorkflow.greenLaneConsumedAt !== null,
+				consumedAt: latestWorkflow.greenLaneConsumedAt
+					? new Date(latestWorkflow.greenLaneConsumedAt).toISOString()
+					: null,
+			};
 		}
 
 		return NextResponse.json({
@@ -198,6 +301,11 @@ export async function GET(
 			workflow: workflowRows[0] || null,
 			quote,
 			sanctionsCheck,
+			contractReviewed,
+			absaPacketSent,
+			absaFormData,
+			absaDocuments,
+			greenLaneStatus,
 		});
 	} catch (error) {
 		console.error("Error fetching applicant:", error);

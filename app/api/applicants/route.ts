@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants, workflows } from "@/db/schema";
 import { createApplicantSchema } from "@/lib/validations";
@@ -122,7 +122,6 @@ export async function POST(request: NextRequest) {
 				name: "onboarding/lead.created",
 				data: { applicantId: newApplicant.id, workflowId: newWorkflow.id },
 			});
-			console.log(`[API] Started Control Tower workflow for applicant ${newApplicant.id}`);
 		} catch (inngestError) {
 			console.error("[API] Failed to start Inngest workflow:", inngestError);
 		}

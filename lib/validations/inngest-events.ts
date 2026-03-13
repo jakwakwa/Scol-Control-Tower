@@ -2,25 +2,24 @@ import { z } from "zod";
 
 // ============================================
 // Entry / Trigger Events
+// Re-exported from the canonical source in control-tower/onboarding-schemas.ts
 // ============================================
 
-export const OnboardingLeadCreatedSchema = z.object({
-	applicantId: z.number().int().positive(),
-	workflowId: z.number().int().positive(),
-});
-
-export type OnboardingLeadCreated = z.infer<typeof OnboardingLeadCreatedSchema>;
+export {
+	LeadCreatedSchema as OnboardingLeadCreatedSchema,
+	type LeadCreatedPayload as OnboardingLeadCreated,
+} from "./control-tower/onboarding-schemas";
 
 export const WorkflowTerminatedSchema = z.object({
 	workflowId: z.number().int().positive(),
 	applicantId: z.number().int().positive(),
 	reason: z.enum([
 		"PROCUREMENT_DENIED",
+		"RE_APPLICANT_DENIED",
 		"COMPLIANCE_VIOLATION",
 		"FRAUD_DETECTED",
 		"TIMEOUT_TERMINATION",
 		"STAGE2_FACILITY_TIMEOUT",
-		"STAGE2_APPROVAL_TIMEOUT",
 		"STAGE2_PRE_RISK_APPROVAL_TIMEOUT",
 		"STAGE2_PRE_RISK_EVAL_TIMEOUT",
 		"STAGE2_QUOTE_APPROVAL_TIMEOUT",
@@ -31,9 +30,12 @@ export const WorkflowTerminatedSchema = z.object({
 		"STAGE5_ABSA_FORM_TIMEOUT",
 		"STAGE6_RISK_MANAGER_TIMEOUT",
 		"STAGE6_ACCOUNT_MANAGER_TIMEOUT",
+		"STAGE6_RISK_AND_ACCOUNT_MANAGER_TIMEOUT",
 		"STAGE6_CONTRACT_SIGNATURE_TIMEOUT",
 		"MANUAL_TERMINATION",
 		"VALIDATION_ERROR_INGEST",
+		"VALIDATION_ERROR_SANCTIONS",
+		"SANCTIONS_EXTERNAL_BLOCKED",
 	]),
 	decidedBy: z.string().min(1),
 	terminatedAt: z.string().datetime(),

@@ -84,11 +84,20 @@ export async function POST(
 			);
 		}
 
-		await recordFormDecision({
+		const decisionUpdate = await recordFormDecision({
 			formInstanceId: formInstance.id,
 			outcome: decision,
 			reason,
 		});
+		if (!decisionUpdate) {
+			return NextResponse.json(
+				{
+					success: true,
+					alreadyResponded: true,
+				},
+				{ status: 200 }
+			);
+		}
 
 		if (formInstance.workflowId) {
 			await logWorkflowEvent({

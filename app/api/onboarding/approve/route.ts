@@ -8,14 +8,16 @@
  * Body: { workflowId, applicantId, role: "risk_manager" | "account_manager", decision, reason? }
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { inngest } from "@/inngest/client";
 import { getDatabaseClient } from "@/app/utils";
 import { workflows, workflowEvents, applicants } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@clerk/nextjs/server";
+import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
+import { recordFinalApprovalDecision } from "@/lib/services/workflow-command.service";
 
 // ============================================
 // Request Schema
@@ -35,7 +37,7 @@ const TwoFactorApprovalSchema = z.object({
 
 export async function POST(request: NextRequest) {
 	try {
-		const { userId } = await auth();
+		const { userId, has, orgRole } = await auth();
 		if (!userId) {
 			return NextResponse.json(
 				{ error: "Unauthorized - Authentication required" },
@@ -58,10 +60,30 @@ export async function POST(request: NextRequest) {
 
 		const { workflowId, applicantId, role, decision, reason } = validationResult.data;
 
-		console.log(`[TwoFactorApproval] ${role} decision for workflow ${workflowId}:`, {
-			decision,
-			approvedBy: userId,
-		});
+		// Role-specific permission: risk_manager → risk_assessment, account_manager → quote (admin bypasses)
+		if (role === "risk_manager") {
+			const canApprove = hasPermissionOrAdmin(has, orgRole, "org:risk_assessment:approve");
+			const canOverride = hasPermissionOrAdmin(has, orgRole, "org:risk_assessment:override_denied");
+			if (decision === "APPROVED" && !canApprove) {
+				return NextResponse.json(
+					{ error: "Forbidden - Missing org:risk_assessment:approve permission" },
+					{ status: 403 }
+				);
+			}
+			if (decision === "REJECTED" && !canOverride) {
+				return NextResponse.json(
+					{ error: "Forbidden - Missing org:risk_assessment:override_denied permission" },
+					{ status: 403 }
+				);
+			}
+		} else {
+			if (!hasPermissionOrAdmin(has, orgRole, "org:quote:approve")) {
+				return NextResponse.json(
+					{ error: "Forbidden - Missing org:quote:approve permission" },
+					{ status: 403 }
+				);
+			}
+		}
 
 		const db = getDatabaseClient();
 		if (!db) {
@@ -98,53 +120,48 @@ export async function POST(request: NextRequest) {
 		// Acquire state lock to prevent ghost processes from overwriting finalized approval
 		await acquireStateLock(workflowId, userId);
 
-		// Log the approval event
-		await db.insert(workflowEvents).values({
+		const timestamp = new Date().toISOString();
+		const approvalState = await recordFinalApprovalDecision({
 			workflowId,
-			eventType: `two_factor_approval_${role}`,
-			payload: JSON.stringify({
-				role,
-				decision,
-				reason,
-				fromStage: workflow.stage,
-			}),
-			actorId: userId,
-			actorType: "user",
+			role,
+			decision,
+			reason,
+			approvedBy: userId,
+			timestamp,
 		});
 
-		// Send the appropriate Inngest event
-		const eventName = role === "risk_manager"
-			? "approval/risk-manager.received" as const
-			: "approval/account-manager.received" as const;
-
-		await inngest.send({
-			name: eventName,
-			data: {
+		if (!approvalState.alreadyRecorded) {
+			// Log the approval event
+			await db.insert(workflowEvents).values({
 				workflowId,
-				applicantId,
-				approvedBy: userId,
-				decision,
-				reason,
-				timestamp: new Date().toISOString(),
-			},
-		});
+				eventType: `two_factor_approval_${role}`,
+				payload: JSON.stringify({
+					role,
+					decision,
+					reason,
+					fromStage: workflow.stage,
+				}),
+				actorId: userId,
+				actorType: "user",
+			});
 
-		console.log(`[TwoFactorApproval] ${role} event sent for workflow ${workflowId}`);
+			// Send the appropriate Inngest event
+			const eventName = role === "risk_manager"
+				? "approval/risk-manager.received" as const
+				: "approval/account-manager.received" as const;
 
-		// Check if both approvals are now present
-		const riskApproval = role === "risk_manager"
-			? { approvedBy: userId, decision, timestamp: new Date().toISOString() }
-			: workflow.riskManagerApproval
-				? JSON.parse(workflow.riskManagerApproval)
-				: null;
-
-		const accountApproval = role === "account_manager"
-			? { approvedBy: userId, decision, timestamp: new Date().toISOString() }
-			: workflow.accountManagerApproval
-				? JSON.parse(workflow.accountManagerApproval)
-				: null;
-
-		const bothApproved = riskApproval?.decision === "APPROVED" && accountApproval?.decision === "APPROVED";
+			await inngest.send({
+				name: eventName,
+				data: {
+					workflowId,
+					applicantId,
+					approvedBy: userId,
+					decision,
+					reason,
+					timestamp,
+				},
+			});
+		}
 
 		return NextResponse.json({
 			success: true,
@@ -154,8 +171,9 @@ export async function POST(request: NextRequest) {
 			approvedBy: userId,
 			role,
 			decision,
-			bothApproved,
-			timestamp: new Date().toISOString(),
+			bothApproved: approvalState.bothApproved,
+			timestamp,
+			alreadyRecorded: approvalState.alreadyRecorded,
 		});
 	} catch (error) {
 		console.error("[TwoFactorApproval] Error processing approval:", error);
@@ -199,7 +217,7 @@ export async function GET(request: NextRequest) {
 		const workflowResult = await db
 			.select()
 			.from(workflows)
-			.where(eq(workflows.id, parseInt(workflowId)));
+			.where(eq(workflows.id, parseInt(workflowId, 10)));
 
 		const workflow = workflowResult[0];
 		if (!workflow) {

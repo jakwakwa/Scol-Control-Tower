@@ -17,7 +17,6 @@ export async function POST(request: NextRequest) {
 		}
 
 		const body = await request.json();
-		console.log("📥 [API] Received Quote Payload:", JSON.stringify(body, null, 2));
 
 		const validation = createQuoteSchema.safeParse(body);
 

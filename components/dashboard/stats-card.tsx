@@ -32,7 +32,7 @@ export function StatsCard({
 	return (
 		<div
 			className={cn(
-				"group relative overflow-hidden rounded-2xl border border-stone-950/80 bg-card/50 backdrop-blur-sm px-8 py-3",
+				"group relative overflow-hidden rounded-2xl border border-stone-200/10 bg-card/50 backdrop-blur-lg px-8 py-3",
 				"shadow-xl shadow-black/25",
 				"transition-all duration-300 hover:bg-card/70 hover:border-secondary/10 hover:shadow-2xl hover:-translate-y-1",
 				className

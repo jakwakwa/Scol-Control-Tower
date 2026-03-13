@@ -55,12 +55,12 @@ export default async function WorkflowsPage() {
 				status: string | null | undefined
 			): WorkflowRow["status"] => {
 				if (status === "processing") return "in_progress";
-				if (status === "terminated") return "failed";
+				if (status === "terminated") return "terminated";
 				if (status === "pending") return "pending";
 				if (status === "awaiting_human") return "awaiting_human";
 				if (status === "completed") return "completed";
 				if (status === "failed") return "failed";
-				if (status === "timeout") return "timeout";
+				if (status === "timeout") return "terminated";
 				if (status === "paused") return "paused";
 				return "pending";
 			};

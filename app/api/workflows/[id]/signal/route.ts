@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { inngest } from "@/inngest";
 import { z } from "zod";
 import { requireAuthOrBearer } from "@/lib/auth/api-auth";
@@ -44,9 +44,9 @@ export async function POST(
 		}
 
 		const { id } = await params;
-		const workflowId = parseInt(id);
+		const workflowId = parseInt(id, 10);
 
-		if (isNaN(workflowId)) {
+		if (Number.isNaN(workflowId)) {
 			return NextResponse.json({ error: "Invalid workflow ID" }, { status: 400 });
 		}
 
@@ -55,7 +55,7 @@ export async function POST(
 		// 1. Try parsing as UI Signal
 		const uiValidation = uiSignalSchema.safeParse(body);
 		if (uiValidation.success) {
-			const { signalName, payload } = uiValidation.data;
+			const { signalName, payload: _payload } = uiValidation.data;
 
 			if (signalName === "qualityGatePassed") {
 				await inngest.send({
@@ -67,8 +67,6 @@ export async function POST(
 					},
 				});
 			}
-
-			console.log(`[API] Sent Inngest event for Workflow ${workflowId}: ${signalName}`);
 			return NextResponse.json({ success: true, signal: signalName });
 		}
 
@@ -89,8 +87,6 @@ export async function POST(
 					},
 				},
 			});
-
-			console.log(`[API] Sent Agent Callback event for Workflow ${workflowId}`);
 			return NextResponse.json({
 				success: true,
 				signal: "agentCallbackReceived",

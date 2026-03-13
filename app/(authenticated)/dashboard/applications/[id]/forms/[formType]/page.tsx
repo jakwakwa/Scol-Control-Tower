@@ -5,19 +5,26 @@
  * Renders the appropriate form based on the formType parameter
  */
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { RiArrowLeftLine, RiLoader4Line } from "@remixicon/react";
-import { DashboardLayout } from "@/components/dashboard";
-import { Button } from "@/components/ui/button";
 import {
-	StratcolAgreementForm,
-	FacilityApplicationForm,
-	Absa6995Form,
-	FicaUploadForm,
-} from "@/components/onboarding-forms";
+	RiArrowLeftLine,
+	RiFileUploadLine,
+	RiLoader4Line,
+	RiSendPlaneLine,
+} from "@remixicon/react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { DashboardLayout } from "@/components/dashboard";
+import {
+	Absa6995Form,
+	FacilityApplicationForm,
+	FicaUploadForm,
+	StratcolAgreementForm,
+} from "@/components/onboarding-forms";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 
 // ============================================
 // Types
@@ -36,6 +43,14 @@ interface FormData {
 		version: number;
 	} | null;
 	status: string;
+	applicantId?: number | null;
+}
+
+interface DocumentUpload {
+	id: number;
+	fileName: string;
+	fileSize: number;
+	documentType: string;
 }
 
 // ============================================
@@ -66,6 +81,9 @@ export default function FormPage({
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [formData, setFormData] = useState<FormData | null>(null);
+	const [absaDocuments, setAbsaDocuments] = useState<DocumentUpload[]>([]);
+	const [absaSending, setAbsaSending] = useState(false);
+	const absaFileInputRef = useRef<HTMLInputElement>(null);
 
 	// Resolve params
 	useEffect(() => {
@@ -94,6 +112,78 @@ export default function FormPage({
 
 		fetchFormData();
 	}, [resolvedParams]);
+
+	// Fetch ABSA PDFs when on absa form
+	const fetchAbsaDocuments = useCallback(async () => {
+		if (!resolvedParams?.id) return;
+		const res = await fetch(
+			`/api/onboarding/documents/upload?workflowId=${resolvedParams.id}`
+		);
+		if (res.ok) {
+			const { documents } = (await res.json()) as { documents: DocumentUpload[] };
+			setAbsaDocuments(
+				(documents ?? []).filter(d => d.documentType === "ABSA_6995_PDF")
+			);
+		}
+	}, [resolvedParams?.id]);
+
+	useEffect(() => {
+		if (resolvedParams?.formType === "absa_6995") {
+			fetchAbsaDocuments();
+		}
+	}, [resolvedParams?.formType, fetchAbsaDocuments]);
+
+	const handleAbsaPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!(file && resolvedParams?.id)) return;
+		const fd = new FormData();
+		fd.set("file", file);
+		fd.set("workflowId", resolvedParams.id);
+		fd.set("category", "standard");
+		fd.set("documentType", "ABSA_6995_PDF");
+		try {
+			const res = await fetch("/api/onboarding/documents/upload", {
+				method: "POST",
+				body: fd,
+			});
+			if (!res.ok) {
+				const err = await res.json().catch(() => ({}));
+				throw new Error(err?.error ?? "Upload failed");
+			}
+			toast.success("PDF uploaded");
+			fetchAbsaDocuments();
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Upload failed");
+		}
+		e.target.value = "";
+	};
+
+	const handleSendToAbsa = async (docId: number) => {
+		if (!(resolvedParams?.id && formData?.applicantId)) return;
+		setAbsaSending(true);
+		try {
+			const res = await fetch(
+				`/api/workflows/${resolvedParams.id}/absa/send`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						applicantId: formData.applicantId,
+						documentUploadId: docId,
+					}),
+				}
+			);
+			if (!res.ok) {
+				const err = await res.json().catch(() => ({}));
+				throw new Error(err?.error ?? err?.message ?? "Send failed");
+			}
+			toast.success("ABSA packet sent to test address");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Send failed");
+		} finally {
+			setAbsaSending(false);
+		}
+	};
 
 	if (!resolvedParams) {
 		return (
@@ -136,7 +226,7 @@ export default function FormPage({
 			});
 
 			router.push(`/dashboard/applications/${workflowId}/forms`);
-		} catch (error) {
+		} catch (_error) {
 			toast.error("Failed to submit form", {
 				description: "Please try again later.",
 			});
@@ -164,7 +254,7 @@ export default function FormPage({
 			toast.success("Draft saved", {
 				description: "Your progress has been saved.",
 			});
-		} catch (error) {
+		} catch (_error) {
 			toast.error("Failed to save draft", {
 				description: "Please try again later.",
 			});
@@ -182,11 +272,12 @@ export default function FormPage({
 		}
 
 		const commonProps = {
-			workflowId: parseInt(workflowId),
+			workflowId: parseInt(workflowId, 10),
 			initialData,
 			onSubmit: handleSubmit,
 			onSaveDraft: handleSaveDraft,
 			readOnly: isReadOnly,
+			isSubmitting,
 		};
 
 		switch (formType) {
@@ -195,7 +286,72 @@ export default function FormPage({
 			case "facility_application":
 				return <FacilityApplicationForm {...commonProps} />;
 			case "absa_6995":
-				return <Absa6995Form {...commonProps} />;
+				return (
+					<div className="space-y-8">
+						<Absa6995Form {...commonProps} />
+						<Card>
+							<CardHeader>
+								<CardTitle className="text-base">Prefilled ABSA PDF</CardTitle>
+								<p className="text-sm text-muted-foreground">
+									Upload the prefilled ABSA 6995 form (PDF). Mock send goes to{" "}
+									{process.env.NEXT_PUBLIC_APP_URL ? "ABSA_TEST_EMAIL" : "configured test address"}.
+								</p>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								<div className="flex flex-col gap-2">
+									<Label>Upload PDF</Label>
+									<div className="flex gap-2">
+										<input
+											ref={absaFileInputRef}
+											type="file"
+											accept="application/pdf"
+											onChange={handleAbsaPdfUpload}
+											className="hidden"
+										/>
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											onClick={() => absaFileInputRef.current?.click()}
+											className="gap-1.5"
+										>
+											<RiFileUploadLine className="h-4 w-4" />
+											Choose PDF
+										</Button>
+									</div>
+								</div>
+								{absaDocuments.length > 0 && (
+									<div className="space-y-2">
+										<Label>Uploaded PDFs</Label>
+										<ul className="space-y-2">
+											{absaDocuments.map(doc => (
+												<li
+													key={doc.id}
+													className="flex items-center justify-between rounded-lg border p-3"
+												>
+													<span className="text-sm">{doc.fileName}</span>
+													<Button
+														size="sm"
+														onClick={() => handleSendToAbsa(doc.id)}
+														disabled={absaSending || !formData?.applicantId}
+														className="gap-1.5"
+													>
+														{absaSending ? (
+															<RiLoader4Line className="h-4 w-4 animate-spin" />
+														) : (
+															<RiSendPlaneLine className="h-4 w-4" />
+														)}
+														Send to ABSA
+													</Button>
+												</li>
+											))}
+										</ul>
+									</div>
+								)}
+							</CardContent>
+						</Card>
+					</div>
+				);
 			case "fica_documents":
 				return <FicaUploadForm {...commonProps} />;
 			default:
@@ -211,6 +367,7 @@ export default function FormPage({
 		<DashboardLayout
 			actions={
 				<div className="flex items-center gap-4">
+					{formTitle}
 					<Link href={`/dashboard/applications/${workflowId}/forms`}>
 						<Button variant="ghost" size="sm" className="gap-1.5">
 							<RiArrowLeftLine className="h-4 w-4" />

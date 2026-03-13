@@ -12,7 +12,6 @@ import {
 } from "@/lib/services/notification-events.service";
 import type { FormType } from "@/lib/types";
 import {
-	absa6995Schema,
 	callCentreApplicationSchema,
 	type FacilityApplicationForm,
 	facilityApplicationSchema,
@@ -26,7 +25,6 @@ const formSubmissionSchema = z.object({
 		"FACILITY_APPLICATION",
 		"SIGNED_QUOTATION",
 		"AGREEMENT_CONTRACT",
-		"ABSA_6995",
 		"CALL_CENTRE_APPLICATION",
 	]),
 	data: z.record(z.string(), z.unknown()),
@@ -36,7 +34,6 @@ const formSchemaMap: Record<FormType, z.ZodSchema> = {
 	FACILITY_APPLICATION: facilityApplicationSchema,
 	SIGNED_QUOTATION: signedQuotationSchema,
 	AGREEMENT_CONTRACT: stratcolAgreementSchema,
-	ABSA_6995: absa6995Schema,
 	CALL_CENTRE_APPLICATION: callCentreApplicationSchema,
 	DOCUMENT_UPLOADS: z.any(),
 };
@@ -45,12 +42,6 @@ const extractSubmittedBy = (formType: FormType, data: Record<string, unknown>) =
 	if (formType === "SIGNED_QUOTATION" || formType === "AGREEMENT_CONTRACT") {
 		return typeof data.signatureName === "string" ? data.signatureName : undefined;
 	}
-
-	if (formType === "ABSA_6995") {
-		const signatures = data.signatures as { clientName?: string } | undefined;
-		return signatures?.clientName;
-	}
-
 	return undefined;
 };
 
@@ -231,16 +222,6 @@ export async function POST(request: NextRequest) {
 				});
 			}
 
-			if (formType === "ABSA_6995") {
-				await inngest.send({
-					name: "form/absa-6995.completed",
-					data: {
-						workflowId: formInstance.workflowId,
-						applicantId: formInstance.applicantId,
-						completedAt: new Date().toISOString(),
-					},
-				});
-			}
 		}
 
 		return NextResponse.json({

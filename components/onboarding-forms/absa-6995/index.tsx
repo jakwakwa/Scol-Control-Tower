@@ -59,6 +59,8 @@ interface Absa6995FormProps {
 	onSaveDraft?: (data: Partial<Absa6995FormData>) => Promise<void>;
 	/** Whether the form is in read-only mode */
 	readOnly?: boolean;
+	/** External submitting state */
+	isSubmitting?: boolean;
 }
 
 // ============================================
@@ -290,6 +292,7 @@ export function Absa6995Form({
 	onSubmit,
 	onSaveDraft,
 	readOnly = false,
+	isSubmitting: externalIsSubmitting = false,
 }: Absa6995FormProps) {
 	const [currentStep, setCurrentStep] = React.useState(0);
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -384,7 +387,7 @@ export function Absa6995Form({
 					onSubmit={handleSubmit(handleFormSubmit)}
 					onSaveDraft={onSaveDraft ? handleSaveDraft : undefined}
 					title="Absa 6995 Pre-screening Assessment"
-					isSubmitting={isSubmitting}
+					isSubmitting={isSubmitting || externalIsSubmitting}
 					storageKey={`absa-6995-${workflowId}`}
 					submitButtonText="Submit Assessment">
 					{({ currentStep }) => (

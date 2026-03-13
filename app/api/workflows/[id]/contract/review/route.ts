@@ -3,8 +3,13 @@ import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getDatabaseClient } from "@/app/utils";
-import { workflowEvents, workflows } from "@/db/schema";
+import { workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
+import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
+import {
+	logWorkflowEventOnce,
+	markStage5GateOnce,
+} from "@/lib/services/workflow-command.service";
 
 const ContractReviewSchema = z.object({
 	applicantId: z.number().int().positive(),
@@ -16,9 +21,15 @@ export async function POST(
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const { userId } = await auth();
+		const { userId, has, orgRole } = await auth();
 		if (!userId) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		if (!hasPermissionOrAdmin(has, orgRole, "org:quote:approve")) {
+			return NextResponse.json(
+				{ error: "Forbidden - Missing org:quote:approve permission" },
+				{ status: 403 }
+			);
 		}
 
 		const { id } = await params;
@@ -55,14 +66,30 @@ export async function POST(
 			return NextResponse.json({ error: "Applicant/workflow mismatch" }, { status: 409 });
 		}
 
-		await db.insert(workflowEvents).values({
+		const applied = await markStage5GateOnce({
+			workflowId,
+			gate: "contract_reviewed",
+			actorId: userId,
+		});
+		if (!applied) {
+			return NextResponse.json({
+				success: true,
+				workflowId,
+				applicantId,
+				message: "Contract draft review already recorded",
+				alreadyReviewed: true,
+			});
+		}
+
+		const reviewedAt = new Date().toISOString();
+		await logWorkflowEventOnce({
 			workflowId,
 			eventType: "contract_draft_reviewed",
-			payload: JSON.stringify({
+			payload: {
 				reviewedBy: userId,
 				reviewNotes,
-				timestamp: new Date().toISOString(),
-			}),
+				timestamp: reviewedAt,
+			},
 			actorType: "user",
 			actorId: userId,
 		});
@@ -73,7 +100,7 @@ export async function POST(
 				workflowId,
 				applicantId,
 				reviewedBy: userId,
-				reviewedAt: new Date().toISOString(),
+				reviewedAt,
 				changes: reviewNotes ? { reviewNotes } : undefined,
 			},
 		});
@@ -83,6 +110,7 @@ export async function POST(
 			workflowId,
 			applicantId,
 			message: "Contract draft review recorded",
+			alreadyReviewed: false,
 		});
 	} catch (error) {
 		console.error("[ContractReviewAction] Error:", error);

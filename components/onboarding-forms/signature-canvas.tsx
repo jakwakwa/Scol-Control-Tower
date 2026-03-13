@@ -6,12 +6,12 @@
  * Note: Using UK spelling throughout (e.g., colour, centre)
  */
 
-import * as React from "react";
+import type * as React from "react";
 import { useRef, useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { RiEraserLine, RiCheckLine, RiRefreshLine } from "@remixicon/react";
+import { RiEraserLine, RiCheckLine, } from "@remixicon/react";
 
 interface SignatureCanvasProps {
 	/** Callback when signature is saved */
@@ -139,7 +139,7 @@ export function SignatureCanvas({
 			e.preventDefault();
 			const canvas = canvasRef.current;
 			const ctx = canvas?.getContext("2d");
-			if (!ctx || !lastPosition) return;
+			if (!(ctx && lastPosition)) return;
 
 			const currentPosition = getPosition(e);
 
@@ -168,7 +168,7 @@ export function SignatureCanvas({
 	const handleClear = useCallback(() => {
 		const canvas = canvasRef.current;
 		const ctx = canvas?.getContext("2d");
-		if (!ctx || !canvas) return;
+		if (!(ctx && canvas)) return;
 
 		ctx.fillStyle = backgroundColour;
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -179,7 +179,7 @@ export function SignatureCanvas({
 	// Save signature
 	const handleSave = useCallback(() => {
 		const canvas = canvasRef.current;
-		if (!canvas || !hasSignature) return;
+		if (!(canvas && hasSignature)) return;
 
 		const dataUrl = canvas.toDataURL("image/png");
 		onSave(dataUrl);
@@ -238,7 +238,7 @@ export function SignatureCanvas({
 				/>
 
 				{/* Placeholder text when empty */}
-				{!hasSignature && !disabled && (
+				{!(hasSignature || disabled ) && (
 					<div className="absolute inset-0 flex items-center justify-center pointer-events-none">
 						<p className="text-muted-foreground text-sm">
 							Sign here using your mouse or touch

@@ -77,12 +77,7 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 	{
 		accessorKey: "companyName",
 		header: ({ column }) => (
-			<Button
-				variant="ghost"
-				size="xs"
-				className="-ml-4 hover:bg-transparent hover:text-foreground"
-				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-				Company
+			<Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
 				{column.getIsSorted() === "asc" ? (
 					<RiArrowUpSLine className="ml-2 h-4 w-4" />
 				) : column.getIsSorted() === "desc" ? (
@@ -106,9 +101,8 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 			<Button
 				variant="ghost"
 				size="xs"
-				className="-ml-4 hover:bg-transparent hover:text-foreground"
 				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-				Contact
+				Contact Name
 				{column.getIsSorted() === "asc" ? (
 					<RiArrowUpSLine className="ml-2 h-4 w-4" />
 				) : column.getIsSorted() === "desc" ? (
@@ -120,8 +114,8 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 		),
 		cell: ({ row }) => (
 			<div>
-				<div className="text-sm">{row.original.contactName}</div>
-				<div className="text-xs text-muted-foreground">{row.original.email}</div>
+				<div className="text-xs font-light">{row.original.contactName}</div>
+				<div className="text-xs font-light text-muted-foreground">{row.original.email}</div>
 			</div>
 		),
 	},
@@ -131,7 +125,6 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 			<Button
 				variant="ghost"
 				size="xs"
-				className="-ml-4 hover:bg-transparent hover:text-foreground"
 				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
 				Industry
 				{column.getIsSorted() === "asc" ? (
@@ -153,7 +146,6 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 			<Button
 				variant="ghost"
 				size="xs"
-				className="-ml-4 hover:bg-transparent hover:text-foreground"
 				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
 				Employees
 				{column.getIsSorted() === "asc" ? (
@@ -175,7 +167,6 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 			<Button
 				variant="ghost"
 				size="xs"
-				className="-ml-4 hover:bg-transparent hover:text-foreground"
 				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
 				Status
 				{column.getIsSorted() === "asc" ? (

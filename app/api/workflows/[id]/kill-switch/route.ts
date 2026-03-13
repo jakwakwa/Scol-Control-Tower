@@ -8,12 +8,13 @@
  * Body: { reason, notes? }
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { getDatabaseClient } from "@/app/utils";
 import { workflows } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import {
 	executeKillSwitch,
 	type KillSwitchReason,
@@ -42,12 +43,18 @@ export async function POST(
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		// Authenticate
-		const { userId } = await auth();
+		// Authenticate and check permission (org:workflow:terminate — risk_manager, account_manager, admin)
+		const { userId, has, orgRole } = await auth();
 		if (!userId) {
 			return NextResponse.json(
 				{ error: "Unauthorized - Authentication required" },
 				{ status: 401 }
+			);
+		}
+		if (!hasPermissionOrAdmin(has, orgRole, "org:workflow:terminate")) {
+			return NextResponse.json(
+				{ error: "Forbidden - Missing org:workflow:terminate permission" },
+				{ status: 403 }
 			);
 		}
 
@@ -106,10 +113,6 @@ export async function POST(
 			);
 		}
 
-		console.log(
-			`[KillSwitch API] Executing kill switch for workflow ${workflowId}, reason: ${reason}`
-		);
-
 		// Execute kill switch
 		const result = await executeKillSwitch({
 			workflowId,
@@ -151,7 +154,7 @@ export async function POST(
 // ============================================
 
 export async function GET(
-	request: NextRequest,
+	_request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {

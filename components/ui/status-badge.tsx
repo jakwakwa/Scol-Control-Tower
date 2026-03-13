@@ -11,7 +11,7 @@ const statusStyles: Record<StatusType, string> = {
 	warning: "bg-warning/50 text-warning-foreground border-warning",
 	error: "bg-destructive/20 text-destructive-foreground border-rose-500/20",
 	info: "bg-sky-500/10 text-sky-400 border-sky-500/20",
-	neutral: "bg-secondary/90 text-muted-foreground border-sidebar-border",
+	neutral: "bg-secondary/20 text-muted-foreground border-sidebar-border",
 	brand: "bg-primary/10 text-primary border-primary/20",
 };
 
@@ -30,7 +30,7 @@ export function StatusBadge({
 	return (
 		<span
 			className={cn(
-				"inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border backdrop-blur-sm",
+				"inline-flex items-center gap-1.5 px-1.5 py-[1px] rounded-full text-xs font-medium border outline-1 backdrop-blur-sm",
 				statusStyles[status],
 				className
 			)}
@@ -85,19 +85,18 @@ export function RiskBadge({ level }: { level: string }) {
 	let status: StatusType = "neutral";
 	const l = level.toLowerCase();
 
-	if (l === "low") status = "success";
-	else if (l === "medium") status = "warning";
-	else if (l === "high") status = "error";
+	if (l === "low" || l === "green") status = "success";
+	else if (l === "medium" || l === "amber" || l === "yellow") status = "warning";
+	else if (l === "high" || l === "red" || l === "critical") status = "error";
+
+	const isError = status === "error";
 
 	return (
 		<StatusBadge
 			status={status}
-			className={`uppercase flex items-center justify-center tracking-wider text-[8px] min-w-[17px] min-h-[17px] p-0 ${level === "green" ? "bg-emerald-400/30" : level === "red" ? "bg-destructive animate-bounce" : "bg-none"} `}>
-			{level === "red" ? (
-				<RiAlertFill className="text-red-200 font-black" size={12} />
-			) : (
-				<RiCheckFill size={12} />
-			)}
+			icon={isError ? <RiAlertFill size={14} className="animate-bounce" /> : <RiCheckFill size={14} />}
+			className="lowercase font-light tracking-wider">
+			{level}
 		</StatusBadge>
 	);
 }

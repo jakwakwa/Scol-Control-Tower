@@ -16,11 +16,20 @@
  * - Human approval checkpoints with proper Inngest signal handling
  */
 
+import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
-import { workflowEvents } from "@/db/schema";
+import { applicants, workflowEvents } from "@/db/schema";
+import {
+	checkReApplicant,
+	logReApplicantAttempt,
+} from "@/lib/services/deny-list.service";
+import { sendReApplicantDeniedEmail } from "@/lib/services/email.service";
+import { executeKillSwitch } from "@/lib/services/kill-switch.service";
 import { logWorkflowEvent } from "@/lib/services/notification-events.service";
 import { terminateRun } from "@/lib/services/terminate-run.service";
+import { ensureRiskChecksExist } from "@/lib/services/risk-check.service";
 import { LeadCreatedSchema } from "@/lib/validations/control-tower/onboarding-schemas";
+import { validatePerimeter } from "@/lib/validations/control-tower/perimeter-validation";
 import { inngest } from "../client";
 
 import type { WorkflowContext } from "./control-tower/types";
@@ -45,56 +54,116 @@ export const controlTowerWorkflow = inngest.createFunction(
 				event: "workflow/terminated",
 				match: "data.workflowId",
 			},
-			{
-				event: "sanction/confirmed",
-				match: "data.workflowId",
-			},
 		],
 	},
 	{ event: "onboarding/lead.created" },
 	async ({ event, step }) => {
-		// 1. Perimeter Zod Validation
-		const validationResult = LeadCreatedSchema.safeParse(event.data);
+		const perimeterResult = validatePerimeter({
+			schema: LeadCreatedSchema,
+			data: event.data,
+			eventName: "onboarding/lead.created",
+			sourceSystem: "control-tower",
+			terminationReason: "VALIDATION_ERROR_INGEST",
+		});
 
-		if (!validationResult.success) {
-			console.error("[ControlTower] Validation failed for onboarding/lead.created", {
-				event: event.name,
-				errors: validationResult.error.format(),
+		if (!perimeterResult.ok) {
+			const { failure } = perimeterResult;
+			console.error("[ControlTower] Perimeter validation failed", {
+				event: failure.eventName,
+				failedPaths: failure.failedPaths,
+				messages: failure.messages,
 			});
 
 			await step.run("validation-failed-terminate", async () => {
-				const data = event.data as Record<string, unknown>;
-				const applicantId = typeof data.applicantId === "number" ? data.applicantId : 0;
-				const workflowId = typeof data.workflowId === "number" ? data.workflowId : 0;
-
 				await logWorkflowEvent({
-					workflowId,
+					workflowId: failure.workflowId,
 					eventType: "error",
 					payload: {
 						context: "perimeter_validation_failed",
-						errors: validationResult.error.format(),
+						eventName: failure.eventName,
+						sourceSystem: failure.sourceSystem,
+						failedPaths: failure.failedPaths,
+						messages: failure.messages,
 					},
 				});
 
-				// Only terminate if we have valid IDs
-				if (workflowId > 0 && applicantId > 0) {
+				if (failure.workflowId > 0 && failure.applicantId > 0) {
 					await terminateRun({
-						workflowId,
-						applicantId,
+						workflowId: failure.workflowId,
+						applicantId: failure.applicantId,
 						stage: 1,
-						reason: "VALIDATION_ERROR_INGEST",
+						reason: failure.terminationReason,
 					});
 				}
 			});
-			return; // Short-circuit the run completely
+			return;
 		}
 
-		// Validation passed, use strongly typed data
-		const { applicantId, workflowId } = validationResult.data;
+		const { applicantId, workflowId } = perimeterResult.data;
 		const context: WorkflowContext = { applicantId, workflowId };
 
 		console.info(
 			`[ControlTower] Starting workflow ${workflowId} for applicant ${applicantId}`
+		);
+
+		// Scenario 2b: Re-applicant check — deny if previously declined (ID, bank, cellphone)
+		const reApplicantMatch = await step.run("re-applicant-check", async () => {
+			return checkReApplicant(applicantId, workflowId);
+		});
+
+		if (reApplicantMatch) {
+			await step.run("re-applicant-denied-terminate", async () => {
+				const db = getDatabaseClient();
+				let companyName = "Unknown";
+				if (db) {
+					const [row] = await db
+						.select({ companyName: applicants.companyName })
+						.from(applicants)
+						.where(eq(applicants.id, applicantId));
+					if (row?.companyName) companyName = row.companyName;
+				}
+
+				await logReApplicantAttempt({
+					applicantId,
+					workflowId,
+					matchedDenyListId: reApplicantMatch.matchedDenyListId,
+					matchedOn: reApplicantMatch.matchedOn,
+					matchedValue: reApplicantMatch.matchedValue,
+				});
+
+				await sendReApplicantDeniedEmail({
+					workflowId,
+					applicantId,
+					companyName,
+					matchedOn: reApplicantMatch.matchedOn,
+					matchedValue: reApplicantMatch.matchedValue,
+				});
+
+				// Log before executeKillSwitch: cancelOn: workflow/terminated may skip
+				// subsequent steps once the cancellation event is emitted
+				await logWorkflowEvent({
+					workflowId,
+					eventType: "re_applicant_denied",
+					payload: {
+						matchedOn: reApplicantMatch.matchedOn,
+						matchedValue: reApplicantMatch.matchedValue,
+						matchedDenyListId: reApplicantMatch.matchedDenyListId,
+					},
+				});
+
+				await executeKillSwitch({
+					workflowId,
+					applicantId,
+					reason: "RE_APPLICANT_DENIED",
+					decidedBy: "system",
+					notes: `Re-applicant matched on ${reApplicantMatch.matchedOn}: ${reApplicantMatch.matchedValue}`,
+				});
+			});
+			return; // Terminate workflow run
+		}
+
+		await step.run("seed-risk-check-rows", () =>
+			ensureRiskChecksExist(workflowId, applicantId)
 		);
 
 		console.info("[ControlTower] Routing to Modular Orchestrator");

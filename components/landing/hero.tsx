@@ -16,7 +16,7 @@ export function Hero() {
 						transition={{ duration: 0.5 }}>
 						<div className="flex justify-center mb-8">
 							<Image
-								src="/assets/logo-dark.svg"
+								src="/assets/control_tower_logo_.svg"
 								alt="Control Tower Logo"
 								width={200}
 								height={64}
@@ -37,7 +37,7 @@ export function Hero() {
 							<a href="/dashboard">
 								<Button
 									size="lg"
-									className="rounded-full h-12 px-8 text-base bg-primary text-primary-foreground hover:bg-primary/90">
+									className="rounded-xl h-12 py-6 px-4 text-base bg-primary font-bold tracking-tight shadow-lg shadow-black/50 text-gray-950/70 bg-primary">
 									Launch Control Tower
 									<ArrowRight className="ml-2 h-4 w-4" />
 								</Button>
@@ -49,7 +49,7 @@ export function Hero() {
 								<Button
 									variant="outline"
 									size="lg"
-									className="rounded-full h-12 px-8 text-base border-border text-foreground hover:bg-muted">
+									className="rounded-xl h-12 px-4 py-6 text-base border-border/70 text-foreground hover:bg-muted">
 									<FileText className="mr-2 h-4 w-4" />
 									View Documentation
 								</Button>

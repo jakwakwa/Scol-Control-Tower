@@ -93,7 +93,7 @@ export async function executeStage5({
 			type: "awaiting",
 			title: "Contract + ABSA Internal Gates",
 			message:
-				"Awaiting internal contract review and ABSA handoff completion. Final contract is sent to applicant only after two-factor final approval.",
+				"Awaiting internal contract review and ABSA approval confirmation. Final contract is sent to applicant only after two-factor final approval.",
 			actionable: true,
 		});
 	});
@@ -116,14 +116,14 @@ export async function executeStage5({
 				workflowId,
 				applicantId,
 				type: "warning",
-				title: "Delay: ABSA 6995 Form",
+				title: "Delay: ABSA Approval Confirmation",
 				message:
-					"Applicant failed to complete the ABSA form within the expected timeframe.",
+					"ABSA approval has not been confirmed within the expected timeframe.",
 				actionable: true,
 			});
 			await sendInternalAlertEmail({
-				title: "Delay: ABSA 6995 Form",
-				message: `Applicant has not completed the ABSA 6995 form within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window. Please follow up.`,
+				title: "Delay: ABSA Approval Confirmation",
+				message: `ABSA approval has not been confirmed within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window. Send the packet from the ABSA form page, then confirm approval once ABSA has approved.`,
 				workflowId,
 				applicantId,
 				type: "warning",

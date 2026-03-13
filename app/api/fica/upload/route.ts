@@ -223,7 +223,7 @@ export async function GET(request: NextRequest) {
 	const [workflow] = await db
 		.select({ applicantId: workflows.applicantId })
 		.from(workflows)
-		.where(eq(workflows.id, parseInt(workflowId)))
+		.where(eq(workflows.id, parseInt(workflowId, 10)))
 		.limit(1);
 
 	if (!workflow) {
@@ -244,7 +244,7 @@ export async function GET(request: NextRequest) {
 		.where(eq(documents.applicantId, workflow.applicantId));
 
 	return NextResponse.json({
-		workflowId: parseInt(workflowId),
+		workflowId: parseInt(workflowId, 10),
 		status: docs.length > 0 ? "uploaded" : "pending",
 		documents: docs,
 	});

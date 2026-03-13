@@ -352,7 +352,9 @@ export type Events = {
 				decidedBy: string; // Risk Manager email/ID
 				reason?: string;
 				conditions?: string[];
-				timestamp: string;
+				timestamp?: string;
+				/** Set to "manual_green_lane" when AM grants Green Lane while Stage 4 is awaiting review */
+				source?: "manual_green_lane";
 			};
 		};
 	};
@@ -593,6 +595,7 @@ export type Events = {
 			applicantId: number;
 			reason:
 				| "PROCUREMENT_DENIED"
+				| "RE_APPLICANT_DENIED"
 				| "COMPLIANCE_VIOLATION"
 				| "FRAUD_DETECTED"
 				| "TIMEOUT_TERMINATION"
@@ -601,6 +604,8 @@ export type Events = {
 				| "STAGE2_PRE_RISK_EVAL_TIMEOUT"
 				| "STAGE2_QUOTE_APPROVAL_TIMEOUT"
 				| "VALIDATION_ERROR_INGEST"
+				| "VALIDATION_ERROR_SANCTIONS"
+				| "SANCTIONS_EXTERNAL_BLOCKED"
 				| "STAGE2_QUOTE_RESPONSE_TIMEOUT"
 				| "STAGE3_FICA_UPLOAD_TIMEOUT"
 				| "STAGE4_FINANCIAL_STATEMENTS_TIMEOUT"
@@ -608,6 +613,7 @@ export type Events = {
 				| "STAGE5_ABSA_FORM_TIMEOUT"
 				| "STAGE6_RISK_MANAGER_TIMEOUT"
 				| "STAGE6_ACCOUNT_MANAGER_TIMEOUT"
+				| "STAGE6_RISK_AND_ACCOUNT_MANAGER_TIMEOUT"
 				| "STAGE6_CONTRACT_SIGNATURE_TIMEOUT"
 				| "MANUAL_TERMINATION";
 			decidedBy: string;
@@ -685,6 +691,18 @@ export type Events = {
 			applicantId: number;
 			officerId: string;
 			confirmedAt: string;
+		};
+	};
+	
+	/** Unified sanction adjudication event (clear or confirm) */
+	"sanction/adjudicated": {
+		data: {
+			workflowId: number;
+			applicantId: number;
+			action: "clear" | "confirm";
+			officerId: string;
+			reason: string;
+			timestamp: string;
 		};
 	};
 

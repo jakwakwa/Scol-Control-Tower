@@ -85,17 +85,20 @@ export async function performITCCheck(options: ITCCheckOptions): Promise<ITCChec
 	// Check if ProcureCheck is configured
 	if (isProcureCheckConfigured()) {
 		try {
-			const registrationNumber =
-				options.registrationNumber || extractRegistrationNumber(applicantData);
-			if (registrationNumber) {
-				return await performProcureCheckCheck(registrationNumber, applicantId);
+			const isProprietor = applicantData.entityType === "proprietor";
+			const identifier = isProprietor
+				? applicantData.idNumber
+				: options.registrationNumber || extractRegistrationNumber(applicantData);
+
+			if (identifier) {
+				return await performProcureCheckCheck(identifier, applicantId, isProprietor);
 			}
 			console.warn(
-				`[ITCService] Applicant ${applicantId} has no registration number. Returning manual-required ITC result.`
+				`[ITCService] Applicant ${applicantId} has no identifier for lookup. Returning manual-required ITC result.`
 			);
 			return createManualRequiredResult(
 				applicantId,
-				"No registration number found for ITC lookup",
+				"No identifier (ID or Reg No) found for ITC lookup",
 				"registration_data"
 			);
 		} catch (err) {
@@ -191,21 +194,24 @@ async function getProcureCheckToken(): Promise<string> {
  * Perform real ProcureCheck credit check
  */
 async function performProcureCheckCheck(
-	registrationNumber: string,
-	applicantId: number
+	identifier: string,
+	applicantId: number,
+	isProprietor: boolean = false
 ): Promise<ITCCheckResult> {
 	const token = await getProcureCheckToken();
 
-	const response = await fetch(`${PROCURECHECK_CONFIG.apiUrl}/business/v1/credit`, {
+	const endpoint = isProprietor ? "individual/v1/credit" : "business/v1/credit";
+	const payload = isProprietor
+		? { idNumber: identifier, country: "ZA" }
+		: { registrationNumber: identifier, country: "ZA" };
+
+	const response = await fetch(`${PROCURECHECK_CONFIG.apiUrl}/${endpoint}`, {
 		method: "POST",
 		headers: {
 			Authorization: `Bearer ${token}`,
 			"Content-Type": "application/json",
 		},
-		body: JSON.stringify({
-			registrationNumber,
-			country: "ZA",
-		}),
+		body: JSON.stringify(payload),
 	});
 
 	if (!response.ok) {
