@@ -23,5 +23,5 @@
 - The Stage 6 `AGREEMENT_CONTRACT` CEL predicate is the canonical contract signature gate (not Stage 5)
 - `terminateRun()` wraps `executeKillSwitch()` and always throws `NonRetriableError` to exit Inngest runs cleanly
 - Manually-created migration SQL files must be registered in `migrations/meta/_journal.json`; `drizzle-kit migrate` silently skips unregistered files
-- `scripts/drop-all-tables.ts` has a hardcoded table list — new tables must be added manually
 - Test DB selection is automatic only when running `bun run test:e2e*`; no manual .env switching required — Playwright injects test DB vars into its spawned app server
+- For E2E Clerk auth, document both `E2E_CLERK_***_USERNAME` and `E2E_CLERK_***_EMAIL` in `.env.test.example`; they are distinct (username vs email for sign-in)

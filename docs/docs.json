@@ -104,6 +104,12 @@
               "api-reference/endpoint/system",
               "api-reference/endpoint/onboarding"
             ]
+          },
+          {
+            "group": "External APIs",
+            "pages": [
+              "api-reference/external_apis/procurecheck/procurecheck_web_api"
+            ]
           }
         ]
       }
