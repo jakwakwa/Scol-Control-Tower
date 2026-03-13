@@ -1,5 +1,5 @@
-import crypto from "crypto";
-import { eq } from "drizzle-orm";
+import crypto from "node:crypto";
+import { and, eq, ne } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import { applicantMagiclinkForms, applicantSubmissions } from "@/db/schema";
 import type { FormDecisionOutcome, FormInstanceStatus, FormType } from "@/lib/types";
@@ -148,7 +148,12 @@ export async function recordFormDecision(options: {
 			decisionReason: options.reason?.trim() || null,
 			decisionAt: new Date(),
 		})
-		.where(eq(applicantMagiclinkForms.id, options.formInstanceId))
+		.where(
+			and(
+				eq(applicantMagiclinkForms.id, options.formInstanceId),
+				ne(applicantMagiclinkForms.decisionStatus, "responded")
+			)
+		)
 		.returning();
 
 	return updated ?? null;

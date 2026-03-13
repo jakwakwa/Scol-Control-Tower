@@ -22,6 +22,7 @@ import {
 	workflows,
 } from "@/db/schema";
 import { inngest } from "@/inngest/client";
+import { addToDenyList } from "./deny-list.service";
 import { sendInternalAlertEmail } from "./email.service";
 import { escalateToManagement } from "./notification.service";
 import { acquireStateLock } from "./state-lock.service";
@@ -32,6 +33,7 @@ import { acquireStateLock } from "./state-lock.service";
 
 export type KillSwitchReason =
 	| "PROCUREMENT_DENIED"
+	| "RE_APPLICANT_DENIED"
 	| "COMPLIANCE_VIOLATION"
 	| "FRAUD_DETECTED"
 	| "TIMEOUT_TERMINATION"
@@ -40,6 +42,8 @@ export type KillSwitchReason =
 	| "STAGE2_PRE_RISK_EVAL_TIMEOUT"
 	| "STAGE2_QUOTE_APPROVAL_TIMEOUT"
 	| "VALIDATION_ERROR_INGEST"
+	| "VALIDATION_ERROR_SANCTIONS"
+	| "SANCTIONS_EXTERNAL_BLOCKED"
 	| "STAGE2_QUOTE_RESPONSE_TIMEOUT"
 	| "STAGE3_FICA_UPLOAD_TIMEOUT"
 	| "STAGE4_FINANCIAL_STATEMENTS_TIMEOUT"
@@ -47,6 +51,7 @@ export type KillSwitchReason =
 	| "STAGE5_ABSA_FORM_TIMEOUT"
 	| "STAGE6_RISK_MANAGER_TIMEOUT"
 	| "STAGE6_ACCOUNT_MANAGER_TIMEOUT"
+	| "STAGE6_RISK_AND_ACCOUNT_MANAGER_TIMEOUT"
 	| "STAGE6_CONTRACT_SIGNATURE_TIMEOUT"
 	| "MANUAL_TERMINATION";
 
@@ -184,6 +189,12 @@ export async function executeKillSwitch(
 					: "warning",
 		});
 
+		// Step 8: Scenario 2b — Add to deny list for Risk Manager declined applicants
+		const denyResult = await addToDenyList(workflowId, applicantId, reason);
+		if (!denyResult.success) {
+			console.warn("[KillSwitch] Failed to add to deny list:", denyResult.error);
+		}
+
 		return {
 			success: true,
 			workflowId,
@@ -269,6 +280,8 @@ async function revokeAllPendingForms(
 function getReasonMessage(reason: KillSwitchReason): string {
 	const messages: Record<KillSwitchReason, string> = {
 		PROCUREMENT_DENIED: "Procurement check denied by Risk Manager",
+		RE_APPLICANT_DENIED:
+			"Re-applicant detected: previously declined applicant matched on deny list (ID, bank account, or cellphone)",
 		COMPLIANCE_VIOLATION: "Compliance violation detected",
 		FRAUD_DETECTED: "Potential fraud detected",
 		TIMEOUT_TERMINATION: "Terminated automatically due to timeout",
@@ -277,6 +290,8 @@ function getReasonMessage(reason: KillSwitchReason): string {
 		STAGE2_PRE_RISK_EVAL_TIMEOUT: "Pre-risk evaluation not completed within deadline",
 		STAGE2_QUOTE_APPROVAL_TIMEOUT: "Quote approval not received within deadline",
 		VALIDATION_ERROR_INGEST: "Workflow terminated due to invalid event data payload",
+		VALIDATION_ERROR_SANCTIONS: "Workflow terminated due to invalid sanctions event payload",
+		SANCTIONS_EXTERNAL_BLOCKED: "Workflow terminated due to external sanctions blocking match",
 		STAGE2_QUOTE_RESPONSE_TIMEOUT: "Applicant did not respond to quote within deadline",
 		STAGE3_FICA_UPLOAD_TIMEOUT: "FICA documents not uploaded within deadline",
 		STAGE4_FINANCIAL_STATEMENTS_TIMEOUT:
@@ -286,6 +301,8 @@ function getReasonMessage(reason: KillSwitchReason): string {
 		STAGE6_RISK_MANAGER_TIMEOUT: "Risk Manager approval not received within deadline",
 		STAGE6_ACCOUNT_MANAGER_TIMEOUT:
 			"Account Manager approval not received within deadline",
+		STAGE6_RISK_AND_ACCOUNT_MANAGER_TIMEOUT:
+			"Both Risk Manager and Account Manager approvals not received within deadline",
 		STAGE6_CONTRACT_SIGNATURE_TIMEOUT: "Contract not signed within deadline",
 		MANUAL_TERMINATION: "Manually terminated by administrator",
 	};

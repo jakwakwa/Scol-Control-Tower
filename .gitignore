@@ -1,6 +1,8 @@
 
 # dependencies
 /node_modules
+**/node_modules
+
 /.pnp
 .pnp.js
 .yarn/install-state.gz
@@ -45,8 +47,15 @@ next-env.d.ts
 .env
 .env.*
 !.env.example
+!.env.test.example
 
 playwright/.clerk
 # Project uses Bun exclusively — prevent accidental npm lockfile
 package-lock.json
 playwright-report/index.html
+
+# clerk configuration (can include secrets)
+/.clerk/
+
+# MCP config (contains GitHub token — copy from .cursor/mcp.json.example)
+.cursor/mcp.json

@@ -51,7 +51,9 @@ export default function UploadView({ token, requirements }: UploadViewProps) {
 		formData.append("token", token);
 		formData.append("documentType", requirement.type);
 		formData.append("category", requirement.category);
-		files.forEach(file => formData.append("files", file));
+		for (const file of files) {
+			formData.append("files", file);
+		}
 
 		const response = await fetch("/api/documents/upload", {
 			method: "POST",

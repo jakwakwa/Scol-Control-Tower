@@ -7,7 +7,7 @@ import { config } from "dotenv";
 // env vars that CI runners may inject from unconfigured secrets.
 config({ path: resolve(__dirname, ".env.test"), override: true });
 
-const playwrightWebServerPort = Number(process.env.PW_WEB_SERVER_PORT || "3000");
+const playwrightWebServerPort = Number(process.env.PW_WEB_SERVER_PORT || "3001");
 const playwrightBaseUrl = `http://localhost:${playwrightWebServerPort}`;
 
 /**
@@ -103,7 +103,17 @@ export default defineConfig({
 	webServer: {
 		command: `bun run dev -- --port ${playwrightWebServerPort}`,
 		url: playwrightBaseUrl,
-		reuseExistingServer: !process.env.CI,
+		reuseExistingServer: false,
 		timeout: 120 * 1000,
+		// Force the dedicated Playwright web server onto the test database.
+		env: {
+			E2E_USE_TEST_DB: "1",
+			...(process.env.TEST_DATABASE_URL && {
+				TEST_DATABASE_URL: process.env.TEST_DATABASE_URL,
+			}),
+			...(process.env.TEST_TURSO_GROUP_AUTH_TOKEN && {
+				TEST_TURSO_GROUP_AUTH_TOKEN: process.env.TEST_TURSO_GROUP_AUTH_TOKEN,
+			}),
+		},
 	},
 });

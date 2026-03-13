@@ -1,16 +1,16 @@
 import { getDatabaseClient } from "@/app/utils";
 import { notifications } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 
 export async function PATCH(
-	request: NextRequest,
+	_request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	const { id } = await params;
-	const notificationId = parseInt(id);
+	const notificationId = parseInt(id, 10);
 
-	if (isNaN(notificationId)) {
+	if (Number.isNaN(notificationId)) {
 		return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
 	}
 
@@ -33,13 +33,13 @@ export async function PATCH(
 }
 
 export async function DELETE(
-	request: NextRequest,
+	_request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	const { id } = await params;
-	const notificationId = parseInt(id);
+	const notificationId = parseInt(id, 10);
 
-	if (isNaN(notificationId)) {
+	if (Number.isNaN(notificationId)) {
 		return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
 	}
 

@@ -18,8 +18,6 @@ import {
 	emailSchema,
 	websiteSchema,
 	registrationNumberSchema,
-	branchCodeSchema,
-	accountNumberSchema,
 	percentageSchema,
 	signatureSchema,
 	optionalString,

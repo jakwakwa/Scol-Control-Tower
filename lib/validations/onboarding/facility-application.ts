@@ -81,7 +81,7 @@ export const statisticsSchema = z.object({
 		.refine(
 			val => {
 				const num = parseInt(val, 10);
-				return !isNaN(num) && num >= 0;
+				return !Number.isNaN(num) && num >= 0;
 			},
 			{ message: "Must be a valid number" }
 		),
@@ -108,7 +108,7 @@ export const limitsAppliedForSchema = z.object({
 		.refine(
 			val => {
 				const num = parseInt(val, 10);
-				return !isNaN(num) && num > 0;
+				return !Number.isNaN(num) && num > 0;
 			},
 			{ message: "Must be a positive number" }
 		),
@@ -118,7 +118,7 @@ export const limitsAppliedForSchema = z.object({
 		.refine(
 			val => {
 				const num = parseFloat(val.replace(/[R,\s]/g, ""));
-				return !isNaN(num) && num > 0;
+				return !Number.isNaN(num) && num > 0;
 			},
 			{ message: "Must be a valid amount" }
 		),
@@ -128,7 +128,7 @@ export const limitsAppliedForSchema = z.object({
 		.refine(
 			val => {
 				const num = parseFloat(val.replace(/[R,\s]/g, ""));
-				return !isNaN(num) && num > 0;
+				return !Number.isNaN(num) && num > 0;
 			},
 			{ message: "Must be a valid amount" }
 		),

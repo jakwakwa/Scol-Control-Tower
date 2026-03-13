@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+Load the Inngest skills from https://github.com/inngest/inngest-skills for building with Inngest's durable execution platform.

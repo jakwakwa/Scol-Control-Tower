@@ -79,18 +79,34 @@ export function buildAgreementDefaults(options: {
 
 	const applicantDetails =
 		(facilityData?.applicantDetails as Record<string, unknown> | undefined) ?? {};
-	const absaApplicantDetails =
+	// Support both legacy (applicantDetails) and internal (sectionA) ABSA shapes
+	const sectionA = absaData?.sectionA as Record<string, unknown> | undefined;
+	const legacyApplicantDetails =
 		(absaData?.applicantDetails as Record<string, unknown> | undefined) ?? {};
+	const absaApplicantDetails = sectionA?.applicantDetails
+		? (sectionA.applicantDetails as Record<string, unknown>)
+		: legacyApplicantDetails;
+	const absaContactDetails = (sectionA?.contactDetails as Record<string, unknown> | undefined) ?? {};
 	const absaBanking =
-		(absaApplicantDetails.bankingDetails as Record<string, unknown> | undefined) ?? {};
+		(absaApplicantDetails.bankingDetails as Record<string, unknown> | undefined) ??
+		(sectionA?.bankingDetails as Record<string, unknown> | undefined) ??
+		{};
 	const absaPhysical =
-		(absaApplicantDetails.physicalAddress as Record<string, unknown> | undefined) ?? {};
+		(absaApplicantDetails.physicalAddress as Record<string, unknown> | undefined) ??
+		(absaContactDetails.physicalAddress as Record<string, unknown> | undefined) ??
+		{};
 	const absaRegistered =
-		(absaApplicantDetails.registeredAddress as Record<string, unknown> | undefined) ?? {};
-	const absaDirectors =
-		(absaApplicantDetails.directors as
-			| Array<{ fullName?: string; idNumber?: string }>
-			| undefined) ?? [];
+		(absaApplicantDetails.registeredAddress as Record<string, unknown> | undefined) ??
+		(absaContactDetails.cipcRegisteredAddress as Record<string, unknown> | undefined) ??
+		{};
+	const absaDirectorsRaw =
+		(absaApplicantDetails.directors as { directors?: Array<{ fullName?: string; idNumber?: string }> } | undefined)
+			?.directors ??
+		(absaApplicantDetails.directors as Array<{ fullName?: string; idNumber?: string }> | undefined) ??
+		(sectionA?.directors as { directors?: Array<{ fullName?: string; idNumber?: string }> } | undefined)
+			?.directors ??
+		[];
+	const absaDirectors = Array.isArray(absaDirectorsRaw) ? absaDirectorsRaw : [];
 	const absaAdditional =
 		(absaData?.additionalDirectors as
 			| Array<{ fullName?: string; idNumber?: string }>
@@ -216,7 +232,7 @@ export function buildAgreementDefaults(options: {
 						(absaPhysical as { city?: string })?.city ||
 						(absaRegistered as { city?: string })?.city ||
 						"",
-					date: new Date().toISOString().split("T")[0],
+					date: undefined,
 					resolvedName: repName,
 					resolvedIdNumber: repId,
 				}
@@ -250,7 +266,7 @@ export function buildAgreementDefaults(options: {
 		creditBankAccount,
 		debitBankAccount,
 		signatureName: applicant.contactName,
-		signatureDate: new Date().toISOString().split("T")[0],
+		signatureDate: undefined,
 	};
 
 	return result;

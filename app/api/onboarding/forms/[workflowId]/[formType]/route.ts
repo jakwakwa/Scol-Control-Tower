@@ -1,6 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
-import { internalForms, internalSubmissions, workflows, FORM_TYPES } from "@/db/schema";
+import {
+	internalForms,
+	internalSubmissions,
+	workflows,
+	FORM_TYPES,
+	type FormType,
+} from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { inngest } from "@/inngest/client";
 
@@ -9,7 +15,7 @@ import { inngest } from "@/inngest/client";
  * Get form data for a specific workflow and form type
  */
 export async function GET(
-	request: NextRequest,
+	_request: NextRequest,
 	{ params }: { params: Promise<{ workflowId: string; formType: string }> }
 ) {
 	const { workflowId, formType } = await params;
@@ -20,7 +26,7 @@ export async function GET(
 	}
 
 	// Validate form type
-	if (!FORM_TYPES.includes(formType as any)) {
+	if (!FORM_TYPES.includes(formType as FormType)) {
 		return NextResponse.json({ error: "Invalid form type" }, { status: 400 });
 	}
 
@@ -31,8 +37,8 @@ export async function GET(
 			.from(internalForms)
 			.where(
 				and(
-					eq(internalForms.workflowId, parseInt(workflowId)),
-					eq(internalForms.formType, formType as any)
+					eq(internalForms.workflowId, parseInt(workflowId, 10)),
+					eq(internalForms.formType, formType as FormType)
 				)
 			)
 			.limit(1);
@@ -40,12 +46,25 @@ export async function GET(
 		const form = existingForm[0];
 		if (!form) {
 			// Return empty form data with not_started status
+			const [wf] = await db
+				.select({ applicantId: workflows.applicantId })
+				.from(workflows)
+				.where(eq(workflows.id, parseInt(workflowId, 10)))
+				.limit(1);
 			return NextResponse.json({
 				form: null,
 				submission: null,
 				status: "not_started",
+				applicantId: wf?.applicantId ?? null,
 			});
 		}
+
+		// Get workflow for applicantId (used by ABSA send)
+		const [wf] = await db
+			.select({ applicantId: workflows.applicantId })
+			.from(workflows)
+			.where(eq(workflows.id, parseInt(workflowId, 10)))
+			.limit(1);
 
 		// Get the latest submission
 		const latestSubmission = await db
@@ -59,6 +78,7 @@ export async function GET(
 			form,
 			submission: latestSubmission[0] || null,
 			status: form.status,
+			applicantId: wf?.applicantId ?? null,
 		});
 	} catch (error) {
 		console.error("Failed to fetch form:", error);
@@ -82,7 +102,7 @@ export async function POST(
 	}
 
 	// Validate form type
-	if (!FORM_TYPES.includes(formType as any)) {
+	if (!FORM_TYPES.includes(formType as FormType)) {
 		return NextResponse.json({ error: "Invalid form type" }, { status: 400 });
 	}
 
@@ -94,7 +114,7 @@ export async function POST(
 			return NextResponse.json({ error: "Form data is required" }, { status: 400 });
 		}
 
-		const workflowIdNum = parseInt(workflowId);
+		const workflowIdNum = parseInt(workflowId, 10);
 
 		// Verify workflow exists
 		const workflow = await db
@@ -108,13 +128,13 @@ export async function POST(
 		}
 
 		// Get or create internal form record
-		let existingForm = await db
+		const existingForm = await db
 			.select()
 			.from(internalForms)
 			.where(
 				and(
 					eq(internalForms.workflowId, workflowIdNum),
-					eq(internalForms.formType, formType as any)
+					eq(internalForms.formType, formType as FormType)
 				)
 			)
 			.limit(1);
@@ -128,7 +148,7 @@ export async function POST(
 				.insert(internalForms)
 				.values({
 					workflowId: workflowIdNum,
-					formType: formType as any,
+					formType: formType as FormType,
 					status: isDraft ? "in_progress" : "submitted",
 					currentStep: body.currentStep || 1,
 					totalSteps: body.totalSteps || 1,
@@ -197,7 +217,7 @@ export async function POST(
 				name: "onboarding/form-submitted",
 				data: {
 					workflowId: workflowIdNum,
-					formType: formType as any,
+					formType: formType as FormType,
 					submissionId: submission.id,
 				},
 			});
@@ -254,10 +274,10 @@ export async function POST(
 						applicantId: workflow[0].applicantId,
 						submissionId: submission.id,
 						formData: {
-							mandateVolume: typeof mandateVolume === "number" ? mandateVolume : parseInt(mandateVolume) || 0,
+							mandateVolume: typeof mandateVolume === "number" ? mandateVolume : parseInt(mandateVolume, 10) || 0,
 							mandateType: mandateType as "EFT" | "DEBIT_ORDER" | "CASH" | "MIXED",
 							businessType: String(businessType),
-							annualTurnover: annualTurnover ? (typeof annualTurnover === "number" ? annualTurnover : parseInt(annualTurnover)) : undefined,
+							annualTurnover: annualTurnover ? (typeof annualTurnover === "number" ? annualTurnover : parseInt(annualTurnover, 10)) : undefined,
 							facilityApplicationData: formData as Record<string, unknown>,
 							ficaComparisonContext: {
 								companyName: formData.applicantDetails?.registeredName,
@@ -274,16 +294,8 @@ export async function POST(
 				});
 			}
 
-			if (formType === "absa_6995") {
-				await inngest.send({
-					name: "form/absa-6995.completed",
-					data: {
-						workflowId: workflowIdNum,
-						applicantId: workflow[0].applicantId,
-						completedAt: new Date().toISOString(),
-					},
-				});
-			}
+			// ABSA 6995: workflow completion is emitted by "Confirm ABSA approved" action only,
+			// not by form submission. Form data is saved for records; send/confirm are separate.
 		}
 
 		return NextResponse.json({
@@ -322,7 +334,7 @@ export async function PUT(
 			return NextResponse.json({ error: "Status is required" }, { status: 400 });
 		}
 
-		const workflowIdNum = parseInt(workflowId);
+		const workflowIdNum = parseInt(workflowId, 10);
 
 		// Get the form
 		const existingForm = await db
@@ -331,7 +343,7 @@ export async function PUT(
 			.where(
 				and(
 					eq(internalForms.workflowId, workflowIdNum),
-					eq(internalForms.formType, formType as any)
+					eq(internalForms.formType, formType as FormType)
 				)
 			)
 			.limit(1);

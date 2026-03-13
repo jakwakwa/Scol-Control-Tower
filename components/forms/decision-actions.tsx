@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import styles from "./external/external-form-theme.module.css";
 
 interface DecisionActionsProps {
@@ -26,6 +26,7 @@ export default function DecisionActions({
 	const [reason, setReason] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const submittingRef = useRef(false);
 
 	return (
 		<div className={styles.externalField}>
@@ -38,6 +39,8 @@ export default function DecisionActions({
 						approveButtonType === "button"
 							? async () => {
 									if (!onApprove) return;
+									if (submittingRef.current) return;
+									submittingRef.current = true;
 									setSubmitting(true);
 									setError(null);
 									try {
@@ -49,6 +52,7 @@ export default function DecisionActions({
 												: "Approval request failed"
 										);
 									} finally {
+										submittingRef.current = false;
 										setSubmitting(false);
 									}
 								}
@@ -99,6 +103,8 @@ export default function DecisionActions({
 										setError("Please provide a reason.");
 										return;
 									}
+									if (submittingRef.current) return;
+									submittingRef.current = true;
 									setSubmitting(true);
 									setError(null);
 									try {
@@ -110,6 +116,7 @@ export default function DecisionActions({
 												: "Decline request failed"
 										);
 									} finally {
+										submittingRef.current = false;
 										setSubmitting(false);
 									}
 								}}>

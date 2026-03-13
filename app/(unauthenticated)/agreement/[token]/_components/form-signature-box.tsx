@@ -11,9 +11,12 @@ interface SignatureBoxProps {
 function SignatureBox({ label, type = "text", name, value, onChange }: SignatureBoxProps) {
 	return (
 		<div className="stratcol-sig-wrapper">
-			<label className="stratcol-sig-label">{label}</label>
+			<label htmlFor={name} className="stratcol-sig-label">
+				{label}
+			</label>
 			{type === "date" ? (
 				<input
+					id={name}
 					type="date"
 					name={name}
 					value={value}
@@ -21,7 +24,9 @@ function SignatureBox({ label, type = "text", name, value, onChange }: Signature
 					className="stratcol-sig-date"
 				/>
 			) : (
-				<div className="stratcol-sig-box">Sign here...</div>
+				<div id={name} className="stratcol-sig-box" role="textbox" aria-label={label}>
+					Sign here...
+				</div>
 			)}
 		</div>
 	);

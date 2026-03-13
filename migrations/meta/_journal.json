@@ -5,50 +5,22 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1771537817252,
-      "tag": "0000_fuzzy_calypso",
+      "when": 1773231325196,
+      "tag": "0000_giant_ezekiel",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "6",
-      "when": 1771975598432,
-      "tag": "0001_burly_magik",
+      "when": 1773239714539,
+      "tag": "0001_hesitant_ozymandias",
       "breakpoints": true
     },
     {
       "idx": 2,
       "version": "6",
-      "when": 1772056908484,
-      "tag": "0002_silky_echo",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1772100305334,
-      "tag": "0003_pretty_gideon",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1772363275834,
-      "tag": "0004_wealthy_starjammers",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1772499118281,
-      "tag": "0005_spotty_scourge",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1772499248838,
-      "tag": "0006_jazzy_argent",
+      "when": 1773240000000,
+      "tag": "0002_green_lane_workflow_fields",
       "breakpoints": true
     }
   ]

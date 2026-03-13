@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
 import { documentUploads } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm";
  * Get a specific document by ID
  */
 export async function GET(
-	request: NextRequest,
+	_request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	const { id } = await params;
@@ -22,7 +22,7 @@ export async function GET(
 		const document = await db
 			.select()
 			.from(documentUploads)
-			.where(eq(documentUploads.id, parseInt(id)))
+			.where(eq(documentUploads.id, parseInt(id, 10)))
 			.limit(1);
 
 		if (document.length === 0) {
@@ -82,7 +82,7 @@ export async function PUT(
 				verifiedAt: new Date(),
 				expiresAt: expiresAt ? new Date(expiresAt) : undefined,
 			})
-			.where(eq(documentUploads.id, parseInt(id)))
+			.where(eq(documentUploads.id, parseInt(id, 10)))
 			.returning();
 
 		if (!updated) {
@@ -104,7 +104,7 @@ export async function PUT(
  * Delete a document
  */
 export async function DELETE(
-	request: NextRequest,
+	_request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	const { id } = await params;
@@ -119,7 +119,7 @@ export async function DELETE(
 		const document = await db
 			.select()
 			.from(documentUploads)
-			.where(eq(documentUploads.id, parseInt(id)))
+			.where(eq(documentUploads.id, parseInt(id, 10)))
 			.limit(1);
 
 		if (document.length === 0) {
@@ -130,7 +130,7 @@ export async function DELETE(
 		// await deleteFromStorage(document[0].storageKey);
 
 		// Delete from database
-		await db.delete(documentUploads).where(eq(documentUploads.id, parseInt(id)));
+		await db.delete(documentUploads).where(eq(documentUploads.id, parseInt(id, 10)));
 
 		return NextResponse.json({
 			success: true,

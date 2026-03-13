@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { inngest } from "@/inngest";
 import { z } from "zod";
 
@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
 	try {
 		// Log raw body for debugging
 		const rawBody = await request.text();
-		console.log(`[API] Quote Callback Raw Body: ${rawBody}`);
 
 		let body;
 		try {
@@ -70,10 +69,6 @@ export async function POST(request: NextRequest) {
 				},
 			},
 		});
-
-		console.log(
-			`[API] Sent Inngest quote-generated event for applicant ${data.applicantId}`
-		);
 
 		return NextResponse.json({ success: true }, { status: 200 });
 	} catch (error) {

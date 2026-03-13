@@ -37,7 +37,6 @@ import {
 	DocumentCategory,
 	getFicaDocumentsDefaultValues,
 	type FicaDocumentsFormData,
-	type DocumentUploadItem,
 } from "@/lib/validations/onboarding";
 
 // ============================================
@@ -65,6 +64,8 @@ interface FicaUploadFormProps {
 		name: string;
 		role: "director" | "beneficial_owner" | "authorised_representative";
 	}>;
+	/** External submitting state */
+	isSubmitting?: boolean;
 }
 
 // ============================================
@@ -193,7 +194,7 @@ function DocumentUploadItem({
 // Category Icons
 // ============================================
 
-const CATEGORY_ICONS = {
+const _CATEGORY_ICONS = {
 	[DocumentCategory.STANDARD]: RiFolderLine,
 	[DocumentCategory.INDIVIDUAL]: RiUserLine,
 	[DocumentCategory.FINANCIAL]: RiBankLine,
@@ -213,6 +214,7 @@ export function FicaUploadForm({
 	onFileUpload,
 	readOnly = false,
 	individuals = [],
+	isSubmitting: externalIsSubmitting = false,
 }: FicaUploadFormProps) {
 	const [currentStep, setCurrentStep] = React.useState(0);
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -303,7 +305,7 @@ export function FicaUploadForm({
 	};
 
 	// Get documents by category
-	const getDocumentsByCategory = (category: string) =>
+	const _getDocumentsByCategory = (category: string) =>
 		DOCUMENT_REQUIREMENTS.filter(doc => doc.category === category);
 
 	return (
@@ -316,7 +318,7 @@ export function FicaUploadForm({
 					onSubmit={handleSubmit(handleFormSubmit)}
 					onSaveDraft={onSaveDraft ? handleSaveDraft : undefined}
 					title="FICA & Support Documents"
-					isSubmitting={isSubmitting}
+					isSubmitting={isSubmitting || externalIsSubmitting}
 					storageKey={`fica-documents-${workflowId}`}
 					submitButtonText="Submit Documents">
 					{({ currentStep }) => (

@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { RiServiceLine, RiLineChartLine, RiCheckboxCircleLine } from "@remixicon/react";
+import { RiServiceLine, RiLineChartLine, } from "@remixicon/react";
 
 import {
 	facilityApplicationSchema,
@@ -40,6 +40,8 @@ interface FacilityApplicationFormProps {
 	onSaveDraft?: (data: Partial<FacilityApplicationFormData>) => Promise<void>;
 	/** Whether the form is in read-only mode */
 	readOnly?: boolean;
+	/** External submitting state */
+	isSubmitting?: boolean;
 }
 
 // ============================================
@@ -257,6 +259,7 @@ export function FacilityApplicationForm({
 	onSubmit,
 	onSaveDraft,
 	readOnly = false,
+	isSubmitting: externalIsSubmitting = false,
 }: FacilityApplicationFormProps) {
 	const [currentStep, setCurrentStep] = React.useState(0);
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -383,7 +386,7 @@ export function FacilityApplicationForm({
 					onSubmit={handleSubmit(handleFormSubmit)}
 					onSaveDraft={onSaveDraft ? handleSaveDraft : undefined}
 					title="Facility Application"
-					isSubmitting={isSubmitting}
+					isSubmitting={isSubmitting || externalIsSubmitting}
 					storageKey={`facility-application-${workflowId}`}
 					submitButtonText="Submit Application">
 					{({ currentStep }) => (

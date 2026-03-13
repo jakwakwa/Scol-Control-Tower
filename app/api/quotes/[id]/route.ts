@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
 import { quotes } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -20,9 +20,9 @@ export async function PUT(
 		}
 
 		const resolvedParams = await params;
-		const id = parseInt(resolvedParams.id);
+		const id = parseInt(resolvedParams.id, 10);
 
-		if (isNaN(id)) {
+		if (Number.isNaN(id)) {
 			return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
 		}
 

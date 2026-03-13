@@ -1,8 +1,11 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { RiLoader4Line, RiTestTubeLine } from "@remixicon/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+
 import { GlassCard } from "@/components/dashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,22 +19,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-
-interface ApplicantFormData {
-	companyName: string;
-	registrationNumber: string;
-	contactName: string;
-	idNumber: string;
-	email: string;
-	phone: string;
-	entityType: string;
-	productType: string;
-	industry: string;
-	employeeCount: string;
-	estimatedTransactionsPerMonth: string;
-	mandateType: string;
-	notes: string;
-}
+import {
+	type ApplicantFormData,
+	applicantSchema,
+} from "@/lib/validations/schemas/applicant.schema";
 
 interface ApplicantFormProps {
 	initialData?: Partial<ApplicantFormData>;
@@ -46,42 +37,52 @@ export function ApplicantForm({
 }: ApplicantFormProps) {
 	const router = useRouter();
 	const [isLoading, setIsLoading] = useState(false);
-	const [errors, setErrors] = useState<Partial<Record<keyof ApplicantFormData, string>>>(
-		{}
-	);
 
-	const [formData, setFormData] = useState<ApplicantFormData>({
-		companyName: initialData?.companyName || "",
-		registrationNumber: initialData?.registrationNumber || "",
-		contactName: initialData?.contactName || "",
-		idNumber: initialData?.idNumber || "",
-		email: initialData?.email || "",
-		phone: initialData?.phone || "",
-		entityType: initialData?.entityType || "",
-		productType: initialData?.productType || "",
-		industry: initialData?.industry || "",
-		mandateType: initialData?.mandateType || "",
-		employeeCount: initialData?.employeeCount || "",
-		estimatedTransactionsPerMonth:
-			initialData?.estimatedTransactionsPerMonth != null
-				? String(initialData.estimatedTransactionsPerMonth)
-				: "",
-		notes: initialData?.notes || "",
+	const form = useForm<ApplicantFormData>({
+		resolver: zodResolver(applicantSchema),
+		defaultValues: {
+			companyName: initialData?.companyName || "",
+			registrationNumber: initialData?.registrationNumber || "",
+			contactName: initialData?.contactName || "",
+			idNumber: initialData?.idNumber || "",
+			email: initialData?.email || "",
+			phone: initialData?.phone || "",
+			entityType: initialData?.entityType || "company",
+			productType: initialData?.productType || "standard",
+			industry: initialData?.industry || "",
+			mandateType: initialData?.mandateType || "debit_order",
+			employeeCount: initialData?.employeeCount || "",
+			estimatedTransactionsPerMonth:
+				initialData?.estimatedTransactionsPerMonth != null
+					? String(initialData.estimatedTransactionsPerMonth)
+					: "",
+			notes: initialData?.notes || "",
+		},
 	});
+
+	const {
+		register,
+		control,
+		handleSubmit,
+		watch,
+		formState: { errors },
+	} = form;
+
+	const entityType = watch("entityType");
 
 	// Check if test mode is enabled
 	const isTestMode = process.env.NEXT_PUBLIC_USE_TESTMODE_CHECK === "true";
 
 	// Fill form with test data for testing
 	const fillTestData = () => {
-		setFormData({
+		form.reset({
 			companyName: `${isTestMode ? "Jacob Kotzee T/a Doodles Digital" : "Test Company Inc"}`,
 			registrationNumber: `${isTestMode ? "0787173160001" : "2024/123456/07"}`,
 			contactName: `${isTestMode ? "Jacob Kotzee" : "John Test"}`,
 			idNumber: `${isTestMode ? "8501015009087" : ""}`,
 			email: `${isTestMode ? "jkotzee@icloud.com" : "john.test@testcompany.co.za"}`,
 			phone: `${isTestMode ? "+27 76 341 0291" : "+27 82 123 4567"}`,
-			entityType: "company",
+			entityType: isTestMode ? "company" : "company",
 			productType: "standard",
 			industry: `${isTestMode ? "Software Development" : "Financial Services"}`,
 			mandateType: `${isTestMode ? "Debit Order" : "debit_order"}`,
@@ -91,59 +92,25 @@ export function ApplicantForm({
 		});
 	};
 
-	const updateField = (field: keyof ApplicantFormData, value: string) => {
-		setFormData(prev => ({ ...prev, [field]: value }));
-		// Clear error when user starts typing
-		if (errors[field]) {
-			setErrors(prev => ({ ...prev, [field]: undefined }));
-		}
-	};
-
-	const validateForm = (): boolean => {
-		const newErrors: Partial<Record<keyof ApplicantFormData, string>> = {};
-
-		if (!formData.companyName.trim()) {
-			newErrors.companyName = "Company name is required";
-		}
-		if (!formData.contactName.trim()) {
-			newErrors.contactName = "Contact name is required";
-		}
-		if (!formData.email.trim()) {
-			newErrors.email = "Email is required";
-		} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-			newErrors.email = "Invalid email address";
-		}
-		if (formData.idNumber.trim() && !/^\d{13}$/.test(formData.idNumber.trim())) {
-			newErrors.idNumber = "ID number must be exactly 13 digits";
-		}
-
-		setErrors(newErrors);
-		return Object.keys(newErrors).length === 0;
-	};
-
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-
-		if (!validateForm()) return;
-
+	const onSubmitForm = async (data: ApplicantFormData) => {
 		setIsLoading(true);
 
 		try {
 			if (onSubmit) {
-				await onSubmit(formData);
+				await onSubmit(data);
 			} else {
 				// Default behavior: POST to API
 				const response = await fetch("/api/applicants", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
-						...formData,
-						idNumber: formData.idNumber.trim() || undefined,
-						employeeCount: formData.employeeCount
-							? parseInt(formData.employeeCount, 10)
+						...data,
+						idNumber: data.idNumber?.trim() || undefined,
+						employeeCount: data.employeeCount
+							? parseInt(data.employeeCount, 10)
 							: undefined,
-						estimatedTransactionsPerMonth: formData.estimatedTransactionsPerMonth
-							? Math.round(Number(formData.estimatedTransactionsPerMonth)) || undefined
+						estimatedTransactionsPerMonth: data.estimatedTransactionsPerMonth
+							? Math.round(Number(data.estimatedTransactionsPerMonth)) || undefined
 							: undefined,
 					}),
 				});
@@ -152,9 +119,9 @@ export function ApplicantForm({
 					throw new Error("Failed to create applicant");
 				}
 
-				const data = await response.json();
-				if (data.applicant?.id) {
-					router.push(`/dashboard/applicants/${data.applicant.id}`);
+				const responseData = await response.json();
+				if (responseData.applicant?.id) {
+					router.push(`/dashboard/applicants/${responseData.applicant.id}`);
 				} else {
 					router.push("/dashboard");
 				}
@@ -168,7 +135,7 @@ export function ApplicantForm({
 	};
 
 	return (
-		<form onSubmit={handleSubmit} className="space-y-8">
+		<form onSubmit={handleSubmit(onSubmitForm)} className="space-y-8">
 			{/* Test Mode Banner */}
 			{isTestMode && (
 				<div className="flex items-center justify-between p-4 rounded-lg border border-warning bg-warning/20 shadow-lg shadow-amber-800/5">
@@ -188,7 +155,6 @@ export function ApplicantForm({
 				</div>
 			)}
 
-			{/* Company Information */}
 			<div className="glass-card-container-form">
 				<GlassCard>
 					<h3 className="text-lg font-semibold mb-6">Company Information</h3>
@@ -197,89 +163,104 @@ export function ApplicantForm({
 							<Label htmlFor="companyName">Company Name *</Label>
 							<Input
 								id="companyName"
-								value={formData.companyName}
 								autoComplete={"companyName"}
-								onChange={e => updateField("companyName", e.target.value)}
 								placeholder="Enter company name"
+								{...register("companyName")}
 								className={cn(
 									errors.companyName ? "border-red-500" : "border-input-border"
 								)}
 							/>
 							{errors.companyName && (
-								<p className="text-xs text-red-400">{errors.companyName}</p>
+								<p className="text-xs text-red-500">{errors.companyName.message}</p>
 							)}
 						</div>
 
+						{entityType !== "proprietor" && (
+							<div className="space-y-2">
+								<Label htmlFor="registrationNumber">CIPC Registration Number *</Label>
+								<Input
+									id="registrationNumber"
+									autoComplete={"registrationNumber"}
+									placeholder="e.g., 2024/123456/07"
+									{...register("registrationNumber")}
+									className={cn(
+										errors.registrationNumber ? "border-red-500" : "border-input-border"
+									)}
+								/>
+								{errors.registrationNumber && (
+									<p className="text-xs text-red-500">
+										{errors.registrationNumber.message}
+									</p>
+								)}
+							</div>
+						)}
+
 						<div className="space-y-2">
-							<Label htmlFor="registrationNumber">CIPC Registration Number</Label>
-							<Input
-								className="border-input-border"
-								id="registrationNumber"
-								autoComplete={"registrationNumber"}
-								value={formData.registrationNumber}
-								onChange={e => updateField("registrationNumber", e.target.value)}
-								placeholder="e.g., 2024/123456/07"
+							<Label htmlFor="entityType">Entity Type</Label>
+							<Controller
+								name="entityType"
+								control={control}
+								render={({ field }) => (
+									<Select onValueChange={field.onChange} value={field.value}>
+										<SelectTrigger id="entityType" className="w-full">
+											<SelectValue placeholder="Select Entity Type" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="proprietor">Proprietor</SelectItem>
+											<SelectItem value="company">Company (Pty Ltd)</SelectItem>
+											<SelectItem value="close_corporation">Close Corporation</SelectItem>
+											<SelectItem value="partnership">Partnership</SelectItem>
+											<SelectItem value="npo">NPO</SelectItem>
+											<SelectItem value="trust">Trust</SelectItem>
+											<SelectItem value="body_corporate">Body Corporate</SelectItem>
+											<SelectItem value="other">Other</SelectItem>
+										</SelectContent>
+									</Select>
+								)}
 							/>
 						</div>
 
 						<div className="space-y-2">
-							<Label htmlFor="entityType">Entity Type</Label>
-							<Select
-								value={formData.entityType}
-								onValueChange={v => updateField("entityType", v)}>
-								<SelectTrigger id="entityType" className="w-full">
-									<SelectValue placeholder="Select Entity Type" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="proprietor">Proprietor</SelectItem>
-									<SelectItem value="company">Company (Pty Ltd)</SelectItem>
-									<SelectItem value="close_corporation">Close Corporation</SelectItem>
-									<SelectItem value="partnership">Partnership</SelectItem>
-									<SelectItem value="npo">NPO</SelectItem>
-									<SelectItem value="trust">Trust</SelectItem>
-									<SelectItem value="body_corporate">Body Corporate</SelectItem>
-									<SelectItem value="other">Other</SelectItem>
-								</SelectContent>
-							</Select>
-						</div>
-
-						<div className="space-y-2">
 							<Label htmlFor="productType">Product Type</Label>
-							<Select
-								value={formData.productType}
-								onValueChange={v => updateField("productType", v)}>
-								<SelectTrigger id="productType" className="w-full">
-									<SelectValue placeholder="Select Product Type" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="standard">Standard</SelectItem>
-									<SelectItem value="premium_collections">Premium Collections</SelectItem>
-									<SelectItem value="call_centre">Call Centre</SelectItem>
-								</SelectContent>
-							</Select>
+							<Controller
+								name="productType"
+								control={control}
+								render={({ field }) => (
+									<Select onValueChange={field.onChange} value={field.value}>
+										<SelectTrigger id="productType" className="w-full">
+											<SelectValue placeholder="Select Product Type" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="standard">Standard</SelectItem>
+											<SelectItem value="premium_collections">
+												Premium Collections
+											</SelectItem>
+											<SelectItem value="call_centre">Call Centre</SelectItem>
+										</SelectContent>
+									</Select>
+								)}
+							/>
 						</div>
 
 						<div className="space-y-2">
 							<Label htmlFor="industry">Industry</Label>
 							<Input
-								className="border-input-border"
 								id="industry"
 								autoComplete={"industry"}
-								value={formData.industry}
-								onChange={e => updateField("industry", e.target.value)}
 								placeholder="e.g., Financial Services, Mining"
+								{...register("industry")}
+								className="border-input-border"
 							/>
 						</div>
 
 						<div className="space-y-2">
 							<Label htmlFor="employeeCount">Employee Count</Label>
 							<Input
-								className="border-input-border"
 								id="employeeCount"
 								type="number"
-								value={formData.employeeCount}
-								onChange={e => updateField("employeeCount", e.target.value)}
 								placeholder="e.g., 250"
+								{...register("employeeCount")}
+								className="border-input-border"
 							/>
 						</div>
 						<div className="space-y-2">
@@ -287,40 +268,41 @@ export function ApplicantForm({
 								Estimated Volume (transactions per month)
 							</Label>
 							<Input
-								className="border-input-border"
 								id="estimatedTransactionsPerMonth"
 								type="number"
 								min={1}
 								autoComplete="estimatedTransactionsPerMonth"
-								value={formData.estimatedTransactionsPerMonth}
-								onChange={e =>
-									updateField("estimatedTransactionsPerMonth", e.target.value)
-								}
 								placeholder="e.g., 500"
+								{...register("estimatedTransactionsPerMonth")}
+								className="border-input-border"
 							/>
 						</div>
 					</div>
 
 					<div className="space-y-2 mt-4">
 						<Label htmlFor="mandateType">Mandate Type</Label>
-						<Select
-							value={formData.mandateType}
-							onValueChange={v => updateField("mandateType", v)}>
-							<SelectTrigger id="mandateType" className="w-full">
-								<SelectValue placeholder="Select Mandate Type" />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="debit_order">Debit Order</SelectItem>
-								<SelectItem value="eft_collection">EFT Collection</SelectItem>
-								<SelectItem value="realtime_clearing">Realtime Clearing</SelectItem>
-								<SelectItem value="managed_collection">Managed Collection</SelectItem>
-							</SelectContent>
-						</Select>
+						<Controller
+							name="mandateType"
+							control={control}
+							render={({ field }) => (
+								<Select onValueChange={field.onChange} value={field.value}>
+									<SelectTrigger id="mandateType" className="w-full">
+										<SelectValue placeholder="Select Mandate Type" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="debit_order">Debit Order</SelectItem>
+										<SelectItem value="eft_collection">EFT Collection</SelectItem>
+										<SelectItem value="realtime_clearing">Realtime Clearing</SelectItem>
+										<SelectItem value="managed_collection">Managed Collection</SelectItem>
+									</SelectContent>
+								</Select>
+							)}
+						/>
 					</div>
 				</GlassCard>
 			</div>
+
 			<div className="glass-card-container-form">
-				{/* Contact Information */}
 				<GlassCard>
 					<h3 className="text-lg font-semibold mb-6">Contact Information</h3>
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -328,13 +310,12 @@ export function ApplicantForm({
 							<Label htmlFor="contactName">Contact Name *</Label>
 							<Input
 								id="contactName"
-								value={formData.contactName}
-								onChange={e => updateField("contactName", e.target.value)}
 								placeholder="Enter contact name"
+								{...register("contactName")}
 								className={cn(errors.contactName && "border-red-500")}
 							/>
 							{errors.contactName && (
-								<p className="text-xs text-red-400">{errors.contactName}</p>
+								<p className="text-xs text-red-500">{errors.contactName.message}</p>
 							)}
 						</div>
 
@@ -343,59 +324,68 @@ export function ApplicantForm({
 							<Input
 								id="email"
 								type="email"
-								value={formData.email}
-								onChange={e => updateField("email", e.target.value)}
 								placeholder="contact@company.co.za"
+								{...register("email")}
 								className={cn(errors.email && "border-red-500")}
 							/>
-							{errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
-						</div>
-
-						<div className="space-y-2">
-							<Label htmlFor="idNumber">SA ID Number</Label>
-							<Input
-								id="idNumber"
-								value={formData.idNumber}
-								onChange={e => updateField("idNumber", e.target.value)}
-								placeholder="13-digit SA ID number"
-								maxLength={13}
-								className={cn(errors.idNumber ? "border-red-500" : "border-input-border")}
-							/>
-							{errors.idNumber && (
-								<p className="text-xs text-red-400">{errors.idNumber}</p>
+							{errors.email && (
+								<p className="text-xs text-red-500">{errors.email.message}</p>
 							)}
 						</div>
+
+						{entityType === "proprietor" && (
+							<div className="space-y-2">
+								<Label htmlFor="idNumber">SA ID Number *</Label>
+								<Input
+									id="idNumber"
+									placeholder="13-digit SA ID number"
+									maxLength={13}
+									{...register("idNumber")}
+									className={cn(
+										errors.idNumber ? "border-red-500" : "border-input-border"
+									)}
+								/>
+								{errors.idNumber && (
+									<p className="text-xs text-red-500">{errors.idNumber.message}</p>
+								)}
+							</div>
+						)}
 
 						<div className="space-y-2">
 							<Label htmlFor="phone">Phone Number</Label>
 							<Input
 								id="phone"
 								type="tel"
-								value={formData.phone}
-								onChange={e => updateField("phone", e.target.value)}
 								placeholder="+27 XX XXX XXXX"
+								{...register("phone")}
+								className="border-input-border"
 							/>
 						</div>
 					</div>
 				</GlassCard>
 			</div>
+
 			<div className="glass-card-container-form">
-				{/* Additional Notes */}
 				<GlassCard>
 					<h3 className="text-lg font-semibold mb-6">Additional Notes</h3>
 					<div className="space-y-2">
 						<Label htmlFor="notes">Notes</Label>
-						<Textarea
-							id="notes"
-							value={formData.notes}
-							onChange={e => updateField("notes", e.target.value)}
-							placeholder="Add any relevant notes about this applicant..."
-							rows={4}
+						<Controller
+							name="notes"
+							control={control}
+							render={({ field }) => (
+								<Textarea
+									id="notes"
+									placeholder="Add any relevant notes about this applicant..."
+									rows={4}
+									{...field}
+								/>
+							)}
 						/>
 					</div>
 				</GlassCard>
 			</div>
-			{/* Actions */}
+
 			<div className="flex items-center justify-end gap-4">
 				<Button
 					type="button"

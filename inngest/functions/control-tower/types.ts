@@ -1,20 +1,32 @@
 import type { GetEvents, GetStepTools } from "inngest";
 import type { SanctionsCheckResult } from "@/lib/services/agents";
+import type { BusinessType } from "@/lib/services/document-requirements.service";
 import type { inngest } from "../../client";
 
-// Type definition for the step tools available in this specific Inngest function
-// We infer this from the client to ensure type safety for step.run, step.waitForEvent, etc.
 export type ControlTowerStepTools = GetStepTools<
 	typeof inngest,
 	"onboarding/lead.created"
 >;
 export type ControlTowerEvent = GetEvents<typeof inngest>["onboarding/lead.created"];
 
+export interface Stage2Output {
+	facilitySubmission: unknown;
+	mandateInfo: {
+		businessType: BusinessType;
+		mandateType: string;
+		mandateVolume: number;
+		requiredDocuments: Array<{ id: string; name: string; description: string; required: boolean }>;
+	};
+	mandateVerified: { documentsComplete: boolean };
+}
+
 export interface WorkflowContext {
 	applicantId: number;
 	workflowId: number;
 	procurementCleared?: boolean;
-	aiAnalysisComplete?: boolean;
+	facilitySubmission?: unknown;
+	mandateInfo?: Stage2Output["mandateInfo"];
+	mandateVerified?: Stage2Output["mandateVerified"];
 	[key: string]: unknown;
 }
 
@@ -25,7 +37,7 @@ export interface StageResult {
 	stage: number;
 	reason?: string;
 	error?: unknown;
-	data?: unknown; // Any output data passed to the next stage
+	data?: Partial<Stage2Output> | Record<string, unknown>;
 }
 
 export interface StageDependencies {

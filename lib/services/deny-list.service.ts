@@ -1,0 +1,491 @@
+/**
+ * Deny List Service - Scenario 2b: Post-Workflow Termination Ruleset
+ *
+ * Captures identifiers from Risk Manager declined applicants and checks
+ * re-applicants. No AI — only a smart algorithm.
+ *
+ * Matching: Applicant ID, board member IDs, bank account, cellphone, board member names.
+ * Board member checks (ID + name) are conditional: only when applicant has board members
+ * (directors/beneficial owners). Proprietors have no board members — skip those checks.
+ *
+ * Screening values stored in workflow_termination_screening for Turso FTS/vertex search.
+ */
+
+import { and, desc, eq, or } from "drizzle-orm";
+import { getDatabaseClient } from "@/app/utils";
+import {
+	applicantSubmissions,
+	applicants,
+	internalForms,
+	internalSubmissions,
+	reApplicantAttempts,
+	workflowTerminationDenyList,
+	workflowTerminationScreening,
+} from "@/db/schema";
+import type { ScreeningValueType } from "@/db/schema";
+import type { KillSwitchReason } from "./kill-switch.service";
+
+// ============================================
+// Types
+// ============================================
+
+export interface DenyListIdentifiers {
+	/** Applicant/contact ID only (not directors) */
+	applicantIdNumbers: string[];
+	/** Directors' and beneficial owners' ID numbers */
+	boardMemberIds: string[];
+	cellphones: string[];
+	bankAccounts: string[];
+	/** Directors' and beneficial owners' names (not applicant contact) */
+	boardMemberNames: string[];
+}
+
+export type ReApplicantMatchOn = ScreeningValueType;
+
+export interface ReApplicantMatch {
+	matchedDenyListId: number;
+	matchedOn: ReApplicantMatchOn;
+	matchedValue: string;
+}
+
+// ============================================
+// Normalization helpers (for consistent matching)
+// ============================================
+
+/** Normalize ID number: strip spaces, keep digits only for SA IDs */
+function normalizeIdNumber(val: string | null | undefined): string | null {
+	if (!val || typeof val !== "string") return null;
+	const cleaned = val.replace(/\s/g, "").replace(/\D/g, "");
+	return cleaned.length >= 6 ? cleaned : null;
+}
+
+/** Normalize phone: strip spaces, keep digits only */
+function normalizePhone(val: string | null | undefined): string | null {
+	if (!val || typeof val !== "string") return null;
+	const cleaned = val.replace(/\s/g, "").replace(/\D/g, "");
+	return cleaned.length >= 9 ? cleaned : null;
+}
+
+/** Normalize bank account: accountNumber + branchCode for uniqueness */
+function normalizeBankAccount(
+	accountNumber: string | null | undefined,
+	branchCode?: string | null
+): string | null {
+	if (!accountNumber || typeof accountNumber !== "string") return null;
+	const acct = accountNumber.replace(/\s/g, "").replace(/\D/g, "");
+	const branch = (branchCode || "").toString().replace(/\s/g, "").replace(/\D/g, "");
+	return acct.length >= 6 ? `${acct}:${branch || "0"}` : null;
+}
+
+/**
+ * Normalize board member name for matching: lowercase, trim, collapse whitespace.
+ * Returns null if empty or single-word (to reduce false positives from common names).
+ */
+function normalizeBoardMemberName(val: string | null | undefined): string | null {
+	if (!val || typeof val !== "string") return null;
+	const normalized = val
+		.trim()
+		.toLowerCase()
+		.replace(/\s+/g, " ");
+	const words = normalized.split(" ").filter(Boolean);
+	// Require at least 2 words to reduce false positives (e.g. "John" alone)
+	if (words.length < 2) return null;
+	return normalized;
+}
+
+// ============================================
+// Capture identifiers on termination
+// ============================================
+
+/**
+ * Extract identifiers from applicant and form submissions for deny list.
+ * Sources: applicants table, applicantSubmissions (FACILITY_APPLICATION, ABSA_6995),
+ * internalSubmissions (stratcol_agreement, facility_application, absa_6995).
+ */
+/**
+ * Extract identifiers, separating applicant/contact IDs from board member (director/beneficial owner) IDs.
+ * Proprietors typically have no board members; board member checks are conditional on their presence.
+ */
+export async function extractDenyListIdentifiers(
+	applicantId: number,
+	workflowId: number
+): Promise<DenyListIdentifiers> {
+	const applicantIdNumbers: string[] = [];
+	const boardMemberIds: string[] = [];
+	const cellphones: string[] = [];
+	const bankAccounts: string[] = [];
+	const boardMemberNames: string[] = [];
+
+	const db = getDatabaseClient();
+	if (!db)
+		return {
+			applicantIdNumbers,
+			boardMemberIds,
+			cellphones,
+			bankAccounts,
+			boardMemberNames,
+		};
+
+	// 1. Applicant record - applicant/contact ID only (not board member)
+	const [applicant] = await db
+		.select()
+		.from(applicants)
+		.where(eq(applicants.id, applicantId));
+
+	if (applicant) {
+		const nId = normalizeIdNumber(applicant.idNumber);
+		if (nId) applicantIdNumbers.push(nId);
+		const nPhone = normalizePhone(applicant.phone);
+		if (nPhone) cellphones.push(nPhone);
+		// contactName is applicant contact, NOT a board member - do not add to boardMemberNames
+	}
+
+	// 2. Applicant submissions (magic link forms)
+	const subs = await db
+		.select({ formType: applicantSubmissions.formType, data: applicantSubmissions.data })
+		.from(applicantSubmissions)
+		.where(eq(applicantSubmissions.applicantId, applicantId));
+
+	for (const s of subs) {
+		try {
+			const data = s.data ? (JSON.parse(s.data) as Record<string, unknown>) : null;
+			if (!data) continue;
+
+			// FACILITY_APPLICATION - ficaComparisonContext (applicant/contact)
+			const fica = data.ficaComparisonContext as Record<string, unknown> | undefined;
+			if (fica) {
+				const nId = normalizeIdNumber(fica.idNumber as string);
+				if (nId) applicantIdNumbers.push(nId);
+				const nPhone = normalizePhone(fica.phone as string);
+				if (nPhone) cellphones.push(nPhone);
+			}
+
+			// ABSA_6995 - directors are board members
+			const sectionA = data.sectionA as Record<string, unknown> | undefined;
+			if (sectionA) {
+				const directors = (sectionA.directors as { directors?: Array<{ fullName?: string; idNumber?: string }> })
+					?.directors ?? [];
+				for (const d of directors) {
+					if (d?.fullName?.trim()) boardMemberNames.push(d.fullName.trim());
+					const nId = normalizeIdNumber(d?.idNumber);
+					if (nId) boardMemberIds.push(nId);
+				}
+				const banking = sectionA.bankingDetails as { accountNumber?: string; branchCode?: string } | undefined;
+				if (banking) {
+					const nBank = normalizeBankAccount(banking.accountNumber, banking.branchCode);
+					if (nBank) bankAccounts.push(nBank);
+				}
+			}
+
+			// applicantDetails (alternative structure)
+			const appDetails = data.applicantDetails as Record<string, unknown> | undefined;
+			if (appDetails) {
+				const directors = appDetails.directors as
+					| { directors?: Array<{ fullName?: string; idNumber?: string }> }
+					| undefined;
+				if (directors?.directors) {
+					for (const d of directors.directors) {
+						if (d?.fullName?.trim()) boardMemberNames.push(d.fullName.trim());
+						const nId = normalizeIdNumber(d?.idNumber);
+						if (nId) boardMemberIds.push(nId);
+					}
+				}
+				const banking = appDetails.bankingDetails as { accountNumber?: string; branchCode?: string } | undefined;
+				if (banking) {
+					const nBank = normalizeBankAccount(banking.accountNumber, banking.branchCode);
+					if (nBank) bankAccounts.push(nBank);
+				}
+			}
+		} catch {
+			// Ignore parse errors
+		}
+	}
+
+	// 3. Internal submissions - beneficial owners and directors are board members
+	const internalFormsList = await db
+		.select({ id: internalForms.id, formType: internalForms.formType })
+		.from(internalForms)
+		.where(eq(internalForms.workflowId, workflowId));
+
+	for (const f of internalFormsList) {
+		const [sub] = await db
+			.select({ formData: internalSubmissions.formData })
+			.from(internalSubmissions)
+			.where(eq(internalSubmissions.internalFormId, f.id))
+			.orderBy(desc(internalSubmissions.createdAt))
+			.limit(1);
+
+		if (!sub?.formData) continue;
+
+		try {
+			const formData = JSON.parse(sub.formData) as Record<string, unknown>;
+
+			// Stratcol: beneficialOwners are board members
+			const signatory = formData.signatoryAndOwners as Record<string, unknown> | undefined;
+			if (signatory) {
+				const owners = (signatory.beneficialOwners as Array<{ name?: string; idNumber?: string }>) ?? [];
+				for (const o of owners) {
+					if (o?.name?.trim()) boardMemberNames.push(o.name.trim());
+					const nId = normalizeIdNumber(o?.idNumber);
+					if (nId) boardMemberIds.push(nId);
+				}
+			}
+			const banking = formData.bankingAndMandates as Record<string, unknown> | undefined;
+			if (banking) {
+				const credit = banking.creditBankAccount as { accountNumber?: string; branchCode?: string } | undefined;
+				if (credit) {
+					const nBank = normalizeBankAccount(credit.accountNumber, credit.branchCode);
+					if (nBank) bankAccounts.push(nBank);
+				}
+				const debit = banking.debitBankAccount as { accountNumber?: string; branchCode?: string } | undefined;
+				if (debit) {
+					const nBank = normalizeBankAccount(debit.accountNumber, debit.branchCode);
+					if (nBank) bankAccounts.push(nBank);
+				}
+			}
+
+			// ABSA 6995 internal: directors are board members
+			const sectionA = formData.sectionA as Record<string, unknown> | undefined;
+			if (sectionA) {
+				const directors = (sectionA.directors as { directors?: Array<{ fullName?: string; idNumber?: string }> })
+					?.directors ?? [];
+				for (const d of directors) {
+					if (d?.fullName?.trim()) boardMemberNames.push(d.fullName.trim());
+					const nId = normalizeIdNumber(d?.idNumber);
+					if (nId) boardMemberIds.push(nId);
+				}
+				const banking = sectionA.bankingDetails as { accountNumber?: string; branchCode?: string } | undefined;
+				if (banking) {
+					const nBank = normalizeBankAccount(banking.accountNumber, banking.branchCode);
+					if (nBank) bankAccounts.push(nBank);
+				}
+			}
+		} catch {
+			// Ignore parse errors
+		}
+	}
+
+	return {
+		applicantIdNumbers: [...new Set(applicantIdNumbers)],
+		boardMemberIds: [...new Set(boardMemberIds)],
+		cellphones: [...new Set(cellphones)],
+		bankAccounts: [...new Set(bankAccounts)],
+		boardMemberNames: [...new Set(boardMemberNames)],
+	};
+}
+
+/**
+ * Add a terminated workflow's identifiers to the deny list.
+ * Call this when workflow is terminated due to Risk Manager decline (PROCUREMENT_DENIED)
+ * or other sanction-list-related reasons.
+ */
+export async function addToDenyList(
+	workflowId: number,
+	applicantId: number,
+	terminationReason: KillSwitchReason
+): Promise<{ success: boolean; denyListId?: number; error?: string }> {
+	const db = getDatabaseClient();
+	if (!db) return { success: false, error: "Database connection failed" };
+
+	// Only add for Risk Manager / sanction-related declines
+	const addReasons: KillSwitchReason[] = [
+		"PROCUREMENT_DENIED",
+		"COMPLIANCE_VIOLATION",
+		"FRAUD_DETECTED",
+		"MANUAL_TERMINATION",
+	];
+	if (!addReasons.includes(terminationReason)) {
+		return { success: true }; // Skip silently for timeouts etc.
+	}
+
+	const identifiers = await extractDenyListIdentifiers(applicantId, workflowId);
+
+	// Require at least one identifier to add
+	const hasAny =
+		identifiers.applicantIdNumbers.length > 0 ||
+		identifiers.boardMemberIds.length > 0 ||
+		identifiers.cellphones.length > 0 ||
+		identifiers.bankAccounts.length > 0 ||
+		identifiers.boardMemberNames.length > 0;
+
+	if (!hasAny) {
+		return { success: true }; // Nothing to add
+	}
+
+	try {
+		const [row] = await db
+			.insert(workflowTerminationDenyList)
+			.values({
+				workflowId,
+				applicantId,
+				idNumbers: JSON.stringify(identifiers.applicantIdNumbers),
+				boardMemberIds: JSON.stringify(identifiers.boardMemberIds),
+				cellphones: JSON.stringify(identifiers.cellphones),
+				bankAccounts: JSON.stringify(identifiers.bankAccounts),
+				boardMemberNames: JSON.stringify(identifiers.boardMemberNames),
+				terminationReason,
+			})
+			.returning({ id: workflowTerminationDenyList.id });
+
+		if (!row) return { success: true };
+
+		// Populate screening table for Turso FTS/vector search
+		const screeningRows: Array<{
+			denyListId: number;
+			valueType: "id_number" | "board_member_id" | "cellphone" | "bank_account" | "board_member_name";
+			value: string;
+		}> = [];
+
+		for (const v of identifiers.applicantIdNumbers) {
+			screeningRows.push({ denyListId: row.id, valueType: "id_number", value: v });
+		}
+		for (const v of identifiers.boardMemberIds) {
+			screeningRows.push({ denyListId: row.id, valueType: "board_member_id", value: v });
+		}
+		for (const v of identifiers.cellphones) {
+			screeningRows.push({ denyListId: row.id, valueType: "cellphone", value: v });
+		}
+		for (const v of identifiers.bankAccounts) {
+			screeningRows.push({ denyListId: row.id, valueType: "bank_account", value: v });
+		}
+		for (const name of identifiers.boardMemberNames) {
+			const normalized = normalizeBoardMemberName(name);
+			if (normalized) {
+				screeningRows.push({
+					denyListId: row.id,
+					valueType: "board_member_name",
+					value: normalized,
+				});
+			}
+		}
+
+		if (screeningRows.length > 0) {
+			await db.insert(workflowTerminationScreening).values(screeningRows);
+		}
+
+		return { success: true, denyListId: row.id };
+	} catch (err) {
+		console.error("[DenyList] Failed to add to deny list:", err);
+		return {
+			success: false,
+			error: err instanceof Error ? err.message : "Unknown error",
+		};
+	}
+}
+
+// ============================================
+// Re-applicant check
+// ============================================
+
+/**
+ * Check if the applicant matches any entry in the deny list via screening table.
+ * Always checks: applicant ID, cellphone, bank_account.
+ * Board member checks (ID + name) only when applicant has board members (directors/beneficial owners).
+ * Proprietors typically have no board members — skip board member search in that case.
+ */
+export async function checkReApplicant(
+	applicantId: number,
+	workflowId: number
+): Promise<ReApplicantMatch | null> {
+	const db = getDatabaseClient();
+	if (!db) return null;
+
+	const identifiers = await extractDenyListIdentifiers(applicantId, workflowId);
+
+	// Proprietors have no board members; only run board member checks when they exist
+	const hasBoardMembers =
+		identifiers.boardMemberIds.length > 0 || identifiers.boardMemberNames.length > 0;
+
+	const normalizedBoardNames = identifiers.boardMemberNames
+		.map(n => normalizeBoardMemberName(n))
+		.filter((n): n is string => n !== null);
+
+	const hasAny =
+		identifiers.applicantIdNumbers.length > 0 ||
+		identifiers.cellphones.length > 0 ||
+		identifiers.bankAccounts.length > 0 ||
+		(hasBoardMembers && (identifiers.boardMemberIds.length > 0 || normalizedBoardNames.length > 0));
+	if (!hasAny) return null;
+
+	// Always check: applicant ID, cellphone, bank_account
+	const allValues: Array<{ type: ReApplicantMatchOn; value: string }> = [
+		...identifiers.applicantIdNumbers.map(v => ({ type: "id_number" as const, value: v })),
+		...identifiers.cellphones.map(v => ({ type: "cellphone" as const, value: v })),
+		...identifiers.bankAccounts.map(v => ({ type: "bank_account" as const, value: v })),
+	];
+	// Conditional: board member ID and name only when applicant has board members
+	if (hasBoardMembers) {
+		for (const v of identifiers.boardMemberIds) {
+			allValues.push({ type: "board_member_id", value: v });
+		}
+		for (const v of normalizedBoardNames) {
+			allValues.push({ type: "board_member_name", value: v });
+		}
+	}
+
+	const conditions = allValues.map(({ type, value }) =>
+		and(
+			eq(workflowTerminationScreening.valueType, type),
+			eq(workflowTerminationScreening.value, value)
+		)
+	);
+
+	if (conditions.length === 0) return null;
+
+	const matches = await db
+		.select({
+			denyListId: workflowTerminationScreening.denyListId,
+			valueType: workflowTerminationScreening.valueType,
+			value: workflowTerminationScreening.value,
+		})
+		.from(workflowTerminationScreening)
+		.where(or(...conditions))
+		.limit(1);
+
+	if (matches.length > 0) {
+		const m = matches[0];
+		return {
+			matchedDenyListId: m.denyListId,
+			matchedOn: m.valueType as ReApplicantMatchOn,
+			matchedValue: m.value,
+		};
+	}
+
+	return null;
+}
+
+// ============================================
+// Log re-applicant attempt
+// ============================================
+
+/**
+ * Log a re-applicant denial attempt to the database.
+ * Call this when a re-applicant is detected and denied.
+ */
+export async function logReApplicantAttempt(params: {
+	applicantId: number;
+	workflowId: number;
+	matchedDenyListId: number;
+	matchedOn: ReApplicantMatchOn;
+	matchedValue: string;
+}): Promise<{ success: boolean; error?: string }> {
+	const db = getDatabaseClient();
+	if (!db) return { success: false, error: "Database connection failed" };
+
+	try {
+		await db.insert(reApplicantAttempts).values({
+			applicantId: params.applicantId,
+			workflowId: params.workflowId,
+			matchedDenyListId: params.matchedDenyListId,
+			matchedOn: params.matchedOn,
+			matchedValue: params.matchedValue,
+		});
+		return { success: true };
+	} catch (err) {
+		console.error("[DenyList] Failed to log re-applicant attempt:", err);
+		return {
+			success: false,
+			error: err instanceof Error ? err.message : "Unknown error",
+		};
+	}
+}

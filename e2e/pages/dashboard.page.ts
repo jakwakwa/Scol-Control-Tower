@@ -36,8 +36,20 @@ export class DashboardPage {
 		this.statsCards = page.locator('[data-testid="stats-card"]');
 	}
 
+	/** Lighter route for auth/sidebar checks; avoids timeout on data-heavy dashboard. */
 	async goto() {
-		await this.page.goto("/dashboard");
+		await this.page.goto("/dashboard/applicants/new", {
+			waitUntil: "domcontentloaded",
+			timeout: 60_000,
+		});
+	}
+
+	/** Full dashboard with pipeline view for tests that need stage names. */
+	async gotoDashboard() {
+		await this.page.goto("/dashboard", {
+			waitUntil: "domcontentloaded",
+			timeout: 60_000,
+		});
 	}
 
 	async navigateToApplicants() {

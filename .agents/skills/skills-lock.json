@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "ai-elements": {
+      "source": "vercel-labs/vercel-plugin",
+      "sourceType": "github",
+      "computedHash": "c412aef4a7d4ff149ce60ae64d448f6394b2cec4547f4165257ab43784df0a71"
+    }
+  }
+}
