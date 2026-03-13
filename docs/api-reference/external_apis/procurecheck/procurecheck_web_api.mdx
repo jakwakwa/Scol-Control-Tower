@@ -1,0 +1,441 @@
+---
+title: 'ProcureCheck Web API'
+description: 'External API integration for vendor and employee management, compliance checks, and reporting (v5.0).'
+---
+
+## Overview
+
+Integrate with the ProcureCheck API to manage vendors and employees, run compliance checks, and retrieve reports. Use JWT authentication for all authenticated requests.
+
+**Base URL:** `https://xdev.procurecheck.co.za/api/api/v1/`
+
+**Help:** [API Help Documentation](https://xdev.procurecheck.co.za/api/Help)
+
+## Authentication
+
+<Segment>
+  <SegmentTitle>POST /authenticate</SegmentTitle>
+  <SegmentDescription>Obtain a JWT for authenticated requests. Token validity: 30 minutes. Include the token in the Authorization header for subsequent requests.</SegmentDescription>
+</Segment>
+
+## Vendors
+
+### Add Vendor
+
+<Segment>
+  <SegmentTitle>POST /vendors?processBeeInfo={true|false}</SegmentTitle>
+  <SegmentDescription>Create a new vendor. Set processBeeInfo=true if your client has BEE checks enabled; otherwise use false.</SegmentDescription>
+</Segment>
+
+Full payload example:
+
+```json
+{
+  "vendor_Name": "Demo",
+  "nationality_Id": "153a0fb2-cc8d-4805-80d2-5f996720fed9",
+  "vendor_Type": "4",
+  "vendor_VatNum": null,
+  "vendor_IncomeTaxNum": null,
+  "vendor_RegNum": "",
+  "vendor_BankName": null,
+  "vendor_BankAccountTypeID": null,
+  "vendor_AccountNum": null,
+  "vendor_AccountName": null,
+  "vendor_PhysicalAddress1": null,
+  "vendor_PhysicalPostCode": null,
+  "vendor_PostalAddress1": null,
+  "vendor_PostalPostCode": null,
+  "vendor_ContactNum": null,
+  "vendorExternalID": null,
+  "vendor_Comments": null,
+  "VendorDirectors": []
+}
+```
+
+#### CIPC Vendor (vendor_Type: "4")
+
+Minimum required payload:
+
+```json
+{
+  "vendor_Name": "Demo",
+  "vendor_Type": "4",
+  "vendor_RegNum": "",
+  "nationality_Id": "153a0fb2-cc8d-4805-80d2-5f996720fed9",
+  "vendor_VatNum": null,
+  "vendorExternalID": null
+}
+```
+
+#### Trust Vendor (vendor_Type: "17")
+
+Minimum required payload:
+
+```json
+{
+  "vendor_Name": "Demo",
+  "vendor_Type": "17",
+  "vendor_RegNum": "IT000000/2024(E)",
+  "nationality_Id": "153a0fb2-cc8d-4805-80d2-5f996720fed9",
+  "vendor_VatNum": null,
+  "vendorExternalID": null,
+  "vendor_AuthorizationDate": null,
+  "vendor_MasterOffice": null
+}
+```
+
+South Africa nationality ID: `153A0FB2-CC8D-4805-80D2-5F996720FED9`
+
+#### Sole Prop/Partnership Vendor (vendor_Type: "2")
+
+Include at least one director. Sole proprietorships require one director and no registration number.
+
+```json
+{
+  "vendor_Name": "Demo",
+  "vendor_Type": "2",
+  "vendor_RegNum": "",
+  "nationality_Id": "153a0fb2-cc8d-4805-80d2-5f996720fed9",
+  "vendor_VatNum": null,
+  "vendorExternalID": null,
+  "VendorDirectors": [
+    {
+      "director_FirstName": "test",
+      "director_LastName": "director",
+      "IsIdNumber": true,
+      "director_IdNum": "2011115800083",
+      "DateOfBirth": null,
+      "PassportIssueDate": null,
+      "PassportExpiryDate": null,
+      "PassportIssueCountryId": null,
+      "director_ContactNum": ""
+    }
+  ]
+}
+```
+
+For directors: if `IsIdNumber` is true, provide the ID in `director_IdNum`. If false, provide the passport number in `director_IdNum` and include `DateOfBirth`, `PassportIssueDate`, `PassportExpiryDate`, and `PassportIssueCountryId`.
+
+### Update Vendor
+
+<Segment>
+  <SegmentTitle>PUT /vendors?processBeeInfo={true|false}</SegmentTitle>
+  <SegmentDescription>Update an existing vendor. Include vendor_Id in the payload.</SegmentDescription>
+</Segment>
+
+### Get Vendors List
+
+<Segment>
+  <SegmentTitle>POST /vendors/getlist</SegmentTitle>
+  <SegmentDescription>Retrieve a paginated list of vendors. Default page size is 10; adjust PageSize as needed.</SegmentDescription>
+</Segment>
+
+<ParamField body="QueryParams" type="object" required>
+  Query conditions, pagination, and sort options.
+</ParamField>
+
+<ParamField body="QueryParams.Conditions" type="array">
+  Filter conditions (e.g., ColumnName: "FullName", Operator: "Contains", Value: "").
+</ParamField>
+
+<ParamField body="QueryParams.PageIndex" type="integer">
+  Zero-based page index.
+</ParamField>
+
+<ParamField body="QueryParams.PageSize" type="integer">
+  Number of records per page.
+</ParamField>
+
+<ParamField body="QueryParams.SortColumn" type="string">
+  Column to sort by (e.g., "Created").
+</ParamField>
+
+<ParamField body="QueryParams.SortOrder" type="string">
+  "Ascending" or "Descending".
+</ParamField>
+
+```json
+{
+  "QueryParams": {
+    "Conditions": [
+      {
+        "ColumnName": "FullName",
+        "Operator": "Contains",
+        "Value": ""
+      }
+    ],
+    "PageIndex": 0,
+    "PageSize": 10,
+    "SortColumn": "Created",
+    "SortOrder": "Descending"
+  }
+}
+```
+
+### Vendor Check Results
+
+<Segment>
+  <SegmentTitle>GET /vendorresults?id={VendorID}</SegmentTitle>
+  <SegmentDescription>Retrieve a summary of all checks for a vendor. Use the id returned when creating the vendor.</SegmentDescription>
+</Segment>
+
+Detailed check results:
+
+<Segment>
+  <SegmentTitle>GET /vendorresults/cipc?id={VendorID}</SegmentTitle>
+  <SegmentDescription>CIPC check result.</SegmentDescription>
+</Segment>
+
+<Segment>
+  <SegmentTitle>GET /vendorresults/property?id={VendorID}</SegmentTitle>
+  <SegmentDescription>Property check result.</SegmentDescription>
+</Segment>
+
+<Segment>
+  <SegmentTitle>GET /vendorresults/nonpreferred?id={VendorID}</SegmentTitle>
+  <SegmentDescription>Restricted/Nonpreferred check result.</SegmentDescription>
+</Segment>
+
+<Segment>
+  <SegmentTitle>GET /vendorresults/judgement?id={VendorID}</SegmentTitle>
+  <SegmentDescription>Judgement check result.</SegmentDescription>
+</Segment>
+
+<Segment>
+  <SegmentTitle>GET /vendorresults/safps?id={VendorID}</SegmentTitle>
+  <SegmentDescription>SAFPS check result.</SegmentDescription>
+</Segment>
+
+<Segment>
+  <SegmentTitle>GET /vendorresults/persal?id={VendorID}</SegmentTitle>
+  <SegmentDescription>PERSAL check result.</SegmentDescription>
+</Segment>
+
+<Segment>
+  <SegmentTitle>GET /vendorresults/doj?id={VendorID}</SegmentTitle>
+  <SegmentDescription>Trust (DOJ) check result.</SegmentDescription>
+</Segment>
+
+Optional checks: Diligence, Credit, Bank, BEE, World Compliance
+
+## Employees
+
+### Add Employee
+
+<Segment>
+  <SegmentTitle>POST /employees</SegmentTitle>
+  <SegmentDescription>Create a new employee in ProcureCheck.</SegmentDescription>
+</Segment>
+
+<ParamField body="employee_FirstName" type="string" required>
+  Employee first name.
+</ParamField>
+
+<ParamField body="employee_LastName" type="string" required>
+  Employee last name.
+</ParamField>
+
+<ParamField body="nationality_Id" type="string" required>
+  Nationality UUID (e.g., South Africa: 153a0fb2-cc8d-4805-80d2-5f996720fed9).
+</ParamField>
+
+<ParamField body="IsIdNumber" type="boolean" required>
+  If true, use employee_IdNum for ID; if false, use for passport and include employee_DOB, employee_PassportIssueDate, employee_PassportExpiryDate, PassportIssueCountryId.
+</ParamField>
+
+<ParamField body="employee_IdNum" type="string" required>
+  ID number or passport number depending on IsIdNumber.
+</ParamField>
+
+<ParamField body="employee_Designation" type="string" required>
+  Job title or role.
+</ParamField>
+
+<ParamField body="employee_DOB" type="string" required>
+  Date of birth (YYYY-MM-DD).
+</ParamField>
+
+```json
+{
+  "employee_FirstName": "Demo",
+  "employee_LastName": "Employee",
+  "nationality_Id": "153a0fb2-cc8d-4805-80d2-5f996720fed9",
+  "IsIdNumber": true,
+  "employee_IdNum": "0000000000000",
+  "employee_Designation": "API Test",
+  "employee_DOB": "1920-04-03",
+  "employee_UniqueId": null
+}
+```
+
+### Update Employee
+
+<Segment>
+  <SegmentTitle>PUT /employees</SegmentTitle>
+  <SegmentDescription>Update an existing employee. Include employee_Id in the payload.</SegmentDescription>
+</Segment>
+
+### Employee Check Results
+
+<Segment>
+  <SegmentTitle>GET /employeeresults?id={EmployeeID}</SegmentTitle>
+  <SegmentDescription>Retrieve a summary of all checks for an employee.</SegmentDescription>
+</Segment>
+
+<Segment>
+  <SegmentTitle>GET /employeeresults/cipc?id={EmployeeID}</SegmentTitle>
+  <SegmentDescription>CIPC check result.</SegmentDescription>
+</Segment>
+
+<Segment>
+  <SegmentTitle>GET /employeeresults/property?id={EmployeeID}</SegmentTitle>
+  <SegmentDescription>Property check result.</SegmentDescription>
+</Segment>
+
+<Segment>
+  <SegmentTitle>GET /employeeresults/nonpreferred?id={EmployeeID}</SegmentTitle>
+  <SegmentDescription>Restricted/Nonpreferred check result.</SegmentDescription>
+</Segment>
+
+<Segment>
+  <SegmentTitle>GET /employeeresults/safps?id={EmployeeID}</SegmentTitle>
+  <SegmentDescription>SAFPS check result.</SegmentDescription>
+</Segment>
+
+<Segment>
+  <SegmentTitle>GET /employeeresults/persal?id={EmployeeID}</SegmentTitle>
+  <SegmentDescription>PERSAL check result.</SegmentDescription>
+</Segment>
+
+<Segment>
+  <SegmentTitle>GET /employeeresults/bank?id={EmployeeID}</SegmentTitle>
+  <SegmentDescription>Bank check result.</SegmentDescription>
+</Segment>
+
+## Reports
+
+All detailed reports use GET `/detailedreports?id={ReportID}`
+
+### Vendor Summary Reports
+
+| Report | ID |
+|--------|-----|
+| Vendor directors are directors of other active Vendors | 5 |
+| Vendors with business status other than 'In Business' | 3 |
+| Vendors with CIPC alert (name mismatch) | 4 |
+| Vendors with conflicts with Employees | 6 |
+| Vendors who failed Property checks | 9 |
+| Vendors who failed Restricted List Checks | 2 |
+| Vendors that share the same VAT number | 14 |
+| Vendors who failed Legal Judgment checks | 20 |
+| Vendors who failed SAFPS checks | 8 |
+| Vendor Persal List | 16 |
+| Vendors that share the same bank account | 12 |
+| Vendors who failed Bank Verification checks | 19 |
+| Vendors with new alerts after being accepted | 26 |
+| Vendor Audit Report | 31 |
+| Vendor Judgement Report | 36 |
+
+### Employee Summary Reports
+
+| Report | ID |
+|--------|-----|
+| Employees who are co-directors of the same companies | 21 |
+| Employees with business interests | 1 |
+| Employees with or without business interests | 17 |
+| Employees who failed Property checks | 11 |
+| Employees who failed Restricted List Checks | 22 |
+| Employees who failed SAFPS checks | 10 |
+| Employee Persal List | 15 |
+| Employees that share the same bank account with vendors | 13 |
+| Employees who failed Bank Verification Checks | 18 |
+| Employees with Next of Kin Details | 27 |
+| Employee Audit Report | 32 |
+
+### Risk Matrix Reports
+
+| Report | ID |
+|--------|-----|
+| Employee Risk Rankings | 23 |
+| Vendor Risk Rankings | 24 |
+
+### Other Reports
+
+| Report | ID |
+|--------|-----|
+| World Compliance Report | 33 |
+| Usage Report | 25 |
+
+## Notifications
+
+### New Notifications (Unread)
+
+<Segment>
+  <SegmentTitle>POST /notifications/getlist</SegmentTitle>
+  <SegmentDescription>Retrieve unread notifications. Set IsActive to false.</SegmentDescription>
+</Segment>
+
+```json
+{
+  "QueryParams": {
+    "Conditions": [
+      {
+        "ColumnName": "Message",
+        "Operator": "Contains",
+        "Value": ""
+      }
+    ],
+    "PageSize": 100,
+    "SortColumn": "CreationTime",
+    "SortOrder": "Descending"
+  },
+  "IsActive": false
+}
+```
+
+### Notifications History (Read)
+
+<Segment>
+  <SegmentTitle>POST /notifications/getlist</SegmentTitle>
+  <SegmentDescription>Retrieve read notifications. Set IsActive to true.</SegmentDescription>
+</Segment>
+
+```json
+{
+  "QueryParams": {
+    "Conditions": [
+      {
+        "ColumnName": "Message",
+        "Operator": "Contains",
+        "Value": ""
+      }
+    ],
+    "PageSize": 10,
+    "SortColumn": "CreationTime",
+    "SortOrder": "Descending"
+  },
+  "IsActive": true
+}
+```
+
+### Mark Notification as Read
+
+<Segment>
+  <SegmentTitle>GET /notifications/updateNotificationById?Id={NotificationID}</SegmentTitle>
+  <SegmentDescription>Mark a single notification as read.</SegmentDescription>
+</Segment>
+
+### Mark All Notifications as Read
+
+<Segment>
+  <SegmentTitle>GET /notifications/updateAllNotificationStatus</SegmentTitle>
+  <SegmentDescription>Mark all notifications as read.</SegmentDescription>
+</Segment>
+
+---
+
+<Expandable title="Document metadata">
+
+**Version:** 5.0 · **Updated:** 28-11-2024 · **Author:** Satish Kumar · **Product Owner:** Rushavia Pillay · **Operations Manager:** Gaynor Wilsnach
+
+</Expandable>

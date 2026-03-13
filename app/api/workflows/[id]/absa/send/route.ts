@@ -1,4 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
+import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
@@ -23,9 +24,15 @@ export async function POST(
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const { userId } = await auth();
+		const { userId, has, orgRole } = await auth();
 		if (!userId) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		if (!hasPermissionOrAdmin(has, orgRole, "org:quote:approve")) {
+			return NextResponse.json(
+				{ error: "Forbidden - Missing org:quote:approve permission" },
+				{ status: 403 }
+			);
 		}
 
 		const { id } = await params;

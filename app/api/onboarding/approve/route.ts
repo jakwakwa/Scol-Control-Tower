@@ -15,6 +15,7 @@ import { getDatabaseClient } from "@/app/utils";
 import { workflows, workflowEvents, applicants } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@clerk/nextjs/server";
+import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
 import { recordFinalApprovalDecision } from "@/lib/services/workflow-command.service";
 
@@ -36,7 +37,7 @@ const TwoFactorApprovalSchema = z.object({
 
 export async function POST(request: NextRequest) {
 	try {
-		const { userId } = await auth();
+		const { userId, has, orgRole } = await auth();
 		if (!userId) {
 			return NextResponse.json(
 				{ error: "Unauthorized - Authentication required" },
@@ -58,6 +59,31 @@ export async function POST(request: NextRequest) {
 		}
 
 		const { workflowId, applicantId, role, decision, reason } = validationResult.data;
+
+		// Role-specific permission: risk_manager → risk_assessment, account_manager → quote (admin bypasses)
+		if (role === "risk_manager") {
+			const canApprove = hasPermissionOrAdmin(has, orgRole, "org:risk_assessment:approve");
+			const canOverride = hasPermissionOrAdmin(has, orgRole, "org:risk_assessment:override_denied");
+			if (decision === "APPROVED" && !canApprove) {
+				return NextResponse.json(
+					{ error: "Forbidden - Missing org:risk_assessment:approve permission" },
+					{ status: 403 }
+				);
+			}
+			if (decision === "REJECTED" && !canOverride) {
+				return NextResponse.json(
+					{ error: "Forbidden - Missing org:risk_assessment:override_denied permission" },
+					{ status: 403 }
+				);
+			}
+		} else {
+			if (!hasPermissionOrAdmin(has, orgRole, "org:quote:approve")) {
+				return NextResponse.json(
+					{ error: "Forbidden - Missing org:quote:approve permission" },
+					{ status: 403 }
+				);
+			}
+		}
 
 		const db = getDatabaseClient();
 		if (!db) {

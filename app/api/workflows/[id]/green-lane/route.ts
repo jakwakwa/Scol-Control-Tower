@@ -15,14 +15,16 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getBaseUrl, getDatabaseClient } from "@/app/utils";
-import { workflows } from "@/db/schema";
+import { applicants, type WorkflowStatus, WORKFLOW_STATUSES, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import {
+	getManualGreenLaneBlockReason,
 	hasSignedQuotePrerequisite,
 	requestManualGreenLane,
 } from "@/lib/services/green-lane.service";
 import { createWorkflowNotification } from "@/lib/services/notification-events.service";
 import { sendInternalAlertEmail } from "@/lib/services/email.service";
+import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
 
 const GreenLaneRequestSchema = z.object({
@@ -35,9 +37,15 @@ export async function POST(
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const { userId } = await auth();
+		const { userId, has, orgRole } = await auth();
 		if (!userId) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		if (!hasPermissionOrAdmin(has, orgRole, "org:green_lane:approve")) {
+			return NextResponse.json(
+				{ error: "Forbidden - Missing org:green_lane:approve permission" },
+				{ status: 403 }
+			);
 		}
 
 		const { id } = await params;
@@ -89,11 +97,57 @@ export async function POST(
 			);
 		}
 
+		const [applicant] = await db
+			.select({ riskLevel: applicants.riskLevel })
+			.from(applicants)
+			.where(eq(applicants.id, applicantId))
+			.limit(1);
+
+		if (!applicant) {
+			return NextResponse.json({ error: "Applicant not found" }, { status: 404 });
+		}
+
+		if (applicant.riskLevel === "red") {
+			return NextResponse.json(
+				{
+					error: "High-risk applicants must complete financial statements review",
+					message: "Manual Green Lane is not available for high-risk workflows.",
+				},
+				{ status: 400 }
+			);
+		}
+
+		const workflowStage = typeof workflow.stage === "number" ? workflow.stage : null;
+		const workflowStatus: WorkflowStatus | null =
+			typeof workflow.status === "string" &&
+			(WORKFLOW_STATUSES as readonly string[]).includes(workflow.status)
+				? (workflow.status as WorkflowStatus)
+				: null;
+		const disallowedStateMessage = getManualGreenLaneBlockReason(
+			workflowStage,
+			workflowStatus
+		);
+		if (disallowedStateMessage) {
+			return NextResponse.json(
+				{
+					error: disallowedStateMessage,
+					disallowedState: true,
+				},
+				{ status: 409 }
+			);
+		}
+
 		await acquireStateLock(workflowId, userId);
 
 		const result = await requestManualGreenLane(workflowId, applicantId, userId, notes);
 
 		if (!result.success) {
+			if (result.disallowedState) {
+				return NextResponse.json(
+					{ error: result.error, disallowedState: true },
+					{ status: 409 }
+				);
+			}
 			if (result.alreadyRequested || result.alreadyConsumed) {
 				return NextResponse.json(
 					{ error: result.error, alreadyRequested: result.alreadyRequested, alreadyConsumed: result.alreadyConsumed },
@@ -151,10 +205,7 @@ export async function POST(
 	} catch (error) {
 		console.error("[GreenLane] Error:", error);
 		return NextResponse.json(
-			{
-				error: "Internal server error",
-				message: error instanceof Error ? error.message : "Unknown error",
-			},
+			{ error: "Internal server error" },
 			{ status: 500 }
 		);
 	}

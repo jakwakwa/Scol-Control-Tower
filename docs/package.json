@@ -1,0 +1,10 @@
+{
+  "name": "stratcol-docs",
+  "private": true,
+  "scripts": {
+    "dev": "mint dev --port 8001"
+  },
+  "dependencies": {
+    "mint": "^4.2.416"
+  }
+}
