@@ -56,3 +56,6 @@ playwright-report/index.html
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# MCP config (contains GitHub token — copy from .cursor/mcp.json.example)
+.cursor/mcp.json

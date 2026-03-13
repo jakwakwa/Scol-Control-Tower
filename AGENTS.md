@@ -16,14 +16,12 @@
 ## Learned Workspace Facts
 
 - `bun run lint` runs Biome (not next lint)
-- Database reset and migration renumbering is acceptable when the app is pre-production with no users
 - The repo uses Drizzle ORM with Turso (libSQL/SQLite), not Prisma; schema lives in `db/schema.ts`
 - Inngest is the workflow orchestration engine; `cancelOn` only interrupts between steps, not mid-step
 - The onboarding workflow has exactly 4 risk check families: PROCUREMENT, ITC, SANCTIONS, and FICA — stored in `risk_check_results`; they must run 100% independently with no bundling in shared step.run or Promise.all pairs
 - External sanctions ingestion is the intended primary signal; the manual compliance route at `/api/sanctions` is the fallback/override
 - The Stage 6 `AGREEMENT_CONTRACT` CEL predicate is the canonical contract signature gate (not Stage 5)
 - `terminateRun()` wraps `executeKillSwitch()` and always throws `NonRetriableError` to exit Inngest runs cleanly
-- `riskAssessments` is a derived aggregate/report snapshot, not the source of truth for per-check progress
-- No combined AI overview in the risk-review critical path; risk manager summary uses client-side/runtime AI outside Inngest
 - Manually-created migration SQL files must be registered in `migrations/meta/_journal.json`; `drizzle-kit migrate` silently skips unregistered files
-- `scripts/drop-all-tables.ts` has a hardcoded table list — new tables must be added manually
+- Test DB selection is automatic only when running `bun run test:e2e*`; no manual .env switching required — Playwright injects test DB vars into its spawned app server
+- For E2E Clerk auth, document both `E2E_CLERK_***_USERNAME` and `E2E_CLERK_***_EMAIL` in `.env.test.example`; they are distinct (username vs email for sign-in)
