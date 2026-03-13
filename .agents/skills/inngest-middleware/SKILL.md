@@ -158,7 +158,7 @@ inngest.createFunction(
     });
   }
 );
-````
+```
 
 ## Middleware Packages
 
