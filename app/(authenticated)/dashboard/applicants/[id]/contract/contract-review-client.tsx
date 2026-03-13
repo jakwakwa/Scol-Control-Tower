@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Absa6995FormData } from "@/lib/validations/onboarding";
 import { contractReviewContent } from "./content";
 import { toast } from "sonner";
+import { Card } from "@/components/ui/card";
 
 interface ApplicantSummary {
 	id: number;
@@ -177,13 +178,13 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 				</Link>
 			}>
 			<div className="flex flex-col gap-3">
-				<GlassCard>
-					<p className="text-base text-amber-300/80 pb-6 leading-0">
+				<Card>
+					<p className="text-normal">
 						{contractReviewContent.description}
 					</p>
-				</GlassCard>
-				<GlassCard className="flex flex-col pb-8">
-					<p className="text-base uppercase text-secondary-foreground font-medium">
+				</Card>
+				<Card className="flex flex-col pb-8">
+					<p className="text-base">
 						{contractReviewContent.contractGate.label}
 					</p>
 					<p className="text-base my-3 text-stone-300/70">
@@ -218,7 +219,7 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 							</Button>
 						}
 					/>
-				</GlassCard>
+				</Card>
 
 				{canPerformActions && payload?.workflow?.id && (
 					<AbsaPacketSection
@@ -237,7 +238,7 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 					/>
 				)}
 
-				<GlassCard className="space-y-3">
+				<Card className="space-y-3">
 					<p className="text-base uppercase text-secondary-foreground font-medium">
 						{contractReviewContent.absaConfirmGate.label}
 					</p>
@@ -283,7 +284,7 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 							</Button>
 						}
 					/>
-				</GlassCard>
+				</Card>
 				{actionMessage ? <p className="text-sm text-amber-700">{actionMessage}</p> : null}
 				{!canPerformActions ? (
 					<p className="text-xs text-muted-foreground">
