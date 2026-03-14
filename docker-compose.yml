@@ -50,6 +50,19 @@ services:
     volumes:
       - postgres_test_data:/var/lib/postgresql/data
 
+  mock_db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: controltower_mock
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_mock_data:/var/lib/postgresql/data
+
 volumes:
   postgres_data:
   postgres_test_data:
+  postgres_mock_data:

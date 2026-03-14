@@ -1,5 +1,11 @@
 // lib/procurecheck.ts
 
+import {
+	getMockProcureCheckVendorCreation,
+	getMockProcureCheckVendorResults,
+} from "@/lib/mock-integrations";
+import { isMockEnvironmentEnabled } from "@/lib/mock-environment";
+
 /**
  * ProcureCheck Integration
  * Sandbox Credentials from documentation:
@@ -73,6 +79,10 @@ export async function createTestVendor(vendorData: {
 	applicantId: number; // Used as external ID
 	isProprietor?: boolean;
 }) {
+	if (isMockEnvironmentEnabled()) {
+		return getMockProcureCheckVendorCreation(vendorData);
+	}
+
 	const token = await getJwt();
 
 	if (vendorData.isProprietor) {
@@ -87,7 +97,7 @@ export async function createTestVendor(vendorData: {
 
 	// Sandbox specific: Use the GUID from screenshots for South Africa / Test
 	// nationality_Id: "153A0FB2-CC8D-4805-80D2-5F996720FED9"
-	const payload: Record<string, any> = {
+	const payload: Record<string, string | boolean> = {
 		vendor_Name: vendorData.vendorName,
 		vendorExternalID: `STC-${vendorData.applicantId}`, // Unique ID for our system
 		nationality_Id: "153A0FB2-CC8D-4805-80D2-5F996720FED9",
@@ -128,6 +138,10 @@ export async function createTestVendor(vendorData: {
  * Poll or Fetch Vendor Check Results
  */
 export async function getVendorResults(vendorId: string | number) {
+	if (isMockEnvironmentEnabled()) {
+		return getMockProcureCheckVendorResults(vendorId);
+	}
+
 	const token = await getJwt();
 
 	// URL construction based on standard REST patterns in docs/examples

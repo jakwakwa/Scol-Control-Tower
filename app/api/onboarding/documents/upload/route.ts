@@ -6,6 +6,8 @@ import { NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants, documentUploads, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
+import { getMockFicaVerificationResult } from "@/lib/mock-integrations";
+import { isMockEnvironmentEnabled } from "@/lib/mock-environment";
 import { evaluateDocumentQuality } from "@/lib/services/document-quality.service";
 
 /**
@@ -119,6 +121,13 @@ export async function POST(request: NextRequest) {
 						qualityWarnings: quality.warnings,
 					})
 				: metadata || undefined;
+		const mockVerification = isMockEnvironmentEnabled()
+			? getMockFicaVerificationResult({
+					workflowId: workflowIdNum,
+					documentType,
+					fileName: file.name,
+				})
+			: null;
 
 		const document = await db.transaction(async tx => {
 			const [inserted] = await tx
@@ -139,7 +148,10 @@ export async function POST(request: NextRequest) {
 					mimeType: file.type,
 					storageKey,
 					storageUrl: `/api/documents/download?documentUploadId=PLACEHOLDER&storageKey=${encodeURIComponent(storageKey)}`,
-					verificationStatus: "pending",
+					verificationStatus: mockVerification?.verificationStatus ?? "pending",
+					verificationNotes: mockVerification?.verificationNotes,
+					verifiedBy: mockVerification?.verifiedBy,
+					verifiedAt: mockVerification?.verifiedAt,
 					metadata: combinedMetadata,
 					uploadedBy: userId || undefined,
 				})

@@ -60,6 +60,12 @@
    ```
    Configure at least: Clerk (`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SECRET`), PostgreSQL (`DATABASE_URL`), OpenSanctions (`OPENSANCTIONS_*`), and for webhooks/callbacks `GAS_WEBHOOK_SECRET` / `CRON_SECRET`. Add Inngest keys when running in production.
 
+   Optional manual-testing mock environment variables:
+   - `MOCK_DATABASE_URL` for the dedicated seeded mock database
+   - `ENABLE_LOCAL_MOCK_ENV=true` for local mock/manual-test mode
+   - `ENABLE_DEV_MOCK_ENV=true` for preview/dev-style deployments using the mock DB
+   When both flags are absent or false, the app stays on `DATABASE_URL` and current behavior is unchanged.
+
 4. **Database**
    (Optional) Start PostgreSQL via Docker:
    ```bash
@@ -69,6 +75,19 @@
    ```bash
    bun run db:migrate
    ```
+
+   Optional manual-testing database:
+   ```bash
+   docker compose up -d mock_db
+   bun run mock:db:bootstrap
+   ```
+
+   Suggested local mock DB URL:
+   ```bash
+   postgresql://postgres:postgres@localhost:5434/controltower_mock
+   ```
+
+   For Vercel Preview or Development environments, set `MOCK_DATABASE_URL` to an external Postgres instance and enable `ENABLE_DEV_MOCK_ENV=true` only in that environment. Production should leave the flag unset.
 
 ### Commands
 
@@ -80,10 +99,43 @@
 | `bun run lint` | Run linting |
 | `bun run db:generate` | Generate Drizzle migrations |
 | `bun run db:migrate` | Run migrations |
+| `bun run db:migrate:mock` | Run migrations against the mock/manual-test DB |
 | `bun run db:studio` | Open Drizzle Studio |
+| `bun run mock:db:reset` | Reset the dedicated mock/manual-test DB |
+| `bun run mock:db:seed` | Seed the dedicated mock/manual-test DB |
+| `bun run mock:db:bootstrap` | Reset, migrate, and seed the dedicated mock/manual-test DB |
 | `bun run test:e2e` | Run Playwright E2E tests |
 | `bun run test:e2e:banner-prod` | E2E: verify no UAT banner in production |
 | `bun run test:e2e:banner-dev` | E2E: verify UAT banner in preview env |
+
+## Manual Testing Mock Environment
+
+Use this when a client or stakeholder needs a realistic sandbox with seeded data and deterministic non-Gemini provider responses.
+
+Behavior:
+- `DATABASE_URL` remains the normal dev DB and is never seeded by the mock tooling.
+- `TEST_DATABASE_URL` remains reserved for Playwright.
+- `MOCK_DATABASE_URL` is used only when `ENABLE_LOCAL_MOCK_ENV` or `ENABLE_DEV_MOCK_ENV` is explicitly enabled.
+- ProcureCheck, ITC, and FICA verification responses are deterministic in mock mode.
+- Gemini-backed AI calls remain real in all environments.
+
+Typical local flow:
+```bash
+docker compose up -d mock_db
+export MOCK_DATABASE_URL="postgresql://postgres:postgres@localhost:5434/controltower_mock"
+export ENABLE_LOCAL_MOCK_ENV=true
+bun run mock:db:bootstrap
+bun run dev
+```
+
+Typical Vercel Preview flow:
+```bash
+# Set these in Vercel Preview environment variables
+MOCK_DATABASE_URL=<external-postgres-url>
+ENABLE_DEV_MOCK_ENV=true
+```
+
+Leave both flags unset in normal development if you want the app to keep using the unseeded primary dev database.
 
 ### GitHub MCP (Cursor)
 

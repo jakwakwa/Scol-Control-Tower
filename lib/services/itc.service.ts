@@ -13,6 +13,8 @@
 import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants } from "@/db/schema";
+import { getMockITCResult } from "@/lib/mock-integrations";
+import { isMockEnvironmentEnabled } from "@/lib/mock-environment";
 import { ITC_THRESHOLDS, type ITCCheckResult } from "@/lib/types";
 import {
 	mapProcureCheckRiskCategory,
@@ -80,6 +82,19 @@ export async function performITCCheck(options: ITCCheckOptions): Promise<ITCChec
 
 	if (!applicantData) {
 		throw new Error(`[ITCService] Applicant ${applicantId} not found`);
+	}
+
+	if (isMockEnvironmentEnabled()) {
+		const isProprietor = applicantData.entityType === "proprietor";
+		const identifier = isProprietor
+			? applicantData.idNumber
+			: options.registrationNumber || extractRegistrationNumber(applicantData);
+
+		return getMockITCResult({
+			applicantId,
+			identifier,
+			companyName: applicantData.companyName,
+		});
 	}
 
 	// Check if ProcureCheck is configured

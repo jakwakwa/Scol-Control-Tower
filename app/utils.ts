@@ -1,15 +1,14 @@
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@/db/schema";
+import { resolveDatabaseConfig } from "@/lib/mock-environment";
 
 export function getDatabaseClient() {
-	const useTestDatabase = process.env.E2E_USE_TEST_DB === "1";
-	const url = useTestDatabase ? process.env.TEST_DATABASE_URL : process.env.DATABASE_URL;
+	const databaseConfig = resolveDatabaseConfig();
+	const { url } = databaseConfig;
 
 	if (!url) {
-		console.error(
-			useTestDatabase ? "TEST_DATABASE_URL is not defined" : "DATABASE_URL is not defined"
-		);
+		console.error(databaseConfig.error ?? "Database URL is not defined");
 		return null;
 	}
 
