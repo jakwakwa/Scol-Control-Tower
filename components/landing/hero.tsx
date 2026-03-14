@@ -24,12 +24,12 @@ export function Hero() {
 								priority
 							/>
 						</div>
-						<h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-8 text-foreground">
+						<h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-8 text-white/90">
 							Accelerate Trust.
 							<br />
 							Automate Onboarding.
 						</h1>
-						<p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
+						<p className="text-xl text-white/80 mb-10 max-w-2xl mx-auto leading-relaxed">
 							Transform your client intake from a paper chase into a digital science. The
 							central command for Sales and Compliance teams.
 						</p>

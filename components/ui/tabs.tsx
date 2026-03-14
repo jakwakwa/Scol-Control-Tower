@@ -15,7 +15,7 @@ function Tabs({
 			data-slot="tabs"
 			data-orientation={orientation}
 			className={cn(
-				"gap-0 m-0 bg-stone-900/90 rounded-lg overflow-hidden shadow-black/30 shadow-lg	 group/tabs flex data-[orientation=horizontal]:flex-col",
+				"gap-0 m-0 bg-stone-900/0 card-form rounded-sm overflow-hidden shadow-black/30 shadow-lg overflow-hidden	 group/tabs flex data-[orientation=horizontal]:flex-col",
 				className
 			)}
 			{...props}
@@ -81,7 +81,7 @@ function TabsContent({
 		<TabsPrimitive.Content
 			data-slot="tabs-content"
 			className={cn(
-				"text-sm text-foreground bg-secondary/5 rounded-b-none  overlay-hidden p-2 m-0 shadow-sm shadow-sm/5 flex-1 outline-none",
+				"text-sm text-foreground rounded-sm rounded-b-none  overlay-hidden p-8 mb-0 pb-0 mb-0 shadow-sm shadow-sm/5 flex-1 outline-none",
 				className
 			)}
 			{...props}

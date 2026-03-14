@@ -45,8 +45,8 @@ export function AgentStatusCard({ agent, onClick }: AgentStatusCardProps) {
 	const config = statusConfig[agent.status];
 
 	const containerClasses = cn(
-		"group relative overflow-hidden rounded-2xl border border-sidebar bg-card/50 backdrop-blur-xs p-6",
-		"shadow-xl shadow-black/5",
+		"group relative overflow-hidden card-form rounded-4xl border border-primary/30 bg-card/50 backdrop-blur-lg p-6",
+		"shadow-xl shadow-black/50",
 		"transition-all duration-300",
 		onClick &&
 			"cursor-pointer hover:bg-card/70 hover:border-secondary/10 hover:shadow-2xl hover:-translate-y-1"
@@ -87,7 +87,7 @@ export function AgentStatusCard({ agent, onClick }: AgentStatusCardProps) {
 			</div>
 
 			{/* AI Model Info */}
-			<div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground bg-secondary/5 p-2 rounded-lg border border-secondary/10">
+			<div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground bg-secondary p-2 rounded-lg border border-secondary/10">
 				<div className="font-medium text-foreground">{agent.provider}</div>
 				<div className="w-1 h-1 rounded-full bg-border" />
 				<div>{agent.aiModel}</div>
