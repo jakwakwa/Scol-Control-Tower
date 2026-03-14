@@ -78,4 +78,7 @@
 		"editor.defaultFormatter": "vscode.json-language-features"
 	},
 	"git.ignoreLimitWarning": true,
+	"[css]": {
+		"editor.defaultFormatter": "vscode.css-language-features"
+	},
 }
