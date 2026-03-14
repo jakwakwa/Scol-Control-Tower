@@ -12,6 +12,9 @@
  */
 
 import { z } from "zod";
+import { isMockEnvironmentEnabled } from "@/lib/mock-environment";
+import { resolveWorkflowMockScenario } from "@/lib/mock-scenario-state.server";
+import { sleepForMockDelay } from "@/lib/mock-scenarios";
 
 import {
 	isFirecrawlConfigured,
@@ -232,6 +235,90 @@ export interface SanctionsCheckInput {
 export async function performSanctionsCheck(
 	input: SanctionsCheckInput
 ): Promise<SanctionsCheckResult> {
+	const mockScenario = isMockEnvironmentEnabled()
+		? await resolveWorkflowMockScenario({
+				workflowId: input.workflowId,
+				applicantId: input.applicantId,
+			})
+		: null;
+
+	if (mockScenario) {
+		await sleepForMockDelay(mockScenario.persisted.id, "sanctions");
+		const checkedAt = new Date().toISOString();
+		const isBlocked = mockScenario.definition.sanctions === "blocked";
+
+		return {
+			unSanctions: {
+				checked: true,
+				matchFound: isBlocked,
+				matchDetails: isBlocked
+					? [
+							{
+								listName: "UN Security Council Consolidated List",
+								matchType: "EXACT",
+								matchedName: input.entityName,
+								confidence: 98,
+								sanctionType: "Targeted Financial Sanctions",
+								sanctionDate: checkedAt,
+							},
+						]
+					: [],
+				lastChecked: checkedAt,
+			},
+			pepScreening: {
+				checked: true,
+				isPEP: false,
+				familyAssociates: [],
+			},
+			adverseMedia: {
+				checked: true,
+				alertsFound: isBlocked ? 2 : 0,
+				alerts: isBlocked
+					? [
+							{
+								source: "mock-sanctions",
+								headline: `${input.entityName} matched a manual-testing sanctions scenario`,
+								date: checkedAt,
+								severity: "CRITICAL",
+								category: "REGULATORY_VIOLATION",
+							},
+						]
+					: [],
+			},
+			watchLists: {
+				checked: true,
+				listsChecked: ["sanctions-mock"],
+				matchesFound: isBlocked ? 1 : 0,
+				matches: isBlocked
+					? [
+							{
+								listName: "Manual Testing Sanctions Mock",
+								matchedEntity: input.entityName,
+								matchConfidence: 98,
+								reason: "Scenario forced blocking sanctions outcome",
+							},
+						]
+					: [],
+			},
+			overall: {
+				riskLevel: isBlocked ? "BLOCKED" : "CLEAR",
+				passed: !isBlocked,
+				requiresEDD: false,
+				recommendation: isBlocked ? "BLOCK" : "PROCEED",
+				reasoning: isBlocked
+					? "Scenario forced sanctions blocking match."
+					: "Scenario forced clean sanctions result.",
+				reviewRequired: isBlocked,
+			},
+			metadata: {
+				checkId: `SCK-SCENARIO-${input.workflowId}`,
+				checkedAt,
+				expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+				dataSource: `scenario:${mockScenario.persisted.id}`,
+			},
+		};
+	}
+
 	let openSanctionsError: Error | unknown;
 	let firecrawlError: Error | unknown;
 

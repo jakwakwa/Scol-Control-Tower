@@ -13,11 +13,13 @@ export { controlTowerWorkflow, killSwitchHandler } from "./functions/control-tow
 // Export all functions as array for serve()
 import { documentAggregator } from "./functions/document-aggregator";
 import { controlTowerWorkflow, killSwitchHandler } from "./functions/control-tower-workflow";
+import { mockScenarioRunner } from "./functions/mock-scenario-runner";
 import { zombieReconciler } from "./functions/zombie-reconciler";
 
 export const functions = [
 	controlTowerWorkflow,
 	killSwitchHandler,
 	documentAggregator,
+	mockScenarioRunner,
 	zombieReconciler,
 ];

@@ -17,6 +17,7 @@ import {
 	RiUserLine,
 } from "@remixicon/react";
 import type { ColumnDef } from "@tanstack/react-table";
+import { SmilePlusIcon } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { toast } from "sonner";
@@ -100,7 +101,7 @@ const statusConfig = {
 		icon: RiUserLine,
 		pulse: true,
 	},
-	completed: { label: "Completed", color: "success", icon: RiCheckLine },
+	completed: { label: "Completed", color: "success", icon: SmilePlusIcon },
 	failed: { label: "Failed", color: "destructive", icon: RiAlertLine },
 	timeout: { label: "Timeout", color: "destructive", icon: RiAlertLine },
 	terminated: { label: "Terminated", color: "destructive", icon: RiCloseLine },

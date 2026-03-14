@@ -34,6 +34,15 @@ export type Events = {
 		};
 	};
 
+	/** Manual-testing scenario runner for local/preview mock environments */
+	"dev/mock-scenario.run": {
+		data: {
+			applicantId: number;
+			workflowId: number;
+			scenarioId: import("@/lib/mock-scenarios").MockScenarioId;
+		};
+	};
+
 	/** Legacy: Quality gate passed (replaced by contract/signed) */
 	"onboarding/quality-gate-passed": {
 		data: {

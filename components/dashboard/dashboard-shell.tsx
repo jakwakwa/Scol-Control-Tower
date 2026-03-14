@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useDashboardStore } from "@/lib/dashboard-store";
 import { cn } from "@/lib/utils";
+import Grainient from "../Grainient";
 import { NotificationsPanel, type WorkflowNotification } from "./notifications-panel";
 import { Sidebar } from "./sidebar";
-import Grainient from "../Grainient";
 
 interface DashboardShellProps {
 	children: React.ReactNode;
@@ -57,21 +57,21 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 	// Real-time updates via SSE
 
 	useEffect(() => {
-		const eventSource = new EventSource('/api/notifications/stream');
+		const eventSource = new EventSource("/api/notifications/stream");
 
-		eventSource.onmessage = (event) => {
+		eventSource.onmessage = event => {
 			try {
 				const data = JSON.parse(event.data);
-				if (data && (data.type === 'notification' || data.type === 'update')) {
+				if (data && (data.type === "notification" || data.type === "update")) {
 					router.refresh();
 				}
 			} catch (e) {
-				console.error('Failed to parse notification event', e);
+				console.error("Failed to parse notification event", e);
 			}
 		};
 
-		eventSource.onerror = (error) => {
-			console.error('EventSource failed', error);
+		eventSource.onerror = error => {
+			console.error("EventSource failed", error);
 			// EventSource automatically reconnects
 		};
 
@@ -82,36 +82,33 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 
 	return (
 		<>
-		<div style={{ width: '100vw', height: '1080px', position: 'fixed',  zIndex: "-3"}}>
- 
- 
-		<Grainient
-    color1="#543c08"
-    color2="#8a581e"
-    color3="#65461a"
-    timeSpeed={0.3}
-    colorBalance={-0.17}
-    warpStrength={0.7}
-    warpFrequency={5}
-    warpSpeed={0.9}
-    warpAmplitude={50}
-    blendAngle={0}
-    blendSoftness={0.35}
-    rotationAmount={310}
-    noiseScale={2.25}
-    grainAmount={0.06}
-    grainScale={2}
-    grainAnimated={false}
-    contrast={1.1}
-    gamma={0.85}
-    saturation={0.8}
-    centerX={-0.44}
-    centerY={0}
-    zoom={0.9}
-  /></div>
+			<div style={{ width: "100%", height: "1080px", position: "fixed", zIndex: "-3" }}>
+				<Grainient
+					color1="#543c08"
+					color2="#8a581e"
+					color3="#65461a"
+					timeSpeed={0.3}
+					colorBalance={-0.17}
+					warpStrength={0.7}
+					warpFrequency={5}
+					warpSpeed={0.9}
+					warpAmplitude={50}
+					blendAngle={0}
+					blendSoftness={0.35}
+					rotationAmount={310}
+					noiseScale={2.25}
+					grainAmount={0.06}
+					grainScale={2}
+					grainAnimated={false}
+					contrast={1.1}
+					gamma={0.85}
+					saturation={0.8}
+					centerX={-0.44}
+					centerY={0}
+					zoom={0.9}
+				/>
+			</div>
 
-		
-			
 			<Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
 
 			{/* Main content */}
@@ -209,9 +206,6 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 				{/* Page content */}
 				<div className="p-8">{children}</div>
 			</main>
-</>
-	
+		</>
 	);
-
-
-};
+}

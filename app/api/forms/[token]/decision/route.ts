@@ -74,6 +74,26 @@ export async function POST(
 		const decision = parsed.data.decision as FormDecisionOutcome;
 		const reason = parsed.data.reason?.trim() || undefined;
 
+		// #region agent log
+		fetch("http://127.0.0.1:7780/ingest/98dfdc88-9ae5-4eb0-9116-de47d99f4a27", {
+			method: "POST",
+			headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "fab3a7" },
+			body: JSON.stringify({
+				sessionId: "fab3a7",
+				location: "decision/route.ts:pre-check",
+				message: "Decision route pre-check",
+				data: {
+					formType: formInstance.formType,
+					formStatus: formInstance.status,
+					decision,
+					workflowId: formInstance.workflowId,
+					hypothesisId: "A",
+				},
+				timestamp: Date.now(),
+			}),
+		}).catch(() => {});
+		// #endregion
+
 		// For approvals, ensure user actually submitted the form content first.
 		if (decision === "APPROVED" && formInstance.status !== "submitted") {
 			return NextResponse.json(
@@ -115,6 +135,22 @@ export async function POST(
 
 		const db = getDatabaseClient();
 
+		// #region agent log
+		if (formInstance.formType === "SIGNED_QUOTATION" && !formInstance.workflowId) {
+			fetch("http://127.0.0.1:7780/ingest/98dfdc88-9ae5-4eb0-9116-de47d99f4a27", {
+				method: "POST",
+				headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "fab3a7" },
+				body: JSON.stringify({
+					sessionId: "fab3a7",
+					location: "decision/route.ts:skip-no-workflow",
+					message: "SIGNED_QUOTATION skipped - no workflowId",
+					data: { formInstanceId: formInstance.id, hypothesisId: "E" },
+					timestamp: Date.now(),
+				}),
+			}).catch(() => {});
+		}
+		// #endregion
+
 		if (formInstance.workflowId && formInstance.formType === "SIGNED_QUOTATION") {
 			if (!db) {
 				return NextResponse.json(
@@ -128,6 +164,25 @@ export async function POST(
 				.where(eq(quotes.workflowId, formInstance.workflowId))
 				.orderBy(desc(quotes.createdAt))
 				.limit(1);
+
+			// #region agent log
+			fetch("http://127.0.0.1:7780/ingest/98dfdc88-9ae5-4eb0-9116-de47d99f4a27", {
+				method: "POST",
+				headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "fab3a7" },
+				body: JSON.stringify({
+					sessionId: "fab3a7",
+					location: "decision/route.ts:quote-check",
+					message: "SIGNED_QUOTATION quote lookup",
+					data: {
+						workflowId: formInstance.workflowId,
+						hasQuote: !!latestQuote,
+						quoteId: latestQuote?.id,
+						hypothesisId: "B",
+					},
+					timestamp: Date.now(),
+				}),
+			}).catch(() => {});
+			// #endregion
 
 			if (!latestQuote) {
 				return NextResponse.json(
@@ -143,6 +198,26 @@ export async function POST(
 					updatedAt: new Date(),
 				})
 				.where(eq(quotes.id, latestQuote.id));
+
+			// #region agent log
+			fetch("http://127.0.0.1:7780/ingest/98dfdc88-9ae5-4eb0-9116-de47d99f4a27", {
+				method: "POST",
+				headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "fab3a7" },
+				body: JSON.stringify({
+					sessionId: "fab3a7",
+					location: "decision/route.ts:quote-responded-sent",
+					message: "quote/responded event sent",
+					data: {
+						workflowId: formInstance.workflowId,
+						applicantId: formInstance.applicantId,
+						quoteId: latestQuote.id,
+						decision,
+						hypothesisId: "C",
+					},
+					timestamp: Date.now(),
+				}),
+			}).catch(() => {});
+			// #endregion
 
 			await inngest.send({
 				name: "quote/responded",

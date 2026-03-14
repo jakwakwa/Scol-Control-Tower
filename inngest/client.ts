@@ -8,5 +8,6 @@ import type { Events } from "./events";
 export const inngest = new Inngest({
 	id: "stratcol-onboard",
 	eventKey: process.env.INNGEST_EVENT_KEY,
+	baseUrl: process.env.INNGEST_BASE_URL,
 	schemas: new EventSchemas().fromRecord<Events>(),
 });

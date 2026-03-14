@@ -1,4 +1,5 @@
-import { RiAlertFill, RiCheckFill } from "@remixicon/react";
+import { RiAlertFill } from "@remixicon/react";
+import { FileQuestionMarkIcon, SmilePlusIcon } from "lucide-react";
 import type React from "react";
 import { cn } from "@/lib/utils";
 
@@ -30,17 +31,15 @@ export function StatusBadge({
 	return (
 		<span
 			className={cn(
-				"inline-flex items-center gap-1.5 px-1.5 py-[1px] rounded-full text-xs font-medium border outline-1 backdrop-blur-sm",
+				"inline-flex items-center gap-1.5 px-1.5 py-[1px] rounded-full text-xs font-medium border-none outline-0  backdrop-blur-sm",
 				statusStyles[status],
 				className
 			)}
 			{...props}>
 			{icon && (
-				<span className="h-3.5 w-3.5 flex items-center justify-center -ml-0.5">
-					{icon}
-				</span>
+				<span className="h-4 w-3.5 flex items-center justify-center -ml-0.5">{icon}</span>
 			)}
-			{children}
+			{children === "amber" || children === "green" || children === "red" ? "" : children}
 		</span>
 	);
 }
@@ -94,7 +93,20 @@ export function RiskBadge({ level }: { level: string }) {
 	return (
 		<StatusBadge
 			status={status}
-			icon={isError ? <RiAlertFill size={14} className="animate-bounce" /> : <RiCheckFill size={14} />}
+			icon={
+				isError ? (
+					<RiAlertFill
+						size={14}
+						className="animate-bounce border-none bg-none text-red-500 shadow-md shadow-red-500/70"
+					/>
+				) : status === "success" || status === "neutral" ? (
+					<SmilePlusIcon size={14} />
+				) : status === "warning" ? (
+					<FileQuestionMarkIcon className="text-amber-200" size={14} />
+				) : (
+					<FileQuestionMarkIcon size={14} />
+				)
+			}
 			className="lowercase font-light tracking-wider">
 			{level}
 		</StatusBadge>

@@ -15,6 +15,8 @@ import { getDatabaseClient } from "@/app/utils";
 import { applicants } from "@/db/schema";
 import { isMockEnvironmentEnabled } from "@/lib/mock-environment";
 import { getMockITCResult } from "@/lib/mock-integrations";
+import { resolveWorkflowMockScenario } from "@/lib/mock-scenario-state.server";
+import { sleepForMockDelay } from "@/lib/mock-scenarios";
 import { ITC_THRESHOLDS, type ITCCheckResult } from "@/lib/types";
 import {
 	mapProcureCheckRiskCategory,
@@ -85,6 +87,40 @@ export async function performITCCheck(options: ITCCheckOptions): Promise<ITCChec
 	}
 
 	if (isMockEnvironmentEnabled()) {
+		const mockScenario = await resolveWorkflowMockScenario({
+			workflowId: options.workflowId,
+			applicantId,
+		});
+
+		if (mockScenario) {
+			await sleepForMockDelay(mockScenario.persisted.id, "itc");
+			const checkedAt = new Date();
+			const isRed = mockScenario.definition.itc === "red";
+
+			return {
+				creditScore: isRed ? 408 : 776,
+				riskCategory: isRed ? "VERY_HIGH" : "LOW",
+				passed: !isRed,
+				recommendation: isRed ? "AUTO_DECLINE" : "AUTO_APPROVE",
+				adverseListings: isRed
+					? [
+							{
+								type: "Judgment",
+								amount: 315000,
+								date: checkedAt.toISOString(),
+								creditor: "Mock Credit Bureau",
+							},
+						]
+					: [],
+				checkedAt,
+				referenceNumber: `ITC-SCENARIO-${mockScenario.persisted.id}-${applicantId}`,
+				rawResponse: {
+					source: "itc-mock",
+					scenarioId: mockScenario.persisted.id,
+				},
+			};
+		}
+
 		const isProprietor = applicantData.entityType === "proprietor";
 		const identifier = isProprietor
 			? applicantData.idNumber

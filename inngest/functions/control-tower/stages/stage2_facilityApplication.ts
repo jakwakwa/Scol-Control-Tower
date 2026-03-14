@@ -11,6 +11,8 @@ import {
 	getDocumentRequirements,
 	resolveBusinessType,
 } from "@/lib/services/document-requirements.service";
+import { isMockEnvironmentEnabled } from "@/lib/mock-environment";
+import { resolveWorkflowMockScenario } from "@/lib/mock-scenario-state.server";
 import {
 	sendApplicantFormLinksEmail,
 	sendInternalAlertEmail,
@@ -131,6 +133,9 @@ export async function executeStage2({
 	// Step 2.2: Sales evaluation + issues/pre-risk path
 	const salesEvaluation = await step.run("sales-evaluation", async () => {
 		await guardKillSwitch(workflowId, "sales-evaluation");
+		const mockScenario = isMockEnvironmentEnabled()
+			? await resolveWorkflowMockScenario({ workflowId, applicantId })
+			: null;
 		const formData = facilitySubmission.data.formData as {
 			mandateVolume?: number;
 			annualTurnover?: number;
@@ -144,6 +149,15 @@ export async function executeStage2({
 		}
 		if (annualTurnover > 0 && mandateVolume > annualTurnover * 0.75) {
 			issues.push("Mandate volume materially high relative to turnover");
+		}
+
+		if (
+			mockScenario &&
+			(mockScenario.definition.preRisk === "approve" ||
+				mockScenario.definition.preRisk === "reject") &&
+			issues.length === 0
+		) {
+			issues.push("Scenario forced pre-risk review");
 		}
 
 		await inngest.send({

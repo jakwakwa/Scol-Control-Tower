@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { RiLoader4Line, RiTestTubeLine } from "@remixicon/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 
 import { GlassCard } from "@/components/dashboard";
@@ -18,6 +18,11 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { getMockScenarioDefinition, type MockScenarioId } from "@/lib/mock-scenarios";
+import {
+	MOCK_SCENARIO_EVENT,
+	readClientMockScenarioId,
+} from "@/lib/mock-scenarios.client";
 import { cn } from "@/lib/utils";
 import {
 	type ApplicantFormData,
@@ -37,6 +42,9 @@ export function ApplicantForm({
 }: ApplicantFormProps) {
 	const router = useRouter();
 	const [isLoading, setIsLoading] = useState(false);
+	const [submitError, setSubmitError] = useState<string | null>(null);
+	const [activeScenarioId, setActiveScenarioId] = useState<MockScenarioId | null>(null);
+	const [isMockEnvironment, setIsMockEnvironment] = useState(false);
 
 	const form = useForm<ApplicantFormData>({
 		resolver: zodResolver(applicantSchema),
@@ -64,11 +72,46 @@ export function ApplicantForm({
 		register,
 		control,
 		handleSubmit,
+		setValue,
 		watch,
 		formState: { errors },
 	} = form;
 
 	const entityType = watch("entityType");
+	const activeScenario = useMemo(
+		() => getMockScenarioDefinition(activeScenarioId),
+		[activeScenarioId]
+	);
+	const lockedEntityType = activeScenario?.lockedEntityType;
+	const isEntityTypeLocked = Boolean(isMockEnvironment && !isEditing && lockedEntityType);
+	const effectiveEntityType =
+		isEntityTypeLocked && lockedEntityType ? lockedEntityType : entityType;
+
+	useEffect(() => {
+		setIsMockEnvironment(document.body.dataset.mockEnvironment === "true");
+		setActiveScenarioId(readClientMockScenarioId());
+
+		const syncScenarioState = () => {
+			setActiveScenarioId(readClientMockScenarioId());
+		};
+
+		window.addEventListener(MOCK_SCENARIO_EVENT, syncScenarioState as EventListener);
+		window.addEventListener("storage", syncScenarioState);
+
+		return () => {
+			window.removeEventListener(MOCK_SCENARIO_EVENT, syncScenarioState as EventListener);
+			window.removeEventListener("storage", syncScenarioState);
+		};
+	}, []);
+
+	useEffect(() => {
+		if (lockedEntityType && !isEditing && entityType !== lockedEntityType) {
+			setValue("entityType", lockedEntityType, {
+				shouldDirty: false,
+				shouldValidate: true,
+			});
+		}
+	}, [entityType, isEditing, lockedEntityType, setValue]);
 
 	// Check if test mode is enabled
 	const isTestMode = process.env.NEXT_PUBLIC_USE_TESTMODE_CHECK === "true";
@@ -94,10 +137,15 @@ export function ApplicantForm({
 
 	const onSubmitForm = async (data: ApplicantFormData) => {
 		setIsLoading(true);
+		setSubmitError(null);
+		const submissionEntityType =
+			isEntityTypeLocked && lockedEntityType
+				? lockedEntityType
+				: data.entityType || "company";
 
 		try {
 			if (onSubmit) {
-				await onSubmit(data);
+				await onSubmit({ ...data, entityType: submissionEntityType });
 			} else {
 				// Default behavior: POST to API
 				const response = await fetch("/api/applicants", {
@@ -105,6 +153,7 @@ export function ApplicantForm({
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						...data,
+						entityType: submissionEntityType,
 						idNumber: data.idNumber?.trim() || undefined,
 						employeeCount: data.employeeCount
 							? parseInt(data.employeeCount, 10)
@@ -116,10 +165,40 @@ export function ApplicantForm({
 				});
 
 				if (!response.ok) {
-					throw new Error("Failed to create applicant");
+					const rawResponse = await response.text();
+					const payload = (
+						rawResponse
+							? (() => {
+									try {
+										return JSON.parse(rawResponse);
+									} catch {
+										return null;
+									}
+								})()
+							: null
+					) as { error?: string; details?: Record<string, string[] | undefined> } | null;
+					const detailMessage = payload?.details
+						? Object.values(payload.details)
+								.flatMap(value => value ?? [])
+								.filter(Boolean)
+								.join(" ")
+						: "";
+					const fallbackMessage = rawResponse
+						? rawResponse
+								.replace(/<[^>]+>/g, " ")
+								.replace(/\s+/g, " ")
+								.trim()
+						: "";
+					throw new Error(
+						payload?.error ||
+							detailMessage ||
+							fallbackMessage ||
+							`Failed to create applicant (${response.status})`
+					);
 				}
 
 				const responseData = await response.json();
+
 				if (responseData.applicant?.id) {
 					router.push(`/dashboard/applicants/${responseData.applicant.id}`);
 				} else {
@@ -129,6 +208,9 @@ export function ApplicantForm({
 			}
 		} catch (error) {
 			console.error("Error saving applicant:", error);
+			setSubmitError(
+				error instanceof Error ? error.message : "Failed to create applicant"
+			);
 		} finally {
 			setIsLoading(false);
 		}
@@ -152,6 +234,12 @@ export function ApplicantForm({
 						className="border-warning/50 text-warning-foreground hover:bg-warning">
 						Fill Test Data
 					</Button>
+				</div>
+			)}
+
+			{submitError && (
+				<div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-950/40 dark:text-red-200">
+					{submitError}
 				</div>
 			)}
 
@@ -182,11 +270,16 @@ export function ApplicantForm({
 									id="registrationNumber"
 									autoComplete={"registrationNumber"}
 									placeholder="e.g., 2024/123456/07"
+									maxLength={14}
 									{...register("registrationNumber")}
 									className={cn(
 										errors.registrationNumber ? "border-red-500" : "border-input-border"
 									)}
 								/>
+								<p className="text-xs text-muted-foreground">
+									Enter the South African CIPC number in the format YYYY/NNNNNN/07: 12
+									digits total, 14 characters including the slashes.
+								</p>
 								{errors.registrationNumber && (
 									<p className="text-xs text-red-500">
 										{errors.registrationNumber.message}
@@ -201,7 +294,10 @@ export function ApplicantForm({
 								name="entityType"
 								control={control}
 								render={({ field }) => (
-									<Select onValueChange={field.onChange} value={field.value}>
+									<Select
+										onValueChange={field.onChange}
+										value={field.value || effectiveEntityType}
+										disabled={isEntityTypeLocked}>
 										<SelectTrigger id="entityType" className="w-full">
 											<SelectValue placeholder="Select Entity Type" />
 										</SelectTrigger>
@@ -298,6 +394,12 @@ export function ApplicantForm({
 								</Select>
 							)}
 						/>
+						{isEntityTypeLocked && activeScenario && (
+							<p className="text-xs text-amber-600 dark:text-amber-300">
+								Locked to {lockedEntityType?.replaceAll("_", " ")} for the
+								{activeScenario.label} scenario.
+							</p>
+						)}
 					</div>
 				</GlassCard>
 			</div>
@@ -333,7 +435,7 @@ export function ApplicantForm({
 							)}
 						</div>
 
-						{entityType === "proprietor" && (
+						{effectiveEntityType === "proprietor" && (
 							<div className="space-y-2">
 								<Label htmlFor="idNumber">SA ID Number *</Label>
 								<Input
@@ -345,6 +447,9 @@ export function ApplicantForm({
 										errors.idNumber ? "border-red-500" : "border-input-border"
 									)}
 								/>
+								<p className="text-xs text-muted-foreground">
+									South African personal ID numbers must be exactly 13 digits.
+								</p>
 								{errors.idNumber && (
 									<p className="text-xs text-red-500">{errors.idNumber.message}</p>
 								)}

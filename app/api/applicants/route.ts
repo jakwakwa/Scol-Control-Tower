@@ -1,9 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants, workflows } from "@/db/schema";
-import { createApplicantSchema } from "@/lib/validations";
 import { inngest } from "@/inngest";
 import { requireAuth } from "@/lib/auth/api-auth";
+import { isMockEnvironmentEnabled } from "@/lib/mock-environment";
+import { buildPersistedMockScenario } from "@/lib/mock-scenario-state.server";
+import {
+	isMockScenarioId,
+	MOCK_SCENARIO_COOKIE_NAME,
+	mergeMockScenarioIntoMetadata,
+} from "@/lib/mock-scenarios";
+import { resolveBusinessType } from "@/lib/services/document-requirements.service";
+import { createApplicantSchema } from "@/lib/validations";
 
 /**
  * GET /api/applicants
@@ -68,6 +76,14 @@ export async function POST(request: NextRequest) {
 		}
 
 		const data = validation.data;
+		const requestedScenarioId = request.cookies.get(MOCK_SCENARIO_COOKIE_NAME)?.value;
+		const workflowMetadata =
+			isMockEnvironmentEnabled() && isMockScenarioId(requestedScenarioId)
+				? mergeMockScenarioIntoMetadata(
+						null,
+						buildPersistedMockScenario(requestedScenarioId)
+					)
+				: null;
 
 		// Insert the new applicant
 		const newApplicantResults = await db
@@ -75,14 +91,17 @@ export async function POST(request: NextRequest) {
 			.values([
 				{
 					companyName: data.companyName,
+					registrationNumber: data.registrationNumber?.trim() || null,
 					contactName: data.contactName,
 					email: data.email,
 					phone: data.phone,
 					idNumber: data.idNumber || null,
 					entityType: data.entityType,
+					businessType: resolveBusinessType(data.entityType),
 					productType: data.productType,
 					industry: data.industry,
 					employeeCount: data.employeeCount,
+					mandateType: data.mandateType ?? null,
 					estimatedTransactionsPerMonth:
 						data.estimatedTransactionsPerMonth != null
 							? Math.round(Number(data.estimatedTransactionsPerMonth))
@@ -107,7 +126,7 @@ export async function POST(request: NextRequest) {
 					applicantId: newApplicant.id,
 					stage: 1,
 					status: "pending",
-					// Removed fields not in schema: stageName, currentAgent
+					metadata: workflowMetadata,
 				},
 			])
 			.returning();

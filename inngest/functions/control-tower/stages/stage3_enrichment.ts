@@ -2,6 +2,8 @@ import { eq } from "drizzle-orm";
 import { getBaseUrl, getDatabaseClient } from "@/app/utils";
 import { applicants, documents, documentUploads } from "@/db/schema";
 import { WORKFLOW_TIMEOUTS } from "@/lib/constants/workflow-timeouts";
+import { isMockEnvironmentEnabled } from "@/lib/mock-environment";
+import { resolveWorkflowMockScenario } from "@/lib/mock-scenario-state.server";
 import {
 	type BatchValidationResult,
 	validateDocumentsBatch,
@@ -106,7 +108,7 @@ export async function executeStage3({
 		});
 
 		try {
-			const result = await runProcureCheck(applicantId);
+			const result = await runProcureCheck(applicantId, workflowId);
 
 			await logWorkflowEvent({
 				workflowId,
@@ -421,6 +423,9 @@ export async function executeStage3({
 
 	await step.run("check-fica-validation", async () => {
 		await guardKillSwitch(workflowId, "check-fica-validation");
+		const mockScenario = isMockEnvironmentEnabled()
+			? await resolveWorkflowMockScenario({ workflowId, applicantId })
+			: null;
 
 		const db = getDatabaseClient();
 		const [applicant] = db
@@ -469,6 +474,42 @@ export async function executeStage3({
 		if (aiDocuments.length === 0) {
 			await updateRiskCheckMachineState(workflowId, "FICA", "manual_required", {
 				errorDetails: "No documents available for automated FICA validation",
+			});
+			return;
+		}
+
+		if (mockScenario) {
+			const isRejected = mockScenario.definition.fica === "rejected";
+			await updateRiskCheckMachineState(
+				workflowId,
+				"FICA",
+				isRejected ? "manual_required" : "completed",
+				{
+					provider: "validation-agent-mock",
+					payload: {
+						summary: {
+							overallRecommendation: isRejected ? "STOP" : "PROCEED",
+							status: isRejected ? "manual_required" : "verified",
+						},
+						documentCount: aiDocuments.length,
+						scenarioId: mockScenario.persisted.id,
+					},
+					rawPayload: {
+						source: "mock-scenario",
+						scenarioId: mockScenario.persisted.id,
+					},
+				}
+			);
+
+			await logWorkflowEvent({
+				workflowId,
+				eventType: "fica_check_completed",
+				payload: {
+					documentCount: aiDocuments.length,
+					overallRecommendation: isRejected ? "STOP" : "PROCEED",
+					hasCriticalFailures: isRejected,
+					scenarioId: mockScenario.persisted.id,
+				},
 			});
 			return;
 		}

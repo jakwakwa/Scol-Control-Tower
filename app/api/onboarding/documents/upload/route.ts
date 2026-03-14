@@ -8,7 +8,18 @@ import { applicants, documentUploads, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import { isMockEnvironmentEnabled } from "@/lib/mock-environment";
 import { getMockFicaVerificationResult } from "@/lib/mock-integrations";
+import { resolveWorkflowMockScenario } from "@/lib/mock-scenario-state.server";
+import { sleepForMockDelay } from "@/lib/mock-scenarios";
 import { evaluateDocumentQuality } from "@/lib/services/document-quality.service";
+
+type DocumentVerificationStatus = "pending" | "verified" | "rejected" | "expired";
+
+interface MockVerificationResult {
+	verificationStatus: DocumentVerificationStatus;
+	verificationNotes?: string;
+	verifiedBy?: string;
+	verifiedAt?: Date;
+}
 
 /**
  * POST /api/onboarding/documents/upload
@@ -116,12 +127,34 @@ export async function POST(request: NextRequest) {
 						qualityWarnings: quality.warnings,
 					})
 				: metadata || undefined;
-		const mockVerification = isMockEnvironmentEnabled()
-			? getMockFicaVerificationResult({
+		const mockScenario = isMockEnvironmentEnabled()
+			? await resolveWorkflowMockScenario({
 					workflowId: workflowIdNum,
-					documentType,
-					fileName: file.name,
+					applicantId: workflow[0].applicantId,
 				})
+			: null;
+		if (mockScenario) {
+			await sleepForMockDelay(mockScenario.persisted.id, "fica");
+		}
+		const mockVerification: MockVerificationResult | null = isMockEnvironmentEnabled()
+			? mockScenario
+				? {
+						verificationStatus:
+							mockScenario.definition.fica === "rejected"
+								? "rejected"
+								: "verified",
+						verificationNotes:
+							mockScenario.definition.fica === "rejected"
+								? "Scenario forced FICA rejection for manual testing."
+								: "Scenario forced verified FICA result.",
+						verifiedBy: "fica_mock_service",
+						verifiedAt: new Date(),
+					}
+				: getMockFicaVerificationResult({
+						workflowId: workflowIdNum,
+						documentType,
+						fileName: file.name,
+				  })
 			: null;
 
 		const document = await db.transaction(async tx => {

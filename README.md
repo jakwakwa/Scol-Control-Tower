@@ -14,7 +14,7 @@
 ## Tech Stack
 
 | Area | Technologies |
-|------|--------------|
+| ----- | ------------ |
 | **Framework** | [Next.js 16](https://nextjs.org/) (App Router, Turbo) |
 | **Language** | [TypeScript](https://www.typescriptlang.org/) |
 | **Package manager** | [Bun](https://bun.sh/) (recommended) |
@@ -101,7 +101,7 @@
 ### Commands
 
 | Command | Description |
-|---------|-------------|
+| ------- | ----------- |
 | `bun dev` | Start Next.js dev server (Turbo) |
 | `bun run build` | Production build |
 | `bun run start` | Start production server |
@@ -189,6 +189,38 @@ Notes:
 - Atlas is useful for a manual-review amber path, not for automatic Green Lane eligibility.
 - Springvale is useful for a FICA pending / missing-documents path.
 - Redline combines several red-path checks in one workflow, so use it for ITC red, sanctions red, and rejected pre-risk, not for Green Lane.
+
+### Interactive Scenario Runner
+
+In mock mode, the app now exposes a floating scenario launcher in the bottom-right corner of the UI.
+
+Use it like this:
+
+1. Start the mock runtime with `bun run dev:mock-local`.
+2. Open the floating `Scenario` launcher or press `Cmd/Ctrl + K`.
+3. Choose one of the workflow scenarios.
+4. Create a new applicant normally from the dashboard.
+
+What happens next:
+
+- The selected scenario is copied into the new workflow metadata.
+- The mock scenario runner starts automatically for that workflow.
+- It replays the normal stage gates with simulated delays and deterministic outcomes.
+- External mock families change according to the selected scenario: pre-risk, ITC, sanctions, FICA, and the Stage 4 Green Lane path.
+
+Current interactive scenarios:
+
+| Scenario | Expected path |
+| -------- | ------------- |
+| Straight Through | Clean stage progression to Stage 6 completion. |
+| Green Lane | Clean path with a manual Green Lane bypass at Stage 4. |
+| Pre-Risk Approved | Stage 2 enters pre-risk review, then continues. |
+| Pre-Risk Rejected | Stage 2 enters pre-risk review and terminates there. |
+| ITC Red | Stage 3 returns a failed ITC result but continues to Risk Review. |
+| Sanctions Red | Stage 3 pauses on sanctions and the runner confirms the sanctions hit. |
+| FICA Red | Stage 3 forces a rejected FICA result for manual review. |
+
+Clear the active scenario from the launcher if you want to return to the original seeded-snapshot testing mode.
 
 ### GitHub MCP (Cursor)
 

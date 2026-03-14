@@ -5,6 +5,8 @@
 import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants } from "@/db/schema";
+import { resolveWorkflowMockScenario } from "@/lib/mock-scenario-state.server";
+import { sleepForMockDelay } from "@/lib/mock-scenarios";
 
 import { createTestVendor, getVendorResults } from "@/lib/procurecheck";
 
@@ -19,7 +21,10 @@ export interface RiskResult {
 /**
  * Perform Risk Analysis using ProcureCheck (Sandbox)
  */
-export async function analyzeRisk(applicantId: number): Promise<RiskResult> {
+export async function analyzeRisk(
+	applicantId: number,
+	workflowId?: number
+): Promise<RiskResult> {
 	// Fetch applicant data
 	const db = getDatabaseClient();
 	let applicantData = null;
@@ -40,6 +45,27 @@ export async function analyzeRisk(applicantId: number): Promise<RiskResult> {
 
 	if (!applicantData) {
 		throw new Error(`[RiskService] Applicant ${applicantId} not found`);
+	}
+
+	const mockScenario = workflowId
+		? await resolveWorkflowMockScenario({ workflowId, applicantId })
+		: null;
+
+	if (mockScenario) {
+		await sleepForMockDelay(mockScenario.persisted.id, "procurement");
+
+		return {
+			riskScore: 96,
+			anomalies: [],
+			recommendedAction: "APPROVE",
+			procureCheckId: `MOCK-PROC-${workflowId}`,
+			procureCheckData: {
+				source: "procurecheck-mock",
+				scenarioId: mockScenario.persisted.id,
+				status: "clear",
+				flags: [],
+			},
+		};
 	}
 
 	// 1. Initiate Check

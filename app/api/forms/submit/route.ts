@@ -161,6 +161,27 @@ export async function POST(request: NextRequest) {
 			),
 		});
 
+		// #region agent log
+		if (formType === "SIGNED_QUOTATION") {
+			fetch("http://127.0.0.1:7780/ingest/98dfdc88-9ae5-4eb0-9116-de47d99f4a27", {
+				method: "POST",
+				headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "fab3a7" },
+				body: JSON.stringify({
+					sessionId: "fab3a7",
+					location: "submit/route.ts:post-submit",
+					message: "SIGNED_QUOTATION form submitted",
+					data: {
+						formInstanceId: formInstance.id,
+						workflowId: formInstance.workflowId,
+						submissionId: submission?.id,
+						hypothesisId: "D",
+					},
+					timestamp: Date.now(),
+				}),
+			}).catch(() => {});
+		}
+		// #endregion
+
 		if (formInstance.workflowId) {
 			await logWorkflowEvent({
 				workflowId: formInstance.workflowId,

@@ -25,14 +25,18 @@ export const entityTypeEnum = z.enum([
 	"other",
 ]);
 
-export const productTypeEnum = z.enum([
-	"standard",
-	"premium_collections",
-	"call_centre",
+export const productTypeEnum = z.enum(["standard", "premium_collections", "call_centre"]);
+
+export const mandateTypeEnum = z.enum([
+	"debit_order",
+	"eft_collection",
+	"realtime_clearing",
+	"managed_collection",
 ]);
 
-export const createApplicantSchema = z.object({
+const applicantSchemaBase = z.object({
 	companyName: z.string().min(2, "Company name must be at least 2 characters"),
+	registrationNumber: z.string().trim().optional(),
 	contactName: z.string().min(2, "Contact name must be at least 2 characters"),
 	email: z.string().email("Invalid email address"),
 	phone: z.string().optional(),
@@ -46,10 +50,32 @@ export const createApplicantSchema = z.object({
 	industry: z.string().optional(),
 	employeeCount: z.number().int().positive().optional(),
 	estimatedTransactionsPerMonth: z.coerce.number().int().min(0).optional(),
+	mandateType: mandateTypeEnum.optional(),
 	notes: z.string().optional(),
 });
 
-export const updateApplicantSchema = createApplicantSchema.partial().extend({
+export const createApplicantSchema = applicantSchemaBase.superRefine((data, ctx) => {
+	if (data.entityType === "proprietor") {
+		if (!data.idNumber) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "ID number is required for Proprietors",
+				path: ["idNumber"],
+			});
+		}
+		return;
+	}
+
+	if (!data.registrationNumber?.trim()) {
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			message: "Registration number is required for Companies",
+			path: ["registrationNumber"],
+		});
+	}
+});
+
+export const updateApplicantSchema = applicantSchemaBase.partial().extend({
 	status: applicantStatusEnum.optional(),
 });
 

@@ -54,7 +54,8 @@ const PIPELINE_STAGES = [
 		id: "quote_review",
 		stageNumber: 1,
 		title: "Lead Capture",
-		color: "bg-cyan-950/30 border-cyan-800",
+		textColor: "text-violet-300",
+		color: "bg-stone-950/30 border-stone-800",
 		icon: RiUserLine,
 		shortTitle: "Lead",
 	},
@@ -62,7 +63,8 @@ const PIPELINE_STAGES = [
 		id: "mandate_collection",
 		stageNumber: 2,
 		title: "Facility & Quote",
-		color: "bg-indigo-950/20 border-indigo-800",
+		textColor: "text-amber-400",
+		color: "bg-amber-950/20 border-amber-800",
 		icon: RiEditLine,
 		shortTitle: "Facility",
 	},
@@ -70,7 +72,9 @@ const PIPELINE_STAGES = [
 		id: "procurement_ai",
 		stageNumber: 3,
 		title: "Procurement & AI",
-		color: "bg-amber-950/20 border-amber-800",
+		textColor: "text-pink-500",
+
+		color: "bg-pink-950/20 border-pink-800",
 		icon: RiFileTextLine,
 		shortTitle: "Parallel",
 	},
@@ -78,6 +82,8 @@ const PIPELINE_STAGES = [
 		id: "risk_review",
 		stageNumber: 4,
 		title: "Risk Review",
+		textColor: "text-red-400",
+
 		color: "bg-red-950/20 border-red-800",
 		icon: RiRobot2Line,
 		shortTitle: "Review",
@@ -86,13 +92,15 @@ const PIPELINE_STAGES = [
 		id: "contract",
 		stageNumber: 5,
 		title: "Contract",
-		color: "bg-teal-800/10 border-teal-800",
+		textColor: "text-violet-400",
+		color: "bg-violet-800/10 border-violet-800",
 		icon: RiContractLine,
 		shortTitle: "Contract",
 	},
 	{
 		id: "final_approval",
 		stageNumber: 6,
+		textColor: "text-emerald-400",
 		title: "Final Approval",
 		color: "bg-emerald-500/5 border-emerald-500/70",
 		icon: RiCheckboxCircleLine,
@@ -176,21 +184,25 @@ export function PipelineView({ workflows }: { workflows: PipelineWorkflow[] }) {
 	);
 
 	return (
-		<div className="h-full overflow-x-auto  dotted-grid-container rounded-4xl border border-sidebar-border  m-0 shadow-[inset_-10px_-1px_10px_rgba(0,0,0,0.12)] bg-linear-to-br from-zinc-900 from-0% via-zinc-900/80 via-60% to-amber-950/10 to-95%">
+		<div className="h-screen overflow-x-auto overflow-y-hidden rounded-4xl border border-sidebar-border  m-0 shadow-[inset_-10px_-1px_10px_rgba(0,0,0,0.12)] bg-linear-to-br from-zinc-900 from-0% via-zinc-900/80 via-60% to-amber-950/10 to-95%">
 			{/* 6-column layout with reduced gaps for smaller screens */}
-			<div className="flex gap-3 min-w-[1400px] dotted-grid p-3">
+			<div className="flex gap-8 mx-4 min-w-[1600px] dotted-grid p-3">
 				{PIPELINE_STAGES.map(stage => (
 					<div
 						key={stage.id + 11}
-						className={`flex-1 min-w-[180px] max-w-[240px] flex flex-col gap-3`}>
+						className={`flex-1 min-w-[180px] max-w-[240px] flex flex-col mt-4 ml-0 border border-white/10 rounded-t-xl backdrop-blur-[1.5px] bg-stone-200/05 gap-1`}>
 						<div
 							className={cn(
-								`flex items-center glass-card after:rounded-2xl before:rounded-2xl backdrop-blur-xs justify-between p-4 rounded-xl shadow-sm border-t-[1.5px] border-t-${stage.color} min-h-[70px]`,
+								`flex items-center mb-2 after:rounded-2xl before:rounded-2xl backdrop-blur-lg justify-between p-4 rounded-xl shadow-black shadow-lg border-t-[1.5px] border-t-${stage.color} min-h-[70px]`,
 								stage.color
 							)}>
 							<div className="flex items-center gap-2">
-								<stage.icon className="h-5 w-5 outline-0  border-none text-muted-foreground" />
-								<h3 className="font-bold text-xs text-foreground">{stage.title}</h3>
+								<stage.icon
+									className={`h-5 w-5 ${stage.textColor} outline-0  border-none `}
+								/>
+								<h3 className={`font-semibold text-sm ${stage.textColor} leading-tight`}>
+									{stage.title}
+								</h3>
 							</div>
 							<span className="flex h-6 w-6 items-center justify-center rounded-full  text-xs font-bold text-muted-foreground border border-sidebar-border">
 								{columns[stage.id]?.length || 0}

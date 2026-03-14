@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { DM_Sans, Inter } from "next/font/google";
 
 import "./globals.css";
+import { MockScenarioOverlay } from "@/components/mock/mock-scenario-overlay";
+import { isMockEnvironmentEnabled } from "@/lib/mock-environment";
 
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -23,10 +25,13 @@ export default function RootLayout({
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
+	const isMockEnvironment = isMockEnvironmentEnabled();
+
 	return (
 		<ClerkProvider>
 			<html lang="en" className={dmSans.variable} suppressHydrationWarning>
 				<body
+					data-mock-environment={isMockEnvironment ? "true" : "false"}
 					className={`bg-background  overscroll-none  ${inter.className} override-padding-reset`}
 					suppressHydrationWarning>
 					{process.env.NEXT_PUBLIC_VERCEL_ENV === "preview" && (
@@ -34,6 +39,9 @@ export default function RootLayout({
 							UAT SANDBOX — DO NOT ENTER REAL APPLICANT DATA OR PII
 						</div>
 					)}
+					<MockScenarioOverlay
+						hasPreviewBanner={process.env.NEXT_PUBLIC_VERCEL_ENV === "preview"}
+					/>
 					{children}
 				</body>
 			</html>
