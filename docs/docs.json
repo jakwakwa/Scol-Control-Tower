@@ -3,9 +3,9 @@
   "theme": "linden",
   "name": "StratCol Control Tower Docs",
   "colors": {
-    "primary": "#b79e76",
-    "light": "#857c6e",
-    "dark": "#a48e2d"
+    "primary": "#b67f1f",
+    "light": "#e0af46",
+    "dark": "#9427a9"
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -123,8 +123,8 @@
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "label": "Preview App",
+        "href": "https://preview.podzist.com"
       }
     ],
     "primary": {
@@ -154,15 +154,39 @@
   },
   "background": {
     "color": {
-      "light": "#c8a16d",
-      "dark": "#1b170e"
+      "light": "#ededf5",
+      "dark": "#38210c"
     },
-    "decoration": "gradient"
+    "decoration": "grid"
   },
   "appearance": {
     "default": "dark"
   },
   "fonts": {
-    "family": "Inter"
+    "family": "Poppins",
+    "weight": 500,
+    "heading": {
+      "family": "Lato",
+      "weight": 600
+    },
+    "body": {
+      "family": "Merriweather",
+      "weight": 400
+    }
+  },
+  "banner": {
+    "content": "V.0.5.2.alpha",
+    "dismissible": true
+  },
+  "api": {
+    "playground": {
+      "display": "auth"
+    }
+  },
+  "interaction": {
+    "drilldown": true
+  },
+  "icons": {
+    "library": "tabler"
   }
 }
