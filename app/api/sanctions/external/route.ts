@@ -7,6 +7,7 @@ import { logWorkflowEvent } from "@/lib/services/notification-events.service";
 import { updateRiskCheckMachineState } from "@/lib/services/risk-check.service";
 import {
 	ExternalSanctionsIngressSchema,
+	ExternalSanctionsIngressCompatSchema,
 	type SanctionsProvider,
 } from "@/lib/validations/control-tower/onboarding-schemas";
 import { validatePerimeter } from "@/lib/validations/control-tower/perimeter-validation";
@@ -32,13 +33,41 @@ export async function POST(request: NextRequest) {
 			eventName: "sanctions/external.received",
 			sourceSystem: "sanctions-ingress",
 			terminationReason: "VALIDATION_ERROR_SANCTIONS",
+			compatibilitySchema: ExternalSanctionsIngressCompatSchema,
 		});
 
+		// Handle validation warnings (warn mode)
+		if (perimeterResult.ok && "warning" in perimeterResult) {
+			const { warning } = perimeterResult;
+			console.warn("[SanctionsIngress] Perimeter validation warning", {
+				failedPaths: warning.failedPaths,
+				messages: warning.messages,
+				mode: "warn",
+			});
+
+			if (perimeterResult.data.workflowId > 0) {
+				await logWorkflowEvent({
+					workflowId: perimeterResult.data.workflowId,
+					eventType: "warning",
+					payload: {
+						context: "sanctions_ingress_validation_warning",
+						eventName: warning.eventName,
+						sourceSystem: warning.sourceSystem,
+						failedPaths: warning.failedPaths,
+						messages: warning.messages,
+						validationMode: "warn",
+					},
+				});
+			}
+		}
+
+		// Handle validation failures (strict mode)
 		if (!perimeterResult.ok) {
 			const failure = perimeterResult.failure;
 			console.error("[SanctionsIngress] Perimeter validation failed", {
 				failedPaths: failure.failedPaths,
 				messages: failure.messages,
+				mode: failure.validationMode,
 			});
 
 			if (failure.workflowId > 0) {
@@ -51,6 +80,7 @@ export async function POST(request: NextRequest) {
 						sourceSystem: failure.sourceSystem,
 						failedPaths: failure.failedPaths,
 						messages: failure.messages,
+						validationMode: failure.validationMode,
 					},
 				});
 			}
@@ -60,6 +90,7 @@ export async function POST(request: NextRequest) {
 					error: "Validation failed",
 					failedPaths: failure.failedPaths,
 					messages: failure.messages,
+					validationMode: failure.validationMode,
 				},
 				{ status: 400 }
 			);

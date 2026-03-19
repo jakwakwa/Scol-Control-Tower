@@ -28,7 +28,10 @@ import { executeKillSwitch } from "@/lib/services/kill-switch.service";
 import { logWorkflowEvent } from "@/lib/services/notification-events.service";
 import { terminateRun } from "@/lib/services/terminate-run.service";
 import { ensureRiskChecksExist } from "@/lib/services/risk-check.service";
-import { LeadCreatedSchema } from "@/lib/validations/control-tower/onboarding-schemas";
+import { 
+	LeadCreatedSchema, 
+	LeadCreatedCompatSchema 
+} from "@/lib/validations/control-tower/onboarding-schemas";
 import { validatePerimeter } from "@/lib/validations/control-tower/perimeter-validation";
 import { inngest } from "../client";
 
@@ -64,14 +67,43 @@ export const controlTowerWorkflow = inngest.createFunction(
 			eventName: "onboarding/lead.created",
 			sourceSystem: "control-tower",
 			terminationReason: "VALIDATION_ERROR_INGEST",
+			compatibilitySchema: LeadCreatedCompatSchema,
 		});
 
+		// Handle validation warnings (warn mode)
+		if (perimeterResult.ok && "warning" in perimeterResult) {
+			const { warning } = perimeterResult;
+			console.warn("[ControlTower] Perimeter validation warning", {
+				event: warning.eventName,
+				failedPaths: warning.failedPaths,
+				messages: warning.messages,
+				mode: "warn",
+			});
+
+			await step.run("validation-warning-log", async () => {
+				await logWorkflowEvent({
+					workflowId: perimeterResult.data.workflowId,
+					eventType: "warning",
+					payload: {
+						context: "perimeter_validation_warning",
+						eventName: warning.eventName,
+						sourceSystem: warning.sourceSystem,
+						failedPaths: warning.failedPaths,
+						messages: warning.messages,
+						validationMode: "warn",
+					},
+				});
+			});
+		}
+
+		// Handle validation failures (strict mode)
 		if (!perimeterResult.ok) {
 			const { failure } = perimeterResult;
 			console.error("[ControlTower] Perimeter validation failed", {
 				event: failure.eventName,
 				failedPaths: failure.failedPaths,
 				messages: failure.messages,
+				mode: failure.validationMode,
 			});
 
 			await step.run("validation-failed-terminate", async () => {
@@ -84,6 +116,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 						sourceSystem: failure.sourceSystem,
 						failedPaths: failure.failedPaths,
 						messages: failure.messages,
+						validationMode: failure.validationMode,
 					},
 				});
 
