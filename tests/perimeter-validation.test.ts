@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, beforeEach, afterEach } from "bun:test";
 import { z } from "zod";
 import { validatePerimeter } from "../lib/validations/control-tower/perimeter-validation";
 
@@ -9,6 +9,20 @@ const TestSchema = z.object({
 });
 
 describe("validatePerimeter", () => {
+	beforeEach(() => {
+		// Reset environment for each test
+		process.env.ENFORCE_STRICT_SCHEMAS = undefined;
+		process.env.PERIMETER_VALIDATION_OVERRIDES = undefined;
+		process.env.PERIMETER_TELEMETRY_ENABLED = undefined;
+	});
+
+	afterEach(() => {
+		// Clean up environment after each test
+		process.env.ENFORCE_STRICT_SCHEMAS = undefined;
+		process.env.PERIMETER_VALIDATION_OVERRIDES = undefined;
+		process.env.PERIMETER_TELEMETRY_ENABLED = undefined;
+	});
+
 	it("should return ok:true with parsed data on valid input", () => {
 		const result = validatePerimeter({
 			schema: TestSchema,
@@ -23,6 +37,7 @@ describe("validatePerimeter", () => {
 			expect(result.data.workflowId).toBe(1);
 			expect(result.data.applicantId).toBe(2);
 			expect(result.data.name).toBe("Test");
+			expect(result.validationMode).toBe("strict"); // Default mode
 		}
 	});
 
@@ -42,6 +57,7 @@ describe("validatePerimeter", () => {
 			expect(result.failure.terminationReason).toBe("VALIDATION_ERROR_INGEST");
 			expect(result.failure.failedPaths.length).toBeGreaterThan(0);
 			expect(result.failure.messages.length).toBeGreaterThan(0);
+			expect(result.failure.validationMode).toBe("strict"); // Default mode
 		}
 	});
 
