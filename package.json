@@ -19,7 +19,8 @@
 		"dev:all": "./setup-dev.sh",
 		"lint": "biome lint .",
 		"lint:fix": "biome lint --write .",
-		"docs:dev": "cd docs && bun install && bun run dev"
+		"docs:install": "bun --cwd docs install",
+		"docs:dev": "bun --cwd docs run dev"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.2.0",
