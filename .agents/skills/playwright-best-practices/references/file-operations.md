@@ -77,6 +77,8 @@ test("verify CSV content", async ({ page }, testInfo) => {
 ### Multiple Downloads
 
 ```typescript
+import type { Download } from "@playwright/test";
+
 test("download multiple files", async ({ page }) => {
   await page.goto("/batch-export");
 
