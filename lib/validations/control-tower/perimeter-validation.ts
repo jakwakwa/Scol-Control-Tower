@@ -64,7 +64,7 @@ interface ValidatePerimeterInput<T> {
 	eventName: string;
 	sourceSystem: string;
 	terminationReason: KillSwitchReason;
-	compatibilitySchema?: z.ZodType<T>;
+	compatibilitySchema?: z.ZodType<any>;
 }
 
 export function validatePerimeter<T>({
@@ -84,7 +84,7 @@ export function validatePerimeter<T>({
 	// Disabled mode - skip validation entirely
 	if (validationMode === "disabled") {
 		// Use compatibility schema if available, otherwise passthrough
-		const fallbackSchema = compatibilitySchema || schema.passthrough();
+		const fallbackSchema = compatibilitySchema || (schema as any).passthrough();
 		const result = fallbackSchema.safeParse(data);
 		
 		if (result.success) {
@@ -170,7 +170,7 @@ export function validatePerimeter<T>({
 
 	// In warn mode without compatibility schema, use passthrough
 	if (validationMode === "warn") {
-		const passthroughResult = schema.passthrough().safeParse(data);
+		const passthroughResult = (schema as any).passthrough().safeParse(data);
 		
 		if (passthroughResult.success) {
 			return {

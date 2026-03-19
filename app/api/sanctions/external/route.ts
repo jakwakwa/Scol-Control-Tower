@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
 			if (perimeterResult.data.workflowId > 0) {
 				await logWorkflowEvent({
 					workflowId: perimeterResult.data.workflowId,
-					eventType: "warning",
+					eventType: "validation_completed",
 					payload: {
 						context: "sanctions_ingress_validation_warning",
 						eventName: warning.eventName,
@@ -56,13 +56,14 @@ export async function POST(request: NextRequest) {
 						failedPaths: warning.failedPaths,
 						messages: warning.messages,
 						validationMode: "warn",
+						status: "warning",
 					},
 				});
 			}
 		}
 
 		// Handle validation failures (strict mode)
-		if (!perimeterResult.ok) {
+		if (!perimeterResult.ok && "failure" in perimeterResult) {
 			const failure = perimeterResult.failure;
 			console.error("[SanctionsIngress] Perimeter validation failed", {
 				failedPaths: failure.failedPaths,

@@ -83,7 +83,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 			await step.run("validation-warning-log", async () => {
 				await logWorkflowEvent({
 					workflowId: perimeterResult.data.workflowId,
-					eventType: "warning",
+					eventType: "validation_completed",
 					payload: {
 						context: "perimeter_validation_warning",
 						eventName: warning.eventName,
@@ -91,13 +91,14 @@ export const controlTowerWorkflow = inngest.createFunction(
 						failedPaths: warning.failedPaths,
 						messages: warning.messages,
 						validationMode: "warn",
+						status: "warning",
 					},
 				});
 			});
 		}
 
 		// Handle validation failures (strict mode)
-		if (!perimeterResult.ok) {
+		if (!perimeterResult.ok && "failure" in perimeterResult) {
 			const { failure } = perimeterResult;
 			console.error("[ControlTower] Perimeter validation failed", {
 				event: failure.eventName,
