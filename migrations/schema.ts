@@ -1,4 +1,4 @@
-import { sqliteTable, AnySQLiteColumn, foreignKey, integer, text, uniqueIndex, index } from "drizzle-orm/sqlite-core"
+import { sqliteTable, foreignKey, integer, text, uniqueIndex, index } from "drizzle-orm/sqlite-core"
   import { sql } from "drizzle-orm"
 
 export const activityLogs = sqliteTable("activity_logs", {
@@ -7,7 +7,7 @@ export const activityLogs = sqliteTable("activity_logs", {
 	action: text().notNull(),
 	description: text().notNull(),
 	performedBy: text("performed_by"),
-	createdAt: integer("created_at").default(\"2026-03-19T19:14:22.815Z\"),
+	createdAt: integer("created_at").default(1773947662815),
 });
 
 export const xtCallbacks = sqliteTable("xt_callbacks", {
@@ -72,7 +72,7 @@ export const aiFeedbackLogs = sqliteTable("ai_feedback_logs", {
 	decidedBy: text("decided_by").notNull(),
 	decidedAt: integer("decided_at").notNull(),
 	relatedFailureEventId: integer("related_failure_event_id").references(() => workflowEvents.id),
-	consumedForRetraining: integer("consumed_for_retraining").default(false),
+	consumedForRetraining: integer("consumed_for_retraining", { mode: "boolean" }).default(false),
 	consumedAt: integer("consumed_at"),
 });
 
@@ -134,7 +134,7 @@ export const applicants = sqliteTable("applicants", {
 	itcStatus: text("itc_status"),
 	escalationTier: integer("escalation_tier").default(1),
 	salvageDeadline: integer("salvage_deadline"),
-	isSalvaged: integer("is_salvaged").default(false),
+	isSalvaged: integer("is_salvaged", { mode: "boolean" }).default(false),
 	sanctionStatus: text("sanction_status").default("clear"),
 	accountExecutive: text("account_executive"),
 	notes: text(),
@@ -205,7 +205,7 @@ export const internalSubmissions = sqliteTable("internal_submissions", {
 	internalFormId: integer("internal_form_id").notNull().references(() => internalForms.id),
 	version: integer().default(1).notNull(),
 	formData: text("form_data").notNull(),
-	isDraft: integer("is_draft").default(true).notNull(),
+	isDraft: integer("is_draft", { mode: "boolean" }).default(true).notNull(),
 	submittedBy: text("submitted_by"),
 	createdAt: integer("created_at").notNull(),
 });
@@ -216,9 +216,9 @@ export const notifications = sqliteTable("notifications", {
 	applicantId: integer("applicant_id").references(() => applicants.id),
 	type: text().notNull(),
 	message: text().notNull(),
-	read: integer().default(false),
+	read: integer({ mode: "boolean" }).default(false),
 	createdAt: integer("created_at"),
-	actionable: integer().default(false),
+	actionable: integer({ mode: "boolean" }).default(false),
 	severity: text().default("medium"),
 	groupKey: text("group_key"),
 });
@@ -267,7 +267,7 @@ export const riskAssessments = sqliteTable("risk_assessments", {
 	reviewedBy: text("reviewed_by"),
 	reviewedAt: integer("reviewed_at"),
 	notes: text(),
-	createdAt: integer("created_at").default(\"2026-03-19T19:14:22.815Z\"),
+	createdAt: integer("created_at").default(1773947662815),
 });
 
 export const riskCheckResults = sqliteTable("risk_check_results", {
@@ -319,7 +319,7 @@ export const signatures = sqliteTable("signatures", {
 export const todos = sqliteTable("todos", {
 	id: integer().primaryKey({ autoIncrement: true }).notNull(),
 	description: text().notNull(),
-	completed: integer().default(false).notNull(),
+	completed: integer({ mode: "boolean" }).default(false).notNull(),
 });
 
 export const workflowEvents = sqliteTable("workflow_events", {
