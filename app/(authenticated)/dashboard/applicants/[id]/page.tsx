@@ -22,6 +22,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardLayout, GlassCard } from "@/components/dashboard";
+import GreenLanePassCard from "@/components/dashboard/applicants/green-lane-pass-card";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -34,6 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { RiskBadge, StageBadge, StatusBadge } from "@/components/ui/status-badge";
@@ -41,8 +43,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { retryFacilitySubmission } from "@/lib/actions/workflow.actions";
 import { buildAgreementPreviewEntries } from "@/lib/utils/agreement-defaults";
-import { Card } from "@/components/ui/card";
-import GreenLanePassCard from "@/components/dashboard/applicants/green-lane-pass-card";
 
 interface ApplicantDetail {
 	id: number;
@@ -525,7 +525,9 @@ export default function ApplicantDetailPage() {
 			const json = await res.json();
 			if (!res.ok) throw new Error(json.error || "Approval failed");
 			const label = role === "risk_manager" ? "Risk Manager" : "Account Manager";
-			setApprovalMessage(`${label} approval recorded.${json.bothApproved ? " Both approvals complete." : ""}`);
+			setApprovalMessage(
+				`${label} approval recorded.${json.bothApproved ? " Both approvals complete." : ""}`
+			);
 			await refreshApplicantData();
 		} catch (err) {
 			setApprovalMessage(err instanceof Error ? err.message : "Approval failed");
@@ -745,19 +747,18 @@ export default function ApplicantDetailPage() {
 				title={client.companyName}
 				description={`Registration: ${client.registrationNumber || "N/A"}`}
 				actions={
-					<div className="flex gap-2">
-
-					{workflowStage === 5 ? (
-						<Link href={`/dashboard/applicants/${id}/contract`}>
-							<Button size="sm" variant="outline">
+					<div className="flex gap-0">
+						{workflowStage === 5 ? (
+							<Link href={`/dashboard/applicants/${id}/contract`}>
+								<Button size="sm" variant="outline">
+									Contract Review
+								</Button>
+							</Link>
+						) : (
+							<Button size="sm" variant="outline" disabled>
 								Contract Review
 							</Button>
-						</Link>
-					) : (
-						<Button size="sm" variant="outline" disabled>
-							Contract Review
-						</Button>
-					)}
+						)}
 						<Button
 							size="sm"
 							className="bg-action hover:bg-action/85"
@@ -774,7 +775,7 @@ export default function ApplicantDetailPage() {
 						</Button>
 					</div>
 				}>
-				<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+				<div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
 					{/* Left Sidebar: Quick Stats & status */}
 					<div className="space-y-6">
 						<GlassCard className="space-y-6">
@@ -876,9 +877,9 @@ export default function ApplicantDetailPage() {
 					</div>
 
 					{/* Main Content Area */}
-					<div className="lg:col-span-2 rounded-xl overflow-hidden">
+					<div className="lg:col-span-3 rounded-xl overflow-hidden">
 						<Tabs defaultValue={defaultTab} className="w-full ">
-							<TabsList className="mb-0 bg-primary/40 w-full justify-start border-b border-border/40 rounded-b-none rounded-t-xl h-auto p-0 gap-2">
+							<TabsList className="mb-0 bg-black/30  w-full justify-start border-b m-0 border-border/40 rounded-b-none rounded-t-xl h-auto p-0 gap-0">
 								<TabsTrigger
 									value="overview"
 									className="rounded-b-none border-b-2 border-none outline-0 shadow-none px-4 py-3">
@@ -965,7 +966,7 @@ export default function ApplicantDetailPage() {
 									</div>
 									{workflow ? (
 										<div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-3">
-											<div className="p-3 rounded-lg bg-secondary/10 border border-border/40">
+											<div className="p-3 rounded-lg bg-black/20     border border-border/40">
 												<p className="text-xs uppercase text-muted-foreground font-bold">
 													Sales Evaluation
 												</p>
@@ -978,7 +979,7 @@ export default function ApplicantDetailPage() {
 													</p>
 												) : null}
 											</div>
-											<div className="p-3 rounded-lg bg-secondary/10 border border-border/40">
+											<div className="p-3 rounded-lg bg-black/20     border border-border/40">
 												<p className="text-xs uppercase text-muted-foreground font-bold">
 													Pre-risk Path
 												</p>
@@ -993,7 +994,7 @@ export default function ApplicantDetailPage() {
 													</p>
 												) : null}
 											</div>
-											<div className="p-3 rounded-lg bg-secondary/10 border border-border/40">
+											<div className="p-3 rounded-lg bg-black/20     border border-border/40">
 												<p className="text-xs uppercase text-muted-foreground font-bold">
 													Sanctions Check
 												</p>
@@ -1012,7 +1013,7 @@ export default function ApplicantDetailPage() {
 													</p>
 												)}
 											</div>
-											<div className="p-3 rounded-lg bg-secondary/10 border border-border/40 md:col-span-2">
+											<div className="p-3 rounded-lg bg-black/20     border border-border/40 md:col-span-2">
 												<p className="text-xs uppercase text-muted-foreground font-bold">
 													Applicant Decision
 												</p>
@@ -1420,7 +1421,7 @@ export default function ApplicantDetailPage() {
 											applicant,
 											applicantSubmissions
 										);
-										return previewEntries.length > 0 ? (
+										return previewEntries.length > 0 && workflow?.stage > 4 ? (
 											<GlassCard className="mb-6">
 												<h3 className="font-bold text-lg mb-4">Contract Preview</h3>
 												<p className="text-sm text-muted-foreground mb-4">
@@ -1431,7 +1432,9 @@ export default function ApplicantDetailPage() {
 														<Card
 															key={label}
 															className="flex flex-col px-4 py-2 justify-start gap-0.5 rounded-lg border border-border/60 rounded-sm mb-0">
-															<span className="capitalize text-xs text-muted-foreground font-medium">{label}</span>
+															<span className="capitalize text-xs text-muted-foreground font-medium">
+																{label}
+															</span>
 															<span className="font-light  font-mono text-sm capitalize font-sans my-1 text-muted-foreground/80">
 																{value}
 															</span>
@@ -1441,67 +1444,6 @@ export default function ApplicantDetailPage() {
 											</GlassCard>
 										) : null;
 									})()}
-
-									{/* Contract Review (Stage 5) */}
-									<GlassCard className="mb-6 border-l-4 border-l-amber-500">
-										<h4 className="text-sm font-bold uppercase text-muted-foreground mb-2">
-											Contract Draft Review
-										</h4>
-										<p className="text-sm text-muted-foreground mb-4">
-											Confirm that the contract draft has been reviewed and is ready to send to the client.
-										</p>
-										<Button
-											onClick={handleContractReviewed}
-											disabled={contractReviewLoading}
-											className="gap-2 bg-amber-600 hover:bg-amber-700">
-											{contractReviewLoading ? (
-												<RiLoader4Line className="h-4 w-4 animate-spin" />
-											) : (
-												<RiFileTextLine className="h-4 w-4" />
-											)}
-											Mark Contract Reviewed
-										</Button>
-										{contractReviewMessage && (
-											<p className="mt-3 text-sm text-amber-700">{contractReviewMessage}</p>
-										)}
-									</GlassCard>
-
-									{/* Two-Factor Approval (Stage 6) */}
-									<GlassCard className="mb-6 border-l-4 border-l-blue-500">
-										<h4 className="text-sm font-bold uppercase text-muted-foreground mb-2">
-											Two-Factor Final Approval
-										</h4>
-										<p className="text-sm text-muted-foreground mb-4">
-											Both Risk Manager and Account Manager must approve to complete onboarding.
-										</p>
-										<div className="flex flex-wrap gap-3">
-											<Button
-												onClick={() => handleTwoFactorApproval("risk_manager")}
-												disabled={approvalLoading !== null}
-												className="gap-2 bg-teal-600 hover:bg-teal-700">
-												{approvalLoading === "risk_manager" ? (
-													<RiLoader4Line className="h-4 w-4 animate-spin" />
-												) : (
-													<RiShieldCheckLine className="h-4 w-4" />
-												)}
-												RM Approve
-											</Button>
-											<Button
-												onClick={() => handleTwoFactorApproval("account_manager")}
-												disabled={approvalLoading !== null}
-												className="gap-2 bg-blue-600 hover:bg-blue-700">
-												{approvalLoading === "account_manager" ? (
-													<RiLoader4Line className="h-4 w-4 animate-spin" />
-												) : (
-													<RiCheckLine className="h-4 w-4" />
-												)}
-												AM Approve
-											</Button>
-										</div>
-										{approvalMessage && (
-											<p className="mt-3 text-sm text-amber-700">{approvalMessage}</p>
-										)}
-									</GlassCard>
 
 									<div className="flex items-center justify-between">
 										<h3 className="font-bold text-slate-300 text-xl mt-4 pt-0 pl-4">
@@ -1518,6 +1460,7 @@ export default function ApplicantDetailPage() {
 											</Button>
 										)}
 									</div>
+
 									{workflow?.preRiskRequired ? (
 										<GlassCard className="border-l-4 border-l-amber-500">
 											<div className="space-y-4">
@@ -1557,7 +1500,7 @@ export default function ApplicantDetailPage() {
 														<div className="flex flex-wrap gap-2">
 															<Button
 																variant="secondary"
-																className="gap-2 bg-teal-600 hover:bg-teal-700"
+																className="gap-2 bg-emerald-700 text-emerald-200 font-bold hover:bg-teal-700"
 																onClick={() => handlePreRiskDecision("APPROVED")}
 																disabled={preRiskActionLoading !== null}>
 																{preRiskActionLoading === "approve" ? (
@@ -1650,7 +1593,7 @@ export default function ApplicantDetailPage() {
 											<Separator className="mb-4" />
 
 											<div className="grid grid-cols-2 gap-4 mb-6">
-												<div className="p-3 rounded-lg bg-secondary/10 border border-border/40">
+												<div className="p-3 rounded-lg bg-black/20     border border-border/40">
 													<p className="text-xs text-muted-foreground mb-1">
 														Base Fee (bps)
 													</p>
@@ -1667,7 +1610,7 @@ export default function ApplicantDetailPage() {
 														</p>
 													)}
 												</div>
-												<div className="p-3 rounded-lg bg-secondary/10 border border-border/40">
+												<div className="p-3 rounded-lg bg-black/20     border border-border/40">
 													<p className="text-xs text-muted-foreground mb-1">
 														Adjusted Fee (bps)
 													</p>
@@ -1887,14 +1830,82 @@ export default function ApplicantDetailPage() {
 											</div>
 										</GlassCard>
 									)}
+									{workflow?.stage > 4 ? (
+										<GlassCard className="mb-6 border-l-4 border-l-blue-500">
+											<h4 className="text-sm font-bold uppercase text-muted-foreground mb-2">
+												Two-Factor Final Approval
+											</h4>
+											<p className="text-sm text-muted-foreground mb-4">
+												Both Risk Manager and Account Manager must approve to complete
+												onboarding.
+											</p>
+											<div className="flex flex-wrap gap-3">
+												<Button
+													onClick={() => handleTwoFactorApproval("risk_manager")}
+													disabled={approvalLoading !== null}
+													className="gap-2 bg-teal-600 hover:bg-teal-700">
+													{approvalLoading === "risk_manager" ? (
+														<RiLoader4Line className="h-4 w-4 animate-spin" />
+													) : (
+														<RiShieldCheckLine className="h-4 w-4" />
+													)}
+													RM Approve
+												</Button>
+												<Button
+													onClick={() => handleTwoFactorApproval("account_manager")}
+													disabled={approvalLoading !== null}
+													className="gap-2 bg-blue-600 hover:bg-blue-700">
+													{approvalLoading === "account_manager" ? (
+														<RiLoader4Line className="h-4 w-4 animate-spin" />
+													) : (
+														<RiCheckLine className="h-4 w-4" />
+													)}
+													AM Approve
+												</Button>
+											</div>
+											{approvalMessage && (
+												<p className="mt-3 text-sm text-amber-700">{approvalMessage}</p>
+											)}
+										</GlassCard>
+									) : null}
+									{workflow?.stage > 5 && (
+										<GlassCard className="mb-6 border-l-4 border-l-amber-500">
+											<h4 className="text-sm font-bold uppercase text-muted-foreground mb-2">
+												Contract Draft Review
+											</h4>
+
+											<p className="text-sm text-muted-foreground mb-4">
+												{workflow?.stage > 5
+													? `Confirm that the contract draft has been reviewed and is ready to
+											send to the client.`
+													: `Available at Stage 5`}
+											</p>
+
+											<Button
+												onClick={handleContractReviewed}
+												disabled={contractReviewLoading || workflow.stage < 5}
+												className="gap-2 bg-amber-600 hover:bg-amber-700">
+												{contractReviewLoading ? (
+													<RiLoader4Line className="h-4 w-4 animate-spin" />
+												) : (
+													<RiFileTextLine className="h-4 w-4" />
+												)}
+												Mark Contract Reviewed
+											</Button>
+
+											{contractReviewMessage && workflow.stage > 5 ? (
+												<p className="mt-3 text-sm text-amber-700">
+													{contractReviewMessage}
+												</p>
+											) : null}
+										</GlassCard>
+									)}
 								</div>
 							</TabsContent>
 						</Tabs>
 					</div>
 				</div>
 			</DashboardLayout>
-
-			{/* Retry Facility Submission Confirmation Dialog */}
 			<AlertDialog open={retryDialogOpen} onOpenChange={setRetryDialogOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
@@ -1910,8 +1921,7 @@ export default function ApplicantDetailPage() {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-
-			{/* Kill Switch Confirmation Dialog */}
+			;
 			<AlertDialog open={killSwitchDialogOpen} onOpenChange={setKillSwitchDialogOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
@@ -1935,8 +1945,7 @@ export default function ApplicantDetailPage() {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-
-			{/* Decline Quote Confirmation Dialog */}
+			;
 			<AlertDialog open={declineDialogOpen} onOpenChange={setDeclineDialogOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
@@ -1953,6 +1962,7 @@ export default function ApplicantDetailPage() {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+			;
 		</>
 	);
 }

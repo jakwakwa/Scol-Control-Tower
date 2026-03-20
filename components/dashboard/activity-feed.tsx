@@ -1,10 +1,10 @@
 import {
-	RiCheckLine,
-	RiArrowRightLine,
 	RiAlertLine,
-	RiUserLine,
+	RiArrowRightLine,
+	RiCheckLine,
 	RiRobot2Line,
 	RiTimeLine,
+	RiUserLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
 
@@ -149,7 +149,7 @@ export function CompactTimeline({ events }: CompactTimelineProps) {
 	return (
 		<div className="relative space-y-4 pl-6">
 			{/* Vertical line */}
-			<div className="absolute left-2.5 top-2 bottom-2 w-px bg-secondary/10" />
+			<div className="absolute left-2.5 top-2 bottom-2 w-px bg-background/50" />
 
 			{events.map(event => {
 				const config = eventConfig[event.eventType];

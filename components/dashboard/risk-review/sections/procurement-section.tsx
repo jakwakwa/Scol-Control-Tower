@@ -2,10 +2,10 @@
 
 import { AlertTriangle, Clock, ShieldAlert, Users } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { RiskReviewBadge } from "@/components/dashboard/risk-review/risk-review-badge";
 import { SectionStatusBanner } from "@/components/dashboard/risk-review/section-status-banner";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import type { RiskReviewData, SectionStatus } from "@/lib/risk-review/types";
 
 type ProcurementTab = "overview" | "directors" | "compliance";
@@ -63,7 +63,7 @@ export function ProcurementSection({
 							className={`pb-4 text-sm font-medium capitalize transition-colors relative rounded-b-none ${
 								activeSubTab === tab
 									? "text-primary bg-secondary"
-									: "text-muted-foreground bg-secondary/50 hover:text-foreground"
+									: "text-muted-foreground bg-black/20     hover:text-foreground"
 							}`}>
 							{tab}
 							{activeSubTab === tab && (
@@ -118,7 +118,9 @@ export function ProcurementSection({
 										</div>
 										<div>
 											<h4 className="font-medium text-foreground">{director.name}</h4>
-											<p className="text-xs text-muted-foreground">ID: {director.idNumber}</p>
+											<p className="text-xs text-muted-foreground">
+												ID: {director.idNumber}
+											</p>
 										</div>
 									</div>
 									<RiskReviewBadge
@@ -141,7 +143,9 @@ export function ProcurementSection({
 										</span>
 										<span
 											className={`font-medium ${
-												director.conflicts > 0 ? "text-warning-foreground" : "text-chart-4"
+												director.conflicts > 0
+													? "text-warning-foreground"
+													: "text-chart-4"
 											}`}>
 											{director.conflicts} Matches
 										</span>

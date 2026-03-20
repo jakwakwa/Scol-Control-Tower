@@ -272,9 +272,9 @@ export default function RiskReviewPage() {
 				</div>
 			}>
 			{/* Search and Stats Bar */}
-			<div className="flex flex-col md:flex-row gap-4 mb-6">
+			<div className="flex flex-col md:flex-row items-center	 gap-7 mb-6">
 				<div className="relative flex-1">
-					<RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+					<RiSearchLine className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 					<Input
 						placeholder="Search company, contact name..."
 						className="pl-10"
@@ -283,11 +283,11 @@ export default function RiskReviewPage() {
 					/>
 				</div>
 				<div className="flex gap-4">
-					<div className="flex items-center gap-2 px-4 py-2 bg-destructive/20 border border-rose-500/20 rounded-lg text-destructive-foreground">
+					<div className="flex items-center h-11 gap-2 px-4 py-0 bg-destructive/20 border border-rose-500/20 rounded-lg text-destructive-foreground/70">
 						<RiAlertLine className="h-4 w-4" />
 						<span className="text-sm font-bold">{highRiskCount} High Risk</span>
 					</div>
-					<div className="flex items-center gap-2 px-4 py-2 bg-warning/50 border border-warning rounded-lg text-warning-foreground">
+					<div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-200/20 rounded-lg text-warning-foreground">
 						<RiTimeLine className="h-4 w-4" />
 						<span className="text-sm font-bold">{pendingCount} Pending</span>
 					</div>

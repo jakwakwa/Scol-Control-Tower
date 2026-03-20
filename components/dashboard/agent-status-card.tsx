@@ -18,8 +18,8 @@ interface Agent {
 const statusConfig = {
 	active: {
 		label: "Active",
-		color: "text-emerald-600/80",
-		bgColor: "bg-teal-500/40",
+		color: "text-indigo-500/80",
+		bgColor: "bg-violet-500/20",
 		icon: RiCheckLine,
 	},
 	inactive: {
@@ -45,8 +45,8 @@ export function AgentStatusCard({ agent, onClick }: AgentStatusCardProps) {
 	const config = statusConfig[agent.status];
 
 	const containerClasses = cn(
-		"group relative overflow-hidden card-form rounded-4xl border border-primary/30 bg-card/50 backdrop-blur-lg p-6",
-		"shadow-xl shadow-black/50",
+		"group relative overflow-hidden flex flex-col card-form rounded-4xl border border-primary/30 bg-card/50 backdrop-blur-lg p-6",
+		"shadow-xl shadow-black/20",
 		"transition-all duration-300",
 		onClick &&
 			"cursor-pointer hover:bg-card/70 hover:border-secondary/10 hover:shadow-2xl hover:-translate-y-1"
@@ -59,7 +59,7 @@ export function AgentStatusCard({ agent, onClick }: AgentStatusCardProps) {
 				className={cn(
 					"absolute top-4 right-4 h-2.5 w-2.5 rounded-full",
 					agent.status === "active" && "bg-emerald-400 animate-pulse",
-					agent.status === "inactive" && "bg-muted-foreground/50",
+					agent.status === "inactive" && "bg-muted-foreground",
 					agent.status === "error" && "bg-red-400 animate-pulse"
 				)}
 			/>
@@ -81,13 +81,13 @@ export function AgentStatusCard({ agent, onClick }: AgentStatusCardProps) {
 
 			{/* Description */}
 			<div className="mt-3">
-				<p className="text-sm text-muted-foreground line-clamp-2 min-h-10">
+				<p className="text-xs mt-4 text-muted-foreground line-clamp-2 min-h-10">
 					{agent.description}
 				</p>
 			</div>
 
 			{/* AI Model Info */}
-			<div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground bg-secondary p-2 rounded-lg border border-secondary/10">
+			<div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground bg-secondary/30 p-2 rounded-lg border border-secondary/10">
 				<div className="font-medium text-foreground">{agent.provider}</div>
 				<div className="w-1 h-1 rounded-full bg-border" />
 				<div>{agent.aiModel}</div>
@@ -95,7 +95,7 @@ export function AgentStatusCard({ agent, onClick }: AgentStatusCardProps) {
 
 			{/* Task type badge */}
 			<div className="mt-3">
-				<span className="inline-flex items-center rounded-full bg-stone-500/10 px-2.5 py-1 text-xs font-medium text-stone-400">
+				<span className="inline-flex border-1 border-white/10 items-center rounded-full bg-stone-500/10 px-2.5 py-1 text-xs font-medium text-stone-400">
 					{formatTaskType(agent.taskType)}
 				</span>
 			</div>

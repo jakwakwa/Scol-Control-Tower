@@ -173,12 +173,12 @@ export function NotificationsPanel({
 			<Button
 				variant="ghost"
 				size="icon"
-				className="relative h-9 w-9 hover:bg-secondary/10">
+				className="relative h-9 w-9 hover:bg-background/50">
 				<RiNotification3Line className="h-5 w-5" />
 				{unreadCount > 0 && (
 					<Badge
 						variant="destructive"
-						className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full p-0 text-[10px] animate-pulse">
+						className="absolute right-2 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full p-0 text-[10px] animate-pulse">
 						<span className="text-white text-[8px]">
 							{unreadCount > 9 ? "9+" : unreadCount}
 						</span>
@@ -194,12 +194,12 @@ export function NotificationsPanel({
 				<Button
 					variant="ghost"
 					size="icon"
-					className="relative h-9 w-9 hover:bg-secondary/10">
+					className="relative h-9 w-9 hover:bg-background/50">
 					<RiNotification3Line className="h-5 w-5" />
 					{unreadCount > 0 && (
 						<Badge
 							variant="destructive"
-							className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full p-0 text-[10px] animate-pulse">
+							className="absolute right-5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full p-0 text-[10px] animate-pulse">
 							<span className="text-white text-[8px]">
 								{unreadCount > 9 ? "9+" : unreadCount}
 							</span>
@@ -226,39 +226,41 @@ export function NotificationsPanel({
 				</div>
 
 				{/* Notifications List */}
-				<div className="max-h-[400px] overflow-y-auto">
+				<div className="flex flex-col h-[400px] overflow-y-auto gap-1 p-0">
 					{notifications?.length === 0 ? (
 						<div className="flex flex-col items-center justify-center py-12 text-center">
 							<RiNotification3Line className="h-10 w-10 text-muted-foreground/30" />
 							<p className="mt-3 text-sm text-muted-foreground">No notifications yet</p>
 						</div>
 					) : (
-					notifications?.map(notification => {
-						const isHighSeverity =
-							notification?.severity === "high" || notification?.severity === "critical";
-						const isMediumGrouped = notification?.severity === "medium" && notification?.groupKey;
-						const config =
-							notificationConfig[notification?.type] ?? notificationConfig.info;
-						const Icon = config.icon;
-						const isManualProcurementAlert = isManualFallbackNotification(
-							notification?.message || ""
-						);
+						notifications?.map(notification => {
+							const isHighSeverity =
+								notification?.severity === "high" ||
+								notification?.severity === "critical";
+							const isMediumGrouped =
+								notification?.severity === "medium" && notification?.groupKey;
+							const config =
+								notificationConfig[notification?.type] ?? notificationConfig.info;
+							const Icon = config.icon;
+							const isManualProcurementAlert = isManualFallbackNotification(
+								notification?.message || ""
+							);
 
-						return (
-							<div
-								key={notification?.id}
-								className={cn(
-									"group relative flex gap-3 px-4 py-3 border-b border-secondary/5 transition-colors hover:bg-secondary/5",
-									!notification?.read && "bg-secondary/2",
-									isHighSeverity && "bg-destructive text-destructive-foreground",
-									isMediumGrouped && "bg-warning/20 border-l-4 border-l-warning"
-								)}>
+							return (
+								<div
+									key={notification?.id}
+									className={cn(
+										"group relative flex gap-0 x-4 py-3 mb-5 border-border items-center justify-between border-secondary transition-colors",
+										!notification?.read && "bg-secondary/2",
+										isHighSeverity && "bg-destructive text-destructive-foreground",
+										isMediumGrouped && "bg-warning/20 border-4 border-l-warning"
+									)}>
 									{/* Main Action Button */}
 									<button
 										type="button"
-										className="absolute inset-0 z-0 w-full h-full focus:outline-none"
+										className="absolute -inset-2 z-20 m-1 w-full left-[0px] max-w-[95%] h-[140px]  focus:outline-none"
 										onClick={() => onNotificationClick?.(notification)}>
-										<span className="sr-only">
+										<span className="sr-only mt-4">
 											View notification from {notification?.clientName}
 										</span>
 									</button>
@@ -266,16 +268,16 @@ export function NotificationsPanel({
 									{/* Icon */}
 									<div
 										className={cn(
-											"relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full pointer-events-none",
+											"relative z-30 flex h-4 w-12 shrink-0 items-center justify-center rounded-full pointer-events-none mr-2",
 											config.bgColor
 										)}>
-										<Icon className={cn("h-4 w-4", config.color)} />
+										<Icon className={cn("absolute right-2 ml-2 h-4 w-4", config.color)} />
 									</div>
 
 									{/* Content */}
-									<div className="flex-1 min-w-0 relative z-10 pointer-events-none">
-										<div className="flex items-start justify-between gap-2">
-											<div className="flex items-center gap-2 min-w-0">
+									<div className=" relative z-20 pointer-events-none">
+										<div className="flex items-between justify-between gap-2">
+											<div className="flex items-center gap-4 min-w-0">
 												<p className="text-sm font-medium truncate">
 													{notification?.clientName}
 												</p>
@@ -331,7 +333,7 @@ export function NotificationsPanel({
 															<Button
 																variant="ghost"
 																size="sm"
-																className="h-6 px-2 text-xs hover:bg-teal-500/40 hover:text-emerald-600/80"
+																className="h-6 px-2 text-xs hover:bg-teal-500/90 hover:text-emerald-600/80"
 																onClick={e => handleAction(e, notification, "view")}>
 																View
 															</Button>
@@ -345,7 +347,7 @@ export function NotificationsPanel({
 																<Button
 																	variant="ghost"
 																	size="sm"
-																	className="h-6 px-2 text-xs hover:bg-blue-500/20 hover:text-blue-400"
+																	className="h-6 px-2 text-xs hover:bg-blue-500/80 hover:text-blue-400"
 																	onClick={e => handleAction(e, notification, "retry")}>
 																	Retry
 																</Button>

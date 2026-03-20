@@ -32,7 +32,7 @@
   --gold-700: rgb(152, 103, 34);
   --gold-800: rgba(128, 91, 16, 1);
   --gold-900: rgba(110, 76, 13, 1);
-  --dark-goldenrod: rgba(80, 53, 10, 0.281);
+  --dark-goldenrod: rgba(136, 124, 106, 0.094);
 
   /* SCSS Gradient */
   --gradient-top: linear-gradient(0deg,
@@ -102,29 +102,20 @@
       #805b10ff,
       #6e4c0dff);
   --gradient-top-left: linear-gradient(225deg,
-      rgb(154, 120, 73),
-
-      rgba(125, 89, 64, 0.758),
-      rgb(40, 38, 51),
-      rgb(21, 23, 27));
+      rgba(12, 45, 63, 0.175),
+      rgba(39, 47, 49, 0.191),
+      rgba(19, 23, 25, 0.181));
   --gradient-bottom-left: linear-gradient(315deg,
-      rgb(39, 30, 8),
-      rgb(54, 47, 20),
-      rgb(41, 37, 22),
-      rgb(46, 41, 26),
-      rgb(69, 60, 30),
-      #b69121ff,
-      #a47e1bff,
-      #926c15ff,
-      #805b10ff,
-      #6e4c0dff);
+      rgb(26, 18, 12),
+      rgba(50, 32, 12, 0.972),
+      rgba(62, 47, 34, 0.986));
   --gradient-radial: radial-gradient(#ffe169ff,
-      #fad643ff,
-      #edc531ff,
-      #dbb42cff,
-      #c9a227ff,
+      rgb(54, 49, 30),
+      rgb(80, 71, 39),
+      rgb(54, 50, 35),
+      rgb(201, 96, 39),
       #b69121ff,
-      #a47e1bff,
+      rgb(123, 96, 27),
       #926c15ff,
       #805b10ff,
       #6e4c0dff);
@@ -136,28 +127,28 @@
   --charcoal-400: #424242;
   --charcoal-500: #2c2c2e;
   --charcoal-600: #242426;
-  --charcoal-700: #1c1c1e;
-  --charcoal-800: #151517;
+  --charcoal-700: #222226;
+  --charcoal-800: #121215a5;
   --charcoal-900: #0e0e10;
-  --background: var(--charcoal-900);
-  --foreground: #f5f0e8;
-  --card: var(--charcoal-900);
-  --card-foreground: var(--gold-50);
+  --background: #0a171d;
+  --foreground: #b98d69;
+  --card: #1c212554;
+  --card-foreground: var(--gold-200);
   --popover: var(--dark-goldenrod);
-  --popover-foreground: var(--gold-800);
-  --primary: var(--charcoal-800);
-  --primary-foreground: hsla(180, 21%, 84%, 0.8);
-  --secondary: var(--charcoal-200);
-  --secondary-foreground: var(--charcoal-900);
-  --muted: var(--gold-200);
-  --muted-foreground: var(--gold-200);
-  --accent: var(--gold-500);
-  --accent-foreground: var(--gold-100);
-  --destructive: var(--gold-500);
-  --destructive-foreground: var(--charcoal-100);
-  --border: var(--gold-400);
-  --input: var(--charcoal-100);
-  --ring: var(--gold-400);
+  --popover-foreground: var(--gold-500);
+  --primary: #096475;
+  --primary-foreground: hsla(180, 100%, 88%, 0.8);
+  --secondary: var(--charcoal-500);
+  --secondary-foreground: var(--charcoal-400);
+  --muted: var(--charcoal-400);
+  --muted-foreground: #b09683;
+  --accent: #02050c36;
+  --accent-foreground: var(--gold-500);
+  --destructive: #e5484d;
+  --destructive-foreground: #ecbce2;
+  --border: #181a1dc3;
+  --input: var(--charcoal-800);
+  --ring: var(--gold-800);
   /* teal focus ring                  */
   --chart-1: #f5c87e;
   /* gold-500                        */
@@ -171,15 +162,15 @@
   /* gold-400                        */
   --radius: 0.875rem;
   /* 14px — premium rounded feel     */
-  --sidebar: #0d0d0fac;
+  --sidebar: #0f0e0d2c;
   /* charcoal-800                    */
   --sidebar-foreground: var(--gold-400);
-  --sidebar-primary: var(--gold-100);
+  --sidebar-primary: var(--gold-700);
   --sidebar-primary-foreground: var(--charcoal-500);
-  --sidebar-accent: var(--gold-800);
-  --sidebar-accent-foreground: var(--gold-600);
-  --sidebar-border: var(--gold-400);
-  --sidebar-ring: var(--gold-400);
+  --sidebar-accent: #6a5442;
+  --sidebar-accent-foreground: var(--gold-200);
+  --sidebar-border: #ba846a2e;
+  --sidebar-ring: var(--gold-900);
 }
 
 /* ==========================================================================
@@ -188,16 +179,16 @@
      propagates the palette across the entire application.
      ========================================================================== */
 .dark {
-  --background: #0e0e10;
+  --background: #28282b;
   /* charcoal-900 — deepest surface  */
-  --foreground: #f5f0e8;
+  --foreground: #6c5c43;
   /* warm white — primary text       */
-  --card: #141417;
+  --card: #1b1b23;
   /* charcoal-700 — card surfaces    */
-  --card-foreground: #ebdbc1;
+  --card-foreground: #d3b37e;
   --popover: #1c1c1e;
   --popover-foreground: #f5f0e8;
-  --primary: #b08c53;
+  --primary: #534022;
   /* gold-500 — main accent / CTAs   */
   --primary-foreground: #0e0e10;
   /* dark text on gold buttons       */
@@ -286,7 +277,7 @@
   .bg-accent {
     /* bg-accent; */
 
-    background-image: radial-gradient(circle, rgba(145, 130, 87, 0.137) 1px, transparent 1px) !important;
+    background-image: radial-gradient(circle, rgba(36, 32, 21, 0.82) 1px, transparent 1px) !important;
   }
 }
 
@@ -331,19 +322,20 @@
     background-blend-mode: multiply, multiply !important;
     margin-bottom: 20px !important;
     border: none !important;
+    overflow: initial !important;
     /* background-color: var(--dark-goldenrod) !important; */
     background-image: var(--gradient-top-left), var(--gradient-bottom-left), var(--gradient-radial) !important;
-    background: var(--charcoal-800) !important;
+    background: var(--charcoal-900) !important;
     /* overflow: hidden; */
-    border-radius: 30px !important;
-    box-shadow: inset 0.1px 1.4px 0px -1px hsla(30, 41%, 29%, 0.345), inset 0px -10px 10px 0px hsla(44, 11%, 49%, 0.121), inset 0 -1px 30px 0px rgba(15, 18, 21, 0.326), 0.5px 11px 21px 1px rgba(1, 1, 2, 0.731) !important;
+    border-radius: 20px !important;
+    box-shadow: inset 0.1px 1.4px 0px -1px hsla(30, 100%, 53%, 0.345), inset 0px -10px 10px 0px hsla(204, 39%, 16%, 0.335), inset 0 -1px 30px 0px rgba(73, 43, 12, 0.163), 0.5px 11px 21px 1px rgba(1, 1, 2, 0.731) !important;
   }
 
   .dotted-grid-container {
 
     width: 100%;
     height: 100% !important;
-    padding: 20px !important;
+    padding: 0px !important;
     position: absolute;
     z-index: -1;
     background: var(--charcoal-900) !important;
@@ -353,7 +345,7 @@
   .card-form::before {
     content: '';
     position: absolute;
-    z-index: -11;
+    z-index: -1;
     backdrop-filter: blur(8px) !important;
     inset: 1;
     border-radius: 15px !important;
@@ -364,7 +356,7 @@
 
   .card-form::after {
     content: '';
-    position: absolute;
+    position: relative;
     border-radius: 15px !important;
     z-index: 0;
     inset: 0;
@@ -431,9 +423,9 @@
     height: 100% !important;
     padding: 0 !important;
     min-height: 100vh;
-    background-image: linear-gradient(to bottom, var(--dark-goldenrod) 1px, var(--charcoal-900) 1px),
-      linear-gradient(to right, var(--gold-900) 1px, transparent 1px),
-      radial-gradient(circle, var(--gold-400) 1px, transparent 1px) !important;
+    background-image: linear-gradient(to bottom, #322613b6 1px, #121315bc 1px),
+      linear-gradient(to right, #09bbb83a 1px, transparent 1px),
+      radial-gradient(circle, #f4a022d3 1px, transparent 1px) !important;
     background-size: 22px 22px, 22px 22px, 22px 22px;
     background-position: 0 0, 0 0, 0 0;
   }
@@ -445,9 +437,9 @@
     z-index: -2;
     background-size: 88px 88px, 88px 88px, 88px 88px;
     background-color: var(--charcoal-900) !important;
-    background-image: linear-gradient(to bottom, var(--gold-900) 1px, var(--charcoal-900) 1px),
-      linear-gradient(to right, var(--gold-900) 1px, transparent 1px),
-      radial-gradient(circle, var(--gold-400) 1px, transparent 1px) !important;
+    background-image: linear-gradient(to bottom, var(--charcoal-900) 1px, var(--charcoal-900) 1px),
+      linear-gradient(to right, var(--charcoal-900) 1px, transparent 1px),
+      radial-gradient(circle, var(--charcoal-400) 1px, transparent 1px) !important;
     background-size: 22px 22px, 22px 22px, 22px 22px;
     background-position: 0 0, 0 0, 0 0;
     background-color: var(--charcoal-900) !important;
@@ -532,19 +524,39 @@
     isolation: isolate;
   }
 
+  button {
+    background-color: #070b0ce5;
+    border: 0.5px solid rgba(59, 96, 110, 0.635);
+    border-radius: 11px;
+    padding: 0px 20px;
+    margin: 10px !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+
+    /* color: var(--color-input-foreground) !important; */
+    /* background-color: var(--charcoal-900) !important; */
+    box-shadow: 1px 4px 6px 0 rgba(0, 0, 0, 0.427) !important;
+    transition: all 0.3s ease !important;
+  }
+
+  button:hover {
+    background-color: #eb853726 !important;
+    cursor: pointer !important;
+    opacity: 100 !important;
+  }
+
   input,
   textarea,
   option,
-  select,
-  button {
-    border: 1px solid var(--dark-goldenrod) !important;
+  select {
+    outline: 1px solid #c7841844 !important;
     border-radius: 10px !important;
-    padding: 10px !important;
-    margin: 10px !important;
-    font-size: 16px !important;
-    font-weight: 500 !important;
-    color: var(--color-input-foreground) !important;
-    background-color: var(--charcoal-900) !important;
+    padding: 10px 30px !important;
+    margin: 0px !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    color: var(--color-input-foreground);
+    background-color: var(--charcoal-800) !important;
     box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1) !important;
     transition: all 0.3s ease !important;
   }
