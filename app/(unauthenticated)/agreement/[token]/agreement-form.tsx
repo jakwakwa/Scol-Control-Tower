@@ -1,12 +1,14 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import posthog from "posthog-js";
 import { useCallback, useState } from "react";
 import type { FieldValues, Resolver } from "react-hook-form";
 import { useFieldArray, useForm } from "react-hook-form";
 import type { z } from "zod";
 import sharedStyles from "@/components/forms/external/external-form-theme.module.css";
 import ExternalStatusCard from "@/components/forms/external/external-status-card";
+import { getPostHogProjectToken } from "@/lib/posthog-env";
 import { stratcolAgreementSchema } from "@/lib/validations/forms";
 import "./agreement-form.css";
 import TermBlock from "./_components/form-term-box";
@@ -100,8 +102,9 @@ export default function AgreementForm({
 	};
 	const mergedDefaults = {
 		...prefilled,
-		beneficialOwners:
-			prefilled?.beneficialOwners?.length ? prefilled.beneficialOwners : [emptyOwner],
+		beneficialOwners: prefilled?.beneficialOwners?.length
+			? prefilled.beneficialOwners
+			: [emptyOwner],
 		consentAccepted: false,
 	} as FieldValues;
 
@@ -134,6 +137,12 @@ export default function AgreementForm({
 				if (!response.ok) {
 					const payload = await response.json().catch(() => ({}));
 					throw new Error(payload?.error || "Submission failed");
+				}
+
+				if (getPostHogProjectToken()) {
+					posthog.capture("agreement_contract_submitted", {
+						applicant_id: applicantId,
+					});
 				}
 
 				setSubmitted(true);

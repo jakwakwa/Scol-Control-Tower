@@ -26,6 +26,19 @@ const nextConfig = {
 		};
 		return config;
 	},
+	skipTrailingSlashRedirect: true,
+	async rewrites() {
+		return [
+			{
+				source: "/ingest/static/:path*",
+				destination: "https://us-assets.i.posthog.com/static/:path*",
+			},
+			{
+				source: "/ingest/:path*",
+				destination: "https://us.i.posthog.com/:path*",
+			},
+		];
+	},
 	async headers() {
 		const clerkHosts = ["enabled-doe-20.accounts.dev/sign-in"];
 
@@ -88,6 +101,8 @@ const nextConfig = {
 				"https://*.googleapis.com",
 				"https://*.google.com",
 				"https://cdn.paddle.com", // Allow Paddle CDN connections for source maps
+			"https://us.i.posthog.com",
+			"https://us-assets.i.posthog.com",
 			],
 			"object-src": ["'none'"],
 			"base-uri": ["'self'"],

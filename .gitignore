@@ -59,3 +59,4 @@ playwright-report/index.html
 
 # MCP config (contains GitHub token — copy from .cursor/mcp.json.example)
 .cursor/mcp.json
+.env.local

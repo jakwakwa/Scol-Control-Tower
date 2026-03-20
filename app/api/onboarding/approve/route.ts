@@ -18,6 +18,7 @@ import { auth } from "@clerk/nextjs/server";
 import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
 import { recordFinalApprovalDecision } from "@/lib/services/workflow-command.service";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 // ============================================
 // Request Schema
@@ -159,6 +160,20 @@ export async function POST(request: NextRequest) {
 					decision,
 					reason,
 					timestamp,
+				},
+			});
+		}
+
+		if (!approvalState.alreadyRecorded) {
+			captureServerEvent({
+				distinctId: userId,
+				event: "onboarding_approval_submitted",
+				properties: {
+					workflow_id: workflowId,
+					applicant_id: applicantId,
+					role,
+					decision,
+					both_approved: approvalState.bothApproved,
 				},
 			});
 		}

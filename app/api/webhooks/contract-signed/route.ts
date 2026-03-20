@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { inngest } from "@/inngest";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 // Schema for incoming Google Form data for Contract Signing
 const contractSignedSchema = z.object({
@@ -42,6 +43,15 @@ export async function POST(request: NextRequest) {
 				workflowId: data.workflowId,
 				contractUrl: data.signedUrl,
 				signedAt: new Date().toISOString(),
+			},
+		});
+
+		captureServerEvent({
+			distinctId: `workflow_${data.workflowId}`,
+			event: "contract_signed",
+			properties: {
+				workflow_id: data.workflowId,
+				company_name: data.companyName,
 			},
 		});
 
