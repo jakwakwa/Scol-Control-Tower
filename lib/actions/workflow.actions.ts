@@ -2,7 +2,13 @@
 
 import { inngest } from "@/inngest/client";
 import { getDatabaseClient } from "@/app/utils";
-import { internalForms, internalSubmissions, workflows } from "@/db/schema";
+import {
+	applicantMagiclinkForms,
+	applicantSubmissions,
+	internalForms,
+	internalSubmissions,
+	workflows,
+} from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import type { FacilityApplicationForm } from "@/lib/validations/forms";
 
@@ -44,8 +50,11 @@ export async function retryFacilitySubmission(workflowId: number) {
 		}
 		const applicantId = workflowResult[0].applicantId;
 
-		// 2. Find the facility application form for this workflow
-		const formResults = await db
+		// 2–3. Resolve facility payload: internal onboarding form OR magic-link (Control Tower) form
+		let submissionId: number;
+		let formData: FacilityApplicationForm;
+
+		const internalFormResults = await db
 			.select()
 			.from(internalForms)
 			.where(
@@ -56,30 +65,59 @@ export async function retryFacilitySubmission(workflowId: number) {
 			)
 			.limit(1);
 
-		if (formResults.length === 0) {
-			return { success: false, error: "Facility application form not found" };
-		}
-		const form = formResults[0];
+		if (internalFormResults.length > 0) {
+			const form = internalFormResults[0];
+			const submissionResults = await db
+				.select()
+				.from(internalSubmissions)
+				.where(eq(internalSubmissions.internalFormId, form.id))
+				.orderBy(desc(internalSubmissions.createdAt))
+				.limit(1);
 
-		// 3. Get the latest submission
-		const submissionResults = await db
-			.select()
-			.from(internalSubmissions)
-			.where(eq(internalSubmissions.internalFormId, form.id))
-			.orderBy(desc(internalSubmissions.createdAt))
-			.limit(1);
+			if (submissionResults.length === 0) {
+				return { success: false, error: "No submission found for facility application" };
+			}
+			const submission = submissionResults[0];
+			try {
+				formData = JSON.parse(submission.formData);
+			} catch (_e) {
+				return { success: false, error: "Failed to parse form data" };
+			}
+			submissionId = submission.id;
+		} else {
+			const [magicForm] = await db
+				.select()
+				.from(applicantMagiclinkForms)
+				.where(
+					and(
+						eq(applicantMagiclinkForms.workflowId, workflowId),
+						eq(applicantMagiclinkForms.formType, "FACILITY_APPLICATION")
+					)
+				)
+				.orderBy(desc(applicantMagiclinkForms.id))
+				.limit(1);
 
-		if (submissionResults.length === 0) {
-			return { success: false, error: "No submission found for facility application" };
-		}
-		const submission = submissionResults[0];
+			if (!magicForm) {
+				return { success: false, error: "Facility application form not found" };
+			}
 
-		// 4. Parse the form data
-		let formData: FacilityApplicationForm;
-		try {
-			formData = JSON.parse(submission.formData);
-		} catch (_e) {
-			return { success: false, error: "Failed to parse form data" };
+			const magicSubmissionResults = await db
+				.select()
+				.from(applicantSubmissions)
+				.where(eq(applicantSubmissions.applicantMagiclinkFormId, magicForm.id))
+				.orderBy(desc(applicantSubmissions.submittedAt))
+				.limit(1);
+
+			if (magicSubmissionResults.length === 0) {
+				return { success: false, error: "No submission found for facility application" };
+			}
+			const magicSubmission = magicSubmissionResults[0];
+			try {
+				formData = JSON.parse(magicSubmission.data);
+			} catch (_e) {
+				return { success: false, error: "Failed to parse form data" };
+			}
+			submissionId = magicSubmission.id;
 		}
 
 		// 5. Construct the event payload (same logic as in the route handler)
@@ -105,7 +143,7 @@ export async function retryFacilitySubmission(workflowId: number) {
 			data: {
 				workflowId: workflowId,
 				applicantId: applicantId,
-				submissionId: submission.id,
+				submissionId,
 				formData: {
 					mandateVolume,
 					mandateType,
