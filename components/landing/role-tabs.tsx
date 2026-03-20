@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function RoleTabs() {
 	return (
-		<section className="py-24 bg-muted/30">
+		<section className="py-24 bg-primary/10">
 			<div className="container px-4 mx-auto">
 				<div className="text-center mb-16">
 					<h2 className="text-3xl md:text-5xl font-bold text-foreground mb-6">

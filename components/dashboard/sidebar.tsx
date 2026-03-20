@@ -72,7 +72,7 @@ export function Sidebar({
 					className={cn(
 						"flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
 						"hover:bg-secondary/5 text-muted-foreground hover:text-foreground",
-						isCollapsed && "mx-auto"
+						isCollapsed && "m-0 left-3 absolute"
 					)}
 					aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}>
 					{isCollapsed ? (

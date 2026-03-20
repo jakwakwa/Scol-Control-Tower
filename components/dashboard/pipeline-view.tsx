@@ -8,14 +8,13 @@ import {
 	RiEditLine,
 	RiFileTextLine,
 	RiFlowChart,
-	RiMenu3Line,
 	RiRobot2Line,
 	RiTimeLine,
 	RiUserLine,
 } from "@remixicon/react";
+import { EllipsisVertical } from "lucide-react";
 import Link from "next/link";
 import { memo, useMemo } from "react";
-import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 import {
 	DropdownMenu,
@@ -26,6 +25,7 @@ import {
 	DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { RiskBadge } from "../ui/status-badge";
+import PipelineStage from "./pipeline-stage";
 
 export type PipelineWorkflow = {
 	id: number | string;
@@ -176,35 +176,28 @@ export function PipelineView({ workflows }: { workflows: PipelineWorkflow[] }) {
 	);
 
 	return (
-		<div className="h-full overflow-x-auto  dotted-grid-container rounded-4xl border border-sidebar-border  m-0 shadow-[inset_-10px_-1px_10px_rgba(0,0,0,0.12)] bg-linear-to-br from-zinc-900 from-0% via-zinc-900/80 via-60% to-amber-950/10 to-95%">
-			{/* 6-column layout with reduced gaps for smaller screens */}
-			<div className="flex gap-3 min-w-[1400px] dotted-grid p-3">
-				{PIPELINE_STAGES.map(stage => (
-					<div
-						key={stage.id + 11}
-						className={`flex-1 min-w-[180px] max-w-[240px] flex flex-col gap-3`}>
+		<div className="overflow-hidden">
+			<div className="h-full overflow-x-auto rounded-4xl border border-sidebar-border  m-0 shadow-[inset_1px_3px_10px_rgba(0,0,0,0.42)] overflow-hidden 	dotted-grid to-95%">
+				{/* 6-column layout with reduced gaps for smaller screens */}
+				<div className="flex gap-3 min-w-[1400px] p-4 overflow-hidden">
+					{PIPELINE_STAGES.map(stage => (
 						<div
-							className={cn(
-								`flex items-center glass-card after:rounded-2xl before:rounded-2xl backdrop-blur-xs justify-between p-4 rounded-xl shadow-sm border-t-[1.5px] border-t-${stage.color} min-h-[70px]`,
-								stage.color
-							)}>
-							<div className="flex items-center gap-2">
-								<stage.icon className="h-5 w-5 outline-0  border-none text-muted-foreground" />
-								<h3 className="font-bold text-xs text-foreground">{stage.title}</h3>
-							</div>
-							<span className="flex h-6 w-6 items-center justify-center rounded-full  text-xs font-bold text-muted-foreground border border-sidebar-border">
-								{columns[stage.id]?.length || 0}
-							</span>
-						</div>
+							key={stage.id + 11}
+							className={`flex-1 min-w-[180px] max-w-[240px] flex flex-col gap-0`}>
+							<PipelineStage stage={stage} columns={columns} />
 
-						{/* Static Card List (drag-and-drop disabled) */}
-						<div className="flex-1 flex flex-col gap-3 rounded-xl min-h-[100px]">
-							{columns[stage.id]?.map(workflow => (
-								<MemoizedPipelineCard key={workflow.id.toString()} workflow={workflow} />
-							))}
+							{/* Static Card List (drag-and-drop disabled) */}
+							<div className="flex-1 flex flex-col gap-3 rounded-xl min-h-[100px]">
+								{columns[stage.id]?.map(workflow => (
+									<MemoizedPipelineCard
+										key={workflow.id.toString()}
+										workflow={workflow}
+									/>
+								))}
+							</div>
 						</div>
-					</div>
-				))}
+					))}
+				</div>
 			</div>
 		</div>
 	);
@@ -235,14 +228,14 @@ function PipelineCard({ workflow }: { workflow: PipelineWorkflow }) {
 	const canViewQuote = stageNumber >= 2 && workflow.hasQuote;
 
 	return (
-		<div className="glass-card after:rounded-2xl before:rounded-2xl backdrop-blur-xs p-7  border border-white/10 shadow-[0px_10px_10px_rgba(0,0,0,0.05)] transition-all group relative select-none">
+		<div className="glass-card after:rounded-2xl before:rounded-2xl backdrop-blur-xs py-5 h-full px-3.5  border-1 border-white/10 shadow-[0px_10px_10px_rgba(0,0,0,0.05)] transition-all group relative select-none">
 			{/* Header: Company Name & Risk if applicable */}
-			<div className="flex justify-between items-start mb-2">
+			<div className="flex justify-between items-center mb-2 h-fit">
 				<h4 className="font-medium line-clamp-1 text-ellipsis  whitespace-nowrap uppercase   text-[11px] text-card-foreground leading-tight pr-6">
 					{workflow.clientName || "Unknown Company"}
 				</h4>
 			</div>
-			<div className="flex gap-1">
+			<div className="flex gap-1 h-1/2">
 				<p className="text-[10px] text-card-foreground/50 font-mono mb-4">
 					{`Reg No: ${workflow.payload?.registrationNumber ? workflow.payload.registrationNumber : " #"}`}
 				</p>
@@ -253,7 +246,7 @@ function PipelineCard({ workflow }: { workflow: PipelineWorkflow }) {
 
 			{/* Stage 3 Parallel Indicators */}
 			{stageNumber === 3 && (
-				<div className="flex items-center gap-1.5 mt-2 mb-2">
+				<div className="flex items-center gap-1 mt-0 mb-0">
 					<div
 						className={`flex items-center justify-center p-1 rounded-sm border ${
 							workflow.payload?.procurementCleared
@@ -299,7 +292,7 @@ function PipelineCard({ workflow }: { workflow: PipelineWorkflow }) {
 			{/* Subtitle: Registration Number */}
 
 			{/* Footer: Details & Time */}
-			<div className="flex items-center justify-between pt-3 border-t border-sidebar-border/50 mt-2">
+			<div className="flex items-end justify-between pt-3 border-t border-sidebar-border/50 mt-2">
 				<div className="flex flex-col">
 					<span className="text-[11px] font-semibold text-muted-foreground/80">
 						{workflow.payload?.mandateType || "Debit Order"}
@@ -318,8 +311,11 @@ function PipelineCard({ workflow }: { workflow: PipelineWorkflow }) {
 			<div className="absolute top-3 right-3 opacity-100 group-hover:opacity-20 hover:overflow-hidden p-0 hover:rounded-full transition-opacity focus-visible:outline-0">
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
-						<Button variant="ghost" size="icon" className="h-5 w-5 select-none">
-							<RiMenu3Line className="text-muted font-black h-5 w-5" />
+						<Button
+							variant="ghost"
+							size="icon"
+							className="p-3 m-0 h-5 w-5 select-none bg-none border-none">
+							<EllipsisVertical className="text-white bg-none font-black h-3 w-3 p-0 m-0" />
 						</Button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end" className="w-[180px] backdrop-blur-xs">

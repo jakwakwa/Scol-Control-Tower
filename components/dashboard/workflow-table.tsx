@@ -177,7 +177,7 @@ export function WorkflowStageIndicator({
 								className={cn(
 									"h-0.5 transition-colors",
 									compact ? "w-1.5" : "w-2.5",
-									stage < currentStage ? "bg-teal-500/40" : "bg-secondary/10"
+									stage < currentStage ? "bg-teal-500/40" : "bg-background/50"
 								)}
 							/>
 						)}
@@ -378,7 +378,7 @@ export const columns: ColumnDef<WorkflowRow>[] = [
 						<DropdownMenuTrigger
 							className={cn(
 								buttonVariants({ variant: "ghost", size: "icon" }),
-								"h-8 w-8 hover:bg-secondary/10"
+								"h-8 w-8 hover:bg-background/50"
 							)}>
 							<RiMore2Fill className="h-4 w-4" />
 						</DropdownMenuTrigger>

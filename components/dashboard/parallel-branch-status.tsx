@@ -111,10 +111,10 @@ function BranchCard({ branch, isLast }: { branch: BranchStatus; isLast: boolean 
 
 			{/* Branch content */}
 			<div className="flex-1 pb-4">
-				<div className="p-3 rounded-lg border border-secondary/10 bg-secondary/5 hover:bg-secondary/10 transition-colors">
+				<div className="p-3 rounded-lg border border-secondary/10 bg-secondary/5 hover:bg-black/20     transition-colors">
 					<div className="flex items-start justify-between gap-3">
 						<div className="flex items-center gap-2">
-							<div className="p-1.5 rounded-md bg-secondary/10">
+							<div className="p-1.5 rounded-md bg-background/50">
 								<BranchIcon className="h-4 w-4 text-muted-foreground" />
 							</div>
 							<div>
