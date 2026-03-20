@@ -5,7 +5,7 @@ import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { getDatabaseClient } from "@/app/utils";
 import { quotes, workflows } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { inngest } from "@/inngest";
+import { sendInngestEventReliably } from "@/lib/services/signed-quotation-workflow.service";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
 import { captureServerEvent } from "@/lib/posthog-server";
 
@@ -81,7 +81,7 @@ export async function POST(
 
 		await acquireStateLock(updatedQuote.workflowId, "quote_approval");
 
-		await inngest.send({
+		await sendInngestEventReliably({
 			name: "quote/approved",
 			data: {
 				workflowId: updatedQuote.workflowId,
@@ -98,6 +98,18 @@ export async function POST(
 				quote_id: updatedQuote.id,
 				workflow_id: updatedQuote.workflowId,
 				applicant_id: applicantId,
+			},
+		});
+		captureServerEvent({
+			distinctId: userId,
+			event: "quote_pipeline",
+			properties: {
+				step: "manager_quote_approve",
+				path: "/api/quotes/[id]/approve",
+				quote_id: updatedQuote.id,
+				workflow_id: updatedQuote.workflowId,
+				applicant_id: applicantId,
+				inngest_sync: "ok",
 			},
 		});
 

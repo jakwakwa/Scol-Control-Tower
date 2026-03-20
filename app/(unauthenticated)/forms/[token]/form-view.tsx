@@ -246,7 +246,6 @@ export default function FormView({
 
 							const payload = await response.json();
 							setSubmitMessage(payload?.message || null);
-							setSubmitted(true);
 
 							if (isDecisionEnabled) {
 								await toast.promise(callDecisionEndpoint("APPROVED"), {
@@ -255,6 +254,8 @@ export default function FormView({
 									error: "Failed to record approval.",
 								});
 							}
+
+							setSubmitted(true);
 						} finally {
 							submitLockRef.current = false;
 						}
