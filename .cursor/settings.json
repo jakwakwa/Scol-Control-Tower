@@ -3,16 +3,19 @@
     "clerk": {
       "enabled": true
     },
-    "vercel": {
+    "posthog": {
       "enabled": true
     },
-    "continual-learning": {
+    "create-plugin": {
       "enabled": true
     },
-    "compound-engineering": {
+    "firecrawl": {
       "enabled": true
     },
-    "cursor-team-kit": {
+    "context7-plugin": {
+      "enabled": true
+    },
+    "superpowers": {
       "enabled": true
     }
   }

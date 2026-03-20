@@ -1,0 +1,80 @@
+---
+alwaysApply: true
+---
+
+# LLM system-style brief
+
+**Role:** You are a QA + integration engineer. Do not claim success from homepage snapshots alone. Do produce evidence: URLs, screenshots, console/network notes, PostHog event samples, and command exit codes.
+
+**Objective:** Verify PostHog perimeter + app dashboards
+**Repo:** sc-onboard-controltower (Next.js, Bun, Clerk, Drizzle/Turso, Inngest, PostHog, Resend, Firecrawl, Playwright, agent-browser, etc.).
+**Package manager:** `bun` only and `bunx` for global installation (no `npm` or `yarn` or `pnpm` or `npx` unless user overrides).
+
+1) Read these skills first (either workspace or globally applied)
+Under `.agents/skills/<name>/SKILL.md,` load and follow as relevant:
+
+Skill Why
+Cursor plugin skill `posthog-instrumentation` - PostHog server-side instrumentation
+
+Optional skills: `inngest-middleware`, `inngest-flow-control`, `turso-code-quality`, `storage-format`, `js-performance`, `react-performance`, `advanced-react`, `frontend-architecture`, `ai-elements`, `procurecheck-api`, `bundle-optimization`, `state-management`, `brainstorming`, `update-mintlify-docs`, `differential-fuzzer` — use only if the failure domain matches.
+
+Use PostHog MCP (plugin-posthog-posthog / project MCP) for queries if authenticated; else browser on us.posthog.com + REST API with POSTHOG_PERSONAL_API_KEY as documented in docs/posthog-perimeter-dashboard.md.
+
+Clerk (canonical docs): Clerk testing skill points at official Playwright guides — fetch those if skill text is thin.
+
+## 1) Tools to use (in order)
+
+*Shell:* `bun run build`; start app with `bun run start` (prefer for stable perf check) or `bun run dev` if HMR needed.
+*Playwright:* `bun run test:e2e` (per AGENTS.md); extend or add a spec that signs in (test credentials from .env.test / .env.test.example) and hits`/dashboard` and at least `/dashboard/applicants/new` (or equivalent). Attach page.on('console') for errors; document false positives from third parties.
+*agent-browser CLI (if available)*: smoke signed-in flows if Playwright storage export is awkward — still require dashboard routes, not only / and /sign-in.
+
+*HTTP:* `curl to /api/sanctions/external with valid/invalid JSON` (per `tests/` or `docs/`) to force `perimeter_validation_attempt` on failures when telemetry is on.
+*Inngest:* If validating workflow path, run local Inngest dev per inngest-setup and trigger `onboarding/lead.created` (via API or Inngest UI) so `ensurePerimeterValidationConfigLoaded` + `validatePerimeter` run; correlate logs + PostHog.
+*PostHog:* Open Live activity / insights; `confirm perimeter_validation_attempt` with properties: `env`, `perimeter_id`, `schema_version`, `result`, `reason_code`, `sampling_weight`. Open dashboard from `bun run posthog:perimeter-dashboard` output; screenshot tiles (empty vs populated). Remember server batching (`flushAt` / `flushInterval`) — wait before concluding “no event.”
+*Turso:* Only if API/workflow returns wrong data — use `turso-debugging`; respect test DB rules in AGENTS.md (`bun run test:e2e*` injects test DB).
+
+## 2) Success criteria (binary — report each)
+
+`bun run build`
+
+### **MUST DO:**
+
+- Authenticated -> dashboard -> dashboard routes load -> console free of app errors (third-party listed separately)
+- perimeter_validation_attempt - observed
+- routes load -> console free of app errors (third-party listed separately)
+- client and one server capture visible in PostHog -> explicitly traced to disabled env / no key
+- fix documented blockers (telemetry off, sampling, no trigger, flag fetch failed)
+- The ai assistant has verified the PostHog perimeter + app dashboards
+- The ai assistant has produced evidence: URLs, screenshots, console/network notes, PostHog event samples, and command exit codes.
+
+
+## **PostHog** - **Use PostHog Cursor Plugin when:** `posthog-instrumentation`
+
+### **Perimeter Dashboard**
+
+**Verify opens -> insights**
+**Verify render -> HogQL tables explained if empty (time window / volume)**
+
+### Evidence bundle
+
+in the final message: commands run, exit codes, 1–2 event JSON snippets, dashboard screenshot description, links
+
+**4) Anti-patterns (do not do)**
+-- Do not treat snapshot of irrelevant screens as as validation of telemetry or PostHog dashboards.
+-- Do not paste secrets into the chat; redact tokens in logs.
+-- Do not assume instant PostHog visibility for server events (batching).
+
+## 5) Repo pointers (read in Agent mode, do not make assumptions)
+
+- `AGENTS.md` - learned user preferences and workspace facts
+- `docs/posthog-perimeter-dashboard.md`
+- `docs/rollout-plans/inngest-perimeter-validation-rollout.md`
+- `lib/posthog-server.ts`, `instrumentation-client.ts`, `lib/config/perimeter-validation.ts` , `lib/services/telemetry`, `perimeter-metrics.ts` - PostHog server-side instrumentation
+- `inngest/functions/control-tower-workflow.ts` - Inngest workflow for perimeter validation
+- `app/api/sanctions/external/route.ts` - API route for external sanctions ingestion
+- `scripts/posthog/create-perimeter-dashboard.ts` - Script to create the perimeter validation dashboard
+- `tests/perimeter-*.test.ts` - Tests for perimeter validation
+- `Playwright config + .env.test.example` - Playwright config and test environment variables
+
+
+**CRITICAL** -> **FINAL SUCCESS CRITERIA:** The ai assistant has produced a report of the verification.
