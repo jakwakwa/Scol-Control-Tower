@@ -51,4 +51,34 @@ We've built some insights and a dashboard for you to keep an eye on user behavio
 
 We've left an agent skill folder in your project. You can use this context for further agent development when using Claude Code. This will help ensure the model provides the most up-to-date approaches for integrating PostHog.
 
+---
+
+## Supplemental Integration (2026-03-20)
+
+Additional events and a second dashboard were added in a follow-up integration pass.
+
+**Files modified:**
+
+- `app/api/workflows/route.ts` — Server-side `workflow_started` event after workflow creation.
+- `app/api/workflows/[id]/kill-switch/route.ts` — Server-side `workflow_kill_switch_activated` event.
+- `app/(unauthenticated)/uploads/[token]/upload-view.tsx` — Client-side `document_uploaded` event per file upload.
+- `components/dashboard/dashboard-shell.tsx` — `posthog.identify()` wired to Clerk `useUser()` for user identity correlation.
+
+**New events:**
+
+| Event | Description | File |
+|---|---|---|
+| `workflow_started` | Workflow record created and Inngest pipeline triggered | `app/api/workflows/route.ts` |
+| `workflow_kill_switch_activated` | Emergency kill switch executed by a staff member | `app/api/workflows/[id]/kill-switch/route.ts` |
+| `document_uploaded` | External applicant uploads a document via magic link | `app/(unauthenticated)/uploads/[token]/upload-view.tsx` |
+
+**Dashboard — Analytics basics (updated):** https://us.posthog.com/project/349918/dashboard/1381296
+
+| Insight | URL |
+|---------|-----|
+| Onboarding Pipeline Activity | https://us.posthog.com/project/349918/insights/48GUcTg1 |
+| Onboarding Conversion Funnel | https://us.posthog.com/project/349918/insights/YnwJkcZj |
+| Quote Decision Outcomes | https://us.posthog.com/project/349918/insights/tR9W6Jik |
+| Workflow Terminations & Kill Switch | https://us.posthog.com/project/349918/insights/91m328Jt |
+
 </wizard-report>
