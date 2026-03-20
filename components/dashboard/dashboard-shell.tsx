@@ -1,8 +1,9 @@
 "use client";
 
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import posthog from "posthog-js";
 import { useDashboardStore } from "@/lib/dashboard-store";
 import { cn } from "@/lib/utils";
 import Grainient from "../Grainient";
@@ -47,12 +48,22 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 	const router = useRouter();
 	const [isCollapsed, setIsCollapsed] = useState(false);
 	const [isMounted, setIsMounted] = useState(false);
+	const { user } = useUser();
 
 	const { title, description, actions } = useDashboardStore();
 
 	useEffect(() => {
 		setIsMounted(true);
 	}, []);
+
+	useEffect(() => {
+		if (user?.id) {
+			posthog.identify(user.id, {
+				email: user.primaryEmailAddress?.emailAddress,
+				name: user.fullName ?? undefined,
+			});
+		}
+	}, [user?.id, user?.fullName, user?.primaryEmailAddress?.emailAddress]);
 
 	// Real-time updates via SSE
 

@@ -19,6 +19,7 @@ import {
 	executeKillSwitch,
 	type KillSwitchReason,
 } from "@/lib/services/kill-switch.service";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 // ============================================
 // Request Schema
@@ -128,6 +129,17 @@ export async function POST(
 				{ status: 500 }
 			);
 		}
+
+		captureServerEvent({
+			distinctId: userId,
+			event: "workflow_kill_switch_activated",
+			properties: {
+				workflow_id: workflowId,
+				applicant_id: workflow.applicantId,
+				reason,
+				notes: notes ?? null,
+			},
+		});
 
 		return NextResponse.json({
 			success: true,
