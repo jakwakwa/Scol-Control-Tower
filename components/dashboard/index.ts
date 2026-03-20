@@ -6,6 +6,7 @@ export {
 	GlassCard,
 	DashboardSection,
 } from "./dashboard-layout";
+export { SearchInput } from "./search-input";
 export { StatsCard, StatsCardCompact } from "./stats-card";
 export {
 	WorkflowTable,
