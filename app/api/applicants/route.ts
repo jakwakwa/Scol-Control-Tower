@@ -116,11 +116,19 @@ export async function POST(request: NextRequest) {
 			throw new Error("Failed to create workflow record");
 		}
 
-		// Start the Control Tower workflow
+		// Start the Control Tower workflow with enriched payload
 		try {
 			await inngest.send({
 				name: "onboarding/lead.created",
-				data: { applicantId: newApplicant.id, workflowId: newWorkflow.id },
+				data: { 
+					applicantId: newApplicant.id, 
+					workflowId: newWorkflow.id,
+					companyName: newApplicant.companyName,
+					contactName: newApplicant.contactName,
+					email: newApplicant.email,
+					source: "dashboard",
+					createdAt: new Date().toISOString(),
+				},
 			});
 		} catch (inngestError) {
 			console.error("[API] Failed to start Inngest workflow:", inngestError);
