@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { inngest } from "@/inngest";
+import { captureServerEvent } from "@/lib/posthog-server";
 import {
 	getFormInstanceByToken,
 	recordFormSubmission,
@@ -223,6 +224,17 @@ export async function POST(request: NextRequest) {
 			}
 
 		}
+
+		captureServerEvent({
+			distinctId: `applicant_${formInstance.applicantId}`,
+			event: "form_submitted",
+			properties: {
+				form_type: formType,
+				workflow_id: formInstance.workflowId,
+				applicant_id: formInstance.applicantId,
+				submission_id: submission.id,
+			},
+		});
 
 		return NextResponse.json({
 			success: true,

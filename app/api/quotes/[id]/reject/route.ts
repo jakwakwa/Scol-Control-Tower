@@ -8,6 +8,7 @@ import { auth } from "@clerk/nextjs/server";
 import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { z } from "zod";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 const RejectQuoteSchema = z.object({
 	reason: z.string().min(1, "Reason is required"),
@@ -110,6 +111,18 @@ export async function POST(
 				isOverlimit,
 				rejectedBy: userId,
 				rejectedAt: new Date().toISOString(),
+			},
+		});
+
+		captureServerEvent({
+			distinctId: userId,
+			event: "quote_rejected",
+			properties: {
+				quote_id: updatedQuote.id,
+				workflow_id: updatedQuote.workflowId,
+				applicant_id: applicantId,
+				reason,
+				is_overlimit: isOverlimit,
 			},
 		});
 

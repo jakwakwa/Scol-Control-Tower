@@ -4,6 +4,7 @@ import { applicants, workflows } from "@/db/schema";
 import { createApplicantSchema } from "@/lib/validations";
 import { inngest } from "@/inngest";
 import { requireAuth } from "@/lib/auth/api-auth";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 /**
  * GET /api/applicants
@@ -133,6 +134,19 @@ export async function POST(request: NextRequest) {
 		} catch (inngestError) {
 			console.error("[API] Failed to start Inngest workflow:", inngestError);
 		}
+
+		captureServerEvent({
+			distinctId: authResult.userId,
+			event: "applicant_created",
+			properties: {
+				applicant_id: newApplicant.id,
+				workflow_id: newWorkflow.id,
+				company_name: newApplicant.companyName,
+				entity_type: newApplicant.entityType,
+				product_type: newApplicant.productType,
+				industry: newApplicant.industry,
+			},
+		});
 
 		return NextResponse.json(
 			{ applicant: newApplicant, workflow: newWorkflow },

@@ -3,9 +3,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { RiLoader4Line, RiTestTubeLine } from "@remixicon/react";
 import { useRouter } from "next/navigation";
+import posthog from "posthog-js";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-
 import { GlassCard } from "@/components/dashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { getPostHogProjectToken } from "@/lib/posthog-env";
 import { cn } from "@/lib/utils";
 import {
 	type ApplicantFormData,
@@ -120,6 +121,16 @@ export function ApplicantForm({
 				}
 
 				const responseData = await response.json();
+				if (getPostHogProjectToken()) {
+					posthog.capture("applicant_form_submitted", {
+						company_name: data.companyName,
+						entity_type: data.entityType,
+						product_type: data.productType,
+						industry: data.industry,
+						applicant_id: responseData.applicant?.id,
+					});
+				}
+
 				if (responseData.applicant?.id) {
 					router.push(`/dashboard/applicants/${responseData.applicant.id}`);
 				} else {

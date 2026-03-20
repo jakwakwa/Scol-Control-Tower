@@ -5,6 +5,7 @@ import { workflows } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { executeKillSwitch } from "@/lib/services/kill-switch.service";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 const rejectWorkflowSchema = z.object({
 	reason: z.string().optional(),
@@ -67,6 +68,16 @@ export async function DELETE(
 			reason: "MANUAL_TERMINATION",
 			decidedBy: body.actor || "admin",
 			notes: body.reason || "Rejected via Control Tower",
+		});
+
+		captureServerEvent({
+			distinctId: body.actor || "admin",
+			event: "workflow_terminated",
+			properties: {
+				workflow_id: workflowId,
+				applicant_id: workflow.applicantId,
+				reason: body.reason || "Rejected via Control Tower",
+			},
 		});
 
 		return NextResponse.json({

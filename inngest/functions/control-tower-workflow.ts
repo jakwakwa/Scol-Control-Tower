@@ -28,6 +28,7 @@ import { executeKillSwitch } from "@/lib/services/kill-switch.service";
 import { logWorkflowEvent } from "@/lib/services/notification-events.service";
 import { terminateRun } from "@/lib/services/terminate-run.service";
 import { ensureRiskChecksExist } from "@/lib/services/risk-check.service";
+import { ensurePerimeterValidationConfigLoaded } from "@/lib/config/perimeter-validation";
 import { 
 	LeadCreatedSchema, 
 	LeadCreatedCompatSchema 
@@ -61,6 +62,8 @@ export const controlTowerWorkflow = inngest.createFunction(
 	},
 	{ event: "onboarding/lead.created" },
 	async ({ event, step }) => {
+		await ensurePerimeterValidationConfigLoaded();
+
 		const perimeterResult = validatePerimeter({
 			schema: LeadCreatedSchema,
 			data: event.data,

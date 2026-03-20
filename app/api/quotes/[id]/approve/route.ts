@@ -7,6 +7,7 @@ import { quotes, workflows } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { inngest } from "@/inngest";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 /**
  * POST /api/quotes/[id]/approve
@@ -87,6 +88,16 @@ export async function POST(
 				applicantId,
 				quoteId: updatedQuote.id,
 				approvedAt: new Date().toISOString(),
+			},
+		});
+
+		captureServerEvent({
+			distinctId: userId,
+			event: "quote_approved",
+			properties: {
+				quote_id: updatedQuote.id,
+				workflow_id: updatedQuote.workflowId,
+				applicant_id: applicantId,
 			},
 		});
 

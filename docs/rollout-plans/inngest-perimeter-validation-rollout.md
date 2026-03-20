@@ -79,6 +79,53 @@ The goal is to ensure producer compatibility, minimize disruptions, and provide 
 - Use Playwright E2E: Simulate full onboarding flow with lead capture → workflow → sanctions check.
 - Pact or similar for external contracts if providers support.
 
+## PostHog Flag-Driven Runtime Configuration
+
+### Feature flag key
+
+- `perimeter_validation_config`
+
+### Payload shape
+
+```json
+{
+  "globalMode": "warn",
+  "eventOverrides": {
+    "onboarding/lead.created": "strict",
+    "sanctions/external.received": "warn"
+  },
+  "telemetryEnabled": true,
+  "passSamplingWeight": 20
+}
+```
+
+### Runtime behavior
+
+- `globalMode` + `eventOverrides` control strictness by perimeter without a deploy.
+- `telemetryEnabled` controls whether `perimeter_validation_attempt` is emitted.
+- `passSamplingWeight` controls sampled pass telemetry (failures always emit at weight `1`).
+- Env fallback remains active when PostHog config is unavailable or invalid:
+  - `ENFORCE_STRICT_SCHEMAS`
+  - `PERIMETER_VALIDATION_OVERRIDES`
+  - `PERIMETER_TELEMETRY_ENABLED`
+  - Optional: `POSTHOG_PERIMETER_CONFIG_ENABLED=true` to turn on PostHog flag loading.
+
+### Local dev performance
+
+- Server captures batch by default (`POSTHOG_FLUSH_AT`, `POSTHOG_FLUSH_INTERVAL_MS` in `.env.example`). Per-event flushing was hammering the network and CPU.
+- Browser: PostHog debug mode, exception capture, and session recording are **off** unless you opt in via `NEXT_PUBLIC_POSTHOG_*` env vars (see `.env.example`).
+- Perimeter success logs are suppressed in `development` unless `PERIMETER_TELEMETRY_VERBOSE_LOG=true`.
+
+### Dashboard and alert requirements
+
+- **Create the dashboard in PostHog** (insights + layout) by running `bun run posthog:perimeter-dashboard` with `POSTHOG_PERSONAL_API_KEY` set; see [posthog-perimeter-dashboard.md](../posthog-perimeter-dashboard.md).
+- Success rate trend by `env` + `perimeter_id` over time.
+- Top `reason_code` for failures over 24h and 72h.
+- Estimated pass volume using sampled events and `sampling_weight`.
+- Alerts:
+  - Production success rate drops below threshold with minimum traffic.
+  - New or rapidly rising `reason_code` spikes in production.
+
 ### Monitoring & Alerting
 - **Metrics:** Track `perimeter_validation_failures` (count, by event/producer), `payload_violations` (by field).
 - **Tools:** Datadog for logs; alert on >0 failures/day post-enforcement.

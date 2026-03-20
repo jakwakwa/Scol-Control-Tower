@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants, workflowEvents } from "@/db/schema";
 import { requireAuthOrBearer } from "@/lib/auth/api-auth";
+import { ensurePerimeterValidationConfigLoaded } from "@/lib/config/perimeter-validation";
 import { logWorkflowEvent } from "@/lib/services/notification-events.service";
 import { updateRiskCheckMachineState } from "@/lib/services/risk-check.service";
 import {
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		const body = await request.json();
+		await ensurePerimeterValidationConfigLoaded();
 
 		const perimeterResult = validatePerimeter({
 			schema: ExternalSanctionsIngressSchema,
