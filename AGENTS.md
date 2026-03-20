@@ -12,6 +12,8 @@
 - Prefer safe, slower rollout cadence over maximum throughput; pause and verify ground truth when uncertainty arises
 - Do not generalize data models beyond the current known requirements; cross future bridges when they arrive
 - Split Inngest `step.run` blocks so each step contains only one side effect (email, notification, DB write) to avoid duplicate side effects on retries
+- For human-driven dev scenarios and straight-through flows, do not add or leave an automatic scenario runner in parallel with manual steps unless the user explicitly asked for that automation
+- Do not treat Drizzle Studio relation or graph extraction as the primary proof that a schema or migration change is correct; verify with migrations, application behavior, or tests
 
 ## Learned Workspace Facts
 
@@ -25,3 +27,5 @@
 - Manually-created migration SQL files must be registered in `migrations/meta/_journal.json`; `drizzle-kit migrate` silently skips unregistered files
 - Test DB selection is automatic only when running `bun run test:e2e*`; no manual .env switching required — Playwright injects test DB vars into its spawned app server
 - For E2E Clerk auth, document both `E2E_CLERK_***_USERNAME` and `E2E_CLERK_***_EMAIL` in `.env.test.example`; they are distinct (username vs email for sign-in)
+- Manual Green Lane actions from the dashboard are gated in code on the Clerk organization permission `org:green_lane:approve`
+- Do not describe local dev scenarios or human straight-through flows as `mock tests`; that label does not match how this project refers to those flows
