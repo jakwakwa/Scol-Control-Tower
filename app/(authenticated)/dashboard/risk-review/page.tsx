@@ -4,16 +4,14 @@ import {
 	RiAlertLine,
 	RiFilter3Line,
 	RiRefreshLine,
-	RiSearchLine,
 	RiTimeLine,
 } from "@remixicon/react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { DashboardLayout } from "@/components/dashboard";
+import { DashboardLayout, SearchInput } from "@/components/dashboard";
 import { RiskEntitiesTable } from "@/components/dashboard/risk-entities-table";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { getDecisionEndpoint } from "@/lib/utils";
 
 interface OverrideData {
@@ -235,12 +233,6 @@ export default function RiskReviewPage() {
 		setIsDetailOpen(true);
 	};
 
-	// Filter items based on search
-	const _filteredItems = items.filter(
-		item =>
-			item.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			item.companyName.toLowerCase().includes(searchTerm.toLowerCase())
-	);
 
 	const highRiskCount = items.filter(item => (item.aiTrustScore || 100) < 60).length;
 	const pendingCount = items.length;
@@ -272,16 +264,12 @@ export default function RiskReviewPage() {
 				</div>
 			}>
 			{/* Search and Stats Bar */}
-			<div className="flex flex-col md:flex-row items-center	 gap-7 mb-6">
-				<div className="relative flex-1">
-					<RiSearchLine className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-					<Input
-						placeholder="Search company, contact name..."
-						className="pl-10"
-						value={searchTerm}
-						onChange={e => setSearchTerm(e.target.value)}
-					/>
-				</div>
+			<div className="flex flex-col md:flex-row items-center gap-7 mb-6">
+				<SearchInput
+					placeholder="Search company, contact name..."
+					value={searchTerm}
+					onChange={setSearchTerm}
+				/>
 				<div className="flex gap-4">
 					<div className="flex items-center h-11 gap-2 px-4 py-0 bg-destructive/20 border border-rose-500/20 rounded-lg text-destructive-foreground/70">
 						<RiAlertLine className="h-4 w-4" />
@@ -297,7 +285,7 @@ export default function RiskReviewPage() {
 			{/* Applicant Entities Table */}
 			<div className="mt-8">
 				<h2 className="text-lg font-semibold mb-4">Applicant Entities</h2>
-				<RiskEntitiesTable />
+				<RiskEntitiesTable search={searchTerm} />
 			</div>
 		</DashboardLayout>
 	);
