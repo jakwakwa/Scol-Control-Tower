@@ -55,6 +55,7 @@ const nextConfig = {
 				"'unsafe-eval'",
 				"'unsafe-inline'",
 				...clerkHosts.map((h) => `https://${h}`),
+				"https://*.clerk.accounts.dev",
 				...extraHosts,
 			],
 			"style-src": ["'self'", "'unsafe-inline'"],
@@ -92,17 +93,12 @@ const nextConfig = {
 			"connect-src": [
 				"'self'",
 				...clerkHosts.map((h) => `https://${h}`),
-				...extraHosts, // Allow Paddle sandbox API connections
+				"https://*.clerk.accounts.dev",
 				"https://clerk-telemetry.com",
 				"https://vitals.vercel-insights.com",
-				"https://storage.googleapis.com",
-				"https://storage.cloud.google.com",
 				"*.googleusercontent.com",
-				"https://*.googleapis.com",
-				"https://*.google.com",
-				"https://cdn.paddle.com", // Allow Paddle CDN connections for source maps
-			"https://us.i.posthog.com",
-			"https://us-assets.i.posthog.com",
+				"https://us.i.posthog.com",
+				"https://us-assets.i.posthog.com",
 			],
 			"object-src": ["'none'"],
 			"base-uri": ["'self'"],
@@ -133,3 +129,5 @@ const nextConfig = {
 		];
 	},
 };
+
+export default nextConfig;

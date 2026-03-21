@@ -1,7 +1,5 @@
 ---
-name: workflows:work
 description: Execute work plans efficiently while maintaining quality and finishing features
-argument-hint: "[plan file, specification, or todo file path]"
 ---
 
 # Work Plan Execution Command
@@ -20,7 +18,7 @@ This command takes a work document (plan, specification, or todo file) and execu
 
 ### Phase 1: Quick Start
 
-1. **Read Plan and Clarify**
+1. **Read Plan and Clarify** (REQUIRED)
 
    - Read the work document completely
    - Review any references or links provided in the plan
@@ -28,49 +26,12 @@ This command takes a work document (plan, specification, or todo file) and execu
    - Get user approval to proceed
    - **Do not skip this** - better to ask questions now than build the wrong thing
 
-2. **Setup Environment**
 
-   First, check the current branch:
 
-   ```bash
-   current_branch=$(git branch --show-current)
-   default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
-
-   # Fallback if remote HEAD isn't set
-   if [ -z "$default_branch" ]; then
-     default_branch=$(git rev-parse --verify origin/main >/dev/null 2>&1 && echo "main" || echo "master")
-   fi
-   ```
-
-   **If already on a feature branch** (not the default branch):
-   - Ask: "Continue working on `[current_branch]`, or create a new branch?"
-   - If continuing, proceed to step 3
-   - If creating new, follow Option A or B below
-
-   **If on the default branch**, choose how to proceed:
-
-   **Option A: Create a new branch**
-   ```bash
-   git pull origin [default_branch]
-   git checkout -b feature-branch-name
-   ```
-   Use a meaningful name based on the work (e.g., `feat/user-authentication`, `fix/email-validation`).
-
-   **Option B: Use a worktree (recommended for parallel development)**
-   ```bash
-   skill: git-worktree
-   # The skill will create a new branch from the default branch in an isolated worktree
-   ```
-
-   **Option C: Continue on the default branch**
+   **Option C: Continue on the branch**
    - Requires explicit user confirmation
    - Only proceed after user explicitly says "yes, commit to [default_branch]"
    - Never commit directly to the default branch without explicit permission
-
-   **Recommendation**: Use worktree if:
-   - You want to work on multiple features simultaneously
-   - You want to keep the default branch clean while experimenting
-   - You plan to switch between branches frequently
 
 3. **Create Todo List**
    - Use TodoWrite to break plan into actionable tasks
@@ -100,34 +61,6 @@ This command takes a work document (plan, specification, or todo file) and execu
 
    **IMPORTANT**: Always update the original plan document by checking off completed items. Use the Edit tool to change `- [ ]` to `- [x]` for each task you finish. This keeps the plan as a living document showing progress and ensures no checkboxes are left unchecked.
 
-2. **Incremental Commits**
-
-   After completing each task, evaluate whether to create an incremental commit:
-
-   | Commit when... | Don't commit when... |
-   |----------------|---------------------|
-   | Logical unit complete (model, service, component) | Small part of a larger unit |
-   | Tests pass + meaningful progress | Tests failing |
-   | About to switch contexts (backend → frontend) | Purely scaffolding with no behavior |
-   | About to attempt risky/uncertain changes | Would need a "WIP" commit message |
-
-   **Heuristic:** "Can I write a commit message that describes a complete, valuable change? If yes, commit. If the message would be 'WIP' or 'partial X', wait."
-
-   **Commit workflow:**
-   ```bash
-   # 1. Verify tests pass (use project's test command)
-   # Examples: bin/rails test, bun test, pytest, go test, etc.
-
-   # 2. Stage only files related to this logical unit (not `git add .`)
-   git add <files related to this logical unit>
-
-   # 3. Commit with conventional message
-   git commit -m "feat(scope): description of this unit"
-   ```
-
-   **Handling merge conflicts:** If conflicts arise during rebasing or merging, resolve them immediately. Incremental commits make conflict resolution easier since each commit is small and focused.
-
-   **Note:** Incremental commits use clean conventional messages without attribution footers. The final Phase 4 commit/PR includes the full attribution.
 
 3. **Follow Existing Patterns**
 
@@ -139,27 +72,18 @@ This command takes a work document (plan, specification, or todo file) and execu
 
 4. **Test Continuously**
 
-   - Run relevant tests after each significant change
+   - Run Vercel Agent browser test for relevant changes after each significant change
    - Don't wait until the end to test
-   - Fix failures immediately
-   - Add new tests for new functionality
-
-5. **Figma Design Sync** (if applicable)
-
-   For UI work with Figma designs:
-
-   - Implement components following design specs
-   - Use figma-design-sync agent iteratively to compare
-   - Fix visual differences identified
-   - Repeat until implementation matches design
+   - Fix failures immediately! They are automatically in scope
+   - Always Add new tests for new functionality
 
 6. **Track Progress**
-   - Keep TodoWrite updated as you complete tasks
+   - Keep Todo updated as you complete tasks
    - Note any blockers or unexpected discoveries
    - Create new tasks if scope expands
    - Keep user informed of major milestones
 
-### Phase 3: Quality Check
+### Phase 3: Quality Check  (REQUIRED)
 
 1. **Run Core Quality Checks**
 
@@ -167,25 +91,18 @@ This command takes a work document (plan, specification, or todo file) and execu
 
    ```bash
    # Run full test suite (use project's test command)
-   # Examples: bin/rails test, bun test, pytest, go test, etc.
+   # Examples: bin/rails test, bun test, bun test:e2e
 
-   # Run linting (per CLAUDE.md)
-   # Use linting-agent before pushing to origin
+   # Run linting `biome lint`
    ```
 
-2. **Consider Reviewer Agents** (Optional)
-
-   Use for complex, risky, or large changes. Read agents from `compound-engineering.local.md` frontmatter (`review_agents`). If no settings file, invoke the `setup` skill to create one.
-
-   Run configured agents in parallel with Task tool. Present findings and address critical issues.
 
 3. **Final Validation**
    - All TodoWrite tasks marked completed
-   - All tests pass
-   - Linting passes
+   - All tests pass, inlcuding a mandatory agent browser test verfication for runtime
+   - Linting passes ( even if out of scope need fixes )
    - Code follows existing patterns
-   - Figma designs match (if applicable)
-   - No console errors or warnings
+   - No server console or browser errors allowed
 
 4. **Prepare Operational Validation Plan** (REQUIRED)
    - Add a `## Post-Deploy Monitoring & Validation` section to the PR description for every change.
@@ -335,52 +252,6 @@ Or explicitly request: "Use swarm mode for this work"
 
 ### Swarm Workflow
 
-When swarm mode is enabled, the workflow changes:
-
-1. **Create Team**
-   ```
-   Teammate({ operation: "spawnTeam", team_name: "work-{timestamp}" })
-   ```
-
-2. **Create Task List with Dependencies**
-   - Parse plan into TaskCreate items
-   - Set up blockedBy relationships for sequential dependencies
-   - Independent tasks have no blockers (can run in parallel)
-
-3. **Spawn Specialized Teammates**
-   ```
-   Task({
-     team_name: "work-{timestamp}",
-     name: "implementer",
-     subagent_type: "general-purpose",
-     prompt: "Claim implementation tasks, execute, mark complete",
-     run_in_background: true
-   })
-
-   Task({
-     team_name: "work-{timestamp}",
-     name: "tester",
-     subagent_type: "general-purpose",
-     prompt: "Claim testing tasks, run tests, mark complete",
-     run_in_background: true
-   })
-   ```
-
-4. **Coordinate and Monitor**
-   - Team lead monitors task completion
-   - Spawn additional workers as phases unblock
-   - Handle plan approval if required
-
-5. **Cleanup**
-   ```
-   Teammate({ operation: "requestShutdown", target_agent_id: "implementer" })
-   Teammate({ operation: "requestShutdown", target_agent_id: "tester" })
-   Teammate({ operation: "cleanup" })
-   ```
-
-See the `orchestrating-swarms` skill for detailed swarm patterns and best practices.
-
----
 
 ## Key Principles
 
@@ -447,8 +318,7 @@ For most features: tests + linting + following patterns is sufficient.
 
 - **Analysis paralysis** - Don't overthink, read the plan and execute
 - **Skipping clarifying questions** - Ask now, not after building wrong thing
-- **Ignoring plan references** - The plan has links for a reason
-- **Testing at the end** - Test continuously or suffer later
+- **Ignoring plan references** - The plan has links for a reason! 
+- **Testing at the end** - Test continuously or suffer later!
 - **Forgetting TodoWrite** - Track progress or lose track of what's done
-- **80% done syndrome** - Finish the feature, don't move on early
-- **Over-reviewing simple changes** - Save reviewer agents for complex work
+- **80% done syndrome** - Finish the feature, don't move on early!  (REQUIRED)

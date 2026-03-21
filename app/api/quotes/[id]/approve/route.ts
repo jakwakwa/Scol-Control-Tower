@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
+import { eq } from "drizzle-orm";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
 import { quotes, workflows } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
+import { captureServerEvent } from "@/lib/posthog-server";
 import { sendInngestEventReliably } from "@/lib/services/signed-quotation-workflow.service";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
-import { captureServerEvent } from "@/lib/posthog-server";
 
 /**
  * POST /api/quotes/[id]/approve
@@ -17,7 +17,30 @@ import { captureServerEvent } from "@/lib/posthog-server";
 export async function POST(
 	_request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> }
-) {
+): Promise<
+	| NextResponse<{ error: string }>
+	| NextResponse<{
+			quote: {
+				status:
+					| "rejected"
+					| "approved"
+					| "draft"
+					| "pending_approval"
+					| "pending_signature";
+				id: number;
+				createdAt: Date;
+				updatedAt: Date;
+				applicantId: number;
+				workflowId: number;
+				amount: number;
+				baseFeePercent: number;
+				adjustedFeePercent: number;
+				details: string;
+				rationale: string;
+				generatedBy: string;
+			};
+	  }>
+> {
 	try {
 		const { userId, has, orgRole } = await auth();
 		if (!userId) {
