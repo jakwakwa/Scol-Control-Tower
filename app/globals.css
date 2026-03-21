@@ -290,7 +290,7 @@
 
 
   .glass-card {
-    position: absolute;
+    /* position: relative; */
     border-radius: 25px !important;
 
 
@@ -299,7 +299,7 @@
     /* height: 100%; */
     position: relative;
     inset: 0;
-    z-index: 2;
+    /* z-index: 0; */
 
     padding-bottom: 40px !important;
     margin-bottom: 20px !important;
@@ -312,7 +312,7 @@
 
   .card-form {
     background: transparent !important;
-    position: relative;
+    /* position: relative; */
     inset: 0;
     gap: 0px !important;
     display: flex !important;
@@ -337,36 +337,11 @@
     height: 100% !important;
     padding: 0px !important;
     position: absolute;
-    z-index: -1;
+    z-index: 0;
     background: var(--charcoal-900) !important;
   }
 
 
-  .card-form::before {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    backdrop-filter: blur(8px) !important;
-    inset: 1;
-    border-radius: 15px !important;
-    overflow: hidden;
-    isolation: isolate;
-  }
-
-
-  .card-form::after {
-    content: '';
-    position: relative;
-    border-radius: 15px !important;
-    z-index: 0;
-    inset: 0;
-
-    /* -webkit-filter: url(#container-glass); */
-    /* filter: url(#container-glass); */
-    border-radius: 15px !important;
-    /* overflow: hidden; */
-    /* isolation: isolate; */
-  }
 
 
   .glass-card-container-form {
@@ -389,11 +364,11 @@
     height: var(--dotted-grid-dynamic-height, 100vh) !important;
     width: 100%;
     padding: 20px;
-    position: relative !important;
-    top: 0;
+    /* position: relative !important; */
+    /* top: 0;
     left: 0;
     right: 0;
-    z-index: 2;
+    z-index: 2; */
     background-color: var(--charcoal-900) !important;
     /* background-image: radial-gradient(circle, rgba(37, 152, 152, 0.974) 1px, transparent 1px) !important; */
     background-size: 20px 20px;
@@ -406,8 +381,8 @@
     width: 100%;
     height: 100% !important;
     padding: 15px;
-    position: relative;
-    z-index: 0;
+    /* position: relative; */
+    /* z-index: 0; */
     background: #031b27e5 !important;
   }
 
@@ -416,10 +391,10 @@
   }
 
   .dotted-grid {
-    position: relative;
-    inset: -1;
-    overflow: hidden;
-    z-index: 0;
+    /* position: relative; */
+    /* inset: -1; */
+    /* overflow: hidden; */
+    /* z-index: 0; */
     height: 100% !important;
     padding: 0 !important;
     min-height: 100vh;
@@ -432,48 +407,19 @@
 
   .dotted-grid-main {
     /* position: absolute; */
-    mix-blend-mode: multiply, screen !important;
-    inset: -1;
-    z-index: -2;
-    background-size: 88px 88px, 88px 88px, 88px 88px;
-    background-color: var(--charcoal-900) !important;
-    background-image: linear-gradient(to bottom, var(--charcoal-900) 1px, var(--charcoal-900) 1px),
-      linear-gradient(to right, var(--charcoal-900) 1px, transparent 1px),
-      radial-gradient(circle, var(--charcoal-400) 1px, transparent 1px) !important;
-    background-size: 22px 22px, 22px 22px, 22px 22px;
-    background-position: 0 0, 0 0, 0 0;
-    background-color: var(--charcoal-900) !important;
-  }
-
-
-
-  .glass-card::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    overflow: hidden;
-    background-image: var(--gradient-top-left), var(--gradient-bottom-left), var(--gradient-bottom) !important;
-    background-size: 100% 100%, 100% 100%, 100% 100% !important;
-    background-position: 0 0, 0 0, 0 0;
+    /* mix-blend-mode: multiply, screen !important; */
+    /* inset: -1; */
+    /* z-index: -2; */
+    /* background-size: 88px 88px, 88px 88px, 88px 88px; */
     /* background-color: var(--charcoal-900) !important; */
-    border-radius: 24px !important;
-    box-shadow: inset -3px 1px 1px -2px rgba(129, 94, 37, 0.54), inset 0px 1px 3px -1px rgba(137, 108, 2, 0.513), inset 0 -8px 10px -3px rgba(63, 52, 3, 0.274) !important;
+    /* background-image: linear-gradient(to bottom, var(--charcoal-900) 1px, var(--charcoal-900) 1px),
+      linear-gradient(to right, var(--charcoal-900) 1px, transparent 1px),
+      radial-gradient(circle, var(--charcoal-400) 1px, transparent 1px) !important; */
+    background-size: 22px 22px, 22px 22px, 22px 22px;
+    /* background-position: 0 0, 0 0, 0 0; */
+    background-color: var(--charcoal-900) !important;
   }
 
-
-  .dotted-grid-main::after,
-  .glass-card::after {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    inset: 1;
-    border-radius: 20px;
-    backdrop-filter: blur(0.5px);
-
-    overflow: hidden;
-    isolation: isolate;
-  }
 
 
 

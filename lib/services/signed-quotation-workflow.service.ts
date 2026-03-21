@@ -36,6 +36,10 @@ export async function sendInngestEventReliably(payload: {
 			}
 		}
 	}
+	console.error(
+		`[sendInngestEventReliably] Failed to send "${payload.name}" after ${INNGEST_SEND_RETRIES} attempts`,
+		{ workflowId: payload.data?.workflowId, error: lastError }
+	);
 	throw lastError;
 }
 
