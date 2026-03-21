@@ -63,7 +63,7 @@ export function GlassCard({
 }: GlassCardProps): React.ReactNode {
 	return (
 		<div
-			className={`glass-card p-8 mb-4 rounded-lg ${
+			className={`p-8 mb-4 rounded-lg ${
 				hover
 					? "transition-all duration-300 hover:bg-card hover:border-secondary/10 hover:shadow-2xl hover:-translate-y-1"
 					: ""
