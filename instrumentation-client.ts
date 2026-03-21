@@ -10,7 +10,7 @@ if (posthogProjectToken) {
 
 	posthog.init(posthogProjectToken, {
 		api_host: "/ingest",
-		ui_host: process.env.NEXT_PUBLIC_POSTHOG_UI_HOST ?? "https://us.posthog.com",
+		ui_host: process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.posthog.com",
 		defaults: "2026-01-30",
 		capture_exceptions: captureExceptions,
 		debug,
