@@ -8,7 +8,7 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 import useSWR from "swr";
-import { DashboardLayout, GlassCard } from "@/components/dashboard";
+import { DashboardLayout, } from "@/components/dashboard";
 import { AbsaPacketSection } from "@/components/dashboard/contract/absa-packet-section";
 import ConfirmActionDrawer from "@/components/shared/confirm-action-drawer";
 import { Button } from "@/components/ui/button";

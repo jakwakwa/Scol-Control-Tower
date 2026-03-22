@@ -6,38 +6,37 @@
  * Note: Using UK spelling throughout (e.g., organisation, authorisation)
  */
 
-import * as React from "react";
-import { useForm, FormProvider, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FormWizard, FormStep } from "../form-wizard";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import {
-	RiFolderLine,
-	RiUserLine,
+	RiAddLine,
 	RiBankLine,
 	RiBriefcaseLine,
-	RiGovernmentLine,
-	RiUploadCloud2Line,
 	RiCheckLine,
 	RiCloseLine,
-	RiFileTextLine,
-	RiAddLine,
 	RiDeleteBinLine,
+	RiFileTextLine,
+	RiFolderLine,
+	RiGovernmentLine,
+	RiUploadCloud2Line,
+	RiUserLine,
 } from "@remixicon/react";
-
+import * as React from "react";
+import { FormProvider, useFieldArray, useForm } from "react-hook-form";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import {
-	ficaDocumentsSchema,
-	FICA_DOCUMENTS_STEP_TITLES,
 	DOCUMENT_REQUIREMENTS,
 	DocumentCategory,
-	getFicaDocumentsDefaultValues,
+	FICA_DOCUMENTS_STEP_TITLES,
 	type FicaDocumentsFormData,
+	ficaDocumentsSchema,
+	getFicaDocumentsDefaultValues,
 } from "@/lib/validations/onboarding";
+import { FormStep, FormWizard } from "../form-wizard";
 
 // ============================================
 // Types

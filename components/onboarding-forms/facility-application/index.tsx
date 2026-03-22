@@ -6,24 +6,23 @@
  * Note: Using UK spelling throughout (e.g., organisation, authorisation)
  */
 
-import * as React from "react";
-import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FormWizard, FormStep } from "../form-wizard";
+import { RiLineChartLine, RiServiceLine } from "@remixicon/react";
+import * as React from "react";
+import { FormProvider, useForm } from "react-hook-form";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { RiServiceLine, RiLineChartLine, } from "@remixicon/react";
-
 import {
-	facilityApplicationSchema,
-	FACILITY_APPLICATION_STEP_TITLES,
-	ServiceType,
 	AdditionalService,
+	FACILITY_APPLICATION_STEP_TITLES,
 	type FacilityApplicationFormData,
+	facilityApplicationSchema,
+	ServiceType,
 } from "@/lib/validations/onboarding";
+import { FormStep, FormWizard } from "../form-wizard";
 
 // ============================================
 // Types
@@ -265,7 +264,6 @@ export function FacilityApplicationForm({
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
 
 	const methods = useForm<FacilityApplicationFormData>({
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		resolver: zodResolver(facilityApplicationSchema) as any,
 		defaultValues: initialData ?? {
 			idNumber: "",

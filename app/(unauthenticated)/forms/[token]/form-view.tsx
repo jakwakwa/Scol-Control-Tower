@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import DecisionActions from "@/components/forms/decision-actions";
 import styles from "@/components/forms/external/external-form-theme.module.css";
 import FormRenderer from "@/components/forms/form-renderer";
 import FormStatusMessage from "@/components/forms/form-status-message";
 import type { FormType } from "@/lib/types";
 import { formContent } from "./content";
-import { toast } from "sonner";
 
 interface FormViewProps {
 	token: string;
