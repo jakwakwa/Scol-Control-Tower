@@ -1,4 +1,5 @@
 import type React from "react";
+import { Label as Div } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import styles from "./external-form-theme.module.css";
 
@@ -21,10 +22,10 @@ export default function ExternalFormField({
 }: ExternalFormFieldProps) {
 	return (
 		<div className={cn(styles.externalField, className)}>
-			<label>
+			<Div>
 				{label}
 				{required ? <span className={styles.requiredStar}>*</span> : null}
-			</label>
+			</Div>
 			{description ? <p className={styles.externalSectionNote}>{description}</p> : null}
 			{children}
 			{error ? <span className={styles.externalError}>{error}</span> : null}

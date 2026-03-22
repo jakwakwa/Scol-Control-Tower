@@ -8,9 +8,8 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, it, beforeEach } from "bun:test";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { sql, eq } from "drizzle-orm";
-import { applicantMagiclinkForms, applicants } from "@/db/schema";
-import { recordFormDecision } from "@/lib/services/form.service";
+import { sql, } from "drizzle-orm";
+import { applicantMagiclinkForms, } from "../db/schema.ts";
 
 // We need to mock getDatabaseClient to use our in-memory DB.
 // Since recordFormDecision calls getDatabaseClient() internally,

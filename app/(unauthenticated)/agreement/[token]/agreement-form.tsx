@@ -189,7 +189,6 @@ export default function AgreementForm({
 		placeholder?: string;
 		className?: string;
 	}) => {
-		// biome-ignore lint/suspicious/noExplicitAny: <"explanation">
 		const fieldError = name.split(".").reduce((err: any, key) => err?.[key], errors);
 		return (
 			<div className={`contract-field ${className || ""}`}>
@@ -228,7 +227,6 @@ export default function AgreementForm({
 
 			{/* ── Master ID ── */}
 			<div className="contract-master-id">
-				{/** biome-ignore lint/a11y/noLabelWithoutControl: <"explanation"> */}
 				<label>Master ID:</label>
 				<span>{applicantId}</span>
 			</div>

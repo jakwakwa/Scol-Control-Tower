@@ -21,7 +21,7 @@ const nextConfig = {
 		],
 	},
 	turbopack: {
-		root: "/Users/jacobkotzee/Projects/REPOS/ai-webapps/sc-onboard-controltower",
+		root: "/Users/jakwakwa/Repos/stratcol-apps/Scol-Control-Tower",
 	},
 	skipTrailingSlashRedirect: true,
 	async rewrites() {

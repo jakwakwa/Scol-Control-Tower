@@ -15,7 +15,6 @@ import { z } from "zod";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants, riskCheckResults, sanctionClearance, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
-import { executeKillSwitch } from "@/lib/services/kill-switch.service";
 import { updateRiskCheckReviewState } from "@/lib/services/risk-check.service";
 
 // ============================================
@@ -88,7 +87,9 @@ export async function GET(_request: NextRequest) {
 					if (sanctionsRow?.payload) {
 						try {
 							matchDetails = JSON.parse(sanctionsRow.payload);
-						} catch { /* ignore */ }
+						} catch {
+							/* ignore */
+						}
 						provider = sanctionsRow.provider;
 					}
 				}
