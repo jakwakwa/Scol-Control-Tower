@@ -1,13 +1,8 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
-import { DM_Sans, Inter } from "next/font/google";
 import DottedGridHeightSync from "@/components/layout/dotted-grid-height-sync";
 
 import "./globals.css";
-
-const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-sans" });
-
-const inter = Inter({ subsets: ["latin"], display: "swap" });
 
 import { getBaseUrl } from "@/lib/utils";
 
@@ -26,10 +21,8 @@ export default function RootLayout({
 }>) {
 	return (
 		<ClerkProvider>
-			<html lang="en" className={dmSans.variable} suppressHydrationWarning>
-				<body
-					className={`bg-background  overscroll-none  ${inter.className} override-padding-reset`}
-					suppressHydrationWarning>
+			<html lang="en" suppressHydrationWarning>
+				<body className="bg-background overscroll-none override-padding-reset" suppressHydrationWarning>
 					{children}
 				</body>
 			</html>
