@@ -21,7 +21,7 @@ const nextConfig = {
 		],
 	},
 	turbopack: {
-		root: "/Users/jacobkotzee/Projects/REPOS/ai-webapps/sc-onboard-controltower",
+		root: process.cwd(),
 	},
 	skipTrailingSlashRedirect: true,
 	async rewrites() {
