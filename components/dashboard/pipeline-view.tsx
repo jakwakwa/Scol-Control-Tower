@@ -228,7 +228,7 @@ function PipelineCard({ workflow }: { workflow: PipelineWorkflow }) {
 	const canViewQuote = stageNumber >= 2 && workflow.hasQuote;
 
 	return (
-		<div className="glass-card after:rounded-2xl before:rounded-2xl backdrop-blur-xs py-5 h-full px-3.5  border-1 border-white/10 shadow-[0px_10px_10px_rgba(0,0,0,0.05)] transition-all group relative select-none">
+		<div className="glass-card after:rounded-2xl before:rounded-2xl backdrop-blur-xs py-5 h-full max-h-[120px] px-3.5  border-1 border-white/10 shadow-[0px_10px_10px_rgba(0,0,0,0.05)] transition-all group relative select-none">
 			{/* Header: Company Name & Risk if applicable */}
 			<div className="flex justify-between items-center mb-2 h-fit">
 				<h4 className="font-medium line-clamp-1 text-ellipsis  whitespace-nowrap uppercase   text-[11px] text-card-foreground leading-tight pr-6">
