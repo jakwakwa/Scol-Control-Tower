@@ -20,11 +20,8 @@ const nextConfig = {
 			{ protocol: "https", hostname: "i.ytimg.com" },
 		],
 	},
-	webpack: (config) => {
-		config.resolve.alias = {
-			...config.resolve.alias,
-		};
-		return config;
+	turbopack: {
+		root: "/Users/jacobkotzee/Projects/REPOS/ai-webapps/sc-onboard-controltower",
 	},
 	skipTrailingSlashRedirect: true,
 	async rewrites() {
