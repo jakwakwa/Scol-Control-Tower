@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "agent-browser-verify": {
+      "source": "vercel-labs/vercel-plugin",
+      "sourceType": "github",
+      "computedHash": "71b400864b7c93453b5e62430392a98532d73b7da0236402b4807520687687bd"
+    },
     "clerk-testing": {
       "source": "clerk/skills",
       "sourceType": "github",
@@ -11,10 +16,40 @@
       "sourceType": "github",
       "computedHash": "055e73cddeec68e7eb75eab0c3f8490415384f72e98ac05405821427ed0e74b1"
     },
+    "env-vars": {
+      "source": "vercel-labs/vercel-plugin",
+      "sourceType": "github",
+      "computedHash": "8afaa26ba82573de93f099146caa2f568bb65fabe77ce2f24696762671a75100"
+    },
+    "investigation-mode": {
+      "source": "vercel-labs/vercel-plugin",
+      "sourceType": "github",
+      "computedHash": "e5345e7487c0c2dc0f18291743e35c0cd11a751d4172b2c1283a87cb26da4f01"
+    },
+    "nextjs": {
+      "source": "vercel-labs/vercel-plugin",
+      "sourceType": "github",
+      "computedHash": "c50aa77f7aa7196a0b1e6a436d064319b20316fbad8d9f18769b470bfae0340b"
+    },
     "playwright-best-practices": {
       "source": "currents-dev/playwright-best-practices-skill",
       "sourceType": "github",
       "computedHash": "a3a25fef9f51c15bb6c7c302ffb009a9040532bf51d999c648fcceaa9ab08841"
+    },
+    "shadcn": {
+      "source": "vercel-labs/vercel-plugin",
+      "sourceType": "github",
+      "computedHash": "3d7246c8646f37167701c5ac97d1410094a01e5fdd696d2901b7ca90fe99fad8"
+    },
+    "swr": {
+      "source": "vercel-labs/vercel-plugin",
+      "sourceType": "github",
+      "computedHash": "cf9dbfee2cf85488ea653a581518809c30a1c3ca8f83c57ea6632704457e1438"
+    },
+    "turbopack": {
+      "source": "vercel-labs/vercel-plugin",
+      "sourceType": "github",
+      "computedHash": "f5369c5efd09055273f89c9ab390dd83f752474ae6a282b0de8dd02e310f51a7"
     }
   }
 }
