@@ -15,6 +15,9 @@ test-results/
 blob-report/
 # Screenshots and run artifacts (Inngest dev server, approvals, etc.) — do not commit
 *.png
+# Browser-flow test artifacts
+tests/browser-flow/.applicant-id
+tests/browser-flow/screenshots/
 
 # next.js
 /.next/
