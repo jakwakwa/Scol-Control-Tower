@@ -17,7 +17,7 @@
 import * as React from "react";
 import { useForm, FormProvider, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FormWizard, FormStep } from "../form-wizard";
+import { FormWizard, FormStep, readPersistedWizardStep } from "../form-wizard";
 import { SignatureCanvas } from "../signature-canvas";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -294,7 +294,10 @@ export function Absa6995Form({
 	readOnly = false,
 	isSubmitting: externalIsSubmitting = false,
 }: Absa6995FormProps) {
-	const [currentStep, setCurrentStep] = React.useState(0);
+	const stepStorageKey = `absa-6995-${workflowId}`;
+	const [currentStep, setCurrentStep] = React.useState(() =>
+		readPersistedWizardStep(stepStorageKey, ABSA_6995_STEP_TITLES.length)
+	);
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
 
 	const methods = useForm<Absa6995FormData>({
@@ -388,12 +391,12 @@ export function Absa6995Form({
 					onSaveDraft={onSaveDraft ? handleSaveDraft : undefined}
 					title="Absa 6995 Pre-screening Assessment"
 					isSubmitting={isSubmitting || externalIsSubmitting}
-					storageKey={`absa-6995-${workflowId}`}
+					storageKey={stepStorageKey}
 					submitButtonText="Submit Assessment">
-					{({ currentStep }) => (
+					{({ logicalStepIndex }) => (
 						<>
 							{/* Step 1: Applicant Details & Application Type */}
-							<FormStep isActive={currentStep === 0}>
+							<FormStep isActive={logicalStepIndex === 0}>
 								<div className="space-y-6">
 									<div className="flex items-center gap-2 mb-4">
 										<RiBuildingLine className="h-5 w-5 text-muted-foreground" />
@@ -502,7 +505,7 @@ export function Absa6995Form({
 							</FormStep>
 
 							{/* Step 2: Directors & Contact Details */}
-							<FormStep isActive={currentStep === 1}>
+							<FormStep isActive={logicalStepIndex === 1}>
 								<div className="space-y-6">
 									<div className="flex items-center gap-2 mb-4">
 										<RiUserLine className="h-5 w-5 text-muted-foreground" />
@@ -696,7 +699,7 @@ export function Absa6995Form({
 							</FormStep>
 
 							{/* Step 3: Banking & Collection History */}
-							<FormStep isActive={currentStep === 2}>
+							<FormStep isActive={logicalStepIndex === 2}>
 								<div className="space-y-6">
 									<div className="flex items-center gap-2 mb-4">
 										<RiBankLine className="h-5 w-5 text-muted-foreground" />
@@ -844,7 +847,7 @@ export function Absa6995Form({
 							</FormStep>
 
 							{/* Step 4: Compliance & Metrics */}
-							<FormStep isActive={currentStep === 3}>
+							<FormStep isActive={logicalStepIndex === 3}>
 								<div className="space-y-6">
 									<div className="flex items-center gap-2 mb-4">
 										<RiShieldCheckLine className="h-5 w-5 text-muted-foreground" />
@@ -1125,7 +1128,7 @@ export function Absa6995Form({
 							</FormStep>
 
 							{/* Step 5: Bureau Details (Conditional) */}
-							<FormStep isActive={currentStep === 4}>
+							<FormStep isActive={logicalStepIndex === 4}>
 								<div className="space-y-6">
 									<div className="flex items-center gap-2 mb-4">
 										<RiBuildingLine className="h-5 w-5 text-muted-foreground" />
@@ -1181,7 +1184,7 @@ export function Absa6995Form({
 							</FormStep>
 
 							{/* Step 6: Declarations & Signatures */}
-							<FormStep isActive={currentStep === 5}>
+							<FormStep isActive={logicalStepIndex === 5}>
 								<div className="space-y-6">
 									<div className="flex items-center gap-2 mb-4">
 										<RiFileListLine className="h-5 w-5 text-muted-foreground" />

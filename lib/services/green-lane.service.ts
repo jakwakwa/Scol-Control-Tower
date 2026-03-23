@@ -133,7 +133,7 @@ export async function isGreenLaneEligible(
 	const sanctionsCheck = checksByType.get("SANCTIONS");
 	const ficaCheck = checksByType.get("FICA");
 
-	if (!procurementCheck || !itcCheck || !sanctionsCheck || !ficaCheck) {
+	if (!(((procurementCheck && itcCheck ) && sanctionsCheck ) && ficaCheck)) {
 		return {
 			eligible: false,
 			reason: "Required checks are missing",

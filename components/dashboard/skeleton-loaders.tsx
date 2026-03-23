@@ -15,11 +15,7 @@ interface SkeletonProps {
 export function Skeleton({ className, animate = true }: SkeletonProps) {
 	return (
 		<div
-			className={cn(
-				"rounded-md bg-secondary/10",
-				animate && "animate-pulse",
-				className
-			)}
+			className={cn("rounded-md bg-background/50", animate && "animate-pulse", className)}
 		/>
 	);
 }
@@ -58,7 +54,13 @@ export function TableRowSkeleton({ columns = 5 }: { columns?: number }) {
 	);
 }
 
-export function TableSkeleton({ rows = 5, columns = 5 }: { rows?: number; columns?: number }) {
+export function TableSkeleton({
+	rows = 5,
+	columns = 5,
+}: {
+	rows?: number;
+	columns?: number;
+}) {
 	return (
 		<div className="rounded-xl border border-secondary/10 overflow-hidden">
 			{/* Header */}
@@ -129,7 +131,7 @@ export function RiskReviewCardSkeleton() {
 		<div className="rounded-xl border border-secondary/10 bg-card/30 p-5 relative overflow-hidden">
 			{/* Side indicator */}
 			<div className="absolute left-0 top-0 h-full w-1 bg-secondary/20" />
-			
+
 			<div className="pl-2">
 				{/* Header */}
 				<div className="flex items-start justify-between gap-4 mb-4">
@@ -142,7 +144,7 @@ export function RiskReviewCardSkeleton() {
 					</div>
 					<Skeleton className="h-20 w-20 rounded-full" />
 				</div>
-				
+
 				{/* Metrics */}
 				<div className="grid grid-cols-3 gap-4 py-4 border-t border-secondary/10">
 					{Array.from({ length: 3 }).map((_, i) => (
@@ -152,14 +154,14 @@ export function RiskReviewCardSkeleton() {
 						</div>
 					))}
 				</div>
-				
+
 				{/* Flags */}
 				<div className="flex gap-2 mt-4">
 					<Skeleton className="h-5 w-20 rounded-full" />
 					<Skeleton className="h-5 w-16 rounded-full" />
 					<Skeleton className="h-5 w-24 rounded-full" />
 				</div>
-				
+
 				{/* Actions */}
 				<div className="flex justify-between pt-4 border-t border-secondary/10 mt-4">
 					<Skeleton className="h-8 w-24" />
@@ -185,11 +187,13 @@ export function PipelineColumnSkeleton({ items = 3 }: { items?: number }) {
 				<Skeleton className="h-4 w-24" />
 				<Skeleton className="h-5 w-8 rounded-full" />
 			</div>
-			
+
 			{/* Cards */}
 			<div className="space-y-3">
 				{Array.from({ length: items }).map((_, i) => (
-					<div key={i} className="p-3 rounded-lg bg-secondary/5 border border-secondary/10">
+					<div
+						key={i}
+						className="p-3 rounded-lg bg-secondary/5 border border-secondary/10">
 						<Skeleton className="h-4 w-28 mb-2" />
 						<Skeleton className="h-3 w-20 mb-3" />
 						<div className="flex gap-1">
@@ -208,22 +212,23 @@ export function PipelineColumnSkeleton({ items = 3 }: { items?: number }) {
 // Dashboard Grid Skeleton
 // ============================================
 
-export function DashboardGridSkeleton({ 
-	columns = 4, 
-	items = 4 
-}: { 
-	columns?: number; 
-	items?: number; 
+export function DashboardGridSkeleton({
+	columns = 4,
+	items = 4,
+}: {
+	columns?: number;
+	items?: number;
 }) {
 	return (
-		<div className={cn(
-			"grid gap-4 lg:gap-6",
-			columns === 1 && "grid-cols-1",
-			columns === 2 && "grid-cols-1 md:grid-cols-2",
-			columns === 3 && "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
-			columns === 4 && "grid-cols-1 md:grid-cols-2 lg:grid-cols-4",
-			columns === 6 && "grid-cols-2 md:grid-cols-3 lg:grid-cols-6"
-		)}>
+		<div
+			className={cn(
+				"grid gap-4 lg:gap-6",
+				columns === 1 && "grid-cols-1",
+				columns === 2 && "grid-cols-1 md:grid-cols-2",
+				columns === 3 && "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+				columns === 4 && "grid-cols-1 md:grid-cols-2 lg:grid-cols-4",
+				columns === 6 && "grid-cols-2 md:grid-cols-3 lg:grid-cols-6"
+			)}>
 			{Array.from({ length: items }).map((_, i) => (
 				<StatsCardSkeleton key={i} />
 			))}
@@ -256,22 +261,19 @@ export function ActivityFeedSkeleton({ items = 5 }: { items?: number }) {
 // Text Skeleton
 // ============================================
 
-export function TextSkeleton({ 
+export function TextSkeleton({
 	lines = 3,
-	lastLineWidth = "2/3"
-}: { 
+	lastLineWidth = "2/3",
+}: {
 	lines?: number;
 	lastLineWidth?: string;
 }) {
 	return (
 		<div className="space-y-2">
 			{Array.from({ length: lines }).map((_, i) => (
-				<Skeleton 
-					key={i} 
-					className={cn(
-						"h-4",
-						i === lines - 1 ? `w-${lastLineWidth}` : "w-full"
-					)} 
+				<Skeleton
+					key={i}
+					className={cn("h-4", i === lines - 1 ? `w-${lastLineWidth}` : "w-full")}
 				/>
 			))}
 		</div>

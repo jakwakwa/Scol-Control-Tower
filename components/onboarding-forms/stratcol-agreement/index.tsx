@@ -1,5 +1,15 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+	RiAddLine,
+	RiBankLine,
+	RiBuildingLine,
+	RiDeleteBinLine,
+	RiUserLine,
+} from "@remixicon/react";
+import * as React from "react";
+import { FormProvider, useFieldArray, useForm } from "react-hook-form";
 /**
  * StratCol Agreement Form
  * Core contract establishing legal relationship and primary entity data
@@ -17,25 +27,14 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { zodResolver } from "@hookform/resolvers/zod";
-import {
-	RiAddLine,
-	RiBankLine,
-	RiBuildingLine,
-	RiDeleteBinLine,
-	RiUserLine,
-} from "@remixicon/react";
-import * as React from "react";
-import { FormProvider, useFieldArray, useForm } from "react-hook-form";
-import { FormStep, FormWizard } from "../form-wizard";
-import { SignatureCanvas } from "../signature-canvas";
-
 import {
 	EntityType,
 	STRATCOL_AGREEMENT_STEP_TITLES,
-	stratcolAgreementSchema,
 	type StratcolAgreementFormData,
+	stratcolAgreementSchema,
 } from "@/lib/validations/onboarding";
+import { FormStep, FormWizard } from "../form-wizard";
+import { SignatureCanvas } from "../signature-canvas";
 
 // ============================================
 // Types

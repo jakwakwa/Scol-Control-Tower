@@ -79,7 +79,7 @@ export const Features = () => {
 							viewport={{ once: true }}
 							transition={{ duration: 0.5, delay: index * 0.1 }}
 							whileHover={{ y: -5 }}
-							className="p-6 rounded-2xl bg-cyan-200/5 border border-secondary/10 hover:border-primary/50 transition-colors hover:bg-secondary/10">
+							className="p-6 rounded-2xl bg-cyan-200/5 border border-secondary/10 hover:border-primary/50 transition-colors hover:bg-background/50">
 							<div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center mb-4 border border-secondary/5">
 								{feature.icon}
 							</div>

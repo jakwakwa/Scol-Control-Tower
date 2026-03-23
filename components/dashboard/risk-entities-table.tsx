@@ -152,17 +152,17 @@ const columns: ColumnDef<RiskEntityRow>[] = [
 
 const PAGE_SIZE = 10;
 
-export function RiskEntitiesTable() {
+export function RiskEntitiesTable({ search = "" }: { search?: string }) {
 	const [data, setData] = useState<RiskEntityRow[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [pageIndex, setPageIndex] = useState(0);
 	const [pageCount, setPageCount] = useState(0);
 
-	const fetchEntities = useCallback(async (page: number) => {
+	const fetchEntities = useCallback(async (page: number, searchTerm: string) => {
 		setIsLoading(true);
 		try {
 			const response = await fetch(
-				`/api/risk-review/entities?page=${page + 1}&pageSize=${PAGE_SIZE}`
+				`/api/risk-review/entities?page=${page + 1}&pageSize=${PAGE_SIZE}&search=${encodeURIComponent(searchTerm)}`
 			);
 			if (!response.ok) {
 				throw new Error("Failed to fetch risk entities");
@@ -182,8 +182,8 @@ export function RiskEntitiesTable() {
 	}, []);
 
 	useEffect(() => {
-		fetchEntities(pageIndex);
-	}, [fetchEntities, pageIndex]);
+		fetchEntities(pageIndex, search);
+	}, [fetchEntities, pageIndex, search]);
 
 	const handlePageChange = (newPage: number) => {
 		setPageIndex(newPage);

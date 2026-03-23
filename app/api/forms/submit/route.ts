@@ -1,11 +1,15 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getDatabaseClient } from "@/app/utils";
 import { inngest } from "@/inngest";
+import { captureServerEvent } from "@/lib/posthog-server";
 import {
 	getFormInstanceByToken,
+	recordFormDecision,
 	recordFormSubmission,
 } from "@/lib/services/form.service";
+import { syncSignedQuotationDecisionToQuoteAndInngest } from "@/lib/services/signed-quotation-workflow.service";
 import {
 	createWorkflowNotification,
 	logWorkflowEvent,
@@ -182,6 +186,64 @@ export async function POST(request: NextRequest) {
 			});
 		}
 
+		// Signed quotation: submitting with validated schema implies acceptance — record decision
+		// and emit quote/responded + quote/signed here so Inngest advances even if the follow-up
+		// POST /decision call fails in the browser (network, tab close, etc.).
+		if (formType === "SIGNED_QUOTATION" && formInstance.workflowId) {
+			const db = getDatabaseClient();
+			if (!db) {
+				return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
+			}
+			const decisionUpdate = await recordFormDecision({
+				formInstanceId: formInstance.id,
+				outcome: "APPROVED",
+			});
+			if (decisionUpdate) {
+				await logWorkflowEvent({
+					workflowId: formInstance.workflowId,
+					eventType: "stage_change",
+					payload: {
+						step: "form-decision-recorded",
+						formType,
+						decision: "APPROVED" as const,
+						applicantMagiclinkFormId: formInstance.id,
+					},
+				});
+				const syncResult = await syncSignedQuotationDecisionToQuoteAndInngest(
+					db,
+					formInstance.workflowId,
+					formInstance.applicantId,
+					"APPROVED"
+				);
+				if (!syncResult.ok) {
+					return NextResponse.json(
+						{ error: "No quote available for this workflow" },
+						{ status: 404 }
+					);
+				}
+				await createWorkflowNotification({
+					workflowId: formInstance.workflowId,
+					applicantId: formInstance.applicantId,
+					type: "completed",
+					title: "SIGNED QUOTATION approved",
+					message: "Applicant approved this step.",
+					actionable: false,
+				});
+				captureServerEvent({
+					distinctId: `applicant_${formInstance.applicantId}`,
+					event: "quote_pipeline",
+					properties: {
+						step: "signed_quotation_submit",
+						path: "/api/forms/submit",
+						workflow_id: formInstance.workflowId,
+						applicant_id: formInstance.applicantId,
+						quote_id: syncResult.quoteId,
+						inngest_sync: "ok",
+					},
+				});
+			}
+		}
+
 		if (formInstance.workflowId) {
 			await inngest.send({
 				name: "form/submitted",
@@ -223,6 +285,17 @@ export async function POST(request: NextRequest) {
 			}
 
 		}
+
+		captureServerEvent({
+			distinctId: `applicant_${formInstance.applicantId}`,
+			event: "form_submitted",
+			properties: {
+				form_type: formType,
+				workflow_id: formInstance.workflowId,
+				applicant_id: formInstance.applicantId,
+				submission_id: submission.id,
+			},
+		});
 
 		return NextResponse.json({
 			success: true,

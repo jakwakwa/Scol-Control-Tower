@@ -8,8 +8,10 @@ export const Footer = () => {
 			<div className="container px-4 mx-auto">
 				{/* CTA Section */}
 				<div className="text-center mb-20">
-					<h2 className="text-xl md:text-5xl font-bold text-foreground mb-6">
-						Request Access to take control
+					<h2 className="text-xl md:text-5xl font-bold text-foreground mb-6 leading-[1.3]">
+						Request Access to
+						<br />
+						take command in the Tower
 					</h2>
 					<a href="/sign-up">
 						<Button

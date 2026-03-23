@@ -18,6 +18,7 @@ import { auth } from "@clerk/nextjs/server";
 import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
 import { recordFinalApprovalDecision } from "@/lib/services/workflow-command.service";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 // ============================================
 // Request Schema
@@ -131,7 +132,6 @@ export async function POST(request: NextRequest) {
 		});
 
 		if (!approvalState.alreadyRecorded) {
-			// Log the approval event
 			await db.insert(workflowEvents).values({
 				workflowId,
 				eventType: `two_factor_approval_${role}`,
@@ -144,21 +144,38 @@ export async function POST(request: NextRequest) {
 				actorId: userId,
 				actorType: "user",
 			});
+		}
 
-			// Send the appropriate Inngest event
-			const eventName = role === "risk_manager"
-				? "approval/risk-manager.received" as const
-				: "approval/account-manager.received" as const;
+		// Always send the Inngest event regardless of alreadyRecorded.
+		// waitForEvent may not have been active when the first approval was recorded,
+		// so re-sending is necessary to unblock a waiting orchestrator. Duplicate
+		// events are harmless — waitForEvent consumes only the first match.
+		const eventName = role === "risk_manager"
+			? "approval/risk-manager.received" as const
+			: "approval/account-manager.received" as const;
 
-			await inngest.send({
-				name: eventName,
-				data: {
-					workflowId,
-					applicantId,
-					approvedBy: userId,
+		await inngest.send({
+			name: eventName,
+			data: {
+				workflowId,
+				applicantId,
+				approvedBy: userId,
+				decision,
+				reason,
+				timestamp,
+			},
+		});
+
+		if (!approvalState.alreadyRecorded) {
+			captureServerEvent({
+				distinctId: userId,
+				event: "onboarding_approval_submitted",
+				properties: {
+					workflow_id: workflowId,
+					applicant_id: applicantId,
+					role,
 					decision,
-					reason,
-					timestamp,
+					both_approved: approvalState.bothApproved,
 				},
 			});
 		}

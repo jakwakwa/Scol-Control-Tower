@@ -1,18 +1,39 @@
 {
   "plugins": {
-    "clerk": {
+    "inngest": {
+      "enabled": true
+    },
+    "cursor-team-kit": {
+      "enabled": true
+    },
+    "posthog": {
       "enabled": true
     },
     "vercel": {
       "enabled": true
     },
-    "continual-learning": {
+    "clerk": {
+      "enabled": true
+    },
+    "superpowers": {
+      "enabled": true
+    },
+    "linear": {
+      "enabled": true
+    },
+    "context7-plugin": {
+      "enabled": true
+    },
+    "parallel": {
+      "enabled": true
+    },
+    "runlayer": {
+      "enabled": true
+    },
+    "create-plugin": {
       "enabled": true
     },
     "compound-engineering": {
-      "enabled": true
-    },
-    "cursor-team-kit": {
       "enabled": true
     }
   }

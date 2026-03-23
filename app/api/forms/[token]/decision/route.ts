@@ -1,10 +1,9 @@
-import { desc, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getDatabaseClient } from "@/app/utils";
-import { quotes } from "@/db/schema";
 import { inngest } from "@/inngest";
 import { getFormInstanceByToken, recordFormDecision } from "@/lib/services/form.service";
+import { syncSignedQuotationDecisionToQuoteAndInngest } from "@/lib/services/signed-quotation-workflow.service";
 import {
 	createWorkflowNotification,
 	logWorkflowEvent,
@@ -122,50 +121,18 @@ export async function POST(
 					{ status: 500 }
 				);
 			}
-			const [latestQuote] = await db
-				.select()
-				.from(quotes)
-				.where(eq(quotes.workflowId, formInstance.workflowId))
-				.orderBy(desc(quotes.createdAt))
-				.limit(1);
-
-			if (!latestQuote) {
+			const syncResult = await syncSignedQuotationDecisionToQuoteAndInngest(
+				db,
+				formInstance.workflowId,
+				formInstance.applicantId,
+				decision,
+				reason
+			);
+			if (!syncResult.ok) {
 				return NextResponse.json(
 					{ error: "No quote available for this workflow" },
 					{ status: 404 }
 				);
-			}
-
-			await db
-				.update(quotes)
-				.set({
-					status: decision === "APPROVED" ? "approved" : "rejected",
-					updatedAt: new Date(),
-				})
-				.where(eq(quotes.id, latestQuote.id));
-
-			await inngest.send({
-				name: "quote/responded",
-				data: {
-					workflowId: formInstance.workflowId,
-					applicantId: formInstance.applicantId,
-					quoteId: latestQuote.id,
-					decision,
-					reason,
-					respondedAt: new Date().toISOString(),
-				},
-			});
-
-			if (decision === "APPROVED") {
-				await inngest.send({
-					name: "quote/signed",
-					data: {
-						workflowId: formInstance.workflowId,
-						applicantId: formInstance.applicantId,
-						quoteId: latestQuote.id,
-						signedAt: new Date().toISOString(),
-					},
-				});
 			}
 		}
 

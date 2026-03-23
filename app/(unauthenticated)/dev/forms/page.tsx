@@ -5,8 +5,7 @@ import ExternalFormShell from "@/components/forms/external/external-form-shell";
 import styles from "@/components/forms/external/external-form-theme.module.css";
 
 /**
- * Kitchen sink page to preview all magic link forms.
- * Dev-only — generates test tokens and opens forms in new tabs.
+ * Dev-only — External magic linked forms for dev testing only! generates test tokens and opens forms in new tabs.
  */
 
 interface FormEntry {

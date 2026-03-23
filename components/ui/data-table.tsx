@@ -152,7 +152,7 @@ export function DataTable<TData, TValue>({
 
 				{/* Pagination Footer */}
 				{showPagination && (
-					<div className="flex items-center justify-between px-4 py-3 border-t border-sidebar-border bg-sidebar/30">
+					<div className="flex items-center justify-between px-4 py-3 border-t border-sidebar-border bg-accent shadow-lg shadow-black/30">
 						<span className="text-xs text-muted-foreground">
 							Page {currentPage + 1} of {totalPages}
 						</span>

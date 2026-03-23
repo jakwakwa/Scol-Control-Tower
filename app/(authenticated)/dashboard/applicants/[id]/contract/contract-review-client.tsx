@@ -8,7 +8,7 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 import useSWR from "swr";
-import { DashboardLayout, GlassCard } from "@/components/dashboard";
+import { DashboardLayout, } from "@/components/dashboard";
 import { AbsaPacketSection } from "@/components/dashboard/contract/absa-packet-section";
 import ConfirmActionDrawer from "@/components/shared/confirm-action-drawer";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Absa6995FormData } from "@/lib/validations/onboarding";
 import { contractReviewContent } from "./content";
 import { toast } from "sonner";
+import { Card } from "@/components/ui/card";
 
 interface ApplicantSummary {
 	id: number;
@@ -177,13 +178,29 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 				</Link>
 			}>
 			<div className="flex flex-col gap-3">
-				<GlassCard>
-					<p className="text-base text-amber-300/80 pb-6 leading-0">
+				<Card className="border-amber-500/50 bg-amber-500/10">
+					<p className="text-sm font-semibold text-amber-300">
+						Deprecated Page
+					</p>
+					<p className="text-xs text-amber-300/70 mt-1">
+						The workflow gates have moved to the Applicant Detail page sidebar.
+						The ABSA form is now in the Internal Forms hub. This page will be
+						removed in a future release.
+					</p>
+					<Link href={`/dashboard/applicants/${payload.applicant.id}`}>
+						<Button variant="outline" size="sm" className="mt-3 gap-2">
+							<RiArrowLeftLine className="h-4 w-4" />
+							Go to Applicant Detail
+						</Button>
+					</Link>
+				</Card>
+				<Card>
+					<p className="text-normal">
 						{contractReviewContent.description}
 					</p>
-				</GlassCard>
-				<GlassCard className="flex flex-col pb-8">
-					<p className="text-base uppercase text-secondary-foreground font-medium">
+				</Card>
+				<Card className="flex flex-col pb-8">
+					<p className="text-base">
 						{contractReviewContent.contractGate.label}
 					</p>
 					<p className="text-base my-3 text-stone-300/70">
@@ -218,7 +235,7 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 							</Button>
 						}
 					/>
-				</GlassCard>
+				</Card>
 
 				{canPerformActions && payload?.workflow?.id && (
 					<AbsaPacketSection
@@ -237,7 +254,7 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 					/>
 				)}
 
-				<GlassCard className="space-y-3">
+				<Card className="space-y-3">
 					<p className="text-base uppercase text-secondary-foreground font-medium">
 						{contractReviewContent.absaConfirmGate.label}
 					</p>
@@ -283,7 +300,7 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 							</Button>
 						}
 					/>
-				</GlassCard>
+				</Card>
 				{actionMessage ? <p className="text-sm text-amber-700">{actionMessage}</p> : null}
 				{!canPerformActions ? (
 					<p className="text-xs text-muted-foreground">

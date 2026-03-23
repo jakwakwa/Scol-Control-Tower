@@ -3,10 +3,12 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants, workflowEvents } from "@/db/schema";
 import { requireAuthOrBearer } from "@/lib/auth/api-auth";
+import { ensurePerimeterValidationConfigLoaded } from "@/lib/config/perimeter-validation";
 import { logWorkflowEvent } from "@/lib/services/notification-events.service";
 import { updateRiskCheckMachineState } from "@/lib/services/risk-check.service";
 import {
 	ExternalSanctionsIngressSchema,
+	ExternalSanctionsIngressCompatSchema,
 	type SanctionsProvider,
 } from "@/lib/validations/control-tower/onboarding-schemas";
 import { validatePerimeter } from "@/lib/validations/control-tower/perimeter-validation";
@@ -25,6 +27,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		const body = await request.json();
+		await ensurePerimeterValidationConfigLoaded();
 
 		const perimeterResult = validatePerimeter({
 			schema: ExternalSanctionsIngressSchema,
@@ -32,13 +35,42 @@ export async function POST(request: NextRequest) {
 			eventName: "sanctions/external.received",
 			sourceSystem: "sanctions-ingress",
 			terminationReason: "VALIDATION_ERROR_SANCTIONS",
+			compatibilitySchema: ExternalSanctionsIngressCompatSchema,
 		});
 
-		if (!perimeterResult.ok) {
+		// Handle validation warnings (warn mode)
+		if (perimeterResult.ok && "warning" in perimeterResult) {
+			const { warning } = perimeterResult;
+			console.warn("[SanctionsIngress] Perimeter validation warning", {
+				failedPaths: warning.failedPaths,
+				messages: warning.messages,
+				mode: "warn",
+			});
+
+			if (perimeterResult.data.workflowId > 0) {
+				await logWorkflowEvent({
+					workflowId: perimeterResult.data.workflowId,
+					eventType: "validation_completed",
+					payload: {
+						context: "sanctions_ingress_validation_warning",
+						eventName: warning.eventName,
+						sourceSystem: warning.sourceSystem,
+						failedPaths: warning.failedPaths,
+						messages: warning.messages,
+						validationMode: "warn",
+						status: "warning",
+					},
+				});
+			}
+		}
+
+		// Handle validation failures (strict mode)
+		if (!perimeterResult.ok && "failure" in perimeterResult) {
 			const failure = perimeterResult.failure;
 			console.error("[SanctionsIngress] Perimeter validation failed", {
 				failedPaths: failure.failedPaths,
 				messages: failure.messages,
+				mode: failure.validationMode,
 			});
 
 			if (failure.workflowId > 0) {
@@ -51,6 +83,7 @@ export async function POST(request: NextRequest) {
 						sourceSystem: failure.sourceSystem,
 						failedPaths: failure.failedPaths,
 						messages: failure.messages,
+						validationMode: failure.validationMode,
 					},
 				});
 			}
@@ -60,6 +93,7 @@ export async function POST(request: NextRequest) {
 					error: "Validation failed",
 					failedPaths: failure.failedPaths,
 					messages: failure.messages,
+					validationMode: failure.validationMode,
 				},
 				{ status: 400 }
 			);

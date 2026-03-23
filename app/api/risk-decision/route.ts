@@ -23,6 +23,7 @@ import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { OVERRIDE_CATEGORIES } from "@/lib/constants/override-taxonomy";
 import { recordFeedbackLog } from "@/lib/services/divergence.service";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 // ============================================
 // Request Schema — Structured Override Data
@@ -194,6 +195,19 @@ export async function POST(request: NextRequest) {
 					conditions: decision.conditions,
 					timestamp: new Date().toISOString(),
 				},
+			},
+		});
+
+		captureServerEvent({
+			distinctId: userId,
+			event: "risk_decision_submitted",
+			properties: {
+				workflow_id: workflowId,
+				applicant_id: applicantId,
+				outcome: decision.outcome,
+				override_category: decision.overrideCategory,
+				override_subcategory: decision.overrideSubcategory,
+				is_divergent: feedbackResult.isDivergent,
 			},
 		});
 

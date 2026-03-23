@@ -5,7 +5,13 @@
 
 // Core Components
 export { SignatureCanvas, SignatureDisplay } from "./signature-canvas";
-export { FormWizard, FormStep, StepIndicator, StepTitles } from "./form-wizard";
+export {
+	FormWizard,
+	FormStep,
+	StepIndicator,
+	StepTitles,
+	readPersistedWizardStep,
+} from "./form-wizard";
 
 // Form Components
 export { StratcolAgreementForm } from "./stratcol-agreement";

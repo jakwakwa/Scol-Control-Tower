@@ -55,6 +55,8 @@ export interface FormWizardProps {
 	/** Children render function receiving current step */
 	children: (props: {
 		currentStep: number;
+		/** Original step index in the unfiltered `steps` array (matches FormWizardStep order) */
+		logicalStepIndex: number;
 		isFirstStep: boolean;
 		isLastStep: boolean;
 		goToStep: (step: number) => void;
@@ -73,6 +75,34 @@ export interface FormWizardProps {
 	showStepIndicator?: boolean;
 	/** Custom submit button text */
 	submitButtonText?: string;
+}
+
+// ============================================
+// Step persistence (localStorage)
+// ============================================
+
+/**
+ * Read a persisted wizard step index, clamped to [0, maxActiveSteps - 1].
+ * Use when the parent owns controlled step state (initial `useState` only).
+ */
+export function readPersistedWizardStep(
+	storageKey: string | undefined,
+	maxActiveSteps: number
+): number {
+	if (typeof window === "undefined" || !storageKey || maxActiveSteps < 1) return 0;
+	const saved = localStorage.getItem(`${storageKey}_step`);
+	if (!saved) return 0;
+	const step = Number.parseInt(saved, 10);
+	if (Number.isNaN(step) || step < 0) return 0;
+	return Math.min(step, maxActiveSteps - 1);
+}
+
+function readPersistedStepForSteps(
+	storageKey: string | undefined,
+	steps: FormWizardStep[]
+): number {
+	const activeLen = steps.filter(s => !s.shouldSkip?.()).length;
+	return readPersistedWizardStep(storageKey, activeLen);
 }
 
 // ============================================
@@ -182,8 +212,12 @@ export function FormWizard({
 	showStepIndicator = true,
 	submitButtonText = "Submit",
 }: FormWizardProps) {
-	// Use controlled or uncontrolled step state
-	const [internalStep, setInternalStep] = useState(0);
+	// Uncontrolled: restore once via lazy state using current `steps` (first render only).
+	// Controlled: parent must hydrate with readPersistedWizardStep — restoring here caused
+	// ping-pong with the save effect (max update depth).
+	const [internalStep, setInternalStep] = useState(() =>
+		controlledStep !== undefined ? 0 : readPersistedStepForSteps(storageKey, steps)
+	);
 	const currentStep = controlledStep ?? internalStep;
 
 	const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -194,22 +228,26 @@ export function FormWizard({
 	const isFirstStep = currentStep === 0;
 	const isLastStep = currentStep === activeSteps.length - 1;
 
-	// Load saved step from localStorage
+	const activeStepMeta = activeSteps[currentStep];
+	const logicalStepIndex =
+		activeStepMeta !== undefined ? steps.findIndex(s => s.id === activeStepMeta.id) : 0;
+
+	// If skipped steps change the visible count, clamp the index (no localStorage re-read).
 	useEffect(() => {
-		if (storageKey && typeof window !== "undefined") {
-			const savedStep = localStorage.getItem(`${storageKey}_step`);
-			if (savedStep) {
-				const step = parseInt(savedStep, 10);
-				if (!Number.isNaN(step) && step >= 0 && step < activeSteps.length) {
-					if (controlledStep === undefined) {
-						setInternalStep(step);
-					} else {
-						onStepChange?.(step);
-					}
-				}
-			}
+		if (controlledStep !== undefined) return;
+		if (activeSteps.length < 1) return;
+		if (internalStep >= activeSteps.length) {
+			setInternalStep(Math.max(0, activeSteps.length - 1));
 		}
-	}, [storageKey, activeSteps.length, controlledStep, onStepChange]);
+	}, [activeSteps.length, controlledStep, internalStep]);
+
+	useEffect(() => {
+		if (controlledStep === undefined) return;
+		if (activeSteps.length < 1) return;
+		if (controlledStep >= activeSteps.length) {
+			onStepChange?.(Math.max(0, activeSteps.length - 1));
+		}
+	}, [activeSteps.length, controlledStep, onStepChange]);
 
 	// Save current step to localStorage
 	useEffect(() => {
@@ -323,6 +361,7 @@ export function FormWizard({
 				) : (
 					children({
 						currentStep,
+						logicalStepIndex,
 						isFirstStep,
 						isLastStep,
 						goToStep,

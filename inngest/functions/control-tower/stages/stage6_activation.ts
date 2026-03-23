@@ -147,6 +147,12 @@ export async function executeStage6({
 				notes,
 			})
 		);
+
+		return {
+			status: "terminated" as const,
+			stage: 6,
+			reason: `Approval timeout: ${terminationReason}`,
+		};
 	}
 
 	if (accountManagerApproval.data.decision === "REJECTED") {
@@ -268,7 +274,7 @@ export async function executeStage6({
 	const contractDecision = await step.waitForEvent("wait-contract-decision", {
 		event: "form/decision.responded",
 		timeout: WORKFLOW_TIMEOUTS.REVIEW,
-		if: "event.data.workflowId == async.data.workflowId && async.data.formType == 'AGREEMENT_CONTRACT'",
+		if: "event.data.workflowId == async.data.workflowId && event.data.formType == 'AGREEMENT_CONTRACT'",
 	});
 
 	if (!contractDecision) {
@@ -300,6 +306,12 @@ export async function executeStage6({
 				reason: "STAGE6_CONTRACT_SIGNATURE_TIMEOUT",
 			})
 		);
+
+		return {
+			status: "terminated" as const,
+			stage: 6,
+			reason: "Contract signature timed out",
+		};
 	}
 
 	if (contractDecision.data.decision === "DECLINED") {

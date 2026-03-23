@@ -20,11 +20,21 @@ const nextConfig = {
 			{ protocol: "https", hostname: "i.ytimg.com" },
 		],
 	},
-	webpack: (config) => {
-		config.resolve.alias = {
-			...config.resolve.alias,
-		};
-		return config;
+	turbopack: {
+		root: "/Users/jakwakwa/Repos/stratcol-apps/Scol-Control-Tower",
+	},
+	skipTrailingSlashRedirect: true,
+	async rewrites() {
+		return [
+			{
+				source: "/ingest/static/:path*",
+				destination: "https://us-assets.i.posthog.com/static/:path*",
+			},
+			{
+				source: "/ingest/:path*",
+				destination: "https://us.i.posthog.com/:path*",
+			},
+		];
 	},
 	async headers() {
 		const clerkHosts = ["enabled-doe-20.accounts.dev/sign-in"];
@@ -42,6 +52,7 @@ const nextConfig = {
 				"'unsafe-eval'",
 				"'unsafe-inline'",
 				...clerkHosts.map((h) => `https://${h}`),
+				"https://*.clerk.accounts.dev",
 				...extraHosts,
 			],
 			"style-src": ["'self'", "'unsafe-inline'"],
@@ -79,15 +90,12 @@ const nextConfig = {
 			"connect-src": [
 				"'self'",
 				...clerkHosts.map((h) => `https://${h}`),
-				...extraHosts, // Allow Paddle sandbox API connections
+				"https://*.clerk.accounts.dev",
 				"https://clerk-telemetry.com",
 				"https://vitals.vercel-insights.com",
-				"https://storage.googleapis.com",
-				"https://storage.cloud.google.com",
 				"*.googleusercontent.com",
-				"https://*.googleapis.com",
-				"https://*.google.com",
-				"https://cdn.paddle.com", // Allow Paddle CDN connections for source maps
+				"https://us.i.posthog.com",
+				"https://us-assets.i.posthog.com",
 			],
 			"object-src": ["'none'"],
 			"base-uri": ["'self'"],
@@ -118,3 +126,5 @@ const nextConfig = {
 		];
 	},
 };
+
+export default nextConfig;

@@ -1,6 +1,0 @@
-# This file is intentionally a regular file, not a git symlink.
-# The Playwright best practices skill implementation lives at:
-# ../../.agents/skills/playwright-best-practices
-#
-# If you intended to use a git symlink here, recreate this file as a
-# symlink with mode 120000 pointing to the path above.
