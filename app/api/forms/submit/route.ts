@@ -186,9 +186,7 @@ export async function POST(request: NextRequest) {
 			});
 		}
 
-		// Signed quotation: submitting with validated schema implies acceptance — record decision
-		// and emit quote/responded + quote/signed here so Inngest advances even if the follow-up
-		// POST /decision call fails in the browser (network, tab close, etc.).
+		// Signed quotation: sync quote + Inngest on submit so a failed /decision request cannot strand the workflow.
 		if (formType === "SIGNED_QUOTATION" && formInstance.workflowId) {
 			const db = getDatabaseClient();
 			if (!db) {

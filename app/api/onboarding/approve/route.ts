@@ -21,10 +21,6 @@ import { recordFinalApprovalDecision } from "@/lib/services/workflow-command.ser
 import { captureServerEvent } from "@/lib/posthog-server";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 
-// ============================================
-// Request Schema
-// ============================================
-
 const TwoFactorApprovalSchema = z.object({
 	workflowId: z.number().int().positive("Workflow ID is required"),
 	applicantId: z.number().int().positive("Applicant ID is required"),
@@ -32,10 +28,6 @@ const TwoFactorApprovalSchema = z.object({
 	decision: z.enum(["APPROVED", "REJECTED"]),
 	reason: z.string().optional(),
 });
-
-// ============================================
-// POST Handler
-// ============================================
 
 export async function POST(request: NextRequest) {
 	try {
@@ -92,7 +84,6 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
 		}
 
-		// Verify workflow exists
 		const workflowResult = await db
 			.select()
 			.from(workflows)
@@ -106,7 +97,6 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Verify applicant exists
 		const applicantResult = await db
 			.select()
 			.from(applicants)
@@ -119,7 +109,6 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Acquire state lock to prevent ghost processes from overwriting finalized approval
 		await acquireStateLock(workflowId, userId);
 
 		const timestamp = new Date().toISOString();
@@ -147,10 +136,7 @@ export async function POST(request: NextRequest) {
 			});
 		}
 
-		// Always send the Inngest event regardless of alreadyRecorded.
-		// waitForEvent may not have been active when the first approval was recorded,
-		// so re-sending is necessary to unblock a waiting orchestrator. Duplicate
-		// events are harmless — waitForEvent consumes only the first match.
+		// Re-send is idempotent for waitForEvent and can unblock if the first send missed an active wait.
 		const eventName = role === "risk_manager"
 			? "approval/risk-manager.received" as const
 			: "approval/account-manager.received" as const;
@@ -167,9 +153,6 @@ export async function POST(request: NextRequest) {
 			},
 		});
 
-		// Keep runtime and UI state consistent for two-factor completion.
-		// If both approvals exist, finalize at stage 6 even when the workflow is
-		// currently stuck at stage 5 due to orchestration timing.
 		if (approvalState.bothApproved && workflow.status !== "completed") {
 			await updateWorkflowStatus(workflowId, "completed", 6);
 		}
@@ -212,10 +195,6 @@ export async function POST(request: NextRequest) {
 		);
 	}
 }
-
-// ============================================
-// GET Handler - Get approval status
-// ============================================
 
 export async function GET(request: NextRequest) {
 	try {
