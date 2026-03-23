@@ -95,17 +95,20 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 		<>
 			<div style={{ width: "100vw", height: "1080px", position: "fixed", zIndex: "-2" }}>
 				<Grainient
-					color1="#192d36"
-					color2="#2b333b"
-					color3="#404b4d"
+					color1={'#11304b'}	
+					color2={'#21354a'}
+					color3={'#28272b'}
+					// 	color1="#192d36"
+					// color2="#21354a"
+					// color3="#404b4d"
 					timeSpeed={0.3}
 					colorBalance={-0.5}
-					warpStrength={0.6}
-					warpFrequency={9}
-					warpSpeed={0.9}
+					warpStrength={2}
+					warpFrequency={1}
+					warpSpeed={0.2}
 					warpAmplitude={50}
-					blendAngle={0}
-					blendSoftness={0.6}
+					blendAngle={1}
+					blendSoftness={0.9}
 					rotationAmount={310}
 					noiseScale={2.45}
 					grainAmount={0.09}
@@ -114,9 +117,9 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 					contrast={1.2}
 					gamma={1.05}
 					saturation={0.7}
-					centerX={-0.14}
-					centerY={1.5}
-					zoom={1.6}
+					centerX={-0.2}
+					centerY={-3}
+					zoom={2.2}
 				/>
 			</div>
 
