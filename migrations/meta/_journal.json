@@ -57,6 +57,20 @@
       "when": 1773971111418,
       "tag": "0007_mixed_frightful_four",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1774218611890,
+      "tag": "0008_magenta_dust",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1774219167318,
+      "tag": "0009_lyrical_mephistopheles",
+      "breakpoints": true
     }
   ]
 }

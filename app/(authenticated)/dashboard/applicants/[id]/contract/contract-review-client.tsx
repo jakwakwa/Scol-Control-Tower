@@ -178,6 +178,22 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 				</Link>
 			}>
 			<div className="flex flex-col gap-3">
+				<Card className="border-amber-500/50 bg-amber-500/10">
+					<p className="text-sm font-semibold text-amber-300">
+						Deprecated Page
+					</p>
+					<p className="text-xs text-amber-300/70 mt-1">
+						The workflow gates have moved to the Applicant Detail page sidebar.
+						The ABSA form is now in the Internal Forms hub. This page will be
+						removed in a future release.
+					</p>
+					<Link href={`/dashboard/applicants/${payload.applicant.id}`}>
+						<Button variant="outline" size="sm" className="mt-3 gap-2">
+							<RiArrowLeftLine className="h-4 w-4" />
+							Go to Applicant Detail
+						</Button>
+					</Link>
+				</Card>
 				<Card>
 					<p className="text-normal">
 						{contractReviewContent.description}

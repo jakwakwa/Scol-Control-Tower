@@ -132,7 +132,6 @@ export async function POST(request: NextRequest) {
 		});
 
 		if (!approvalState.alreadyRecorded) {
-			// Log the approval event
 			await db.insert(workflowEvents).values({
 				workflowId,
 				eventType: `two_factor_approval_${role}`,
@@ -145,24 +144,27 @@ export async function POST(request: NextRequest) {
 				actorId: userId,
 				actorType: "user",
 			});
-
-			// Send the appropriate Inngest event
-			const eventName = role === "risk_manager"
-				? "approval/risk-manager.received" as const
-				: "approval/account-manager.received" as const;
-
-			await inngest.send({
-				name: eventName,
-				data: {
-					workflowId,
-					applicantId,
-					approvedBy: userId,
-					decision,
-					reason,
-					timestamp,
-				},
-			});
 		}
+
+		// Always send the Inngest event regardless of alreadyRecorded.
+		// waitForEvent may not have been active when the first approval was recorded,
+		// so re-sending is necessary to unblock a waiting orchestrator. Duplicate
+		// events are harmless — waitForEvent consumes only the first match.
+		const eventName = role === "risk_manager"
+			? "approval/risk-manager.received" as const
+			: "approval/account-manager.received" as const;
+
+		await inngest.send({
+			name: eventName,
+			data: {
+				workflowId,
+				applicantId,
+				approvedBy: userId,
+				decision,
+				reason,
+				timestamp,
+			},
+		});
 
 		if (!approvalState.alreadyRecorded) {
 			captureServerEvent({
