@@ -25,6 +25,7 @@ sleep 3
 
 # 2. Start Next.js App (Background)
 echo "💻 Starting Next.js App..."
+export INNGEST_BASE_URL=http://127.0.0.1:8288
 bun run dev &
 NEXT_PID=$!
 
