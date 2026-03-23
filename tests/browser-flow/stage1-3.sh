@@ -10,23 +10,39 @@ set -euo pipefail
 #
 # Env:
 #   BASE_URL              - Dev server URL (default: http://localhost:3000)
-#   E2E_CLERK_USER_USERNAME - Clerk username / email
-#   E2E_CLERK_USER_PASSWORD - Clerk password
+#   E2E_CLERK_AM_USERNAME   - Account Manager username / email
+#   E2E_CLERK_AM_PASSWORD   - Account Manager password
 #
 # Outputs:
 #   .applicant-id          - Written to tests/browser-flow/.applicant-id
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 BASE_URL="${BASE_URL:-http://localhost:3000}"
 SCREENSHOT_DIR="${SCRIPT_DIR}/screenshots"
 APPLICANT_ID_FILE="${SCRIPT_DIR}/.applicant-id"
 
 mkdir -p "$SCREENSHOT_DIR"
 
+# --- Load environment --------------------------------------------------------
+if [ -f "${REPO_ROOT}/.env.test" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${REPO_ROOT}/.env.test"
+  set +a
+elif [ -f "${REPO_ROOT}/.env.local" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${REPO_ROOT}/.env.local"
+  set +a
+fi
+
 # --- Preflight env checks ---------------------------------------------------
-: "${E2E_CLERK_USER_USERNAME:?Missing E2E_CLERK_USER_USERNAME}"
-: "${E2E_CLERK_USER_PASSWORD:?Missing E2E_CLERK_USER_PASSWORD}"
+AM_USERNAME="${E2E_CLERK_AM_USERNAME:-${E2E_CLERK_USER_USERNAME:-}}"
+AM_PASSWORD="${E2E_CLERK_AM_PASSWORD:-${E2E_CLERK_USER_PASSWORD:-}}"
+: "${AM_USERNAME:?Missing E2E_CLERK_AM_USERNAME (or fallback E2E_CLERK_USER_USERNAME)}"
+: "${AM_PASSWORD:?Missing E2E_CLERK_AM_PASSWORD (or fallback E2E_CLERK_USER_PASSWORD)}"
 
 # --- Cleanup on exit --------------------------------------------------------
 cleanup() {
@@ -66,15 +82,27 @@ agent-browser open "${BASE_URL}/sign-in" && agent-browser wait --load networkidl
 sleep 2
 verify_no_error_overlay
 
-agent-browser snapshot -i
-agent-browser find label "Email address" fill "${E2E_CLERK_USER_USERNAME}"
-agent-browser find role button click --name "Continue"
-agent-browser wait 2000
-agent-browser snapshot -i
-agent-browser find label "Password" fill "${E2E_CLERK_USER_PASSWORD}"
-agent-browser find role button click --name "Continue"
+CURRENT_URL=$(agent-browser get url || true)
+if echo "$CURRENT_URL" | grep -q "/dashboard"; then
+  echo "--- Session already authenticated; skipping sign-in form ---"
+else
+  agent-browser snapshot -i
+  agent-browser find label "Email address" fill "${AM_USERNAME}"
+  agent-browser find role button click --name "Continue"
+  agent-browser wait 2000
+  agent-browser snapshot -i
+  agent-browser find label "Password" fill "${AM_PASSWORD}"
+  agent-browser find role button click --name "Continue"
+fi
 
-agent-browser wait --url "**/dashboard" || agent-browser wait 5000
+agent-browser wait 5000
+CURRENT_URL=$(agent-browser get url || true)
+if echo "$CURRENT_URL" | grep -q "/sign-in"; then
+  echo "ERROR: Clerk login did not complete (still on sign-in)."
+  echo "Current URL: ${CURRENT_URL}"
+  echo "Hint: Check Clerk publishable/secret key pairing and test user credentials."
+  exit 1
+fi
 verify_no_error_overlay
 verify_has_content
 echo "--- Logged in successfully ---"
@@ -124,6 +152,9 @@ if [ -z "$APPLICANT_ID" ]; then
 EVALEOF
   )
 fi
+
+# Normalize eval/string output (strip surrounding quotes)
+APPLICANT_ID=$(echo "$APPLICANT_ID" | tr -d '"' | xargs)
 
 if [ -z "$APPLICANT_ID" ]; then
   echo "ERROR: Failed to get APPLICANT_ID"

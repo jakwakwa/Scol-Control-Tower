@@ -16,6 +16,7 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
     "test:db:reset": "bun run scripts/reset-test-db.ts",
+    "test:db:seed:browser-flow": "bun run scripts/seed-browser-flow-test-data.ts",
     "dev:all": "./setup-dev.sh",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",

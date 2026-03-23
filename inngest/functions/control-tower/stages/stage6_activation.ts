@@ -26,7 +26,10 @@ export async function executeStage6({
 	const { workflowId, applicantId } = context;
 	// Note: These variables were passed from earlier stages in the monolith.
 	// We handle them by asserting or fetching if missing, or passing them via context.data.
-	const mandateInfo = (context.mandateInfo || { businessType: "UNKNOWN" }) as any;
+	const mandateInfo =
+		(context.mandateInfo as { businessType?: string } | undefined) || {
+			businessType: "UNKNOWN",
+		};
 	// Risk Manager + Account Manager must both approve
 	// ================================================================
 
@@ -258,87 +261,6 @@ export async function executeStage6({
 	});
 
 	// ================================================================
-	// AWAIT CONTRACT SIGNATURE
-	// ================================================================
-
-	// Wait for the applicant to sign the AGREEMENT_CONTRACT.
-	// Uses `if` CEL expression (not `match`) so only a form/decision.responded
-	// event with formType == 'AGREEMENT_CONTRACT' can satisfy this wait.
-	// A bare match on workflowId alone would allow a response from any
-	// other decision-enabled form (e.g. CALL_CENTRE_APPLICATION) to
-	// prematurely advance or error the run.
-	await step.run("stage-6-awaiting-contract-signature", () =>
-		updateWorkflowStatus(workflowId, "awaiting_human", 6)
-	);
-
-	const contractDecision = await step.waitForEvent("wait-contract-decision", {
-		event: "form/decision.responded",
-		timeout: WORKFLOW_TIMEOUTS.REVIEW,
-		if: "event.data.workflowId == async.data.workflowId && event.data.formType == 'AGREEMENT_CONTRACT'",
-	});
-
-	if (!contractDecision) {
-		await step.run("notify-am-contract-signature-timeout", async () => {
-			await guardKillSwitch(workflowId, "notify-am-contract-signature-timeout");
-			await createWorkflowNotification({
-				workflowId,
-				applicantId,
-				type: "warning",
-				title: "Delay: Contract Signature",
-				message:
-					"Applicant has not signed the final contract within the expected timeframe.",
-				actionable: true,
-			});
-			await sendInternalAlertEmail({
-				title: "Delay: Contract Signature",
-				message: `Applicant has not signed the final contract within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window. Please follow up.`,
-				workflowId,
-				applicantId,
-				type: "warning",
-				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
-			});
-		});
-		await step.run("terminate-contract-signature-timeout", () =>
-			terminateRun({
-				workflowId,
-				applicantId,
-				stage: 6,
-				reason: "STAGE6_CONTRACT_SIGNATURE_TIMEOUT",
-			})
-		);
-
-		return {
-			status: "terminated" as const,
-			stage: 6,
-			reason: "Contract signature timed out",
-		};
-	}
-
-	if (contractDecision.data.decision === "DECLINED") {
-		await step.run("contract-declined-notify", async () => {
-			await createWorkflowNotification({
-				workflowId,
-				applicantId,
-				type: "warning",
-				title: "Contract Declined by Applicant",
-				message:
-					contractDecision.data.reason ||
-					"Applicant declined to sign the final contract.",
-				actionable: true,
-			});
-			await sendInternalAlertEmail({
-				title: "Contract Declined by Applicant",
-				message: `Applicant declined the final contract${contractDecision.data.reason ? `: ${contractDecision.data.reason}` : "."}`,
-				workflowId,
-				applicantId,
-				type: "warning",
-				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
-			});
-		});
-		return { status: "terminated", stage: 6, reason: "Applicant declined contract" };
-	}
-
-	// ================================================================
 	// COMPLETION
 	// ================================================================
 
@@ -366,6 +288,61 @@ export async function executeStage6({
 			},
 		});
 	});
+
+	// ================================================================
+	// CONTRACT SIGNATURE FOLLOW-UP (NON-BLOCKING)
+	// ================================================================
+	// Two-factor approvals are the completion gate for Stage 6.
+	// We still observe applicant contract decisions for ops visibility,
+	// but we no longer terminate/revert the workflow when signatures are delayed.
+	const contractDecision = await step.waitForEvent("wait-contract-decision", {
+		event: "form/decision.responded",
+		timeout: WORKFLOW_TIMEOUTS.REVIEW,
+		if: "event.data.workflowId == async.data.workflowId && event.data.formType == 'AGREEMENT_CONTRACT'",
+	});
+
+	if (!contractDecision) {
+		await step.run("notify-contract-signature-delay", async () => {
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: "warning",
+				title: "Delay: Contract Signature",
+				message:
+					"Applicant has not signed the final contract within the expected timeframe.",
+				actionable: true,
+			});
+			await sendInternalAlertEmail({
+				title: "Delay: Contract Signature",
+				message: `Applicant has not signed the final contract within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window. Please follow up.`,
+				workflowId,
+				applicantId,
+				type: "warning",
+				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
+			});
+		});
+	} else if (contractDecision.data.decision === "DECLINED") {
+		await step.run("contract-declined-notify", async () => {
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: "warning",
+				title: "Contract Declined by Applicant",
+				message:
+					contractDecision.data.reason ||
+					"Applicant declined to sign the final contract.",
+				actionable: true,
+			});
+			await sendInternalAlertEmail({
+				title: "Contract Declined by Applicant",
+				message: `Applicant declined the final contract${contractDecision.data.reason ? `: ${contractDecision.data.reason}` : "."}`,
+				workflowId,
+				applicantId,
+				type: "warning",
+				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
+			});
+		});
+	}
 
 	return {
 		status: "completed",

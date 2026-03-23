@@ -19,6 +19,7 @@ import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
 import { recordFinalApprovalDecision } from "@/lib/services/workflow-command.service";
 import { captureServerEvent } from "@/lib/posthog-server";
+import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 
 // ============================================
 // Request Schema
@@ -165,6 +166,13 @@ export async function POST(request: NextRequest) {
 				timestamp,
 			},
 		});
+
+		// Keep runtime and UI state consistent for two-factor completion.
+		// If both approvals exist, finalize at stage 6 even when the workflow is
+		// currently stuck at stage 5 due to orchestration timing.
+		if (approvalState.bothApproved && workflow.status !== "completed") {
+			await updateWorkflowStatus(workflowId, "completed", 6);
+		}
 
 		if (!approvalState.alreadyRecorded) {
 			captureServerEvent({
