@@ -1,14 +1,17 @@
+import { and, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
 import {
+	FORM_TYPES,
+	type FormType,
 	internalForms,
 	internalSubmissions,
 	workflows,
-	FORM_TYPES,
-	type FormType,
 } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
 import { inngest } from "@/inngest/client";
+import { INTERNAL_FORM_CONFIGS } from "@/lib/config/internal-forms";
+
+const INTERNAL_FORM_TYPES = INTERNAL_FORM_CONFIGS.map(config => config.type);
 
 /**
  * GET /api/onboarding/forms/[workflowId]/[formType]
@@ -28,6 +31,9 @@ export async function GET(
 	// Validate form type
 	if (!FORM_TYPES.includes(formType as FormType)) {
 		return NextResponse.json({ error: "Invalid form type" }, { status: 400 });
+	}
+	if (!INTERNAL_FORM_TYPES.includes(formType as FormType)) {
+		return NextResponse.json({ error: "Internal form not available" }, { status: 404 });
 	}
 
 	try {
@@ -104,6 +110,9 @@ export async function POST(
 	// Validate form type
 	if (!FORM_TYPES.includes(formType as FormType)) {
 		return NextResponse.json({ error: "Invalid form type" }, { status: 400 });
+	}
+	if (!INTERNAL_FORM_TYPES.includes(formType as FormType)) {
+		return NextResponse.json({ error: "Internal form not available" }, { status: 404 });
 	}
 
 	try {
@@ -274,10 +283,17 @@ export async function POST(
 						applicantId: workflow[0].applicantId,
 						submissionId: submission.id,
 						formData: {
-							mandateVolume: typeof mandateVolume === "number" ? mandateVolume : parseInt(mandateVolume, 10) || 0,
+							mandateVolume:
+								typeof mandateVolume === "number"
+									? mandateVolume
+									: parseInt(mandateVolume, 10) || 0,
 							mandateType: mandateType as "EFT" | "DEBIT_ORDER" | "CASH" | "MIXED",
 							businessType: String(businessType),
-							annualTurnover: annualTurnover ? (typeof annualTurnover === "number" ? annualTurnover : parseInt(annualTurnover, 10)) : undefined,
+							annualTurnover: annualTurnover
+								? typeof annualTurnover === "number"
+									? annualTurnover
+									: parseInt(annualTurnover, 10)
+								: undefined,
 							facilityApplicationData: formData as Record<string, unknown>,
 							ficaComparisonContext: {
 								companyName: formData.applicantDetails?.registeredName,
@@ -327,6 +343,10 @@ export async function PUT(
 	}
 
 	try {
+		if (!INTERNAL_FORM_TYPES.includes(formType as FormType)) {
+			return NextResponse.json({ error: "Internal form not available" }, { status: 404 });
+		}
+
 		const body = await request.json();
 		const { status, reviewNotes, reviewedBy } = body;
 
