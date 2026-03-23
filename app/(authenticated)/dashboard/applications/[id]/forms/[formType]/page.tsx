@@ -7,12 +7,10 @@
 
 import { RiArrowLeftLine, RiLoader4Line } from "@remixicon/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { notFound } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
 import { DashboardLayout } from "@/components/dashboard";
 import { AbsaPacketSection } from "@/components/dashboard/contract/absa-packet-section";
-import { StratcolAgreementForm } from "@/components/onboarding-forms";
 import { Button } from "@/components/ui/button";
 
 // ============================================
@@ -47,7 +45,6 @@ interface DocumentUpload {
 // ============================================
 
 const FORM_TITLES: Record<string, string> = {
-	stratcol_agreement: "StratCol Agreement",
 	absa_6995: "Absa 6995 Pre-screening",
 };
 
@@ -60,13 +57,11 @@ export default function FormPage({
 }: {
 	params: Promise<{ id: string; formType: string }>;
 }) {
-	const router = useRouter();
 	const [resolvedParams, setResolvedParams] = useState<{
 		id: string;
 		formType: string;
 	} | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
-	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [formData, setFormData] = useState<FormData | null>(null);
 	const [absaDocuments, setAbsaDocuments] = useState<DocumentUpload[]>([]);
 
@@ -106,9 +101,7 @@ export default function FormPage({
 		);
 		if (res.ok) {
 			const { documents } = (await res.json()) as { documents: DocumentUpload[] };
-			setAbsaDocuments(
-				(documents ?? []).filter(d => d.documentType === "ABSA_6995_PDF")
-			);
+			setAbsaDocuments((documents ?? []).filter(d => d.documentType === "ABSA_6995_PDF"));
 		}
 	}, [resolvedParams?.id]);
 
@@ -127,6 +120,11 @@ export default function FormPage({
 	}
 
 	const { id: workflowId, formType } = resolvedParams;
+
+	if (formType === "stratcol_agreement") {
+		notFound();
+	}
+
 	const formTitle = FORM_TITLES[formType] || "Form";
 
 	// Parse initial data from submission
@@ -136,63 +134,6 @@ export default function FormPage({
 
 	// Check if form is read-only (already approved)
 	const isReadOnly = formData?.status === "approved";
-
-	// Handle form submission
-	const handleSubmit = async (data: unknown) => {
-		setIsSubmitting(true);
-		try {
-			const response = await fetch(`/api/onboarding/forms/${workflowId}/${formType}`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					formData: data,
-					isDraft: false,
-				}),
-			});
-
-			if (!response.ok) {
-				throw new Error("Failed to submit form");
-			}
-
-			toast.success("Form submitted successfully", {
-				description: "Your form has been submitted for review.",
-			});
-
-			router.push(`/dashboard/applications/${workflowId}/forms`);
-		} catch (_error) {
-			toast.error("Failed to submit form", {
-				description: "Please try again later.",
-			});
-		} finally {
-			setIsSubmitting(false);
-		}
-	};
-
-	// Handle save draft
-	const handleSaveDraft = async (data: unknown) => {
-		try {
-			const response = await fetch(`/api/onboarding/forms/${workflowId}/${formType}`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					formData: data,
-					isDraft: true,
-				}),
-			});
-
-			if (!response.ok) {
-				throw new Error("Failed to save draft");
-			}
-
-			toast.success("Draft saved", {
-				description: "Your progress has been saved.",
-			});
-		} catch (_error) {
-			toast.error("Failed to save draft", {
-				description: "Please try again later.",
-			});
-		}
-	};
 
 	// Render the appropriate form
 	const renderForm = () => {
@@ -204,18 +145,7 @@ export default function FormPage({
 			);
 		}
 
-		const commonProps = {
-			workflowId: parseInt(workflowId, 10),
-			initialData,
-			onSubmit: handleSubmit,
-			onSaveDraft: handleSaveDraft,
-			readOnly: isReadOnly,
-			isSubmitting,
-		};
-
 		switch (formType) {
-			case "stratcol_agreement":
-				return <StratcolAgreementForm {...commonProps} />;
 			case "absa_6995":
 				return (
 					<AbsaPacketSection

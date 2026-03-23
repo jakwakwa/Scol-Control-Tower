@@ -3,9 +3,9 @@ import { FORM_TYPES } from "@/db/schema";
 import { INTERNAL_FORM_CONFIGS } from "@/lib/config/internal-forms";
 
 describe("internal forms hub config", () => {
-	it("only exposes stratcol_agreement and absa_6995 as internal form types", () => {
+	it("only exposes absa_6995 as an internal form type", () => {
 		const allowedTypes = INTERNAL_FORM_CONFIGS.map((c) => c.type);
-		expect(allowedTypes).toEqual(["stratcol_agreement", "absa_6995"]);
+		expect(allowedTypes).toEqual(["absa_6995"]);
 	});
 
 	it("internal form types are a subset of the DB schema enum", () => {

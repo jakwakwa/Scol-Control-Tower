@@ -1,5 +1,5 @@
-import { FORM_TYPES } from "@/db/schema";
 import type { FormType } from "@/db/schema";
+import { FORM_TYPES } from "@/db/schema";
 
 export interface FormConfig {
 	type: FormType;
@@ -9,13 +9,6 @@ export interface FormConfig {
 }
 
 export const INTERNAL_FORM_CONFIGS: FormConfig[] = [
-	{
-		type: "stratcol_agreement",
-		title: "StratCol Agreement",
-		description:
-			"Core contract establishing legal relationship and entity data",
-		stage: 2,
-	},
 	{
 		type: "absa_6995",
 		title: "Absa 6995 Pre-screening",
