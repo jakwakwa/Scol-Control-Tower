@@ -208,7 +208,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 			"./control-tower/ControlTowerOrchestrator"
 		);
 		return runControlTowerOrchestrator({
-			event: event as any, // Cast to any to bypass exact inferred event match since we are inside the same handler
+			event: event as any,
 			step: step as any,
 			context,
 		});

@@ -14,7 +14,6 @@ if (posthogProjectToken) {
 		defaults: "2026-01-30",
 		capture_exceptions: captureExceptions,
 		debug,
-		// Session replay is expensive (CPU, bandwidth, storage). Opt in explicitly.
 		disable_session_recording: !sessionRecording,
 	});
 }

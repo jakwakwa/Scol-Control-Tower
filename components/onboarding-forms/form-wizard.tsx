@@ -25,10 +25,6 @@ import {
 	RiLoader4Line,
 } from "@remixicon/react";
 
-// ============================================
-// Types
-// ============================================
-
 export interface FormWizardStep {
 	id: string;
 	title: string;
@@ -77,10 +73,6 @@ export interface FormWizardProps {
 	submitButtonText?: string;
 }
 
-// ============================================
-// Step persistence (localStorage)
-// ============================================
-
 /**
  * Read a persisted wizard step index, clamped to [0, maxActiveSteps - 1].
  * Use when the parent owns controlled step state (initial `useState` only).
@@ -104,10 +96,6 @@ function readPersistedStepForSteps(
 	const activeLen = steps.filter(s => !s.shouldSkip?.()).length;
 	return readPersistedWizardStep(storageKey, activeLen);
 }
-
-// ============================================
-// Step Indicator Component
-// ============================================
 
 interface StepIndicatorProps {
 	steps: FormWizardStep[];
@@ -163,10 +151,6 @@ export function StepIndicator({
 	);
 }
 
-// ============================================
-// Step Titles Component
-// ============================================
-
 interface StepTitlesProps {
 	steps: FormWizardStep[];
 	currentStep: number;
@@ -193,10 +177,6 @@ export function StepTitles({ steps, currentStep, className }: StepTitlesProps) {
 	);
 }
 
-// ============================================
-// Main FormWizard Component
-// ============================================
-
 export function FormWizard({
 	steps,
 	currentStep: controlledStep,
@@ -212,9 +192,7 @@ export function FormWizard({
 	showStepIndicator = true,
 	submitButtonText = "Submit",
 }: FormWizardProps) {
-	// Uncontrolled: restore once via lazy state using current `steps` (first render only).
-	// Controlled: parent must hydrate with readPersistedWizardStep — restoring here caused
-	// ping-pong with the save effect (max update depth).
+	// Uncontrolled: lazy restore from steps. Controlled: parent hydrates via readPersistedWizardStep (avoids save-effect loops).
 	const [internalStep, setInternalStep] = useState(() =>
 		controlledStep !== undefined ? 0 : readPersistedStepForSteps(storageKey, steps)
 	);
@@ -222,7 +200,6 @@ export function FormWizard({
 
 	const [isSavingDraft, setIsSavingDraft] = useState(false);
 
-	// Filter out skipped steps
 	const activeSteps = steps.filter(step => !step.shouldSkip?.());
 
 	const isFirstStep = currentStep === 0;
@@ -232,7 +209,6 @@ export function FormWizard({
 	const logicalStepIndex =
 		activeStepMeta !== undefined ? steps.findIndex(s => s.id === activeStepMeta.id) : 0;
 
-	// If skipped steps change the visible count, clamp the index (no localStorage re-read).
 	useEffect(() => {
 		if (controlledStep !== undefined) return;
 		if (activeSteps.length < 1) return;
@@ -249,14 +225,12 @@ export function FormWizard({
 		}
 	}, [activeSteps.length, controlledStep, onStepChange]);
 
-	// Save current step to localStorage
 	useEffect(() => {
 		if (storageKey && typeof window !== "undefined") {
 			localStorage.setItem(`${storageKey}_step`, currentStep.toString());
 		}
 	}, [currentStep, storageKey]);
 
-	// Navigate to a specific step
 	const goToStep = useCallback(
 		(step: number) => {
 			if (step >= 0 && step < activeSteps.length) {
@@ -264,7 +238,6 @@ export function FormWizard({
 					setInternalStep(step);
 				}
 				onStepChange?.(step);
-				// Scroll to top when changing steps
 				if (typeof window !== "undefined") {
 					window.scrollTo({ top: 0, behavior: "smooth" });
 				}
@@ -273,11 +246,9 @@ export function FormWizard({
 		[activeSteps.length, controlledStep, onStepChange]
 	);
 
-	// Go to next step
 	const goToNext = useCallback(async () => {
 		const step = activeSteps[currentStep];
 
-		// Validate current step if validation function exists
 		if (step?.validate) {
 			const isValid = await step.validate();
 			if (!isValid) return;
@@ -288,18 +259,15 @@ export function FormWizard({
 		}
 	}, [currentStep, activeSteps, isLastStep, goToStep]);
 
-	// Go to previous step
 	const goToPrevious = useCallback(() => {
 		if (!isFirstStep) {
 			goToStep(currentStep - 1);
 		}
 	}, [currentStep, isFirstStep, goToStep]);
 
-	// Handle form submission
 	const handleSubmit = useCallback(async () => {
 		const step = activeSteps[currentStep];
 
-		// Validate final step if validation function exists
 		if (step?.validate) {
 			const isValid = await step.validate();
 			if (!isValid) return;
@@ -307,18 +275,15 @@ export function FormWizard({
 
 		await onSubmit();
 
-		// Scroll to top so users see success messages
 		if (typeof window !== "undefined") {
 			window.scrollTo({ top: 0, behavior: "smooth" });
 		}
 
-		// Clear saved step on successful submission
 		if (storageKey && typeof window !== "undefined") {
 			localStorage.removeItem(`${storageKey}_step`);
 		}
 	}, [currentStep, activeSteps, onSubmit, storageKey]);
 
-	// Handle save draft
 	const handleSaveDraft = useCallback(async () => {
 		if (!onSaveDraft) return;
 
@@ -431,10 +396,6 @@ export function FormWizard({
 		</Card>
 	);
 }
-
-// ============================================
-// Form Step Content Wrapper
-// ============================================
 
 interface FormStepProps {
 	/** Whether this step is active */
