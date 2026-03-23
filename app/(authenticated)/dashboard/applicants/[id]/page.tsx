@@ -44,7 +44,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { retryFacilitySubmission } from "@/lib/actions/workflow.actions";
 import { showTwoFactorApproval } from "@/lib/config/workflow-gates";
-import { buildAgreementPreviewEntries } from "@/lib/utils/agreement-defaults";
+import {
+	buildAgreementPreviewEntries,
+	type AgreementContractOverrides,
+	type AgreementPreviewEntry,
+} from "@/lib/utils/agreement-defaults";
 
 interface ApplicantDetail {
 	id: number;
@@ -128,6 +132,12 @@ interface Workflow {
 	preRiskOutcome?: string | null;
 	applicantDecisionOutcome?: string | null;
 	applicantDeclineReason?: string | null;
+}
+
+interface ContractReviewResponse {
+	success: boolean;
+	message: string;
+	alreadyReviewed?: boolean;
 }
 
 interface SanctionsCheckSnapshot {
@@ -227,6 +237,16 @@ export default function ApplicantDetailPage() {
 
 	const [absaPacketSent, setAbsaPacketSent] = useState(false);
 	const [contractReviewed, setContractReviewed] = useState(false);
+	const [contractOverrides, setContractOverrides] =
+		useState<AgreementContractOverrides | null>(null);
+	const [isEditingContract, setIsEditingContract] = useState(false);
+	const [contractDraftEdits, setContractDraftEdits] = useState<
+		AgreementContractOverrides
+	>({});
+	const [contractActionLoading, setContractActionLoading] = useState<
+		"draft" | "review" | null
+	>(null);
+	const [contractMessage, setContractMessage] = useState<string | null>(null);
 
 	// Confirmation dialog state
 	const [retryDialogOpen, setRetryDialogOpen] = useState(false);
@@ -242,12 +262,62 @@ export default function ApplicantDetailPage() {
 		}
 	}, [quote, isEditingQuote]);
 
+	const buildContractDraftState = useCallback(
+		(entries: AgreementPreviewEntry[]): AgreementContractOverrides =>
+			Object.fromEntries(entries.map(entry => [entry.key, entry.value])),
+		[]
+	);
+
 	const canEditQuote =
 		quote && !["pending_signature", "approved", "rejected"].includes(quote.status);
 	const isPreRiskCleared =
 		!workflow?.preRiskRequired || workflow.preRiskOutcome === "approved";
 	const isPreRiskPending =
 		Boolean(workflow?.preRiskRequired) && !workflow?.preRiskOutcome;
+	const contractPreviewEntries =
+		applicant && workflow?.stage === 5
+			? buildAgreementPreviewEntries(
+					applicant,
+					applicantSubmissions,
+					contractOverrides
+				)
+			: [];
+
+	const handleEditContract = () => {
+		setContractDraftEdits(buildContractDraftState(contractPreviewEntries));
+		setContractMessage(null);
+		setIsEditingContract(true);
+	};
+
+	const handleSaveContract = async (markReviewed: boolean) => {
+		if (!(workflow?.id && applicant?.id)) return;
+		setContractActionLoading(markReviewed ? "review" : "draft");
+		setContractMessage(null);
+		try {
+			const response = await fetch(`/api/workflows/${workflow.id}/contract/review`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					applicantId: applicant.id,
+					contractOverrides: contractDraftEdits,
+					markReviewed,
+				}),
+			});
+			if (!response.ok) {
+				const payload = await response.json().catch(() => ({}));
+				throw new Error(payload?.error || "Failed to save contract");
+			}
+			const payload = (await response.json()) as ContractReviewResponse;
+			setContractOverrides({ ...contractDraftEdits });
+			setContractMessage(payload.message);
+			setIsEditingContract(false);
+			await refreshApplicantData();
+		} catch (err) {
+			setContractMessage(err instanceof Error ? err.message : "Contract save failed");
+		} finally {
+			setContractActionLoading(null);
+		}
+	};
 
 	const handleSaveQuoteDraft = async () => {
 		if (!quote) return;
@@ -537,6 +607,9 @@ export default function ApplicantDetailPage() {
 		setSanctionsCheck((data.sanctionsCheck as SanctionsCheckSnapshot | null) || null);
 		setAbsaPacketSent(Boolean(data.absaPacketSent));
 		setContractReviewed(Boolean(data.contractReviewed));
+		setContractOverrides(
+			(data.contractOverrides as AgreementContractOverrides | null) || null
+		);
 		setGreenLaneStatus(
 			(data.greenLaneStatus as GreenLaneStatus) ?? {
 				signedQuotePrerequisite: false,
@@ -1408,34 +1481,113 @@ export default function ApplicantDetailPage() {
 
 							<TabsContent value="reviews">
 								<div className="space-y-3">
-									{(() => {
-									const previewEntries = buildAgreementPreviewEntries(
-										applicant,
-										applicantSubmissions
-									);
-									return previewEntries.length > 0 && workflow?.stage === 5 ? (
+									{contractPreviewEntries.length > 0 ? (
 										<GlassCard className="mb-6">
-											<h3 className="font-bold text-lg mb-4">Contract Preview</h3>
-											<p className="text-sm text-muted-foreground mb-4">
-												Review and edit the contract fields below before marking as reviewed.
-											</p>
+											<div className="flex items-center justify-between mb-4">
+												<div>
+													<h3 className="font-bold text-lg">Contract Preview</h3>
+													<p className="text-sm text-muted-foreground mt-1">
+														Edit the prefilled values the applicant will receive.
+													</p>
+												</div>
+												<div className="flex items-center gap-2">
+													{contractReviewed ? (
+														<Badge
+															variant="outline"
+															className="text-emerald-200 bg-emerald-700/70 border-emerald-500">
+															<RiCheckLine className="h-3 w-3 mr-1" />
+															Reviewed
+														</Badge>
+													) : !isEditingContract ? (
+														<Button
+															variant="outline"
+															size="sm"
+															onClick={handleEditContract}
+															className="gap-2">
+															<RiEditLine className="h-4 w-4" />
+															Edit Contract
+														</Button>
+													) : null}
+												</div>
+											</div>
 											<div className="grid grid-cols-2 gap-0.5">
-												{previewEntries.map(({ label, value }) => (
+												{contractPreviewEntries.map(({ key, label, value }) => (
 													<Card
-														key={label}
-														className="flex flex-col px-4 py-2 justify-start gap-0.5 rounded-lg border border-border/60 rounded-sm mb-0">
+														key={key}
+														className="flex flex-col px-4 py-2 justify-start gap-1 rounded-lg border border-border/60 rounded-sm mb-0">
 														<span className="capitalize text-xs text-muted-foreground font-medium">
 															{label}
 														</span>
-														<span className="font-light  font-mono text-sm capitalize font-sans my-1 text-muted-foreground/80">
-															{value}
-														</span>
+														{isEditingContract && !contractReviewed ? (
+															<Input
+																value={contractDraftEdits[key] ?? value}
+																onChange={e =>
+																	setContractDraftEdits(current => ({
+																		...current,
+																		[key]: e.target.value,
+																	}))
+																}
+																className="h-8 text-sm"
+															/>
+														) : (
+															<span className="font-light font-mono text-sm capitalize font-sans my-1 text-muted-foreground/80">
+																{value}
+															</span>
+														)}
 													</Card>
 												))}
 											</div>
+											{isEditingContract ? (
+												<>
+													<Separator className="my-6" />
+													<div className="flex flex-col gap-3">
+														{contractMessage ? (
+															<p className="text-sm text-amber-600">{contractMessage}</p>
+														) : null}
+														<div className="flex flex-wrap gap-2">
+															<Button
+																variant="outline"
+																size="sm"
+																onClick={() => {
+																	setIsEditingContract(false);
+																	setContractMessage(null);
+																	setContractDraftEdits({});
+																}}
+																disabled={contractActionLoading !== null}>
+																Cancel
+															</Button>
+															<Button
+																variant="secondary"
+																onClick={() => handleSaveContract(false)}
+																disabled={contractActionLoading !== null}
+																className="gap-2">
+																{contractActionLoading === "draft" ? (
+																	<RiLoader4Line className="h-4 w-4 animate-spin" />
+																) : (
+																	<RiSave3Line className="h-4 w-4" />
+																)}
+																Save Draft
+															</Button>
+															<Button
+																variant="secondary"
+																onClick={() => handleSaveContract(true)}
+																disabled={contractActionLoading !== null}
+																className="gap-2 bg-teal-600 hover:bg-teal-700">
+																{contractActionLoading === "review" ? (
+																	<RiLoader4Line className="h-4 w-4 animate-spin" />
+																) : (
+																	<RiCheckLine className="h-4 w-4" />
+																)}
+																Save & Mark Reviewed
+															</Button>
+														</div>
+													</div>
+												</>
+											) : contractMessage ? (
+												<p className="text-sm text-amber-600 mt-4">{contractMessage}</p>
+											) : null}
 										</GlassCard>
-									) : null;
-								})()}
+									) : null}
 
 									<div className="flex items-center justify-between">
 										<h3 className="font-bold text-slate-300 text-xl mt-4 pt-0 pl-4">
