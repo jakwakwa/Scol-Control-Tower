@@ -71,28 +71,21 @@ export async function POST(
 			gate: "contract_reviewed",
 			actorId: userId,
 		});
-		if (!applied) {
-			return NextResponse.json({
-				success: true,
-				workflowId,
-				applicantId,
-				message: "Contract draft review already recorded",
-				alreadyReviewed: true,
-			});
-		}
 
 		const reviewedAt = new Date().toISOString();
-		await logWorkflowEventOnce({
-			workflowId,
-			eventType: "contract_draft_reviewed",
-			payload: {
-				reviewedBy: userId,
-				reviewNotes,
-				timestamp: reviewedAt,
-			},
-			actorType: "user",
-			actorId: userId,
-		});
+		if (applied) {
+			await logWorkflowEventOnce({
+				workflowId,
+				eventType: "contract_draft_reviewed",
+				payload: {
+					reviewedBy: userId,
+					reviewNotes,
+					timestamp: reviewedAt,
+				},
+				actorType: "user",
+				actorId: userId,
+			});
+		}
 
 		await inngest.send({
 			name: "contract/draft.reviewed",
@@ -109,8 +102,10 @@ export async function POST(
 			success: true,
 			workflowId,
 			applicantId,
-			message: "Contract draft review recorded",
-			alreadyReviewed: false,
+			message: applied
+				? "Contract draft review recorded"
+				: "Contract draft review already recorded",
+			alreadyReviewed: !applied,
 		});
 	} catch (error) {
 		console.error("[ContractReviewAction] Error:", error);
