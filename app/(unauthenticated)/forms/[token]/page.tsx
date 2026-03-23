@@ -6,13 +6,17 @@ import {
 	applicants,
 	internalForms,
 	internalSubmissions,
+	workflows,
 } from "@/db/schema";
 import {
 	getFormInstanceByToken,
 	markFormInstanceStatus,
 } from "@/lib/services/form.service";
 import type { FormType } from "@/lib/types";
-import { buildAgreementDefaults } from "@/lib/utils/agreement-defaults";
+import {
+	buildAgreementDefaults,
+	type AgreementContractOverrides,
+} from "@/lib/utils/agreement-defaults";
 import { formContent } from "./content";
 import FormView from "./form-view";
 
@@ -81,6 +85,7 @@ export default async function FormPage({ params }: FormPageProps) {
 	if (formType === "AGREEMENT_CONTRACT") {
 		const db = await getDatabaseClient();
 		if (db) {
+			let contractOverrides: AgreementContractOverrides | null = null;
 			const [applicantRow] = await db
 				.select()
 				.from(applicants)
@@ -89,6 +94,24 @@ export default async function FormPage({ params }: FormPageProps) {
 				.select()
 				.from(applicantSubmissions)
 				.where(eq(applicantSubmissions.applicantId, formInstance.applicantId));
+
+			if (formInstance.workflowId) {
+				const [workflowRow] = await db
+					.select({ metadata: workflows.metadata })
+					.from(workflows)
+					.where(eq(workflows.id, formInstance.workflowId))
+					.limit(1);
+				if (workflowRow?.metadata) {
+					try {
+						const metadata = JSON.parse(workflowRow.metadata) as {
+							contractOverrides?: AgreementContractOverrides;
+						};
+						contractOverrides = metadata.contractOverrides ?? null;
+					} catch {
+						contractOverrides = null;
+					}
+				}
+			}
 
 			let absaSubmission: { formType: string; data?: string | null } | null =
 				submissionRows.find(s => s.formType === "ABSA_6995") ?? null;
@@ -125,6 +148,7 @@ export default async function FormPage({ params }: FormPageProps) {
 					applicant: applicantRow,
 					facilitySubmission: facility ?? null,
 					absaSubmission,
+					contractOverrides,
 				});
 			}
 		}
