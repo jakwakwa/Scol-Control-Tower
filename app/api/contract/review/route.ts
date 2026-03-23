@@ -17,7 +17,7 @@ import {
 	getFormInstanceByToken,
 	recordFormSubmission,
 } from "@/lib/services/form.service";
-import { stratcolAgreementSchema } from "@/lib/validations/forms";
+import { stratcolAgreementSchema } from "@/lib/validations/onboarding";
 
 const SubmissionSchema = z.object({
 	token: z.string().min(1, "Token is required"),
@@ -69,7 +69,10 @@ export async function POST(request: NextRequest) {
 			workflowId: formInstance.workflowId,
 			formType: "AGREEMENT_CONTRACT",
 			data: data as unknown as Record<string, unknown>,
-			submittedBy: data.authorisedRepresentative?.name || "external",
+			submittedBy:
+				data.signature?.name ||
+				data.signatoryAndOwners?.authorisedRepresentative?.name ||
+				"external",
 		});
 
 		// 3. Emit Inngest event to advance workflow
@@ -91,7 +94,9 @@ export async function POST(request: NextRequest) {
 					workflowId: formInstance.workflowId,
 					applicantId: formInstance.applicantId,
 					signedAt: new Date().toISOString(),
-					signedBy: data.authorisedRepresentative?.name,
+					signedBy:
+						data.signature?.name ||
+						data.signatoryAndOwners?.authorisedRepresentative?.name,
 				},
 			});
 		}

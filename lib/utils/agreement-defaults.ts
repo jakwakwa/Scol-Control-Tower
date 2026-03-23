@@ -1,4 +1,5 @@
-import type { StratcolAgreementForm } from "@/lib/validations/forms";
+import type { StratcolAgreementFormData } from "@/lib/validations/onboarding";
+import { EntityType } from "@/lib/validations/onboarding";
 
 export type AgreementPreviewEntry = { label: string; value: string };
 
@@ -20,43 +21,44 @@ interface ApplicantSubmissionRecord {
 	data?: string | null;
 }
 
-const STRATCOL_ENTITY_TYPES = [
-	"Proprietor",
-	"Company",
-	"Close Corporation",
-	"Partnership",
-	"Other",
-] as const;
-
 function mapToStratcolEntityType(
 	businessType?: string | null,
 	entityType?: string | null
-): (typeof STRATCOL_ENTITY_TYPES)[number] {
+): StratcolAgreementFormData["entityDetails"]["entityType"] {
 	const raw = (entityType || businessType || "").toLowerCase();
-	if (raw.includes("proprietor")) return "Proprietor";
-	if (raw.includes("company") && !raw.includes("close")) return "Company";
-	if (raw.includes("close") || raw.includes("cc")) return "Close Corporation";
-	if (raw.includes("partnership")) return "Partnership";
-	return "Other";
+	if (raw.includes("proprietor")) return EntityType.PROPRIETOR;
+	if (raw.includes("company") && !raw.includes("close")) return EntityType.COMPANY;
+	if (raw.includes("close") || raw.includes("cc")) return EntityType.CLOSE_CORPORATION;
+	if (raw.includes("partnership")) return EntityType.PARTNERSHIP;
+	return EntityType.OTHER;
 }
 
-function formatAddress(
-	addr:
-		| { address?: string; suburb?: string; city?: string; postalCode?: string }
-		| null
-		| undefined
-): string {
-	if (!addr) return "";
-	const parts = [addr.address, addr.suburb, addr.city].filter(Boolean);
-	const line = parts.join(", ");
-	return addr.postalCode ? `${line} ${addr.postalCode}`.trim() : line.trim();
+function clean(value: unknown): string {
+	return typeof value === "string" ? value.trim() : "";
+}
+
+function fallbackAddressLine(value: string, fallback = "Unknown"): string {
+	return value || fallback;
+}
+
+function parseAddressParts(
+	value: unknown
+): { address: string; suburb: string; townCity: string } | null {
+	const line = clean(value);
+	if (!line) return null;
+	const parts = line.split(",").map(part => part.trim()).filter(Boolean);
+	return {
+		address: fallbackAddressLine(parts[0] || line),
+		suburb: fallbackAddressLine(parts[1] || parts[0] || line),
+		townCity: fallbackAddressLine(parts[2] || parts[1] || parts[0] || line),
+	};
 }
 
 export function buildAgreementDefaults(options: {
 	applicant: ApplicantRecord;
 	facilitySubmission?: ApplicantSubmissionRecord | null;
 	absaSubmission?: ApplicantSubmissionRecord | null;
-}): Partial<StratcolAgreementForm> {
+}): Partial<StratcolAgreementFormData> {
 	const { applicant, facilitySubmission, absaSubmission } = options;
 
 	let facilityData: Record<string, unknown> | null = null;
@@ -79,14 +81,14 @@ export function buildAgreementDefaults(options: {
 
 	const applicantDetails =
 		(facilityData?.applicantDetails as Record<string, unknown> | undefined) ?? {};
-	// Support both legacy (applicantDetails) and internal (sectionA) ABSA shapes
 	const sectionA = absaData?.sectionA as Record<string, unknown> | undefined;
 	const legacyApplicantDetails =
 		(absaData?.applicantDetails as Record<string, unknown> | undefined) ?? {};
 	const absaApplicantDetails = sectionA?.applicantDetails
 		? (sectionA.applicantDetails as Record<string, unknown>)
 		: legacyApplicantDetails;
-	const absaContactDetails = (sectionA?.contactDetails as Record<string, unknown> | undefined) ?? {};
+	const absaContactDetails =
+		(sectionA?.contactDetails as Record<string, unknown> | undefined) ?? {};
 	const absaBanking =
 		(absaApplicantDetails.bankingDetails as Record<string, unknown> | undefined) ??
 		(sectionA?.bankingDetails as Record<string, unknown> | undefined) ??
@@ -99,12 +101,55 @@ export function buildAgreementDefaults(options: {
 		(absaApplicantDetails.registeredAddress as Record<string, unknown> | undefined) ??
 		(absaContactDetails.cipcRegisteredAddress as Record<string, unknown> | undefined) ??
 		{};
+
+	const physicalAddressLine = [
+		clean(absaPhysical.address),
+		clean(absaPhysical.suburb),
+		clean(absaPhysical.city),
+	]
+		.filter(Boolean)
+		.join(", ");
+	const registeredAddressLine = [
+		clean(absaRegistered.address),
+		clean(absaRegistered.suburb),
+		clean(absaRegistered.city),
+	]
+		.filter(Boolean)
+		.join(", ");
+	const fallbackPhysicalAddress = parseAddressParts(physicalAddressLine);
+	const fallbackRegisteredAddress = parseAddressParts(registeredAddressLine);
+	const defaultBusinessAddress = fallbackPhysicalAddress ?? fallbackRegisteredAddress;
+	const defaultPostalAddress = fallbackRegisteredAddress ?? fallbackPhysicalAddress;
+
+	const physicalPostalCode = clean(absaPhysical.postalCode);
+	const registeredPostalCode = clean(absaRegistered.postalCode);
+	const resolvedPostalCode = physicalPostalCode || registeredPostalCode || "0000";
+
+	const registeredName =
+		clean(applicantDetails.registeredName) || clean(applicant.companyName) || undefined;
+	const tradingName =
+		clean(applicantDetails.tradingName) ||
+		clean(applicant.tradingName) ||
+		clean(applicant.companyName) ||
+		undefined;
+	const registrationNumber =
+		clean(applicantDetails.registrationOrIdNumber) ||
+		clean(applicant.registrationNumber) ||
+		undefined;
+	const contactPerson = clean(applicantDetails.contactPerson) || clean(applicant.contactName);
+	const entityType = mapToStratcolEntityType(applicant.businessType, applicant.entityType);
+	const idNumber = clean(applicant.idNumber);
+
 	const absaDirectorsRaw =
-		(absaApplicantDetails.directors as { directors?: Array<{ fullName?: string; idNumber?: string }> } | undefined)
-			?.directors ??
-		(absaApplicantDetails.directors as Array<{ fullName?: string; idNumber?: string }> | undefined) ??
-		(sectionA?.directors as { directors?: Array<{ fullName?: string; idNumber?: string }> } | undefined)
-			?.directors ??
+		(absaApplicantDetails.directors as
+			| { directors?: Array<{ fullName?: string; idNumber?: string }> }
+			| undefined)?.directors ??
+		(absaApplicantDetails.directors as
+			| Array<{ fullName?: string; idNumber?: string }>
+			| undefined) ??
+		(sectionA?.directors as
+			| { directors?: Array<{ fullName?: string; idNumber?: string }> }
+			| undefined)?.directors ??
 		[];
 	const absaDirectors = Array.isArray(absaDirectorsRaw) ? absaDirectorsRaw : [];
 	const absaAdditional =
@@ -112,164 +157,82 @@ export function buildAgreementDefaults(options: {
 			| Array<{ fullName?: string; idNumber?: string }>
 			| undefined) ?? [];
 
-	const registeredName =
-		(String(applicantDetails.registeredName) || applicant.companyName || "").trim() ||
-		undefined;
-	const tradingName =
-		(
-			String(applicantDetails.tradingName) ||
-			applicant.tradingName ||
-			applicant.companyName ||
-			""
-		).trim() || undefined;
-	const registrationNumber =
-		(
-			String(applicantDetails.registrationOrIdNumber) ||
-			applicant.registrationNumber ||
-			""
-		).trim() || undefined;
-	const contactPerson = String(
-		applicantDetails.contactPerson || applicant.contactName || ""
-	).trim();
-	const telephone =
-		String(applicantDetails.telephone || applicant.phone || "").trim() || undefined;
-	const entityType = mapToStratcolEntityType(
-		applicant.businessType,
-		applicant.entityType
-	);
+	const beneficialOwners = [...absaDirectors, ...absaAdditional]
+		.filter(owner => clean(owner?.fullName) && clean(owner?.idNumber))
+		.map(owner => ({
+			name: clean(owner.fullName),
+			idNumber: clean(owner.idNumber),
+			address: defaultBusinessAddress?.address || "Unknown",
+			position: "Director",
+			shareholdingPercentage: "5",
+		}));
 
-	const physicalAddr = formatAddress(
-		absaPhysical as {
-			address?: string;
-			suburb?: string;
-			city?: string;
-			postalCode?: string;
-		}
-	);
-	const registeredAddr = formatAddress(
-		absaRegistered as {
-			address?: string;
-			suburb?: string;
-			city?: string;
-			postalCode?: string;
-		}
-	);
-	const businessAddressLine = physicalAddr || registeredAddr || "";
-	const postalAddressLine = registeredAddr || physicalAddr || businessAddressLine;
-	const postalCode =
-		(absaPhysical as { postalCode?: string })?.postalCode ||
-		(absaRegistered as { postalCode?: string })?.postalCode ||
-		"";
-
-	const bankName = String(absaBanking.bankName || "").trim();
-	const accountNumber = String(absaBanking.accountNumber || "").trim();
-	const branchCode = String(absaBanking.branchCode || "").trim();
-	const accountName = String(
-		absaApplicantDetails.ultimateCreditorName || applicant.companyName || ""
-	).trim();
-
+	const bankName = clean(absaBanking.bankName);
+	const accountNumber = clean(absaBanking.accountNumber);
+	const branchCode = clean(absaBanking.branchCode);
+	const accountName =
+		clean(absaApplicantDetails.ultimateCreditorName) || clean(applicant.companyName);
+	const accountType = clean(absaBanking.accountType) || "Current";
 	const hasBankDetails = bankName && accountNumber && branchCode && accountName;
 
-	const creditBankAccount = hasBankDetails
-		? {
-				accountName,
-				bankName,
-				branch: "",
-				branchCode,
-				accountNumber,
-			}
-		: undefined;
-
-	const debitBankAccount = hasBankDetails
-		? {
-				accountName,
-				bankName,
-				branch: "",
-				branchCode,
-				accountNumber,
-			}
-		: undefined;
-
-	const beneficialOwners: Array<{
-		name: string;
-		idNumber: string;
-		address: string;
-		position: string;
-		shareholdingPercent?: number;
-	}> = [];
-	for (const d of absaDirectors) {
-		if (d?.fullName && d?.idNumber) {
-			beneficialOwners.push({
-				name: String(d.fullName).trim(),
-				idNumber: String(d.idNumber).trim(),
-				address: physicalAddr || registeredAddr || "—",
-				position: "Director",
-			});
-		}
-	}
-	for (const d of absaAdditional) {
-		if (d?.fullName && d?.idNumber) {
-			beneficialOwners.push({
-				name: String(d.fullName).trim(),
-				idNumber: String(d.idNumber).trim(),
-				address: physicalAddr || registeredAddr || "—",
-				position: "Director",
-			});
-		}
-	}
-
-	const repName = contactPerson || applicant.contactName || "";
-	const repId = String(applicant.idNumber || "").trim();
-	const isCompanyEntity =
-		entityType === "Company" ||
-		entityType === "Close Corporation" ||
-		entityType === "Partnership";
-
-	const companyResolution =
-		isCompanyEntity && repName && repId
-			? {
-					cityTown:
-						(absaPhysical as { city?: string })?.city ||
-						(absaRegistered as { city?: string })?.city ||
-						"",
-					date: undefined,
-					resolvedName: repName,
-					resolvedIdNumber: repId,
-				}
-			: undefined;
-
-	const result: Partial<StratcolAgreementForm> = {
-		registeredName: registeredName || applicant.companyName,
-		proprietorName: entityType === "Proprietor" ? applicant.contactName : undefined,
-		tradingName: tradingName || applicant.companyName,
-		registrationNumber: registrationNumber || applicant.registrationNumber || "",
-		entityType,
-		telephone,
-		businessAddress:
-			businessAddressLine && postalCode
-				? { address: businessAddressLine, postalCode }
-				: businessAddressLine
-					? { address: businessAddressLine, postalCode: "—" }
-					: undefined,
-		postalAddress:
-			postalAddressLine && postalCode
-				? { address: postalAddressLine, postalCode }
-				: postalAddressLine
-					? { address: postalAddressLine, postalCode: "—" }
-					: undefined,
-		authorisedRepresentative:
-			repName && repId
-				? { name: repName, idNumber: repId, position: "Director" }
+	return {
+		entityDetails: {
+			registeredName,
+			proprietorName: entityType === EntityType.PROPRIETOR ? contactPerson : undefined,
+			tradingName,
+			registrationNumber,
+			entityType,
+			businessAddress: defaultBusinessAddress
+				? {
+						...defaultBusinessAddress,
+						postalCode: resolvedPostalCode,
+					}
 				: undefined,
-		companyResolution,
-		beneficialOwners: beneficialOwners.length > 0 ? beneficialOwners : undefined,
-		creditBankAccount,
-		debitBankAccount,
-		signatureName: applicant.contactName,
-		signatureDate: undefined,
+			postalAddress: defaultPostalAddress
+				? {
+						...defaultPostalAddress,
+						postalCode: resolvedPostalCode,
+					}
+				: undefined,
+			durationAtAddress: undefined,
+			industryTenure: clean(applicant.industry) || undefined,
+		},
+		signatoryAndOwners: {
+			authorisedRepresentative:
+				contactPerson && idNumber
+					? {
+							name: contactPerson,
+							idNumber,
+							position: "Director",
+						}
+					: undefined,
+			beneficialOwners: beneficialOwners.length > 0 ? beneficialOwners : undefined,
+		},
+		bankingAndMandates: hasBankDetails
+			? {
+					creditBankAccount: {
+						accountName,
+						bankName,
+						accountType,
+						branchCode,
+						accountNumber,
+					},
+					debitBankAccount: {
+						accountName,
+						bankName,
+						accountType,
+						branchCode,
+						accountNumber,
+					},
+					useSameAccountForDebit: true,
+				}
+			: undefined,
+		signature: {
+			name: clean(applicant.contactName) || undefined,
+			signature: undefined,
+			date: undefined,
+		},
 	};
-
-	return result;
 }
 
 export function buildAgreementPreviewEntries(
@@ -288,44 +251,36 @@ export function buildAgreementPreviewEntries(
 	const entries: AgreementPreviewEntry[] = [];
 	const push = (label: string, value: unknown) => {
 		if (value != null && value !== "") {
-			entries.push({
-				label,
-				value: String(value),
-			});
+			entries.push({ label, value: String(value) });
 		}
 	};
 
-	push("Registered Name", defaults.registeredName);
-	push("Trading Name", defaults.tradingName);
-	push("Registration Number", defaults.registrationNumber);
-	push("Entity Type", defaults.entityType);
-	push("Telephone", defaults.telephone);
-	push("Contact / Signatory", defaults.signatureName);
-	push("ID Number", defaults.authorisedRepresentative?.idNumber);
+	push("Registered Name", defaults.entityDetails?.registeredName);
+	push("Trading Name", defaults.entityDetails?.tradingName);
+	push("Registration Number", defaults.entityDetails?.registrationNumber);
+	push("Entity Type", defaults.entityDetails?.entityType);
+	push("Business Address", defaults.entityDetails?.businessAddress?.address);
+	push("Business Postal Code", defaults.entityDetails?.businessAddress?.postalCode);
+	push("Postal Address", defaults.entityDetails?.postalAddress?.address);
+	push("Postal Postal Code", defaults.entityDetails?.postalAddress?.postalCode);
+	push(
+		"Authorised Representative",
+		defaults.signatoryAndOwners?.authorisedRepresentative?.name
+	);
+	push("ID Number", defaults.signatoryAndOwners?.authorisedRepresentative?.idNumber);
+	push(
+		"Bank Name",
+		defaults.bankingAndMandates?.creditBankAccount?.bankName
+	);
+	push(
+		"Account Number",
+		defaults.bankingAndMandates?.creditBankAccount?.accountNumber
+	);
 
-	if (defaults.businessAddress) {
-		push("Business Address", defaults.businessAddress.address);
-		push("Business Postal Code", defaults.businessAddress.postalCode);
-	}
-	if (defaults.postalAddress) {
-		push("Postal Address", defaults.postalAddress.address);
-		push("Postal Code", defaults.postalAddress.postalCode);
-	}
-
-	push("Authorised Representative", defaults.authorisedRepresentative?.name);
-	push("Position", defaults.authorisedRepresentative?.position);
-
-	if (defaults.creditBankAccount) {
-		push("Bank Name", defaults.creditBankAccount.bankName);
-		push("Account Name", defaults.creditBankAccount.accountName);
-		push("Account Number", defaults.creditBankAccount.accountNumber);
-		push("Branch Code", defaults.creditBankAccount.branchCode);
-	}
-
-	if (defaults.beneficialOwners && defaults.beneficialOwners.length > 0) {
-		defaults.beneficialOwners.forEach((owner, i) => {
-			push(`Beneficial Owner ${i + 1}`, owner.name);
-			push(`Beneficial Owner ${i + 1} ID`, owner.idNumber);
+	if (defaults.signatoryAndOwners?.beneficialOwners?.length) {
+		defaults.signatoryAndOwners.beneficialOwners.forEach((owner, index) => {
+			push(`Beneficial Owner ${index + 1}`, owner.name);
+			push(`Beneficial Owner ${index + 1} ID`, owner.idNumber);
 		});
 	}
 
