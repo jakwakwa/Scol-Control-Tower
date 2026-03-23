@@ -11,7 +11,8 @@ import {
 	buildAbsaConfirmEndpoint,
 	buildContractReviewEndpoint,
 	canConfirmAbsa,
-	canPerformGateActions,
+	showAbsaActions,
+	showContractReviewAction,
 } from "@/lib/config/workflow-gates";
 
 interface WorkflowGatesCardProps {
@@ -19,6 +20,7 @@ interface WorkflowGatesCardProps {
 	applicantId: number;
 	workflowStage: number | null | undefined;
 	workflowStatus: string | null | undefined;
+	contractReviewed: boolean;
 	absaPacketSent: boolean;
 	onGateCompleted: () => Promise<void> | void;
 }
@@ -28,6 +30,7 @@ export default function WorkflowGatesCard({
 	applicantId,
 	workflowStage,
 	workflowStatus,
+	contractReviewed,
 	absaPacketSent,
 	onGateCompleted,
 }: WorkflowGatesCardProps) {
@@ -37,8 +40,17 @@ export default function WorkflowGatesCard({
 	const [contractReviewNotes, setContractReviewNotes] = useState("");
 	const [absaConfirmNotes, setAbsaConfirmNotes] = useState("");
 
-	const gatesActive = canPerformGateActions(workflowStage, workflowStatus);
-	const absaGateActive = canConfirmAbsa(
+	const showContract = showContractReviewAction(
+		workflowStage,
+		workflowStatus,
+		contractReviewed
+	);
+	const showAbsa = showAbsaActions(
+		workflowStage,
+		workflowStatus,
+		contractReviewed
+	);
+	const absaConfirmEnabled = canConfirmAbsa(
 		workflowStage,
 		workflowStatus,
 		absaPacketSent
@@ -98,115 +110,119 @@ export default function WorkflowGatesCard({
 		}
 	};
 
-	if (!gatesActive) return null;
+	if (!showContract && !showAbsa) return null;
 
 	return (
 		<GlassCard className="space-y-4 border-l-4 border-l-amber-500">
 			<h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-				Workflow Gates
+				Stage 5 Actions
 			</h3>
 
-			<div className="space-y-3">
-				<p className="text-xs font-semibold uppercase text-muted-foreground">
-					Contract Draft Review
-				</p>
-				<p className="text-xs text-muted-foreground">
-					Confirm the contract draft has been reviewed and is ready.
-				</p>
-				<Textarea
-					value={contractReviewNotes}
-					onChange={(e) => setContractReviewNotes(e.target.value)}
-					placeholder="Optional review notes..."
-					className="min-h-[72px] text-sm"
-					disabled={actionLoading !== null}
-				/>
-				<ConfirmActionDrawer
-					disabled={actionLoading !== null}
-					isLoading={actionLoading === "contract-review"}
-					title="Approve contract review?"
-					description="This records the contract as reviewed and unlocks the ABSA gate."
-					confirmLabel="Yes, approve review"
-					cancelLabel="Cancel"
-					onConfirm={async () => {
-						await toast.promise(handleContractDraftReviewed(), {
-							loading: "Recording contract review...",
-							success: "Contract review recorded.",
-							error: (e) =>
-								e instanceof Error
-									? e.message
-									: "Failed to record review",
-						});
-					}}
-					trigger={
-						<Button
-							size="sm"
-							disabled={actionLoading !== null}
-							className="gap-2 w-full">
-							{actionLoading === "contract-review" ? (
-								<RiLoader4Line className="h-4 w-4 animate-spin" />
-							) : (
-								<RiCheckLine className="h-4 w-4" />
-							)}
-							Mark Contract Reviewed
-						</Button>
-					}
-				/>
-			</div>
-
-			<hr className="border-border/40" />
-
-			<div className="space-y-3">
-				<p className="text-xs font-semibold uppercase text-muted-foreground">
-					Confirm ABSA Approved
-				</p>
-				<p className="text-xs text-muted-foreground">
-					Confirm ABSA has approved the packet to advance the workflow.
-				</p>
-				{!absaPacketSent && (
-					<p className="text-xs text-amber-300/80">
-						Send the ABSA packet first, then confirm once approved.
+			{showContract && (
+				<div className="space-y-3">
+					<p className="text-xs font-semibold uppercase text-muted-foreground">
+						Step 1 &mdash; Contract Draft Review
 					</p>
-				)}
-				<Textarea
-					value={absaConfirmNotes}
-					onChange={(e) => setAbsaConfirmNotes(e.target.value)}
-					placeholder="Optional confirmation notes..."
-					className="min-h-[72px] text-sm"
-					disabled={actionLoading !== null || !absaGateActive}
-				/>
-				<ConfirmActionDrawer
-					disabled={actionLoading !== null || !absaGateActive}
-					isLoading={actionLoading === "absa-confirm"}
-					title="Confirm ABSA approved?"
-					description="This advances Stage 5 once ABSA approval is confirmed."
-					confirmLabel="Yes, confirm ABSA"
-					cancelLabel="Cancel"
-					onConfirm={async () => {
-						await toast.promise(handleConfirmAbsaApproved(), {
-							loading: "Confirming ABSA approval...",
-							success: "ABSA approval confirmed.",
-							error: (e) =>
-								e instanceof Error
-									? e.message
-									: "Failed to confirm ABSA approval",
-						});
-					}}
-					trigger={
-						<Button
-							size="sm"
-							variant="secondary"
-							disabled={actionLoading !== null || !absaGateActive}
-							className="gap-2 w-full bg-action hover:bg-action/85">
-							{actionLoading === "absa-confirm" ? (
-								<RiLoader4Line className="h-4 w-4 animate-spin" />
-							) : (
-								<RiSendPlaneLine className="h-4 w-4" />
-							)}
-							Confirm ABSA Approved
-						</Button>
-					}
-				/>
-			</div>
+					<p className="text-xs text-muted-foreground">
+						Review the contract preview fields below, edit if needed, then mark
+						as reviewed.
+					</p>
+					<Textarea
+						value={contractReviewNotes}
+						onChange={(e) => setContractReviewNotes(e.target.value)}
+						placeholder="Optional review notes..."
+						className="min-h-[72px] text-sm"
+						disabled={actionLoading !== null}
+					/>
+					<ConfirmActionDrawer
+						disabled={actionLoading !== null}
+						isLoading={actionLoading === "contract-review"}
+						title="Mark contract as reviewed?"
+						description="This records the contract as reviewed and unlocks the ABSA step."
+						confirmLabel="Yes, mark reviewed"
+						cancelLabel="Cancel"
+						onConfirm={async () => {
+							await toast.promise(handleContractDraftReviewed(), {
+								loading: "Recording contract review...",
+								success: "Contract review recorded.",
+								error: (e) =>
+									e instanceof Error
+										? e.message
+										: "Failed to record review",
+							});
+						}}
+						trigger={
+							<Button
+								size="sm"
+								disabled={actionLoading !== null}
+								className="gap-2 w-full">
+								{actionLoading === "contract-review" ? (
+									<RiLoader4Line className="h-4 w-4 animate-spin" />
+								) : (
+									<RiCheckLine className="h-4 w-4" />
+								)}
+								Save &amp; Mark Reviewed
+							</Button>
+						}
+					/>
+				</div>
+			)}
+
+			{showAbsa && (
+				<div className="space-y-3">
+					{showContract && <hr className="border-border/40" />}
+					<p className="text-xs font-semibold uppercase text-muted-foreground">
+						Step 2 &mdash; ABSA Packet
+					</p>
+					<p className="text-xs text-muted-foreground">
+						Send the ABSA packet, then confirm once ABSA has approved.
+					</p>
+					{!absaPacketSent && (
+						<p className="text-xs text-amber-300/80">
+							Send the ABSA packet first before confirming.
+						</p>
+					)}
+					<Textarea
+						value={absaConfirmNotes}
+						onChange={(e) => setAbsaConfirmNotes(e.target.value)}
+						placeholder="Optional confirmation notes..."
+						className="min-h-[72px] text-sm"
+						disabled={actionLoading !== null || !absaConfirmEnabled}
+					/>
+					<ConfirmActionDrawer
+						disabled={actionLoading !== null || !absaConfirmEnabled}
+						isLoading={actionLoading === "absa-confirm"}
+						title="Confirm ABSA approved?"
+						description="This advances Stage 5 once ABSA approval is confirmed."
+						confirmLabel="Yes, confirm ABSA"
+						cancelLabel="Cancel"
+						onConfirm={async () => {
+							await toast.promise(handleConfirmAbsaApproved(), {
+								loading: "Confirming ABSA approval...",
+								success: "ABSA approval confirmed.",
+								error: (e) =>
+									e instanceof Error
+										? e.message
+										: "Failed to confirm ABSA approval",
+							});
+						}}
+						trigger={
+							<Button
+								size="sm"
+								variant="secondary"
+								disabled={actionLoading !== null || !absaConfirmEnabled}
+								className="gap-2 w-full bg-action hover:bg-action/85">
+								{actionLoading === "absa-confirm" ? (
+									<RiLoader4Line className="h-4 w-4 animate-spin" />
+								) : (
+									<RiSendPlaneLine className="h-4 w-4" />
+								)}
+								Confirm ABSA Approved
+							</Button>
+						}
+					/>
+				</div>
+			)}
 		</GlassCard>
 	);
 }

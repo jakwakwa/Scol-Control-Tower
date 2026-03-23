@@ -43,6 +43,7 @@ import { RiskBadge, StageBadge, StatusBadge } from "@/components/ui/status-badge
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { retryFacilitySubmission } from "@/lib/actions/workflow.actions";
+import { showTwoFactorApproval } from "@/lib/config/workflow-gates";
 import { buildAgreementPreviewEntries } from "@/lib/utils/agreement-defaults";
 
 interface ApplicantDetail {
@@ -225,6 +226,7 @@ export default function ApplicantDetailPage() {
 	const [approvalMessage, setApprovalMessage] = useState<string | null>(null);
 
 	const [absaPacketSent, setAbsaPacketSent] = useState(false);
+	const [contractReviewed, setContractReviewed] = useState(false);
 
 	// Confirmation dialog state
 	const [retryDialogOpen, setRetryDialogOpen] = useState(false);
@@ -534,6 +536,7 @@ export default function ApplicantDetailPage() {
 		setWorkflow((data.workflow as Workflow | null) || null);
 		setSanctionsCheck((data.sanctionsCheck as SanctionsCheckSnapshot | null) || null);
 		setAbsaPacketSent(Boolean(data.absaPacketSent));
+		setContractReviewed(Boolean(data.contractReviewed));
 		setGreenLaneStatus(
 			(data.greenLaneStatus as GreenLaneStatus) ?? {
 				signedQuotePrerequisite: false,
@@ -856,6 +859,7 @@ export default function ApplicantDetailPage() {
 								applicantId={applicant.id}
 								workflowStage={workflow?.stage}
 								workflowStatus={workflow?.status}
+								contractReviewed={contractReviewed}
 								absaPacketSent={absaPacketSent}
 								onGateCompleted={async () => {
 									await refreshApplicantData();
@@ -1405,33 +1409,33 @@ export default function ApplicantDetailPage() {
 							<TabsContent value="reviews">
 								<div className="space-y-3">
 									{(() => {
-										const previewEntries = buildAgreementPreviewEntries(
-											applicant,
-											applicantSubmissions
-										);
-										return previewEntries.length > 0 && workflow?.stage > 4 ? (
-											<GlassCard className="mb-6">
-												<h3 className="font-bold text-lg mb-4">Contract Preview</h3>
-												<p className="text-sm text-muted-foreground mb-4">
-													Applicant details for contract prefill (key/value).
-												</p>
-												<div className="grid grid-cols-2 gap-0.5">
-													{previewEntries.map(({ label, value }) => (
-														<Card
-															key={label}
-															className="flex flex-col px-4 py-2 justify-start gap-0.5 rounded-lg border border-border/60 rounded-sm mb-0">
-															<span className="capitalize text-xs text-muted-foreground font-medium">
-																{label}
-															</span>
-															<span className="font-light  font-mono text-sm capitalize font-sans my-1 text-muted-foreground/80">
-																{value}
-															</span>
-														</Card>
-													))}
-												</div>
-											</GlassCard>
-										) : null;
-									})()}
+									const previewEntries = buildAgreementPreviewEntries(
+										applicant,
+										applicantSubmissions
+									);
+									return previewEntries.length > 0 && workflow?.stage === 5 ? (
+										<GlassCard className="mb-6">
+											<h3 className="font-bold text-lg mb-4">Contract Preview</h3>
+											<p className="text-sm text-muted-foreground mb-4">
+												Review and edit the contract fields below before marking as reviewed.
+											</p>
+											<div className="grid grid-cols-2 gap-0.5">
+												{previewEntries.map(({ label, value }) => (
+													<Card
+														key={label}
+														className="flex flex-col px-4 py-2 justify-start gap-0.5 rounded-lg border border-border/60 rounded-sm mb-0">
+														<span className="capitalize text-xs text-muted-foreground font-medium">
+															{label}
+														</span>
+														<span className="font-light  font-mono text-sm capitalize font-sans my-1 text-muted-foreground/80">
+															{value}
+														</span>
+													</Card>
+												))}
+											</div>
+										</GlassCard>
+									) : null;
+								})()}
 
 									<div className="flex items-center justify-between">
 										<h3 className="font-bold text-slate-300 text-xl mt-4 pt-0 pl-4">
@@ -1818,44 +1822,44 @@ export default function ApplicantDetailPage() {
 											</div>
 										</GlassCard>
 									)}
-									{workflow?.stage > 4 ? (
-										<GlassCard className="mb-6 border-l-4 border-l-blue-500">
-											<h4 className="text-sm font-bold uppercase text-muted-foreground mb-2">
-												Two-Factor Final Approval
-											</h4>
-											<p className="text-sm text-muted-foreground mb-4">
-												Both Risk Manager and Account Manager must approve to complete
-												onboarding.
-											</p>
-											<div className="flex flex-wrap gap-3">
-												<Button
-													onClick={() => handleTwoFactorApproval("risk_manager")}
-													disabled={approvalLoading !== null}
-													className="gap-2 bg-teal-600 hover:bg-teal-700">
-													{approvalLoading === "risk_manager" ? (
-														<RiLoader4Line className="h-4 w-4 animate-spin" />
-													) : (
-														<RiShieldCheckLine className="h-4 w-4" />
-													)}
-													RM Approve
-												</Button>
-												<Button
-													onClick={() => handleTwoFactorApproval("account_manager")}
-													disabled={approvalLoading !== null}
-													className="gap-2 bg-blue-600 hover:bg-blue-700">
-													{approvalLoading === "account_manager" ? (
-														<RiLoader4Line className="h-4 w-4 animate-spin" />
-													) : (
-														<RiCheckLine className="h-4 w-4" />
-													)}
-													AM Approve
-												</Button>
-											</div>
-											{approvalMessage && (
-												<p className="mt-3 text-sm text-amber-700">{approvalMessage}</p>
-											)}
-										</GlassCard>
-									) : null}
+								{showTwoFactorApproval(workflow?.stage, workflow?.status) ? (
+									<GlassCard className="mb-6 border-l-4 border-l-blue-500">
+										<h4 className="text-sm font-bold uppercase text-muted-foreground mb-2">
+											Two-Factor Final Approval
+										</h4>
+										<p className="text-sm text-muted-foreground mb-4">
+											Both Risk Manager and Account Manager must approve to complete
+											onboarding.
+										</p>
+										<div className="flex flex-wrap gap-3">
+											<Button
+												onClick={() => handleTwoFactorApproval("risk_manager")}
+												disabled={approvalLoading !== null}
+												className="gap-2 bg-teal-600 hover:bg-teal-700">
+												{approvalLoading === "risk_manager" ? (
+													<RiLoader4Line className="h-4 w-4 animate-spin" />
+												) : (
+													<RiShieldCheckLine className="h-4 w-4" />
+												)}
+												RM Approve
+											</Button>
+											<Button
+												onClick={() => handleTwoFactorApproval("account_manager")}
+												disabled={approvalLoading !== null}
+												className="gap-2 bg-blue-600 hover:bg-blue-700">
+												{approvalLoading === "account_manager" ? (
+													<RiLoader4Line className="h-4 w-4 animate-spin" />
+												) : (
+													<RiCheckLine className="h-4 w-4" />
+												)}
+												AM Approve
+											</Button>
+										</div>
+										{approvalMessage && (
+											<p className="mt-3 text-sm text-amber-700">{approvalMessage}</p>
+										)}
+									</GlassCard>
+								) : null}
 								</div>
 							</TabsContent>
 						</Tabs>

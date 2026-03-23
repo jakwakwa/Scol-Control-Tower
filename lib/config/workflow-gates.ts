@@ -16,11 +16,32 @@ export interface AbsaConfirmBody {
 	notes?: string;
 }
 
+const isActiveStage5 = (
+	stage: number | null | undefined,
+	status: string | null | undefined
+): boolean => stage === 5 && status !== "terminated" && status !== "completed";
+
 export function canPerformGateActions(
 	stage: number | null | undefined,
 	status: string | null | undefined
 ): boolean {
-	return stage === 5 && status !== "terminated";
+	return isActiveStage5(stage, status);
+}
+
+export function showContractReviewAction(
+	stage: number | null | undefined,
+	status: string | null | undefined,
+	contractReviewed: boolean
+): boolean {
+	return isActiveStage5(stage, status) && !contractReviewed;
+}
+
+export function showAbsaActions(
+	stage: number | null | undefined,
+	status: string | null | undefined,
+	contractReviewed: boolean
+): boolean {
+	return isActiveStage5(stage, status) && contractReviewed;
 }
 
 export function canConfirmAbsa(
@@ -29,4 +50,11 @@ export function canConfirmAbsa(
 	absaPacketSent: boolean
 ): boolean {
 	return canPerformGateActions(stage, status) && absaPacketSent;
+}
+
+export function showTwoFactorApproval(
+	stage: number | null | undefined,
+	status: string | null | undefined
+): boolean {
+	return stage === 6 && status === "awaiting_human";
 }

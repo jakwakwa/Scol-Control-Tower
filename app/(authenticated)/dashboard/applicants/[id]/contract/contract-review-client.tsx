@@ -11,6 +11,7 @@ import ConfirmActionDrawer from "@/components/shared/confirm-action-drawer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { showAbsaActions, showContractReviewAction } from "@/lib/config/workflow-gates";
 import type { Absa6995FormData } from "@/lib/validations/onboarding";
 import { contractReviewContent } from "./content";
 
@@ -75,10 +76,13 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 		}
 	);
 
-	const canPerformActions =
-		payload?.workflow?.stage === 5 && payload.workflow.status !== "terminated";
+	const stage = payload?.workflow?.stage ?? null;
+	const status = payload?.workflow?.status ?? null;
 	const contractReviewed = payload?.contractReviewed ?? false;
 	const absaPacketSent = payload?.absaPacketSent ?? false;
+	const canPerformActions = stage === 5 && status !== "terminated" && status !== "completed";
+	const showContract = showContractReviewAction(stage, status, contractReviewed);
+	const showAbsa = showAbsaActions(stage, status, contractReviewed);
 	const canConfirmAbsa = canPerformActions && absaPacketSent;
 
 	const handleContractDraftReviewed = async () => {
@@ -195,9 +199,11 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 						</Button>
 					</Link>
 				</Card>
-				<Card>
-					<p className="text-normal">{contractReviewContent.description}</p>
-				</Card>
+			<Card>
+				<p className="text-normal">{contractReviewContent.description}</p>
+			</Card>
+
+			{showContract && (
 				<Card className="flex flex-col pb-8">
 					<p className="text-base">{contractReviewContent.contractGate.label}</p>
 					<p className="text-base my-3 text-stone-300/70">
@@ -208,15 +214,15 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 						onChange={e => setContractReviewNotes(e.target.value)}
 						placeholder={contractReviewContent.contractGate.placeholder}
 						className="min-h-[88px]"
-						disabled={actionLoading !== null || !canPerformActions}
+						disabled={actionLoading !== null}
 					/>
 					<ConfirmActionDrawer
-						disabled={actionLoading !== null || !canPerformActions}
+						disabled={actionLoading !== null}
 						isLoading={actionLoading === "contract-review"}
-						title="Approve contract review?"
-						description="Are you sure? This records the contract as reviewed and unlocks the ABSA gate."
-						confirmLabel="Yes, approve review"
-						cancelLabel="No, cancel"
+						title="Mark contract as reviewed?"
+						description="This records the contract as reviewed and unlocks the ABSA step."
+						confirmLabel="Yes, mark reviewed"
+						cancelLabel="Cancel"
 						onConfirm={async () => {
 							await toast.promise(handleContractDraftReviewed(), {
 								loading: "Recording contract review...",
@@ -227,7 +233,7 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 						}}
 						trigger={
 							<Button
-								disabled={actionLoading !== null || !canPerformActions}
+								disabled={actionLoading !== null}
 								className="gap-2">
 								<RiCheckLine className="h-4 w-4" />
 								{contractReviewContent.contractGate.actionLabel}
@@ -235,8 +241,10 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 						}
 					/>
 				</Card>
+			)}
 
-				{canPerformActions && payload?.workflow?.id && (
+			{showAbsa && payload?.workflow?.id && (
+				<>
 					<AbsaPacketSection
 						workflowId={payload.workflow.id}
 						applicantId={payload.applicant?.id ?? null}
@@ -248,58 +256,59 @@ const ContractReviewClient = ({ applicantId }: ContractReviewClientProps) => {
 								: undefined
 						}
 						absaDocuments={payload.absaDocuments ?? []}
-						disabled={!contractReviewed}
+						disabled={false}
 						onRefresh={mutate}
 					/>
-				)}
 
-				<Card className="space-y-3">
-					<p className="text-base uppercase text-secondary-foreground font-medium">
-						{contractReviewContent.absaConfirmGate.label}
-					</p>
-					<p className="text-stone-300/70">
-						{contractReviewContent.absaConfirmGate.description}
-					</p>
-					{!absaPacketSent && canPerformActions && (
-						<p className="text-sm text-amber-300/80">
-							Send the ABSA packet above first, then confirm once ABSA has approved.
+					<Card className="space-y-3">
+						<p className="text-base uppercase text-secondary-foreground font-medium">
+							{contractReviewContent.absaConfirmGate.label}
 						</p>
-					)}
-					<Textarea
-						value={absaConfirmNotes}
-						onChange={e => setAbsaConfirmNotes(e.target.value)}
-						placeholder={contractReviewContent.absaConfirmGate.placeholder}
-						className="min-h-[88px]"
-						disabled={actionLoading !== null || !canConfirmAbsa}
-					/>
-					<ConfirmActionDrawer
-						disabled={actionLoading !== null || !canConfirmAbsa}
-						isLoading={actionLoading === "absa-confirm"}
-						title="Confirm ABSA approved?"
-						description="Are you sure? This advances Stage 5 once ABSA approval is confirmed."
-						confirmLabel="Yes, confirm ABSA"
-						cancelLabel="No, cancel"
-						onConfirm={async () => {
-							await toast.promise(handleConfirmAbsaApproved(), {
-								loading: "Confirming ABSA approval...",
-								success: "ABSA approval confirmed.",
-								error: error =>
-									error instanceof Error
-										? error.message
-										: "Failed to confirm ABSA approval",
-							});
-						}}
-						trigger={
-							<Button
-								variant="secondary"
-								disabled={actionLoading !== null || !canConfirmAbsa}
-								className="gap-2 bg-action hover:bg-action/85">
-								<RiSendPlaneLine className="h-4 w-4" />
-								{contractReviewContent.absaConfirmGate.actionLabel}
-							</Button>
-						}
-					/>
-				</Card>
+						<p className="text-stone-300/70">
+							{contractReviewContent.absaConfirmGate.description}
+						</p>
+						{!absaPacketSent && (
+							<p className="text-sm text-amber-300/80">
+								Send the ABSA packet above first, then confirm once ABSA has approved.
+							</p>
+						)}
+						<Textarea
+							value={absaConfirmNotes}
+							onChange={e => setAbsaConfirmNotes(e.target.value)}
+							placeholder={contractReviewContent.absaConfirmGate.placeholder}
+							className="min-h-[88px]"
+							disabled={actionLoading !== null || !canConfirmAbsa}
+						/>
+						<ConfirmActionDrawer
+							disabled={actionLoading !== null || !canConfirmAbsa}
+							isLoading={actionLoading === "absa-confirm"}
+							title="Confirm ABSA approved?"
+							description="This advances Stage 5 once ABSA approval is confirmed."
+							confirmLabel="Yes, confirm ABSA"
+							cancelLabel="Cancel"
+							onConfirm={async () => {
+								await toast.promise(handleConfirmAbsaApproved(), {
+									loading: "Confirming ABSA approval...",
+									success: "ABSA approval confirmed.",
+									error: error =>
+										error instanceof Error
+											? error.message
+											: "Failed to confirm ABSA approval",
+								});
+							}}
+							trigger={
+								<Button
+									variant="secondary"
+									disabled={actionLoading !== null || !canConfirmAbsa}
+									className="gap-2 bg-action hover:bg-action/85">
+									<RiSendPlaneLine className="h-4 w-4" />
+									{contractReviewContent.absaConfirmGate.actionLabel}
+								</Button>
+							}
+						/>
+					</Card>
+				</>
+			)}
 				{actionMessage ? <p className="text-sm text-amber-700">{actionMessage}</p> : null}
 				{!canPerformActions ? (
 					<p className="text-xs text-muted-foreground">
