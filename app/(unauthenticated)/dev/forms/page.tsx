@@ -108,7 +108,7 @@ export default function DevFormsPage() {
 	}, []);
 
 	return (
-		<div className="min-h-screen bg-[#f4f1ed]">
+		<div className="min-h-screen  min-w-screen m-0 p-0">
 			<ExternalFormShell
 				title="Forms Kitchen Sink"
 				description="Generate magic link tokens and preview all form types. Each click creates a fresh token and opens the form in a new tab.">

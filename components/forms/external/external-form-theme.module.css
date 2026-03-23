@@ -1,7 +1,9 @@
 .externalPage {
-	max-width: 900px;
-	margin: 0 auto;
-	padding: 2rem 1rem 4rem;
+	max-width: 100%;
+	margin: 0 !important;
+	width: 100vw;
+	margin: 0 0;
+	padding: 1rem 10rem 3rem;
 }
 
 .externalHero {
@@ -13,6 +15,7 @@
 }
 
 .externalHero h1 {
+
 	font-size: 1.75rem;
 	font-weight: 800;
 	color: #355c7d;
@@ -25,10 +28,12 @@
 	font-size: 0.85rem;
 	color: #6b7280;
 	line-height: 1.6;
-	max-width: 70ch;
+	/* padding: 40px; */
+
 }
 
 .externalCard {
+
 	background: white;
 	border-radius: 12px;
 	box-shadow: 0 1px 8px rgba(0, 0, 0, 0.05);
@@ -47,6 +52,7 @@
 
 .externalSectionBody {
 	padding: 1.25rem 1.5rem;
+
 }
 
 .externalSectionNote {
@@ -232,7 +238,7 @@
 .statusIconSvgSuccess {
 	height: 2rem;
 	width: 2rem;
-	color: #16a34a;
+	color: #18895c;
 }
 
 .statusIconSvgError {
@@ -360,7 +366,7 @@
 }
 
 .acceptance strong {
-	color: #355c7d;
+	color: #2266a1;
 }
 
 .masterIdBar {

@@ -785,7 +785,7 @@ export default function ApplicantDetailPage() {
 											client.sanctionStatus === "flagged" ||
 											client.sanctionStatus === "confirmed_hit"
 												? "text-red-500 border-red-500"
-												: "text-emerald-700 border-emerald-500/40"
+												: "text-emerald-700 border-emerald-200/70"
 										}>
 										Sanctions: {client.sanctionStatus || "clear"}
 									</Badge>
@@ -857,7 +857,9 @@ export default function ApplicantDetailPage() {
 								workflowStage={workflow?.stage}
 								workflowStatus={workflow?.status}
 								absaPacketSent={absaPacketSent}
-								onGateCompleted={async () => { await refreshApplicantData(); }}
+								onGateCompleted={async () => {
+									await refreshApplicantData();
+								}}
 							/>
 						)}
 					</div>

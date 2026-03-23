@@ -94,7 +94,7 @@ const PIPELINE_STAGES = [
 		id: "final_approval",
 		stageNumber: 6,
 		title: "Final Approval",
-		color: "bg-emerald-500/5 border-emerald-500/70",
+		color: "bg-emerald-500/5 border-emerald-200/70",
 		icon: RiCheckboxCircleLine,
 		shortTitle: "Approval",
 	},

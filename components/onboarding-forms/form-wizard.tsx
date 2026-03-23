@@ -6,8 +6,15 @@
  * Note: Using UK spelling throughout (e.g., colour, centre, organisation)
  */
 
+import {
+	RiArrowLeftLine,
+	RiArrowRightLine,
+	RiLoader4Line,
+	RiSaveLine,
+} from "@remixicon/react";
+import { CheckCircle2 } from "lucide-react";
 import * as React from "react";
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -17,13 +24,6 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import {
-	RiArrowLeftLine,
-	RiArrowRightLine,
-	RiCheckLine,
-	RiSaveLine,
-	RiLoader4Line,
-} from "@remixicon/react";
 
 export interface FormWizardStep {
 	id: string;
@@ -124,23 +124,24 @@ export function StepIndicator({
 							onClick={() => isClickable && onStepClick?.(index)}
 							disabled={!isClickable}
 							className={cn(
-								"flex items-center justify-center rounded-full font-medium transition-all",
+								"flex items-center justify-center rounded-full text-white font-medium transition-all",
 								"h-8 w-8 text-xs",
-								isCompleted && "bg-teal-500/40 text-teal-700",
-								isCurrent && "bg-stone-500/20 text-stone-400 ring-2 ring-stone-500/30",
-								!(isCompleted || isCurrent ) && "bg-muted text-muted-foreground",
+								isCompleted &&
+									"bg-emerald-700 text-emerald-200 border-emerald-300 border-1 ",
+								isCurrent && "bg-stone-500/20 text-stone-100 ring-2 ring-stone-500",
+								!(isCompleted || isCurrent) && "bg-muted text-muted-foreground ",
 								isClickable && "cursor-pointer hover:opacity-80",
 								!isClickable && "cursor-default"
 							)}
 							title={step.title}>
-							{isCompleted ? <RiCheckLine className="h-4 w-4" /> : index + 1}
+							{isCompleted ? "✓" : index + 1}
 						</button>
 
 						{index < steps.length - 1 && (
 							<div
 								className={cn(
 									"h-0.5 w-6 transition-colors",
-									index < currentStep ? "bg-teal-500/40" : "bg-muted"
+									index < currentStep ? "bg-emerald-500/70" : "bg-muted"
 								)}
 							/>
 						)}
@@ -377,7 +378,7 @@ export function FormWizard({
 							{isSubmitting ? (
 								<RiLoader4Line className="h-4 w-4 animate-spin" />
 							) : (
-								<RiCheckLine className="h-4 w-4" />
+								<CheckCircle2 className="h-4 w-4 text-emerald-300" />
 							)}
 							{submitButtonText}
 						</Button>

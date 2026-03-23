@@ -106,7 +106,7 @@ function StepItem({
 					className={cn(
 						"flex items-center justify-center rounded-full transition-all duration-300",
 						compact ? "h-8 w-8" : "h-10 w-10",
-						step.status === "completed" && "bg-emerald-500/20 ring-2 ring-emerald-500/40",
+						step.status === "completed" && "bg-emerald-500/20 ring-2 ring-emerald-500/70",
 						step.status === "current" &&
 							"bg-primary/20 ring-2 ring-primary animate-pulse",
 						step.status === "pending" && "bg-muted border border-secondary/20",
@@ -161,7 +161,7 @@ function StepItem({
 					className={cn(
 						"flex-1 h-0.5 mx-2 rounded-full transition-colors duration-300",
 						compact ? "min-w-[16px]" : "min-w-[24px]",
-						step.status === "completed" ? "bg-emerald-500/40" : "bg-secondary/20"
+						step.status === "completed" ? "bg-emerald-500/70" : "bg-secondary/20"
 					)}
 				/>
 			)}

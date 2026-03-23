@@ -224,7 +224,7 @@ export function QuoteApprovalForm({
 										: currentStatus === "pending_signature"
 											? "text-blue-600 bg-blue-100 border-blue-500/40"
 											: currentStatus === "approved"
-												? "text-emerald-800 bg-emerald-100/40 border-emerald-500/40"
+												? "text-emerald-800 bg-emerald-100/40 border-emerald-200/70"
 												: "text-foreground"
 							}`}>
 							{currentStatus}

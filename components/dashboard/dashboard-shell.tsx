@@ -2,8 +2,8 @@
 
 import { UserButton, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import posthog from "posthog-js";
+import { useEffect, useState } from "react";
 import { useDashboardStore } from "@/lib/dashboard-store";
 import { cn } from "@/lib/utils";
 import Grainient from "../Grainient";
@@ -93,30 +93,30 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 
 	return (
 		<>
-			<div style={{ width: "100vw", height: "1080px", position: "fixed", zIndex: "-3" }}>
+			<div style={{ width: "100vw", height: "1080px", position: "fixed", zIndex: "-2" }}>
 				<Grainient
-					color1="#322f39"
-					color2="#1f3c43"
-					color3="#fab24d"
+					color1="#192d36"
+					color2="#2b333b"
+					color3="#404b4d"
 					timeSpeed={0.3}
-					colorBalance={-0.17}
-					warpStrength={0.7}
-					warpFrequency={5}
+					colorBalance={-0.5}
+					warpStrength={0.6}
+					warpFrequency={9}
 					warpSpeed={0.9}
 					warpAmplitude={50}
 					blendAngle={0}
-					blendSoftness={0.35}
+					blendSoftness={0.6}
 					rotationAmount={310}
-					noiseScale={2.25}
-					grainAmount={0.08}
-					grainScale={3}
+					noiseScale={2.45}
+					grainAmount={0.09}
+					grainScale={1}
 					grainAnimated={false}
 					contrast={1.2}
-					gamma={0.9}
-					saturation={0.9}
-					centerX={-0.44}
-					centerY={0}
-					zoom={2}
+					gamma={1.05}
+					saturation={0.7}
+					centerX={-0.14}
+					centerY={1.5}
+					zoom={1.6}
 				/>
 			</div>
 

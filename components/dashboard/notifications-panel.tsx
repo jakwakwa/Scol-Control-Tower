@@ -50,7 +50,7 @@ const notificationConfig = {
 	completed: {
 		icon: RiCheckLine,
 		color: "text-emerald-700",
-		bgColor: "bg-teal-500/40",
+		bgColor: "bg-emerald-500/70",
 	},
 	failed: {
 		icon: RiCloseLine,
@@ -333,7 +333,7 @@ export function NotificationsPanel({
 															<Button
 																variant="ghost"
 																size="sm"
-																className="h-6 px-2 text-xs hover:bg-teal-500/90 hover:text-emerald-600/80"
+																className="h-6 px-2 text-xs hover:bg-emerald-500/90 hover:text-emerald-600/80"
 																onClick={e => handleAction(e, notification, "view")}>
 																View
 															</Button>
