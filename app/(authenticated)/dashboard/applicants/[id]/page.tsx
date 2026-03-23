@@ -23,6 +23,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardLayout, GlassCard } from "@/components/dashboard";
 import GreenLanePassCard from "@/components/dashboard/applicants/green-lane-pass-card";
+import WorkflowGatesCard from "@/components/dashboard/applicants/workflow-gates-card";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -223,9 +224,7 @@ export default function ApplicantDetailPage() {
 	const [approvalLoading, setApprovalLoading] = useState<string | null>(null);
 	const [approvalMessage, setApprovalMessage] = useState<string | null>(null);
 
-	// Contract review state (Stage 5)
-	const [contractReviewLoading, setContractReviewLoading] = useState(false);
-	const [contractReviewMessage, setContractReviewMessage] = useState<string | null>(null);
+	const [absaPacketSent, setAbsaPacketSent] = useState(false);
 
 	// Confirmation dialog state
 	const [retryDialogOpen, setRetryDialogOpen] = useState(false);
@@ -486,27 +485,6 @@ export default function ApplicantDetailPage() {
 		}
 	};
 
-	const handleContractReviewed = async () => {
-		if (!(workflow?.id && applicant)) return;
-		setContractReviewLoading(true);
-		setContractReviewMessage(null);
-		try {
-			const res = await fetch(`/api/workflows/${workflow.id}/contract/review`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ applicantId: applicant.id }),
-			});
-			const json = await res.json();
-			if (!res.ok) throw new Error(json.error || "Contract review failed");
-			setContractReviewMessage("Contract review recorded. Workflow advancing.");
-			await refreshApplicantData();
-		} catch (err) {
-			setContractReviewMessage(err instanceof Error ? err.message : "Failed");
-		} finally {
-			setContractReviewLoading(false);
-		}
-	};
-
 	const handleTwoFactorApproval = async (role: "risk_manager" | "account_manager") => {
 		if (!(workflow?.id && applicant)) return;
 		setApprovalLoading(role);
@@ -555,6 +533,7 @@ export default function ApplicantDetailPage() {
 		setQuote((data.quote as Quote | null) || null);
 		setWorkflow((data.workflow as Workflow | null) || null);
 		setSanctionsCheck((data.sanctionsCheck as SanctionsCheckSnapshot | null) || null);
+		setAbsaPacketSent(Boolean(data.absaPacketSent));
 		setGreenLaneStatus(
 			(data.greenLaneStatus as GreenLaneStatus) ?? {
 				signedQuotePrerequisite: false,
@@ -748,16 +727,12 @@ export default function ApplicantDetailPage() {
 				description={`Registration: ${client.registrationNumber || "N/A"}`}
 				actions={
 					<div className="flex gap-0">
-						{workflowStage === 5 ? (
-							<Link href={`/dashboard/applicants/${id}/contract`}>
+						{workflow?.id && (
+							<Link href={`/dashboard/applications/${workflow.id}/forms`}>
 								<Button size="sm" variant="outline">
-									Contract Review
+									Internal Forms
 								</Button>
 							</Link>
-						) : (
-							<Button size="sm" variant="outline" disabled>
-								Contract Review
-							</Button>
 						)}
 						<Button
 							size="sm"
@@ -874,6 +849,17 @@ export default function ApplicantDetailPage() {
 								</div>
 							</div>
 						</GlassCard>
+
+						{workflow?.id && applicant?.id && (
+							<WorkflowGatesCard
+								workflowId={workflow.id}
+								applicantId={applicant.id}
+								workflowStage={workflow?.stage}
+								workflowStatus={workflow?.status}
+								absaPacketSent={absaPacketSent}
+								onGateCompleted={async () => { await refreshApplicantData(); }}
+							/>
+						)}
 					</div>
 
 					{/* Main Content Area */}
@@ -1868,38 +1854,6 @@ export default function ApplicantDetailPage() {
 											)}
 										</GlassCard>
 									) : null}
-									{workflow?.stage > 5 && (
-										<GlassCard className="mb-6 border-l-4 border-l-amber-500">
-											<h4 className="text-sm font-bold uppercase text-muted-foreground mb-2">
-												Contract Draft Review
-											</h4>
-
-											<p className="text-sm text-muted-foreground mb-4">
-												{workflow?.stage > 5
-													? `Confirm that the contract draft has been reviewed and is ready to
-											send to the client.`
-													: `Available at Stage 5`}
-											</p>
-
-											<Button
-												onClick={handleContractReviewed}
-												disabled={contractReviewLoading || workflow.stage < 5}
-												className="gap-2 bg-amber-600 hover:bg-amber-700">
-												{contractReviewLoading ? (
-													<RiLoader4Line className="h-4 w-4 animate-spin" />
-												) : (
-													<RiFileTextLine className="h-4 w-4" />
-												)}
-												Mark Contract Reviewed
-											</Button>
-
-											{contractReviewMessage && workflow.stage > 5 ? (
-												<p className="mt-3 text-sm text-amber-700">
-													{contractReviewMessage}
-												</p>
-											) : null}
-										</GlassCard>
-									)}
 								</div>
 							</TabsContent>
 						</Tabs>

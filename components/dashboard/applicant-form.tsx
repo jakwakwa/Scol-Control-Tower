@@ -77,18 +77,18 @@ export function ApplicantForm({
 	// Fill form with test data for testing
 	const fillTestData = () => {
 		form.reset({
-			companyName: `${isTestMode ? "Jacob Kotzee T/a Doodles Digital" : "Test Company Inc"}`,
+			companyName: `${isTestMode ? "Jacob Kotze" : "Test Company Inc"}`,
 			registrationNumber: `${isTestMode ? "0787173160001" : "2024/123456/07"}`,
 			contactName: `${isTestMode ? "Jacob Kotzee" : "John Test"}`,
-			idNumber: `${isTestMode ? "8501015009087" : ""}`,
+			idNumber: `${isTestMode ? "8503195187088" : ""}`,
 			email: `${isTestMode ? "jkotzee@icloud.com" : "john.test@testcompany.co.za"}`,
-			phone: `${isTestMode ? "+27 76 341 0291" : "+27 82 123 4567"}`,
-			entityType: isTestMode ? "company" : "company",
+			phone: `${isTestMode ? "" : "+27 82 123 4567"}`,
+			entityType: isTestMode ? "proprietor" : "company",
 			productType: "standard",
-			industry: `${isTestMode ? "Software Development" : "Financial Services"}`,
+			industry: `${isTestMode ? "IT" : "Financial Services"}`,
 			mandateType: `${isTestMode ? "Debit Order" : "debit_order"}`,
 			employeeCount: `${isTestMode ? "1" : "5"}`,
-			estimatedTransactionsPerMonth: `${isTestMode ? "5000" : "1500"}`,
+			estimatedTransactionsPerMonth: `${isTestMode ? "20" : "1500"}`,
 			notes: "test applicant input - auto-generated for credit check testing",
 		});
 	};

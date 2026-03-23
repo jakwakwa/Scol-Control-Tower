@@ -5,26 +5,15 @@
  * Renders the appropriate form based on the formType parameter
  */
 
-import {
-	RiArrowLeftLine,
-	RiFileUploadLine,
-	RiLoader4Line,
-	RiSendPlaneLine,
-} from "@remixicon/react";
+import { RiArrowLeftLine, RiLoader4Line } from "@remixicon/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/dashboard";
-import {
-	Absa6995Form,
-	FacilityApplicationForm,
-	FicaUploadForm,
-	StratcolAgreementForm,
-} from "@/components/onboarding-forms";
+import { AbsaPacketSection } from "@/components/dashboard/contract/absa-packet-section";
+import { StratcolAgreementForm } from "@/components/onboarding-forms";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 
 // ============================================
 // Types
@@ -59,9 +48,7 @@ interface DocumentUpload {
 
 const FORM_TITLES: Record<string, string> = {
 	stratcol_agreement: "StratCol Agreement",
-	facility_application: "Facility Application",
 	absa_6995: "Absa 6995 Pre-screening",
-	fica_documents: "FICA Documents",
 };
 
 // ============================================
@@ -82,8 +69,6 @@ export default function FormPage({
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [formData, setFormData] = useState<FormData | null>(null);
 	const [absaDocuments, setAbsaDocuments] = useState<DocumentUpload[]>([]);
-	const [absaSending, setAbsaSending] = useState(false);
-	const absaFileInputRef = useRef<HTMLInputElement>(null);
 
 	// Resolve params
 	useEffect(() => {
@@ -132,58 +117,6 @@ export default function FormPage({
 			fetchAbsaDocuments();
 		}
 	}, [resolvedParams?.formType, fetchAbsaDocuments]);
-
-	const handleAbsaPdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0];
-		if (!(file && resolvedParams?.id)) return;
-		const fd = new FormData();
-		fd.set("file", file);
-		fd.set("workflowId", resolvedParams.id);
-		fd.set("category", "standard");
-		fd.set("documentType", "ABSA_6995_PDF");
-		try {
-			const res = await fetch("/api/onboarding/documents/upload", {
-				method: "POST",
-				body: fd,
-			});
-			if (!res.ok) {
-				const err = await res.json().catch(() => ({}));
-				throw new Error(err?.error ?? "Upload failed");
-			}
-			toast.success("PDF uploaded");
-			fetchAbsaDocuments();
-		} catch (err) {
-			toast.error(err instanceof Error ? err.message : "Upload failed");
-		}
-		e.target.value = "";
-	};
-
-	const handleSendToAbsa = async (docId: number) => {
-		if (!(resolvedParams?.id && formData?.applicantId)) return;
-		setAbsaSending(true);
-		try {
-			const res = await fetch(
-				`/api/workflows/${resolvedParams.id}/absa/send`,
-				{
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						applicantId: formData.applicantId,
-						documentUploadId: docId,
-					}),
-				}
-			);
-			if (!res.ok) {
-				const err = await res.json().catch(() => ({}));
-				throw new Error(err?.error ?? err?.message ?? "Send failed");
-			}
-			toast.success("ABSA packet sent to test address");
-		} catch (err) {
-			toast.error(err instanceof Error ? err.message : "Send failed");
-		} finally {
-			setAbsaSending(false);
-		}
-	};
 
 	if (!resolvedParams) {
 		return (
@@ -283,77 +216,19 @@ export default function FormPage({
 		switch (formType) {
 			case "stratcol_agreement":
 				return <StratcolAgreementForm {...commonProps} />;
-			case "facility_application":
-				return <FacilityApplicationForm {...commonProps} />;
 			case "absa_6995":
 				return (
-					<div className="space-y-8">
-						<Absa6995Form {...commonProps} />
-						<Card>
-							<CardHeader>
-								<CardTitle className="text-base">Prefilled ABSA PDF</CardTitle>
-								<p className="text-sm text-muted-foreground">
-									Upload the prefilled ABSA 6995 form (PDF). Mock send goes to{" "}
-									{process.env.NEXT_PUBLIC_APP_URL ? "ABSA_TEST_EMAIL" : "configured test address"}.
-								</p>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								<div className="flex flex-col gap-2">
-									<Label>Upload PDF</Label>
-									<div className="flex gap-2">
-										<input
-											ref={absaFileInputRef}
-											type="file"
-											accept="application/pdf"
-											onChange={handleAbsaPdfUpload}
-											className="hidden"
-										/>
-										<Button
-											type="button"
-											variant="outline"
-											size="sm"
-											onClick={() => absaFileInputRef.current?.click()}
-											className="gap-1.5"
-										>
-											<RiFileUploadLine className="h-4 w-4" />
-											Choose PDF
-										</Button>
-									</div>
-								</div>
-								{absaDocuments.length > 0 && (
-									<div className="space-y-2">
-										<Label>Uploaded PDFs</Label>
-										<ul className="space-y-2">
-											{absaDocuments.map(doc => (
-												<li
-													key={doc.id}
-													className="flex items-center justify-between rounded-lg border p-3"
-												>
-													<span className="text-sm">{doc.fileName}</span>
-													<Button
-														size="sm"
-														onClick={() => handleSendToAbsa(doc.id)}
-														disabled={absaSending || !formData?.applicantId}
-														className="gap-1.5"
-													>
-														{absaSending ? (
-															<RiLoader4Line className="h-4 w-4 animate-spin" />
-														) : (
-															<RiSendPlaneLine className="h-4 w-4" />
-														)}
-														Send to ABSA
-													</Button>
-												</li>
-											))}
-										</ul>
-									</div>
-								)}
-							</CardContent>
-						</Card>
-					</div>
+					<AbsaPacketSection
+						workflowId={parseInt(workflowId, 10)}
+						applicantId={formData?.applicantId ?? null}
+						initialFormData={initialData}
+						absaDocuments={absaDocuments}
+						disabled={isReadOnly}
+						onRefresh={async () => {
+							await fetchAbsaDocuments();
+						}}
+					/>
 				);
-			case "fica_documents":
-				return <FicaUploadForm {...commonProps} />;
 			default:
 				return (
 					<div className="text-center py-12">
