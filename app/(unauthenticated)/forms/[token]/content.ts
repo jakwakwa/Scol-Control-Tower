@@ -5,8 +5,8 @@ import {
 	callCentreApplicationSchema,
 	facilityApplicationSchema,
 	signedQuotationSchema,
-	stratcolAgreementSchema,
 } from "@/lib/validations/forms";
+import { stratcolAgreementSchema } from "@/lib/validations/onboarding";
 
 export const formContent: Record<
 	Exclude<FormType, "DOCUMENT_UPLOADS">,

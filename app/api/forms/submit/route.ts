@@ -20,8 +20,8 @@ import {
 	type FacilityApplicationForm,
 	facilityApplicationSchema,
 	signedQuotationSchema,
-	stratcolAgreementSchema,
 } from "@/lib/validations/forms";
+import { stratcolAgreementSchema } from "@/lib/validations/onboarding";
 
 const formSubmissionSchema = z.object({
 	token: z.string().min(10),
@@ -43,8 +43,18 @@ const formSchemaMap: Record<FormType, z.ZodSchema> = {
 };
 
 const extractSubmittedBy = (formType: FormType, data: Record<string, unknown>) => {
-	if (formType === "SIGNED_QUOTATION" || formType === "AGREEMENT_CONTRACT") {
+	if (formType === "SIGNED_QUOTATION") {
 		return typeof data.signatureName === "string" ? data.signatureName : undefined;
+	}
+	if (formType === "AGREEMENT_CONTRACT") {
+		const nested = data as {
+			signature?: { name?: unknown };
+			signatoryAndOwners?: { authorisedRepresentative?: { name?: unknown } };
+		};
+		if (typeof nested.signature?.name === "string") return nested.signature.name;
+		if (typeof nested.signatoryAndOwners?.authorisedRepresentative?.name === "string") {
+			return nested.signatoryAndOwners.authorisedRepresentative.name;
+		}
 	}
 	return undefined;
 };

@@ -4,9 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import DecisionActions from "@/components/forms/decision-actions";
 import styles from "@/components/forms/external/external-form-theme.module.css";
+import { ExternalStratcolAgreementWizard } from "@/components/forms/external/stratcol-agreement-wizard";
 import FormRenderer from "@/components/forms/form-renderer";
 import FormStatusMessage from "@/components/forms/form-status-message";
 import type { FormType } from "@/lib/types";
+import type { StratcolAgreementFormData } from "@/lib/validations/onboarding";
 import { formContent } from "./content";
 
 interface FormViewProps {
@@ -15,6 +17,7 @@ interface FormViewProps {
 	initialFormStatus: string;
 	initialDecisionStatus: string | null;
 	initialDecisionOutcome: string | null;
+	initialAgreementDefaults?: Partial<StratcolAgreementFormData>;
 }
 
 interface QuoteSummary {
@@ -31,6 +34,7 @@ export default function FormView({
 	initialFormStatus,
 	initialDecisionStatus,
 	initialDecisionOutcome,
+	initialAgreementDefaults,
 }: FormViewProps) {
 	const [submitted, setSubmitted] = useState(false);
 	const [submitMessage, setSubmitMessage] = useState<string | null>(null);
@@ -139,6 +143,51 @@ export default function FormView({
 				title="Unsupported form"
 				description="This form type is not yet available."
 			/>
+		);
+	}
+
+	if (formType === "AGREEMENT_CONTRACT") {
+		return (
+			<div className={styles.externalField}>
+				<ExternalStratcolAgreementWizard
+					initialData={initialAgreementDefaults}
+					storageKey={`public-forms-stratcol-agreement-${token}`}
+					title={content.title}
+					submitButtonText={content.submitLabel}
+					onSubmit={async values => {
+						if (submitLockRef.current) return;
+						submitLockRef.current = true;
+						try {
+							const response = await fetch("/api/forms/submit", {
+								method: "POST",
+								headers: { "Content-Type": "application/json" },
+								body: JSON.stringify({
+									token,
+									formType,
+									data: values,
+								}),
+							});
+							if (!response.ok) {
+								const payload = await response.json().catch(() => ({}));
+								throw new Error(payload?.error || "Submission failed");
+							}
+
+							const payload = await response.json();
+							setSubmitMessage(payload?.message || null);
+							if (isDecisionEnabled) {
+								await toast.promise(callDecisionEndpoint("APPROVED"), {
+									loading: "Recording approval...",
+									success: "Approval recorded.",
+									error: "Failed to record approval.",
+								});
+							}
+							setSubmitted(true);
+						} finally {
+							submitLockRef.current = false;
+						}
+					}}
+				/>
+			</div>
 		);
 	}
 
