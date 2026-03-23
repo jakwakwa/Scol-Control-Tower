@@ -91,17 +91,17 @@
       #805b10ff,
       #6e4c0dff);
   --gradient-bottom-right: linear-gradient(135deg,
-      rgba(0, 34, 60, 0.949),
-      rgb(16, 24, 27),
-      rgba(24, 35, 44, 0.915));
+      rgba(118, 71, 33, 0.949),
+      rgba(92, 69, 28, 0.605),
+      rgba(48, 38, 6, 0.915));
   --gradient-top-left: linear-gradient(225deg,
-      rgba(60, 55, 49, 0.537),
-      rgba(37, 61, 78, 0.396),
-      rgba(31, 34, 34, 0.984));
+      rgba(96, 73, 45, 0.537),
+      rgba(34, 35, 62, 0.396),
+      rgba(21, 24, 30, 0.984));
   --gradient-bottom-left: linear-gradient(315deg,
       rgb(10, 15, 19),
-      rgba(36, 27, 22, 0.972),
-      rgba(65, 54, 42, 0.576));
+      rgba(80, 44, 25, 0.972),
+      rgba(162, 118, 71, 0.576));
   --gradient-radial: radial-gradient(#ffe169ff,
       rgb(54, 49, 30),
       rgb(80, 71, 39),
