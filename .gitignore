@@ -18,6 +18,7 @@ blob-report/
 # Browser-flow test artifacts
 tests/browser-flow/.applicant-id
 tests/browser-flow/screenshots/
+tests/browser-flow/.seed-output.json
 
 # next.js
 /.next/

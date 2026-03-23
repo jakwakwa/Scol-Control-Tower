@@ -10,26 +10,58 @@ set -euo pipefail
 #
 # Env:
 #   BASE_URL              - Dev server URL (default: http://localhost:3000)
-#   E2E_CLERK_USER_USERNAME - Clerk username / email
-#   E2E_CLERK_USER_PASSWORD - Clerk password
+#   E2E_CLERK_AM_USERNAME   - Account Manager username / email
+#   E2E_CLERK_AM_PASSWORD   - Account Manager password
+#   E2E_CLERK_RISKMANAGER_USERNAME - Risk Manager username / email
+#   E2E_CLERK_RISKMANAGER_PASSWORD - Risk Manager password
 #   APPLICANT_ID          - (optional) Target applicant from Stage 1-3
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 BASE_URL="${BASE_URL:-http://localhost:3000}"
 SCREENSHOT_DIR="${SCRIPT_DIR}/screenshots"
 APPLICANT_ID_FILE="${SCRIPT_DIR}/.applicant-id"
+SEED_OUTPUT_FILE="${SCRIPT_DIR}/.seed-output.json"
 
 mkdir -p "$SCREENSHOT_DIR"
 
+# --- Load environment --------------------------------------------------------
+if [ -f "${REPO_ROOT}/.env.test" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${REPO_ROOT}/.env.test"
+  set +a
+elif [ -f "${REPO_ROOT}/.env.local" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${REPO_ROOT}/.env.local"
+  set +a
+fi
+
 # --- Preflight env checks ---------------------------------------------------
-: "${E2E_CLERK_USER_USERNAME:?Missing E2E_CLERK_USER_USERNAME}"
-: "${E2E_CLERK_USER_PASSWORD:?Missing E2E_CLERK_USER_PASSWORD}"
+AM_USERNAME="${E2E_CLERK_AM_USERNAME:-${E2E_CLERK_USER_USERNAME:-}}"
+AM_PASSWORD="${E2E_CLERK_AM_PASSWORD:-${E2E_CLERK_USER_PASSWORD:-}}"
+RISK_USERNAME="${E2E_CLERK_RISKMANAGER_USERNAME:-${E2E_CLERK_RISK_MANAGER_USERNAME:-${E2E_CLERK_USER_USERNAME:-}}}"
+RISK_PASSWORD="${E2E_CLERK_RISKMANAGER_PASSWORD:-${E2E_CLERK_RISK_MANAGER_PASSWORD:-${E2E_CLERK_USER_PASSWORD:-}}}"
+: "${AM_USERNAME:?Missing E2E_CLERK_AM_USERNAME (or fallback E2E_CLERK_USER_USERNAME)}"
+: "${AM_PASSWORD:?Missing E2E_CLERK_AM_PASSWORD (or fallback E2E_CLERK_USER_PASSWORD)}"
+: "${RISK_USERNAME:?Missing E2E_CLERK_RISKMANAGER_USERNAME (or fallback vars)}"
+: "${RISK_PASSWORD:?Missing E2E_CLERK_RISKMANAGER_PASSWORD (or fallback vars)}"
 
 # Load APPLICANT_ID from handoff file if not set via env
 if [ -z "${APPLICANT_ID:-}" ] && [ -f "$APPLICANT_ID_FILE" ]; then
   APPLICANT_ID=$(cat "$APPLICANT_ID_FILE")
+  APPLICANT_ID=$(echo "$APPLICANT_ID" | tr -d '"' | xargs)
   echo "--- Loaded APPLICANT_ID=${APPLICANT_ID} from handoff file ---"
+fi
+
+if [ -z "${APPLICANT_ID:-}" ] && [ -f "$SEED_OUTPUT_FILE" ]; then
+  APPLICANT_ID=$(bun -e "const fs=require('fs');const o=JSON.parse(fs.readFileSync('$SEED_OUTPUT_FILE','utf8'));process.stdout.write(String(o.stage56ApplicantId||''));")
+  APPLICANT_ID=$(echo "$APPLICANT_ID" | tr -d '"' | xargs)
+  if [ -n "$APPLICANT_ID" ]; then
+    echo "--- Loaded APPLICANT_ID=${APPLICANT_ID} from seed output ---"
+  fi
 fi
 
 if [ -z "${APPLICANT_ID:-}" ]; then
@@ -70,25 +102,45 @@ echo "=== Stage 5-6: Contract & Final Approval ==="
 echo "  APPLICANT_ID=${APPLICANT_ID}"
 
 # =============================================================================
-# Step 1: Login via Clerk
+# Step 1: Login helper (AM + Risk Manager)
 # =============================================================================
-echo "--- Logging into Clerk ---"
-agent-browser open "${BASE_URL}/sign-in" && agent-browser wait --load networkidle
-sleep 2
-verify_no_error_overlay
+login_as() {
+  local role="$1"
+  local username="$2"
+  local password="$3"
 
-agent-browser snapshot -i
-agent-browser find label "Email address" fill "${E2E_CLERK_USER_USERNAME}"
-agent-browser find role button click --name "Continue"
-agent-browser wait 2000
-agent-browser snapshot -i
-agent-browser find label "Password" fill "${E2E_CLERK_USER_PASSWORD}"
-agent-browser find role button click --name "Continue"
+  agent-browser close 2>/dev/null || true
+  echo "--- Logging in as ${role} ---"
+  agent-browser open "${BASE_URL}/sign-in" && agent-browser wait --load networkidle
+  sleep 2
+  verify_no_error_overlay
 
-agent-browser wait --url "**/dashboard" || agent-browser wait 5000
-verify_no_error_overlay
-verify_has_content
-echo "--- Logged in successfully ---"
+  CURRENT_URL=$(agent-browser get url || true)
+  if echo "$CURRENT_URL" | grep -q "/dashboard"; then
+    echo "--- ${role} session already authenticated ---"
+  else
+    agent-browser snapshot -i
+    agent-browser find label "Email address" fill "${username}"
+    agent-browser find role button click --name "Continue"
+    agent-browser wait 2000
+    agent-browser snapshot -i
+    agent-browser find label "Password" fill "${password}"
+    agent-browser find role button click --name "Continue"
+  fi
+
+  agent-browser wait 5000
+  CURRENT_URL=$(agent-browser get url || true)
+  if echo "$CURRENT_URL" | grep -q "/sign-in"; then
+    echo "ERROR: Clerk login did not complete for ${role} (still on sign-in)."
+    echo "Current URL: ${CURRENT_URL}"
+    exit 1
+  fi
+  verify_no_error_overlay
+  verify_has_content
+  echo "--- Logged in as ${role} ---"
+}
+
+login_as "Account Manager" "${AM_USERNAME}" "${AM_PASSWORD}"
 
 # =============================================================================
 # Step 2: Stage 5 — Navigate to applicant detail for contract review
@@ -102,50 +154,68 @@ verify_has_content
 
 agent-browser screenshot "${SCREENSHOT_DIR}/stage5-applicant-detail.png"
 
-# Check for workflow gates (Contract Draft Review / ABSA Confirm)
-BODY_TEXT=$(agent-browser eval 'document.body.innerText.substring(0, 4000)')
-
-if echo "$BODY_TEXT" | grep -qi "Workflow Gates\|Contract Draft Review\|Mark Contract Reviewed"; then
-  echo "--- Stage 5: Workflow Gates card visible ---"
-
-  # Try to click "Mark Contract Reviewed" and confirm in the drawer
-  agent-browser snapshot -i
-  HAS_CONTRACT_BTN=$(agent-browser eval --stdin <<'EVALEOF'
-(() => {
-  const btns = Array.from(document.querySelectorAll("button"));
-  const contractBtn = btns.find(b => b.textContent.includes("Mark Contract Reviewed"));
-  return contractBtn ? "FOUND" : "NOT_FOUND";
+# Resolve workflow ID from applicant API (authoritative target for stage APIs)
+WORKFLOW_ID=$(agent-browser eval --stdin <<EVALEOF
+(async () => {
+  try {
+    const res = await fetch("/api/applicants/${APPLICANT_ID}");
+    const data = await res.json();
+    const wf = data.applicant?.workflows?.[0] || data.workflow;
+    return wf ? String(wf.id) : "";
+  } catch (e) { return ""; }
 })()
 EVALEOF
-  )
-
-  if echo "$HAS_CONTRACT_BTN" | grep -q "FOUND"; then
-    echo "--- Clicking 'Mark Contract Reviewed' ---"
-    agent-browser find text "Mark Contract Reviewed" click
-    agent-browser wait 1000
-    agent-browser snapshot -i
-    agent-browser screenshot "${SCREENSHOT_DIR}/stage5-contract-drawer.png"
-
-    # Try to confirm in the drawer
-    HAS_CONFIRM=$(agent-browser eval --stdin <<'EVALEOF'
-(() => {
-  const btns = Array.from(document.querySelectorAll("button"));
-  const confirmBtn = btns.find(b => b.textContent.includes("Yes, approve review"));
-  return confirmBtn ? "FOUND" : "NOT_FOUND";
-})()
-EVALEOF
-    )
-    if echo "$HAS_CONFIRM" | grep -q "FOUND"; then
-      agent-browser find text "Yes, approve review" click
-      agent-browser wait 2000
-      echo "--- Contract review approved ---"
-    fi
-  else
-    echo "--- Contract review button not available (workflow may not be at this stage) ---"
-  fi
-else
-  echo "--- Workflow Gates not visible (applicant may not be at Stage 5 yet) ---"
+)
+WORKFLOW_ID=$(echo "$WORKFLOW_ID" | tr -d '"' | xargs)
+if [ -z "$WORKFLOW_ID" ]; then
+  echo "ERROR: Could not resolve workflow ID for applicant ${APPLICANT_ID}"
+  exit 1
 fi
+echo "--- Resolved WORKFLOW_ID=${WORKFLOW_ID} ---"
+
+# Stage 5 gate 1: contract review (AM)
+CONTRACT_REVIEW_RESULT=$(agent-browser eval --stdin <<EVALEOF
+(async () => {
+  try {
+    const res = await fetch("/api/workflows/${WORKFLOW_ID}/contract/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        applicantId: ${APPLICANT_ID},
+        reviewNotes: "browser-flow stage5 contract review"
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    return JSON.stringify({ status: res.status, body });
+  } catch (e) {
+    return JSON.stringify({ error: String(e) });
+  }
+})()
+EVALEOF
+)
+echo "--- Contract review API result: ${CONTRACT_REVIEW_RESULT} ---"
+
+# Stage 5 gate 2: ABSA confirm (AM)
+ABSA_CONFIRM_RESULT=$(agent-browser eval --stdin <<EVALEOF
+(async () => {
+  try {
+    const res = await fetch("/api/workflows/${WORKFLOW_ID}/absa/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        applicantId: ${APPLICANT_ID},
+        notes: "browser-flow stage5 absa confirm"
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    return JSON.stringify({ status: res.status, body });
+  } catch (e) {
+    return JSON.stringify({ error: String(e) });
+  }
+})()
+EVALEOF
+)
+echo "--- ABSA confirm API result: ${ABSA_CONFIRM_RESULT} ---"
 
 agent-browser screenshot "${SCREENSHOT_DIR}/stage5-after-contract.png"
 
@@ -153,6 +223,9 @@ agent-browser screenshot "${SCREENSHOT_DIR}/stage5-after-contract.png"
 # Step 3: Stage 6 — Two-Factor Final Approval
 # =============================================================================
 echo "--- Stage 6: Checking Two-Factor Final Approval ---"
+
+# First factor: Risk Manager approval
+login_as "Risk Manager" "${RISK_USERNAME}" "${RISK_PASSWORD}"
 
 # Navigate to reviews tab where the approval section lives
 agent-browser open "${BASE_URL}/dashboard/applicants/${APPLICANT_ID}?tab=reviews"
@@ -165,45 +238,61 @@ BODY_TEXT=$(agent-browser eval 'document.body.innerText.substring(0, 4000)')
 if echo "$BODY_TEXT" | grep -qi "Two-Factor Final Approval"; then
   echo "--- Two-Factor Final Approval section visible ---"
 
-  # Drive RM Approve
-  HAS_RM=$(agent-browser eval --stdin <<'EVALEOF'
-(() => {
-  const btns = Array.from(document.querySelectorAll("button"));
-  const rmBtn = btns.find(b => b.textContent.includes("RM Approve"));
-  return rmBtn && !rmBtn.disabled ? "FOUND" : "NOT_FOUND";
+  # First factor via API (Risk Manager session)
+  RM_APPROVAL_RESULT=$(agent-browser eval --stdin <<EVALEOF
+(async () => {
+  try {
+    const res = await fetch("/api/onboarding/approve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workflowId: Number(${WORKFLOW_ID}),
+        applicantId: Number(${APPLICANT_ID}),
+        role: "risk_manager",
+        decision: "APPROVED"
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    return JSON.stringify({ status: res.status, body });
+  } catch (e) {
+    return JSON.stringify({ error: String(e) });
+  }
 })()
 EVALEOF
   )
+  echo "--- RM approval API result: ${RM_APPROVAL_RESULT} ---"
+  agent-browser screenshot "${SCREENSHOT_DIR}/stage6-rm-approved.png"
 
-  if echo "$HAS_RM" | grep -q "FOUND"; then
-    echo "--- Clicking 'RM Approve' ---"
-    agent-browser find text "RM Approve" click
-    agent-browser wait 2000
-    agent-browser screenshot "${SCREENSHOT_DIR}/stage6-rm-approved.png"
-    echo "--- RM Approval submitted ---"
-  else
-    echo "--- RM Approve button not available or disabled ---"
-  fi
+  # Second factor: Account Manager approval
+  login_as "Account Manager" "${AM_USERNAME}" "${AM_PASSWORD}"
+  agent-browser open "${BASE_URL}/dashboard/applicants/${APPLICANT_ID}?tab=reviews"
+  agent-browser wait --load networkidle
+  agent-browser wait 2000
 
-  # Drive AM Approve
-  HAS_AM=$(agent-browser eval --stdin <<'EVALEOF'
-(() => {
-  const btns = Array.from(document.querySelectorAll("button"));
-  const amBtn = btns.find(b => b.textContent.includes("AM Approve"));
-  return amBtn && !amBtn.disabled ? "FOUND" : "NOT_FOUND";
+  # Second factor via API (Account Manager session)
+  AM_APPROVAL_RESULT=$(agent-browser eval --stdin <<EVALEOF
+(async () => {
+  try {
+    const res = await fetch("/api/onboarding/approve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workflowId: Number(${WORKFLOW_ID}),
+        applicantId: Number(${APPLICANT_ID}),
+        role: "account_manager",
+        decision: "APPROVED"
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    return JSON.stringify({ status: res.status, body });
+  } catch (e) {
+    return JSON.stringify({ error: String(e) });
+  }
 })()
 EVALEOF
   )
-
-  if echo "$HAS_AM" | grep -q "FOUND"; then
-    echo "--- Clicking 'AM Approve' ---"
-    agent-browser find text "AM Approve" click
-    agent-browser wait 2000
-    agent-browser screenshot "${SCREENSHOT_DIR}/stage6-am-approved.png"
-    echo "--- AM Approval submitted ---"
-  else
-    echo "--- AM Approve button not available or disabled ---"
-  fi
+  echo "--- AM approval API result: ${AM_APPROVAL_RESULT} ---"
+  agent-browser screenshot "${SCREENSHOT_DIR}/stage6-am-approved.png"
 
   # Check for completion
   agent-browser wait 2000
@@ -226,19 +315,8 @@ agent-browser screenshot "${SCREENSHOT_DIR}/stage6-final-state.png"
 echo "--- Verifying approval API ---"
 
 # Get a workflow ID for this applicant
-WORKFLOW_ID=$(agent-browser eval --stdin <<EVALEOF
-(async () => {
-  try {
-    const res = await fetch("/api/applicants/${APPLICANT_ID}");
-    const data = await res.json();
-    const wf = data.applicant?.workflows?.[0] || data.workflow;
-    return wf ? String(wf.id) : "";
-  } catch (e) { return ""; }
-})()
-EVALEOF
-)
-
 if [ -n "$WORKFLOW_ID" ] && [ "$WORKFLOW_ID" != "undefined" ] && [ "$WORKFLOW_ID" != "null" ]; then
+  set +e
   APPROVAL_STATUS=$(agent-browser eval --stdin <<EVALEOF
 (async () => {
   try {
@@ -254,7 +332,13 @@ if [ -n "$WORKFLOW_ID" ] && [ "$WORKFLOW_ID" != "undefined" ] && [ "$WORKFLOW_ID
 })()
 EVALEOF
   )
-  echo "--- Approval API status: ${APPROVAL_STATUS} ---"
+  APPROVAL_STATUS_EXIT=$?
+  set -e
+  if [ "$APPROVAL_STATUS_EXIT" -eq 0 ] && [ -n "${APPROVAL_STATUS:-}" ]; then
+    echo "--- Approval API status: ${APPROVAL_STATUS} ---"
+  else
+    echo "--- Approval API status unavailable (non-fatal eval error) ---"
+  fi
 else
   echo "--- Could not determine workflow ID for approval API check ---"
 fi

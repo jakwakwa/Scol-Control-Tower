@@ -10,26 +10,52 @@ set -euo pipefail
 #
 # Env:
 #   BASE_URL              - Dev server URL (default: http://localhost:3000)
-#   E2E_CLERK_USER_USERNAME - Clerk username / email
-#   E2E_CLERK_USER_PASSWORD - Clerk password
+#   E2E_CLERK_RISKMANAGER_USERNAME - Risk Manager username / email
+#   E2E_CLERK_RISKMANAGER_PASSWORD - Risk Manager password
 #   APPLICANT_ID          - (optional) Target applicant from Stage 1-3
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 BASE_URL="${BASE_URL:-http://localhost:3000}"
 SCREENSHOT_DIR="${SCRIPT_DIR}/screenshots"
 APPLICANT_ID_FILE="${SCRIPT_DIR}/.applicant-id"
+SEED_OUTPUT_FILE="${SCRIPT_DIR}/.seed-output.json"
 
 mkdir -p "$SCREENSHOT_DIR"
 
+# --- Load environment --------------------------------------------------------
+if [ -f "${REPO_ROOT}/.env.test" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${REPO_ROOT}/.env.test"
+  set +a
+elif [ -f "${REPO_ROOT}/.env.local" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${REPO_ROOT}/.env.local"
+  set +a
+fi
+
 # --- Preflight env checks ---------------------------------------------------
-: "${E2E_CLERK_USER_USERNAME:?Missing E2E_CLERK_USER_USERNAME}"
-: "${E2E_CLERK_USER_PASSWORD:?Missing E2E_CLERK_USER_PASSWORD}"
+RISK_USERNAME="${E2E_CLERK_RISKMANAGER_USERNAME:-${E2E_CLERK_RISK_MANAGER_USERNAME:-${E2E_CLERK_USER_USERNAME:-}}}"
+RISK_PASSWORD="${E2E_CLERK_RISKMANAGER_PASSWORD:-${E2E_CLERK_RISK_MANAGER_PASSWORD:-${E2E_CLERK_USER_PASSWORD:-}}}"
+: "${RISK_USERNAME:?Missing E2E_CLERK_RISKMANAGER_USERNAME (or fallback vars)}"
+: "${RISK_PASSWORD:?Missing E2E_CLERK_RISKMANAGER_PASSWORD (or fallback vars)}"
 
 # Load APPLICANT_ID from handoff file if not set via env
 if [ -z "${APPLICANT_ID:-}" ] && [ -f "$APPLICANT_ID_FILE" ]; then
   APPLICANT_ID=$(cat "$APPLICANT_ID_FILE")
+  APPLICANT_ID=$(echo "$APPLICANT_ID" | tr -d '"' | xargs)
   echo "--- Loaded APPLICANT_ID=${APPLICANT_ID} from handoff file ---"
+fi
+
+if [ -z "${APPLICANT_ID:-}" ] && [ -f "$SEED_OUTPUT_FILE" ]; then
+  APPLICANT_ID=$(bun -e "const fs=require('fs');const o=JSON.parse(fs.readFileSync('$SEED_OUTPUT_FILE','utf8'));process.stdout.write(String(o.stage4ApplicantId||''));")
+  APPLICANT_ID=$(echo "$APPLICANT_ID" | tr -d '"' | xargs)
+  if [ -n "$APPLICANT_ID" ]; then
+    echo "--- Loaded APPLICANT_ID=${APPLICANT_ID} from seed output ---"
+  fi
 fi
 
 # --- Cleanup on exit --------------------------------------------------------
@@ -70,15 +96,27 @@ agent-browser open "${BASE_URL}/sign-in" && agent-browser wait --load networkidl
 sleep 2
 verify_no_error_overlay
 
-agent-browser snapshot -i
-agent-browser find label "Email address" fill "${E2E_CLERK_USER_USERNAME}"
-agent-browser find role button click --name "Continue"
-agent-browser wait 2000
-agent-browser snapshot -i
-agent-browser find label "Password" fill "${E2E_CLERK_USER_PASSWORD}"
-agent-browser find role button click --name "Continue"
+CURRENT_URL=$(agent-browser get url || true)
+if echo "$CURRENT_URL" | grep -q "/dashboard"; then
+  echo "--- Session already authenticated; skipping sign-in form ---"
+else
+  agent-browser snapshot -i
+  agent-browser find label "Email address" fill "${RISK_USERNAME}"
+  agent-browser find role button click --name "Continue"
+  agent-browser wait 2000
+  agent-browser snapshot -i
+  agent-browser find label "Password" fill "${RISK_PASSWORD}"
+  agent-browser find role button click --name "Continue"
+fi
 
-agent-browser wait --url "**/dashboard" || agent-browser wait 5000
+agent-browser wait 5000
+CURRENT_URL=$(agent-browser get url || true)
+if echo "$CURRENT_URL" | grep -q "/sign-in"; then
+  echo "ERROR: Clerk login did not complete (still on sign-in)."
+  echo "Current URL: ${CURRENT_URL}"
+  echo "Hint: Check Clerk publishable/secret key pairing and test user credentials."
+  exit 1
+fi
 verify_no_error_overlay
 verify_has_content
 echo "--- Logged in successfully ---"

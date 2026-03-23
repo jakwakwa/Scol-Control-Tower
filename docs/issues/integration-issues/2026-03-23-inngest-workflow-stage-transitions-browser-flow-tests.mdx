@@ -1,0 +1,109 @@
+---
+title: "Fix: Stage 5-6 Transition Reliability in Browser-Flow Tests"
+description: "Resolved a stage transition gap where dual approvals could be recorded but workflow status stayed behind, and hardened browser-flow execution with role-based auth, seeded isolation, and active Inngest runtime requirements."
+type: fix
+status: resolved
+date: 2026-03-23
+---
+
+# Fix: Stage 5-6 Transition Reliability in Browser-Flow Tests
+
+## Overview
+
+Stage 5-6 onboarding browser-flow runs were intermittently unreliable. The failures looked like test issues at first, but the core problem was integration timing between the approval API, Inngest `waitForEvent` orchestration, and workflow stage/status reconciliation.
+
+This fix set stabilizes runtime behavior and test execution by:
+
+- requiring `bun run dev:all` (Next.js + Inngest runtime together)
+- enforcing role-specific Clerk credentials for Account Manager and Risk Manager
+- making Stage 5/6 scripts deterministic around applicant/workflow targeting
+- ensuring both approvals move workflow state to completed stage 6 when needed
+
+## Symptoms
+
+- Stage 5-6 script could fail with 500/timeout-style behavior when Inngest runtime was not active.
+- Both approvals could be recorded, but the status check still showed a pre-complete stage.
+- Isolated Stage 4 or Stage 5-6 runs could target wrong/stale applicants without deterministic seed handoff.
+- Role-based approval calls could fail if AM/RM sessions or credentials were not distinct.
+
+## Root Cause
+
+Three integration-level conditions combined:
+
+1. **Runtime mismatch**: running only `bun run dev` started app routes but not Inngest dev orchestration.
+2. **Stage reconciliation gap**: dual-approval state could exist while workflow status/stage lagged.
+3. **Test targeting ambiguity**: isolated stage runs depended on IDs that were not always reliably present.
+
+## Implemented Fix
+
+### 1) Active Inngest runtime requirement
+
+- Standardized on `bun run dev:all` for browser-flow tests.
+- This ensures `/api/inngest` has active local orchestration during test execution.
+
+### 2) Stage completion reconciliation on dual approval
+
+- Updated `app/api/onboarding/approve/route.ts`:
+  - when `bothApproved` is true and workflow is not completed, force status update to `completed` at stage 6.
+
+This closes the gap where approval truth existed but stage/status remained stale.
+
+### 3) Role-based browser-flow auth hardening
+
+- Updated scripts to support distinct role credentials with fallback compatibility:
+  - `E2E_CLERK_AM_USERNAME` / `E2E_CLERK_AM_PASSWORD`
+  - `E2E_CLERK_RISKMANAGER_USERNAME` / `E2E_CLERK_RISKMANAGER_PASSWORD`
+- Added `.env.test`/`.env.local` loading and explicit preflight checks.
+
+### 4) Deterministic isolated stage seeding
+
+- Added `scripts/seed-browser-flow-test-data.ts` and `test:db:seed:browser-flow`.
+- Seed writes:
+  - `stage4ApplicantId`
+  - `stage56ApplicantId`
+  to `tests/browser-flow/.seed-output.json`.
+- Stage scripts consume these IDs when `APPLICANT_ID` is not explicitly set.
+
+### 5) Repeatable runbook skill
+
+- Added `.agents/skills/browser-flow-test-runner/SKILL.md` to codify:
+  - preconditions
+  - staged/full command order
+  - timeout+poll handling (no infinite rerun loops)
+  - runtime + compile verification gates
+
+## Verification Evidence
+
+Runtime verification passed with Inngest active:
+
+- `bun run test:browser:stage5-6` -> pass
+- status check at end showed `bothApproved: true` and `stage: 6`
+- full stack pass:
+  - `bun run test:browser-flow-full`
+- isolated seeded pass:
+  - `bun run test:db:seed:browser-flow`
+  - `bun run test:browser:stage4`
+  - `bun run test:browser:stage5-6`
+
+Compile-time verification passed:
+
+- `bun run build` -> success
+
+Browser health verification passed:
+
+- page load, no framework error overlay, non-blank content via `agent-browser`.
+
+## Prevention Guidance
+
+- Always run browser-flow tests with `bun run dev:all`, not app-only dev.
+- Treat `workflowId` from applicant API as authoritative for approval calls.
+- Keep AM and RM credentials/session boundaries explicit in scripts.
+- Prefer bounded waits and timeout+poll inspection over repeated reruns.
+- For isolated stage checks, seed first and rely on `.seed-output.json` IDs.
+- Require both runtime evidence and `bun run build` success before calling fix complete.
+
+## Related Documentation
+
+- [Fix: Stage 6 Workflow Stuck — Inngest Orchestration (3 Bugs)](/issues/2026-03-23-fix-stage6-inngest-workflow-stuck)
+- [Stage 6 Workflow Stuck — Inngest Orchestration Solution](../../solutions/integration-issues/stage6-workflow-stuck-inngest-orchestration-20260323.md)
+- [Refactor: Internal Forms Hub Consolidation & Workflow Gates Relocation](/issues/2026-03-22-refactor-forms-hub-workflow-gates)
