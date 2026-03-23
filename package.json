@@ -21,7 +21,11 @@
     "lint:fix": "biome lint --write .",
     "docs:install": "bun --cwd docs install",
     "docs:dev": "bun --cwd docs run dev",
-    "posthog:perimeter-dashboard": "bun run scripts/posthog/create-perimeter-dashboard.ts"
+    "posthog:perimeter-dashboard": "bun run scripts/posthog/create-perimeter-dashboard.ts",
+    "test:browser:stage1-3": "bash tests/browser-flow/stage1-3.sh",
+    "test:browser:stage4": "bash tests/browser-flow/stage4.sh",
+    "test:browser:stage5-6": "bash tests/browser-flow/stage5-6.sh",
+    "test:browser-flow-full": "bun run test:browser:stage1-3 && bun run test:browser:stage4 && bun run test:browser:stage5-6"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
