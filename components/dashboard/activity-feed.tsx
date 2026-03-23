@@ -44,7 +44,7 @@ const eventConfig: Record<
 	agent_callback: {
 		icon: RiCheckLine,
 		color: "text-emerald-700",
-		bgColor: "bg-teal-500/40",
+		bgColor: "bg-emerald-500/70",
 	},
 	human_override: {
 		icon: RiUserLine,

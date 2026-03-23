@@ -75,7 +75,11 @@ function FormField({ label, required, error, children, className }: FormFieldPro
 				{required && <span className="text-destructive ml-1">*</span>}
 			</Label>
 			{children}
-			{error && <p className="text-sm text-destructive">{error}</p>}
+			{error && (
+				<div className="bg-destructive">
+					<p className="text-sm text-destructive">{error}</p>
+				</div>
+			)}
 		</div>
 	);
 }
@@ -97,7 +101,7 @@ function _EntityDetailsSection() {
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center gap-2 mb-4">
-				<RiBuildingLine className="h-5 w-5 text-muted-foreground" />
+				<RiBuildingLine className="h-5 w-5 text-foreground" />
 				<h3 className="text-lg font-semibold">Entity Details</h3>
 			</div>
 
@@ -172,7 +176,7 @@ function _EntityDetailsSection() {
 
 			{/* Business Address */}
 			<div className="space-y-4">
-				<h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">
+				<h4 className="font-medium text-sm text-foreground uppercase tracking-wider">
 					Business Address
 				</h4>
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -219,7 +223,7 @@ function _EntityDetailsSection() {
 
 			{/* Postal Address */}
 			<div className="space-y-4">
-				<h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">
+				<h4 className="font-medium text-sm text-foreground uppercase tracking-wider">
 					Postal Address
 				</h4>
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -447,7 +451,7 @@ export function StratcolAgreementForm({
 							<FormStep isActive={currentStep === 0}>
 								<div className="space-y-6">
 									<div className="flex items-center gap-2 mb-4">
-										<RiBuildingLine className="h-5 w-5 text-muted-foreground" />
+										<RiBuildingLine className="h-5 w-5 text-foreground" />
 										<h3 className="text-lg font-semibold">Entity Details</h3>
 									</div>
 
@@ -517,7 +521,7 @@ export function StratcolAgreementForm({
 
 									{/* Business Address */}
 									<div className="space-y-4 pt-4 border-t border-border">
-										<h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">
+										<h4 className="font-medium text-sm text-foreground uppercase tracking-wider">
 											Business Address
 										</h4>
 										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -559,7 +563,7 @@ export function StratcolAgreementForm({
 							<FormStep isActive={currentStep === 1}>
 								<div className="space-y-6">
 									<div className="flex items-center gap-2 mb-4">
-										<RiUserLine className="h-5 w-5 text-muted-foreground" />
+										<RiUserLine className="h-5 w-5 text-foreground" />
 										<h3 className="text-lg font-semibold">
 											Signatory & Beneficial Owners
 										</h3>
@@ -567,7 +571,7 @@ export function StratcolAgreementForm({
 
 									{/* Authorised Representative */}
 									<div className="space-y-4">
-										<h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">
+										<h4 className="font-medium text-sm text-foreground uppercase tracking-wider">
 											Authorised Representative
 										</h4>
 										<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -605,7 +609,7 @@ export function StratcolAgreementForm({
 									{/* Beneficial Owners */}
 									<div className="space-y-4 pt-4 border-t border-border">
 										<div className="flex items-center justify-between">
-											<h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">
+											<h4 className="font-medium text-sm text-foreground uppercase tracking-wider">
 												Beneficial Owners (5% or more shareholding)
 											</h4>
 											{!readOnly && (
@@ -698,7 +702,7 @@ export function StratcolAgreementForm({
 										))}
 
 										{beneficialOwners.length === 0 && (
-											<p className="text-sm text-muted-foreground text-center py-4">
+											<p className="text-sm text-foreground text-center py-4">
 												No beneficial owners added. Click "Add Owner" to add one.
 											</p>
 										)}
@@ -710,13 +714,13 @@ export function StratcolAgreementForm({
 							<FormStep isActive={currentStep === 2}>
 								<div className="space-y-6">
 									<div className="flex items-center gap-2 mb-4">
-										<RiBankLine className="h-5 w-5 text-muted-foreground" />
+										<RiBankLine className="h-5 w-5 text-foreground" />
 										<h3 className="text-lg font-semibold">Banking & Mandates</h3>
 									</div>
 
 									{/* Credit Bank Account */}
 									<div className="space-y-4">
-										<h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">
+										<h4 className="font-medium text-sm text-foreground uppercase tracking-wider">
 											Credit Bank Account (For receiving collected funds)
 										</h4>
 										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -786,7 +790,7 @@ export function StratcolAgreementForm({
 									{/* Debit Bank Account */}
 									{!useSameAccount && (
 										<div className="space-y-4 pt-4 border-t border-border">
-											<h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">
+											<h4 className="font-medium text-sm text-foreground uppercase tracking-wider">
 												Debit Bank Account (For fees and unpaid re-collections)
 											</h4>
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">

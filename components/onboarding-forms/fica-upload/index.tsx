@@ -119,7 +119,7 @@ function DocumentUploadItem({
 		<div
 			className={cn(
 				"p-4 rounded-lg border transition-colors",
-				isUploaded ? "border-teal-500/50 bg-teal-500/5" : "border-border",
+				isUploaded ? "border-emerald-500/50 bg-emerald-500/5" : "border-border",
 				error && "border-destructive bg-destructive/5"
 			)}>
 			<div className="flex items-start justify-between gap-4">
@@ -878,9 +878,11 @@ export function FicaUploadForm({
 										</Label>
 									</div>
 									{errors.acknowledgement && (
-										<p className="text-sm text-destructive">
-											{errors.acknowledgement.message}
-										</p>
+										<div className="bg-destructive">
+											<p className="text-sm text-destructive">
+												{errors.acknowledgement.message}
+											</p>
+										</div>
 									)}
 								</div>
 							</FormStep>

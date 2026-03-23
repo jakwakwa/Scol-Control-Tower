@@ -9,7 +9,10 @@ import {
 	RiUserLine,
 } from "@remixicon/react";
 import * as React from "react";
+import type { Resolver } from "react-hook-form";
 import { FormProvider, useFieldArray, useForm } from "react-hook-form";
+import { FormStep, FormWizard } from "@/components/onboarding-forms/form-wizard";
+import { SignatureCanvas } from "@/components/onboarding-forms/signature-canvas";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -21,7 +24,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import type { Resolver } from "react-hook-form";
 import { cn } from "@/lib/utils";
 import {
 	EntityType,
@@ -29,8 +31,6 @@ import {
 	type StratcolAgreementFormData,
 	stratcolAgreementSchema,
 } from "@/lib/validations/onboarding";
-import { FormStep, FormWizard } from "@/components/onboarding-forms/form-wizard";
-import { SignatureCanvas } from "@/components/onboarding-forms/signature-canvas";
 
 interface ExternalStratcolAgreementWizardProps {
 	initialData?: Partial<StratcolAgreementFormData>;
@@ -119,7 +119,11 @@ function FormField({ label, required, error, children, className }: FormFieldPro
 				{required && <span className="text-destructive ml-1">*</span>}
 			</Label>
 			{children}
-			{error && <p className="text-sm text-destructive">{error}</p>}
+			{error && (
+				<div className="bg-destructive/20 mt-1.5 border-destructive/40 border rounded-sm px-2 py-1 ">
+					<p className="text-xs text-destructive-foreground">{error}</p>
+				</div>
+			)}
 		</div>
 	);
 }
@@ -388,7 +392,9 @@ export function ExternalStratcolAgreementWizard({
 										<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 											<FormField label="Name" required>
 												<Input
-													{...register("signatoryAndOwners.authorisedRepresentative.name")}
+													{...register(
+														"signatoryAndOwners.authorisedRepresentative.name"
+													)}
 													placeholder="Full name"
 												/>
 											</FormField>
@@ -516,7 +522,9 @@ export function ExternalStratcolAgreementWizard({
 										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 											<FormField label="Account Name" required>
 												<Input
-													{...register("bankingAndMandates.creditBankAccount.accountName")}
+													{...register(
+														"bankingAndMandates.creditBankAccount.accountName"
+													)}
 													placeholder="Account holder name"
 												/>
 											</FormField>
@@ -528,7 +536,9 @@ export function ExternalStratcolAgreementWizard({
 											</FormField>
 											<FormField label="Account Type" required>
 												<Input
-													{...register("bankingAndMandates.creditBankAccount.accountType")}
+													{...register(
+														"bankingAndMandates.creditBankAccount.accountType"
+													)}
 													placeholder="e.g., Current"
 												/>
 											</FormField>
@@ -541,7 +551,9 @@ export function ExternalStratcolAgreementWizard({
 											</FormField>
 											<FormField label="Account Number" required>
 												<Input
-													{...register("bankingAndMandates.creditBankAccount.accountNumber")}
+													{...register(
+														"bankingAndMandates.creditBankAccount.accountNumber"
+													)}
 													placeholder="Account number"
 												/>
 											</FormField>
@@ -572,7 +584,9 @@ export function ExternalStratcolAgreementWizard({
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 												<FormField label="Account Name" required>
 													<Input
-														{...register("bankingAndMandates.debitBankAccount.accountName")}
+														{...register(
+															"bankingAndMandates.debitBankAccount.accountName"
+														)}
 														placeholder="Account holder name"
 													/>
 												</FormField>
@@ -584,13 +598,17 @@ export function ExternalStratcolAgreementWizard({
 												</FormField>
 												<FormField label="Account Type" required>
 													<Input
-														{...register("bankingAndMandates.debitBankAccount.accountType")}
+														{...register(
+															"bankingAndMandates.debitBankAccount.accountType"
+														)}
 														placeholder="e.g., Current"
 													/>
 												</FormField>
 												<FormField label="Branch Code" required>
 													<Input
-														{...register("bankingAndMandates.debitBankAccount.branchCode")}
+														{...register(
+															"bankingAndMandates.debitBankAccount.branchCode"
+														)}
 														placeholder="6-digit code"
 														maxLength={6}
 													/>
@@ -629,14 +647,16 @@ export function ExternalStratcolAgreementWizard({
 												htmlFor="declarations"
 												className="text-sm leading-relaxed cursor-pointer">
 												I confirm that all information provided in this agreement is true,
-												correct, and complete. I authorise StratCol to process the personal
-												information provided for the purposes of this agreement.
+												correct, and complete. I authorise StratCol to process the
+												personal information provided for the purposes of this agreement.
 											</Label>
 										</div>
 										{errors.declarationsAccepted && (
-											<p className="text-sm text-destructive">
-												{errors.declarationsAccepted.message}
-											</p>
+											<div className="bg-destructive">
+												<p className="text-sm text-destructive">
+													{errors.declarationsAccepted.message}
+												</p>
+											</div>
 										)}
 									</div>
 

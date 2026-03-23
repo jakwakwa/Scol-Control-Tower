@@ -72,7 +72,11 @@ function FormField({
 			</Label>
 			{description && <p className="text-xs text-muted-foreground">{description}</p>}
 			{children}
-			{error && <p className="text-sm text-destructive">{error}</p>}
+			{error && (
+				<div className="bg-destructive">
+					<p className="text-sm text-destructive">{error}</p>
+				</div>
+			)}
 		</div>
 	);
 }

@@ -46,7 +46,7 @@ const STATUS_CONFIG = {
 	},
 	approved: {
 		label: "Approved",
-		colour: "bg-teal-500/40 text-teal-700",
+		colour: "bg-emerald-500/70 emerald-100",
 		icon: RiCheckLine,
 	},
 	rejected: {
@@ -154,7 +154,7 @@ export default async function FormsHubPage({
 							</div>
 							<div className="h-2 rounded-full bg-muted overflow-hidden">
 								<div
-									className="h-full bg-teal-500 transition-all duration-500"
+									className="h-full bg-emerald-500 transition-all duration-500"
 									style={{ width: `${progressPercent}%` }}
 								/>
 							</div>
