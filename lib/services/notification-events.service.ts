@@ -2,26 +2,23 @@ import { and, eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import type { NotificationSeverity } from "@/db/schema";
 import { notifications, workflowEvents } from "@/db/schema";
+import type { NotificationType } from "@/lib/notifications/types";
 import { broadcast } from "@/lib/notification-broadcaster";
+
+export interface NotificationErrorDetails {
+	message: string;
+	code?: string;
+	raw?: unknown;
+}
 
 export interface CreateNotificationParams {
 	workflowId: number;
 	applicantId: number;
-	type:
-		| "awaiting"
-		| "completed"
-		| "failed"
-		| "timeout"
-		| "paused"
-		| "error"
-		| "warning"
-		| "success"
-		| "info"
-		| "terminated";
+	type: NotificationType;
 	title: string;
 	message: string;
 	actionable?: boolean;
-	errorDetails?: object;
+	errorDetails?: NotificationErrorDetails;
 	severity?: NotificationSeverity;
 	groupKey?: string;
 }

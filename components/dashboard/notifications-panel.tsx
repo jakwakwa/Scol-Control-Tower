@@ -7,15 +7,22 @@ import {
 	RiCloseLine,
 	RiNotification3Line,
 	RiPauseCircleLine,
+	RiProhibitedLine,
 	RiTimeLine,
 	RiUserLine,
 } from "@remixicon/react";
 import Link from "next/link";
-import { type MouseEvent, useEffect, useState } from "react";
+import { type ElementType, type MouseEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+	formatNotificationMessage,
+	isManualFallbackNotification,
+	isVatNotification,
+} from "@/lib/notifications/semantics";
+import type { NotificationType } from "@/lib/notifications/types";
 import { cn } from "@/lib/utils";
 
 export interface WorkflowNotification {
@@ -23,16 +30,7 @@ export interface WorkflowNotification {
 	workflowId: number;
 	applicantId: number;
 	clientName: string;
-	type:
-		| "awaiting"
-		| "completed"
-		| "failed"
-		| "timeout"
-		| "paused"
-		| "error"
-		| "warning"
-		| "info"
-		| "success";
+	type: NotificationType;
 	message: string;
 	timestamp: Date;
 	read: boolean;
@@ -41,7 +39,10 @@ export interface WorkflowNotification {
 	groupKey?: string;
 }
 
-const notificationConfig = {
+const notificationConfig: Record<
+	NotificationType,
+	{ icon: ElementType; color: string; bgColor: string }
+> = {
 	awaiting: {
 		icon: RiUserLine,
 		color: "text-warning-foreground",
@@ -87,48 +88,13 @@ const notificationConfig = {
 		color: "text-emerald-500",
 		bgColor: "bg-emerald-500/10",
 	},
+	terminated: {
+		icon: RiProhibitedLine,
+		color: "text-red-700",
+		bgColor: "bg-red-500/20",
+	},
 };
 
-const MANUAL_FALLBACK_ALERT_TERMS = [
-	"manual procurement check required",
-	"procurement_check_failed",
-	"procurecheck failed",
-	"procurement check failed",
-	"manual sanctions check required",
-	"sanctions_check_failed",
-	"automated sanctions checks failed",
-];
-
-const VAT_ALERT_TERMS = ["vat verification", "vat number", "vat check"];
-
-function isManualFallbackNotification(message: string): boolean {
-	const normalized = message.toLowerCase();
-	return MANUAL_FALLBACK_ALERT_TERMS.some(term => normalized.includes(term));
-}
-
-function isManualSanctionsNotification(message: string): boolean {
-	const normalized = message.toLowerCase();
-	return (
-		normalized.includes("manual sanctions check required") ||
-		normalized.includes("sanctions_check_failed") ||
-		normalized.includes("automated sanctions checks failed")
-	);
-}
-
-function isVatNotification(message: string): boolean {
-	const normalized = message.toLowerCase();
-	return VAT_ALERT_TERMS.some(term => normalized.includes(term));
-}
-
-function formatNotificationMessage(message: string): string {
-	if (!isManualFallbackNotification(message)) {
-		return message;
-	}
-	if (isManualSanctionsNotification(message)) {
-		return "Automated sanctions checks failed. Risk Manager must complete a full manual sanctions screening and record the sanctions outcome.";
-	}
-	return "Automated procurement checks failed. Risk Manager must complete a full manual procurement check and record a procurement decision.";
-}
 
 interface NotificationsPanelProps {
 	notifications: WorkflowNotification[];
@@ -419,11 +385,14 @@ function formatRelativeTime(date: Date): string {
 // --- Toast Helpers with Actions ---
 
 export function showWorkflowToast(
-	type: "awaiting" | "completed" | "failed" | "timeout" | "paused" | "error",
+	type: "awaiting" | "completed" | "failed" | "timeout" | "paused" | "error" | "terminated",
 	clientName: string,
 	onAction?: (action: "approve" | "reject" | "view") => void
 ) {
-	const config = {
+	const config: Record<
+		typeof type,
+		{ title: string; description: string; action: boolean }
+	> = {
 		awaiting: {
 			title: "Action Required",
 			description: `${clientName}'s workflow needs your attention`,
@@ -452,6 +421,11 @@ export function showWorkflowToast(
 		error: {
 			title: "Workflow Error",
 			description: `${clientName}'s workflow encountered a critical error`,
+			action: false,
+		},
+		terminated: {
+			title: "Workflow Terminated",
+			description: `${clientName}'s workflow has been terminated`,
 			action: false,
 		},
 	};

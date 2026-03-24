@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import posthog from "posthog-js";
 import { useEffect, useState } from "react";
 import { useDashboardStore } from "@/lib/dashboard-store";
+import { getNotificationRoute } from "@/lib/notifications/semantics";
 import { cn } from "@/lib/utils";
 import Grainient from "../Grainient";
 import { NotificationsPanel, type WorkflowNotification } from "./notifications-panel";
@@ -15,40 +16,6 @@ interface DashboardShellProps {
 	notifications?: WorkflowNotification[];
 }
 
-const getNotificationRoute = (notification: WorkflowNotification): string => {
-	const message = notification.message.toLowerCase();
-	const isPreRiskReview =
-		message.includes("pre-risk") || message.includes("sales evaluation");
-	const isQuoteReview =
-		message.includes("quote ready for review") ||
-		message.includes("overlimit: quote requires special approval") ||
-		message.includes("quotation");
-	const isProcurementManualCheck =
-		message.includes("manual procurement check required") ||
-		message.includes("procurement_check_failed") ||
-		message.includes("procurecheck failed") ||
-		message.includes("procurement review required");
-	const isSanctionsManualCheck =
-		message.includes("manual sanctions check required") ||
-		message.includes("sanctions_check_failed") ||
-		message.includes("automated sanctions checks failed");
-	const isVatVerification =
-		message.includes("vat verification") || message.includes("vat number check");
-
-	if (isProcurementManualCheck || isSanctionsManualCheck) {
-		return "/dashboard/risk-review";
-	}
-
-	if (isVatVerification) {
-		return `/dashboard/risk-review/reports/${notification.applicantId}`;
-	}
-
-	if (isPreRiskReview || isQuoteReview) {
-		return `/dashboard/applicants/${notification.applicantId}?tab=reviews`;
-	}
-
-	return `/dashboard/applicants/${notification.applicantId}`;
-};
 
 export function DashboardShell({ children, notifications = [] }: DashboardShellProps) {
 	const router = useRouter();

@@ -1,4 +1,5 @@
 import type { RiskReviewData } from "@/lib/risk-review/types";
+import { formatVatStatus } from "@/lib/risk-review/vat-status-display";
 
 export function PrintableAuditReport({
 	aiSummary,
@@ -266,11 +267,7 @@ export function PrintableAuditReport({
 					</h3>
 					<p className="text-sm">
 						<span className="font-bold">Status:</span>{" "}
-						{ficaData.vatVerification?.status === "verified"
-							? "VERIFIED"
-							: ficaData.vatVerification?.status === "not_verified"
-								? "NOT VERIFIED"
-								: "NOT CHECKED"}
+						{formatVatStatus(ficaData.vatVerification?.status ?? "not_checked")}
 					</p>
 					<p className="text-sm">
 						<span className="font-bold">VAT Number:</span>{" "}

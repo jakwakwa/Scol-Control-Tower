@@ -14,6 +14,10 @@ import { SectionStatusBanner } from "@/components/dashboard/risk-review/section-
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { RiskReviewData, SectionStatus } from "@/lib/risk-review/types";
+import {
+	formatVatStatus,
+	getVatBadgeVariant,
+} from "@/lib/risk-review/vat-status-display";
 import { cn } from "@/lib/utils";
 
 export function FicaSection({
@@ -284,23 +288,15 @@ export function FicaSection({
 						</div>
 					</div>
 					<div className="space-y-4">
-						<div className="flex items-center justify-between">
-							<p className="text-xs text-muted-foreground">Verification Status</p>
-							<RiskReviewBadge
-								variant={
-									data.vatVerification?.status === "verified"
-										? "success"
-										: data.vatVerification?.status === "not_verified"
-											? "warning"
-											: "default"
-								}>
-								{data.vatVerification?.status === "verified"
-									? "VERIFIED"
-									: data.vatVerification?.status === "not_verified"
-										? "NOT VERIFIED"
-										: "NOT CHECKED"}
-							</RiskReviewBadge>
-						</div>
+					<div className="flex items-center justify-between">
+						<p className="text-xs text-muted-foreground">Verification Status</p>
+						<RiskReviewBadge
+							variant={getVatBadgeVariant(
+								data.vatVerification?.status ?? "not_checked"
+							)}>
+							{formatVatStatus(data.vatVerification?.status ?? "not_checked")}
+						</RiskReviewBadge>
+					</div>
 						<div>
 							<p className="text-xs text-muted-foreground mb-1">VAT Number</p>
 							<p className="text-sm text-foreground font-medium">
