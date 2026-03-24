@@ -259,6 +259,38 @@ export function PrintableAuditReport({
 						{ficaData.banking.avsDetails}
 					</p>
 				</div>
+
+				<div className="mt-4">
+					<h3 className="font-bold mb-2 border-b border-gray-200 pb-1">
+						5.4 VAT Verification
+					</h3>
+					<p className="text-sm">
+						<span className="font-bold">Status:</span>{" "}
+						{ficaData.vatVerification?.status === "verified"
+							? "VERIFIED"
+							: ficaData.vatVerification?.status === "not_verified"
+								? "NOT VERIFIED"
+								: "NOT CHECKED"}
+					</p>
+					<p className="text-sm">
+						<span className="font-bold">VAT Number:</span>{" "}
+						{ficaData.vatVerification?.vatNumber || "Not provided"}
+					</p>
+					{ficaData.vatVerification?.tradingName ? (
+						<p className="text-sm">
+							<span className="font-bold">Trading Name:</span>{" "}
+							{ficaData.vatVerification.tradingName}
+						</p>
+					) : null}
+					{ficaData.vatVerification?.office ? (
+						<p className="text-sm">
+							<span className="font-bold">Office:</span> {ficaData.vatVerification.office}
+						</p>
+					) : null}
+					{ficaData.vatVerification?.message ? (
+						<p className="text-xs mt-1">{ficaData.vatVerification.message}</p>
+					) : null}
+				</div>
 			</div>
 
 			<div className="mt-12 pt-4 border-t-2 border-black text-center text-xs text-gray-500">

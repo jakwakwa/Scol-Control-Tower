@@ -32,9 +32,15 @@ const getNotificationRoute = (notification: WorkflowNotification): string => {
 		message.includes("manual sanctions check required") ||
 		message.includes("sanctions_check_failed") ||
 		message.includes("automated sanctions checks failed");
+	const isVatVerification =
+		message.includes("vat verification") || message.includes("vat number check");
 
 	if (isProcurementManualCheck || isSanctionsManualCheck) {
 		return "/dashboard/risk-review";
+	}
+
+	if (isVatVerification) {
+		return `/dashboard/risk-review/reports/${notification.applicantId}`;
 	}
 
 	if (isPreRiskReview || isQuoteReview) {

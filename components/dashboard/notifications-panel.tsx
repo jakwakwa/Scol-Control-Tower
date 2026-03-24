@@ -99,6 +99,8 @@ const MANUAL_FALLBACK_ALERT_TERMS = [
 	"automated sanctions checks failed",
 ];
 
+const VAT_ALERT_TERMS = ["vat verification", "vat number", "vat check"];
+
 function isManualFallbackNotification(message: string): boolean {
 	const normalized = message.toLowerCase();
 	return MANUAL_FALLBACK_ALERT_TERMS.some(term => normalized.includes(term));
@@ -111,6 +113,11 @@ function isManualSanctionsNotification(message: string): boolean {
 		normalized.includes("sanctions_check_failed") ||
 		normalized.includes("automated sanctions checks failed")
 	);
+}
+
+function isVatNotification(message: string): boolean {
+	const normalized = message.toLowerCase();
+	return VAT_ALERT_TERMS.some(term => normalized.includes(term));
 }
 
 function formatNotificationMessage(message: string): string {
@@ -245,6 +252,7 @@ export function NotificationsPanel({
 							const isManualProcurementAlert = isManualFallbackNotification(
 								notification?.message || ""
 							);
+							const isVatAlert = isVatNotification(notification?.message || "");
 
 							return (
 								<div
@@ -290,6 +298,13 @@ export function NotificationsPanel({
 														variant="outline"
 														className="text-[10px] text-red-300 border-red-500/30 bg-red-500/10">
 														Manual Check
+													</Badge>
+												)}
+												{isVatAlert && (
+													<Badge
+														variant="outline"
+														className="text-[10px] text-teal-300 border-teal-500/30 bg-teal-500/10">
+														VAT Check
 													</Badge>
 												)}
 											</div>

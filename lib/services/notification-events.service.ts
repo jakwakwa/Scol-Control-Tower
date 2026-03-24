@@ -78,7 +78,8 @@ export interface LogEventParams {
 		| "fica_check_completed"
 		| "green_lane_approved"
 		| "green_lane_blocked"
-		| "green_lane_requested";
+		| "green_lane_requested"
+		| "vat_verification_completed";
 	payload: object;
 	actorType?: "user" | "agent" | "platform";
 	actorId?: string;

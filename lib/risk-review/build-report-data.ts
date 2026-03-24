@@ -66,6 +66,10 @@ const DEFAULT_FICA: RiskReviewData["ficaData"] = {
 		avsDetails: "—",
 	},
 	documentAiResult: undefined,
+	vatVerification: {
+		checked: false,
+		status: "not_checked",
+	},
 };
 
 function safeJsonParse<T>(raw: string | null, fallback: T): T {
@@ -154,6 +158,61 @@ function mergeFica(
 				}
 			: DEFAULT_FICA.banking,
 		documentAiResult: Array.isArray(parsed.documentAiResult) ? parsed.documentAiResult : undefined,
+		vatVerification: parsed.vatVerification
+			? {
+					checked: parsed.vatVerification.checked ?? false,
+					status: parsed.vatVerification.status ?? "not_checked",
+					vatNumber: parsed.vatVerification.vatNumber,
+					tradingName: parsed.vatVerification.tradingName,
+					office: parsed.vatVerification.office,
+					message: parsed.vatVerification.message,
+					checkedAt: parsed.vatVerification.checkedAt,
+				}
+			: DEFAULT_FICA.vatVerification,
+	};
+}
+
+type AggregatedAnalysisSnapshot = {
+	externalChecks?: {
+		sarsVatSearch?: {
+			status?: "offline" | "live";
+			result?: {
+				verified?: boolean;
+				vatNumber?: string;
+				tradingName?: string;
+				office?: string;
+				successMessage?: string;
+				failureMessage?: string;
+			};
+		};
+	};
+	metadata?: {
+		analyzedAt?: string;
+	};
+};
+
+function extractVatVerificationFromAiAnalysis(
+	aiAnalysisRaw?: string | null
+): RiskReviewData["ficaData"]["vatVerification"] {
+	if (!aiAnalysisRaw) {
+		return DEFAULT_FICA.vatVerification;
+	}
+
+	const parsed = safeJsonParse<AggregatedAnalysisSnapshot | null>(aiAnalysisRaw, null);
+	const vatCheck = parsed?.externalChecks?.sarsVatSearch;
+	if (!vatCheck || vatCheck.status !== "live") {
+		return DEFAULT_FICA.vatVerification;
+	}
+
+	const verified = vatCheck.result?.verified === true;
+	return {
+		checked: true,
+		status: verified ? "verified" : "not_verified",
+		vatNumber: vatCheck.result?.vatNumber,
+		tradingName: vatCheck.result?.tradingName,
+		office: vatCheck.result?.office,
+		message: vatCheck.result?.successMessage || vatCheck.result?.failureMessage,
+		checkedAt: parsed?.metadata?.analyzedAt,
 	};
 }
 
@@ -185,7 +244,8 @@ export function buildReportData(
 	applicant: ApplicantRow | null,
 	workflow: WorkflowRow | null,
 	riskChecks: RiskCheckRow[],
-	financialRiskRawOutput?: string | null
+	financialRiskRawOutput?: string | null,
+	aiAnalysisRaw?: string | null
 ): RiskReviewData {
 	const applicantId = applicant?.id ?? 0;
 	const transactionId = workflow?.id ? `workflow-${workflow.id}` : `risk-${applicantId}`;
@@ -216,6 +276,8 @@ export function buildReportData(
 	const ficaParsed = ficaCheck?.payload
 		? safeJsonParse<Partial<RiskReviewData["ficaData"]>>(ficaCheck.payload, null)
 		: null;
+	const vatVerification = extractVatVerificationFromAiAnalysis(aiAnalysisRaw);
+	const mergedFica = mergeFica(ficaParsed);
 
 	return {
 		workflowId: workflow?.id ?? 0,
@@ -242,7 +304,10 @@ export function buildReportData(
 		procurementData: mergeProcurement(procurementParsed),
 		itcData: mergeItc(itcParsed),
 		sanctionsData: mergeSanctions(sanctionsParsed),
-		ficaData: mergeFica(ficaParsed),
+		ficaData: {
+			...mergedFica,
+			vatVerification,
+		},
 		bankStatementAnalysis: parseFinancialRiskRawOutput(financialRiskRawOutput),
 	};
 }

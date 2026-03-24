@@ -2,6 +2,10 @@ import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import { aiAnalysisLogs, riskAssessments, workflowEvents } from "@/db/schema";
 import {
+	createWorkflowNotification,
+	logWorkflowEvent,
+} from "@/lib/services/notification-events.service";
+import {
 	isFirecrawlConfigured,
 	runIndustryRegulatorCheck,
 	runSanctionsEnrichmentCheck,
@@ -703,6 +707,15 @@ async function storeAnalysisResult(
 			dataSource: "Live",
 		});
 
+		const vatCheck = result.externalChecks.sarsVatSearch;
+		const vatStatus = vatCheck.result as
+			| {
+					verified?: boolean;
+					vatNumber?: string;
+					tradingName?: string;
+			  }
+			| undefined;
+
 		if (existing.length > 0) {
 			await db
 				.update(riskAssessments)
@@ -740,6 +753,31 @@ async function storeAnalysisResult(
 				processingTimeMs: result.metadata.processingTimeMs,
 			}),
 		});
+
+		if (vatCheck.status === "live" && vatStatus?.vatNumber) {
+			await logWorkflowEvent({
+				workflowId,
+				eventType: "vat_verification_completed",
+				payload: {
+					verified: vatStatus.verified === true,
+					vatNumber: vatStatus.vatNumber,
+					tradingName: vatStatus.tradingName,
+				},
+			});
+
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: vatStatus.verified === true ? "success" : "warning",
+				title: "VAT Verification",
+				message:
+					vatStatus.verified === true
+						? `VAT number check passed for ${vatStatus.vatNumber}.`
+						: `VAT number check requires manual review for ${vatStatus.vatNumber}.`,
+				actionable: true,
+				severity: "medium",
+			});
+		}
 
 		// Log Reporter Agent output to ai_analysis_logs
 		if (result.agents.reporter) {
