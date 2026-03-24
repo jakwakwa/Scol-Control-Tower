@@ -166,10 +166,6 @@ export const WORKFLOW_STATUSES = [
 
 export type WorkflowStatus = (typeof WORKFLOW_STATUSES)[number];
 
-/**
- * Workflows table - Tracks onboarding workflow state
- * PRD: Kill switch sets status to 'terminated'
- */
 export const workflows = sqliteTable("workflows", {
 	id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
 	applicantId: integer("applicant_id")
@@ -179,25 +175,16 @@ export const workflows = sqliteTable("workflows", {
 	status: text("status").default("pending"),
 	startedAt: integer("started_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 	completedAt: integer("completed_at", { mode: "timestamp" }),
-
-	// Kill Switch tracking (PRD Critical)
 	terminatedAt: integer("terminated_at", { mode: "timestamp" }),
 	terminatedBy: text("terminated_by"),
 	terminationReason: text("termination_reason"),
-
-	// Parallel processing state
 	procurementCleared: integer("procurement_cleared", { mode: "boolean" }),
 	documentsComplete: integer("documents_complete", { mode: "boolean" }),
 	aiAnalysisComplete: integer("ai_analysis_complete", { mode: "boolean" }),
-
-	// Mandate retry tracking (SOP: 7-day timeout, max 8 retries)
 	mandateRetryCount: integer("mandate_retry_count").default(0),
 	mandateLastSentAt: integer("mandate_last_sent_at", { mode: "timestamp" }),
-
-	// Two-factor approval tracking (Stage 6)
-	riskManagerApproval: text("risk_manager_approval"), // JSON: { approvedBy, timestamp, decision }
-	accountManagerApproval: text("account_manager_approval"), // JSON: { approvedBy, timestamp, decision }
-	// Stage 5 one-shot gate tracking (atomic idempotency)
+	riskManagerApproval: text("risk_manager_approval"),
+	accountManagerApproval: text("account_manager_approval"),
 	contractDraftReviewedAt: integer("contract_draft_reviewed_at", {
 		mode: "timestamp",
 	}),
@@ -208,50 +195,35 @@ export const workflows = sqliteTable("workflows", {
 		mode: "timestamp",
 	}),
 	absaApprovalConfirmedBy: text("absa_approval_confirmed_by"),
-	// Stage 2 sales/pre-risk + applicant decision tracking
-	salesEvaluationStatus: text("sales_evaluation_status"), // pending, approved, issues_found
+	salesEvaluationStatus: text("sales_evaluation_status"),
 	salesIssuesSummary: text("sales_issues_summary"),
-	issueFlaggedBy: text("issue_flagged_by"), // account_manager, ai, system
+	issueFlaggedBy: text("issue_flagged_by"),
 	preRiskRequired: integer("pre_risk_required", { mode: "boolean" }),
-	preRiskOutcome: text("pre_risk_outcome"), // approved, rejected, skipped
+	preRiskOutcome: text("pre_risk_outcome"),
 	preRiskEvaluatedAt: integer("pre_risk_evaluated_at", { mode: "timestamp" }),
-	applicantDecisionOutcome: text("applicant_decision_outcome"), // approved, declined
+	applicantDecisionOutcome: text("applicant_decision_outcome"),
 	applicantDeclineReason: text("applicant_decline_reason"),
-
 	stageName: text("stage_name"),
 	currentAgent: text("current_agent"),
-	reviewType: text("review_type"), // procurement or general
-	decisionType: text("decision_type"), // e.g. "procurement_review", "risk_review", "quote_approval", "final_approval"
-	targetResource: text("target_resource"), // API endpoint path, e.g. "/api/risk-decision/procurement"
-
-	// State Locking — Optimistic Concurrency Control (Phase 1: Ghost Process Prevention)
-	// Incremented atomically on every finalized state change (human decision, kill switch, etc.)
-	// Background processes must check this version before writing to detect collisions.
+	reviewType: text("review_type"),
+	decisionType: text("decision_type"),
+	targetResource: text("target_resource"),
 	stateLockVersion: integer("state_lock_version").default(0),
 	stateLockedAt: integer("state_locked_at", { mode: "timestamp" }),
-	stateLockedBy: text("state_locked_by"), // User ID or "system"
-
-	// Green Lane — Manual AM-triggered bypass (same path as automatic Green Lane)
+	stateLockedBy: text("state_locked_by"),
 	greenLaneRequestedAt: integer("green_lane_requested_at", { mode: "timestamp" }),
 	greenLaneRequestedBy: text("green_lane_requested_by"),
 	greenLaneRequestNotes: text("green_lane_request_notes"),
-	greenLaneRequestSource: text("green_lane_request_source"), // manual_am | automatic
+	greenLaneRequestSource: text("green_lane_request_source"),
 	greenLaneConsumedAt: integer("green_lane_consumed_at", { mode: "timestamp" }),
-
-	// System
 	metadata: text("metadata"),
 });
 
-// ============================================
+// ==================================================================
 // Risk Check Results — Source of truth for per-check lifecycle
-// ============================================
+// ==================================================================
 
-export const RISK_CHECK_TYPES = [
-	"PROCUREMENT",
-	"ITC",
-	"SANCTIONS",
-	"FICA",
-] as const;
+export const RISK_CHECK_TYPES = ["PROCUREMENT", "ITC", "SANCTIONS", "FICA"] as const;
 
 export type RiskCheckType = (typeof RISK_CHECK_TYPES)[number];
 
@@ -283,29 +255,21 @@ export const riskCheckResults = sqliteTable("risk_check_results", {
 	applicantId: integer("applicant_id")
 		.notNull()
 		.references(() => applicants.id),
-	checkType: text("check_type").notNull(), // PROCUREMENT | ITC | SANCTIONS | FICA
-
+	checkType: text("check_type").notNull(),
 	machineState: text("machine_state").notNull().default("pending"),
 	reviewState: text("review_state").notNull().default("pending"),
-
 	provider: text("provider"),
 	externalCheckId: text("external_check_id"),
-
-	payload: text("payload"), // JSON: check-specific result data
-	rawPayload: text("raw_payload"), // JSON: raw provider response snapshot
+	payload: text("payload"),
+	rawPayload: text("raw_payload"),
 	errorDetails: text("error_details"),
-
 	startedAt: integer("started_at", { mode: "timestamp" }),
 	completedAt: integer("completed_at", { mode: "timestamp" }),
-
 	reviewedBy: text("reviewed_by"),
 	reviewedAt: integer("reviewed_at", { mode: "timestamp" }),
 	reviewNotes: text("review_notes"),
-
-	createdAt: integer("created_at", { mode: "timestamp" })
-		.$defaultFn(() => new Date()),
-	updatedAt: integer("updated_at", { mode: "timestamp" })
-		.$defaultFn(() => new Date()),
+	createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+	updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
 export const NOTIFICATION_SEVERITIES = ["low", "medium", "high", "critical"] as const;
@@ -320,8 +284,8 @@ export const notifications = sqliteTable("notifications", {
 	read: integer("read", { mode: "boolean" }).default(false),
 	createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 	actionable: integer("actionable", { mode: "boolean" }).default(false),
-	severity: text("severity").default("medium"), // low | medium | high | critical
-	groupKey: text("group_key"), // batch grouping key, e.g. "batch_failure:workflow:42"
+	severity: text("severity").default("medium"),
+	groupKey: text("group_key"),
 });
 
 export const workflowEvents = sqliteTable("workflow_events", {
@@ -498,12 +462,14 @@ export const workflowTerminationScreening = sqliteTable(
 			.notNull()
 			.$defaultFn(() => new Date()),
 	},
-	(table) => ({
+	table => ({
 		valueTypeValueIdx: index("workflow_termination_screening_value_type_value_idx").on(
 			table.valueType,
 			table.value
 		),
-		denyListIdIdx: index("workflow_termination_screening_deny_list_id_idx").on(table.denyListId),
+		denyListIdIdx: index("workflow_termination_screening_deny_list_id_idx").on(
+			table.denyListId
+		),
 	})
 );
 
@@ -521,7 +487,7 @@ export const reApplicantAttempts = sqliteTable("re_applicant_attempts", {
 	matchedDenyListId: integer("matched_deny_list_id")
 		.notNull()
 		.references(() => workflowTerminationDenyList.id),
-	matchedOn: text("matched_on").notNull(), // "id_number" | "board_member_id" | "cellphone" | "bank_account" | "board_member_name"
+	matchedOn: text("matched_on").notNull(),
 	matchedValue: text("matched_value").notNull(),
 	deniedAt: integer("denied_at", { mode: "timestamp" })
 		.notNull()
@@ -539,13 +505,13 @@ export const applicantsRelations = relations(applicants, ({ many, one }) => ({
 	applicantSubmissions: many(applicantSubmissions),
 	riskAssessment: one(riskAssessments, {
 		fields: [applicants.id],
-		references: [riskAssessments.applicantId], // One-to-one roughly
+		references: [riskAssessments.applicantId],
 	}),
 	activityLogs: many(activityLogs),
 }));
 
 /**
- * Agent Registry - Track available external agents
+ * Agents
  */
 export const agents = sqliteTable("agents", {
 	id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
@@ -677,23 +643,20 @@ export const workflowTerminationScreeningRelations = relations(
 	})
 );
 
-export const reApplicantAttemptsRelations = relations(
-	reApplicantAttempts,
-	({ one }) => ({
-		applicant: one(applicants, {
-			fields: [reApplicantAttempts.applicantId],
-			references: [applicants.id],
-		}),
-		workflow: one(workflows, {
-			fields: [reApplicantAttempts.workflowId],
-			references: [workflows.id],
-		}),
-		matchedDenyList: one(workflowTerminationDenyList, {
-			fields: [reApplicantAttempts.matchedDenyListId],
-			references: [workflowTerminationDenyList.id],
-		}),
-	})
-);
+export const reApplicantAttemptsRelations = relations(reApplicantAttempts, ({ one }) => ({
+	applicant: one(applicants, {
+		fields: [reApplicantAttempts.applicantId],
+		references: [applicants.id],
+	}),
+	workflow: one(workflows, {
+		fields: [reApplicantAttempts.workflowId],
+		references: [workflows.id],
+	}),
+	matchedDenyList: one(workflowTerminationDenyList, {
+		fields: [reApplicantAttempts.matchedDenyListId],
+		references: [workflowTerminationDenyList.id],
+	}),
+}));
 
 export const applicantMagiclinkFormsRelations = relations(
 	applicantMagiclinkForms,
@@ -791,7 +754,7 @@ export const FORM_TYPES = [
 export type FormType = (typeof FORM_TYPES)[number];
 
 /**
- * Internal Forms - Track form submission status per workflow
+ *  Track form submission status per workflow
  */
 export const internalForms = sqliteTable("internal_forms", {
 	id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
@@ -892,7 +855,7 @@ export const signatures = sqliteTable("signatures", {
 		.notNull()
 		.references(() => internalForms.id),
 	signatoryName: text("signatory_name").notNull(),
-	signatoryRole: text("signatory_role"), // e.g., "Director", "Authorised Representative"
+	signatoryRole: text("signatory_role"),
 	signatoryIdNumber: text("signatory_id_number"),
 	signatureData: text("signature_data").notNull(), // Base64 PNG data URL
 	signatureHash: text("signature_hash").notNull(), // SHA-256 hash for integrity
@@ -946,10 +909,6 @@ export const signaturesRelations = relations(signatures, ({ one }) => ({
 	}),
 }));
 
-// ============================================
-// SOP v3.1.0: New Tables
-// ============================================
-
 /**
  * Sanction Clearance Table - Track manual clearance of sanction hits
  */
@@ -961,9 +920,9 @@ export const sanctionClearance = sqliteTable("sanction_clearance", {
 	workflowId: integer("workflow_id")
 		.notNull()
 		.references(() => workflows.id),
-	sanctionListId: text("sanction_list_id"), // External ID (e.g. OFAC-123)
-	clearedBy: text("cleared_by").notNull(), // User ID
-	clearanceReason: text("clearance_reason").notNull(), // Mandatory justification
+	sanctionListId: text("sanction_list_id"),
+	clearedBy: text("cleared_by").notNull(),
+	clearanceReason: text("clearance_reason").notNull(),
 	isFalsePositive: integer("is_false_positive", { mode: "boolean" }).notNull(),
 	createdAt: integer("created_at", { mode: "timestamp" })
 		.notNull()
@@ -981,8 +940,8 @@ export const aiAnalysisLogs = sqliteTable("ai_analysis_logs", {
 	workflowId: integer("workflow_id")
 		.notNull()
 		.references(() => workflows.id),
-	agentName: text("agent_name").notNull(), // 'risk', 'sanctions', 'reporter'
-	promptVersionId: text("prompt_version_id"), // Git hash or SemVer
+	agentName: text("agent_name").notNull(),
+	promptVersionId: text("prompt_version_id"),
 	confidenceScore: integer("confidence_score"), // 0-100
 	humanOverrideReason: text("human_override_reason", {
 		enum: [
@@ -999,8 +958,8 @@ export const aiAnalysisLogs = sqliteTable("ai_analysis_logs", {
 			"DATA_ERROR",
 		],
 	}),
-	narrative: text("narrative"), // The structured output or summary
-	rawOutput: text("raw_output"), // Full JSON output
+	narrative: text("narrative"),
+	rawOutput: text("raw_output"),
 	createdAt: integer("created_at", { mode: "timestamp" })
 		.notNull()
 		.$defaultFn(() => new Date()),
