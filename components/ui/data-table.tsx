@@ -1,7 +1,7 @@
 "use client";
 
 import { RiArrowLeftSLine, RiArrowRightSLine } from "@remixicon/react";
-import type { ColumnDef, SortingState } from "@tanstack/react-table";
+import type { ColumnDef, SortingState, TableMeta } from "@tanstack/react-table";
 import {
 	flexRender,
 	getCoreRowModel,
@@ -24,7 +24,7 @@ import {
 interface DataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
 	data: TData[];
-	meta?: Record<string, any>;
+	meta?: TableMeta<TData>;
 	/** Server-driven pagination — total number of pages */
 	pageCount?: number;
 	/** Current page index (0-based) */
