@@ -12,12 +12,14 @@ export {
 	controlTowerWorkflow,
 	killSwitchHandler,
 } from "./functions/control-tower-workflow";
+export { autoVerifyIdentity } from "./functions/id-verification";
 
 import {
 	controlTowerWorkflow,
 	killSwitchHandler,
 } from "./functions/control-tower-workflow";
 // Export all functions as array for serve()
+import { autoVerifyIdentity } from "./functions/id-verification";
 import { documentAggregator } from "./functions/document-aggregator";
 import { zombieReconciler } from "./functions/zombie-reconciler";
 
@@ -26,4 +28,5 @@ export const functions = [
 	killSwitchHandler,
 	documentAggregator,
 	zombieReconciler,
+	autoVerifyIdentity,
 ];
