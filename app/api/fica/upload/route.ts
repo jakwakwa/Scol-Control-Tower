@@ -96,17 +96,20 @@ export async function POST(request: NextRequest) {
 		}
 
 		const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
-		const maxSize = 10 * 1024 * 1024;
 
 		const uploadedDocuments: UploadedDocument[] = [];
 
 		for (const file of files) {
 			if (!allowedTypes.includes(file.type)) {
-				continue;
+				return NextResponse.json({ error: `Unsupported file type: ${file.type}` }, { status: 400 });
 			}
 
+			const maxSize = (metadata.documentType === "ID_DOCUMENT" || metadata.documentType === "PROOF_OF_ADDRESS") 
+				? 5 * 1024 * 1024 
+				: 10 * 1024 * 1024;
+				
 			if (file.size > maxSize) {
-				continue;
+				return NextResponse.json({ error: `File size exceeds the limit of ${maxSize / (1024 * 1024)}MB for ${metadata.documentType}` }, { status: 400 });
 			}
 
 			const arrayBuffer = await file.arrayBuffer();

@@ -65,6 +65,7 @@ const DEFAULT_FICA: RiskReviewData["ficaData"] = {
 		avsStatus: "—",
 		avsDetails: "—",
 	},
+	documentAiResult: undefined,
 };
 
 function safeJsonParse<T>(raw: string | null, fallback: T): T {
@@ -152,6 +153,7 @@ function mergeFica(
 					avsDetails: parsed.banking.avsDetails ?? DEFAULT_FICA.banking.avsDetails,
 				}
 			: DEFAULT_FICA.banking,
+		documentAiResult: Array.isArray(parsed.documentAiResult) ? parsed.documentAiResult : undefined,
 	};
 }
 
