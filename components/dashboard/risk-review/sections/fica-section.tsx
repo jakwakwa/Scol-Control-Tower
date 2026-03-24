@@ -1,13 +1,20 @@
+import { RiCloseLine } from "@remixicon/react";
+import {
+	CheckCircle2,
+	FileCheck,
+	Fingerprint,
+	Home,
+	Landmark,
+	Loader2,
+} from "lucide-react";
 import { useState } from "react";
-import { CheckCircle2, FileCheck, Fingerprint, Home, Landmark, Loader2 } from "lucide-react";
+import { verifyIdentity } from "@/app/actions/verify-id";
 import { RiskReviewBadge } from "@/components/dashboard/risk-review/risk-review-badge";
 import { SectionStatusBanner } from "@/components/dashboard/risk-review/section-status-banner";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RiCloseLine } from "@remixicon/react";
-import { cn } from "@/lib/utils";
+import { Card } from "@/components/ui/card";
 import type { RiskReviewData, SectionStatus } from "@/lib/risk-review/types";
-import { verifyIdentity } from "@/app/actions/verify-id";
+import { cn } from "@/lib/utils";
 
 export function FicaSection({
 	data,
@@ -18,8 +25,11 @@ export function FicaSection({
 	status?: SectionStatus;
 	applicantId?: number;
 }) {
+	type DocumentAiEntity = { type: string; value: string };
 	const [isVerifying, setIsVerifying] = useState(false);
-	const [verifyResultState, setVerifyResultState] = useState<any>(null);
+	const [verifyResultState, setVerifyResultState] = useState<DocumentAiEntity[] | null>(
+		null
+	);
 	const [verifyError, setVerifyError] = useState<string | null>(null);
 
 	const verifyResult = verifyResultState || data.documentAiResult;
@@ -29,7 +39,7 @@ export function FicaSection({
 		if (!applicantId) return;
 		setIsVerifying(true);
 		setVerifyError(null);
-		
+
 		try {
 			const res = await verifyIdentity(applicantId);
 			if (res.error) {
@@ -89,7 +99,7 @@ export function FicaSection({
 							</div>
 						))}
 					</div>
-					
+
 					{applicantId && (
 						<div className="mt-8 pt-6 border-t border-border">
 							<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
@@ -102,50 +112,59 @@ export function FicaSection({
 										Advanced fraud detection and image manipulation analysis
 									</p>
 								</div>
-								<Button 
-									variant="outline" 
-									size="sm" 
-									onClick={handleVerifyId} 
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={handleVerifyId}
 									disabled={isVerifying}
 									className={cn(
 										"relative overflow-hidden transition-all duration-300",
-										!isVerifying && "hover:border-emerald-500/50 hover:bg-emerald-500/5 hover:text-emerald-500 shadow-[0_0_15px_-5px_rgba(16,185,129,0.1)]"
-									)}
-								>
+										!isVerifying &&
+											"hover:border-emerald-500/50 hover:bg-emerald-500/5 hover:text-emerald-500 shadow-[0_0_15px_-5px_rgba(16,185,129,0.1)]"
+									)}>
 									{isVerifying && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
 									{isAlreadyVerified ? "Re-verify Document" : "Verify Identity Document"}
 								</Button>
 							</div>
-							
+
 							{verifyError && (
 								<div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg mb-4 flex items-center gap-2 text-sm text-destructive">
 									<RiCloseLine className="w-4 h-4" />
 									{verifyError}
 								</div>
 							)}
-							
+
 							{verifyResult && (
 								<div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in slide-in-from-bottom-2 duration-500">
 									{[
-										{ label: "Is Identity Document", type: "fraud_signals_is_identity_document" },
-										{ label: "Image Manipulation", type: "fraud_signals_image_manipulation" },
-										{ label: "Suspicious Words", type: "fraud_signals_suspicious_words" }
-									].map((signal) => {
-										const value = verifyResult.find((e: any) => e.type === signal.type)?.value || "N/A";
+										{
+											label: "Is Identity Document",
+											type: "fraud_signals_is_identity_document",
+										},
+										{
+											label: "Image Manipulation",
+											type: "fraud_signals_image_manipulation",
+										},
+										{ label: "Suspicious Words", type: "fraud_signals_suspicious_words" },
+									].map(signal => {
+										const value =
+											verifyResult.find((e: DocumentAiEntity) => e.type === signal.type)
+												?.value || "N/A";
 										const isPass = value === "PASS" || value === "YES";
 										return (
-											<div 
+											<div
 												key={signal.type}
 												className={cn(
 													"relative p-4 rounded-xl border transition-all duration-500 overflow-hidden group",
-													isPass 
-														? "bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40" 
+													isPass
+														? "bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40"
 														: "bg-muted/30 border-border hover:border-border/80"
-												)}
-											>
+												)}>
 												{/* Subtle background glow */}
-												{isPass && <div className="absolute -right-4 -top-4 w-12 h-12 bg-emerald-500/10 blur-2xl rounded-full" />}
-												
+												{isPass && (
+													<div className="absolute -right-4 -top-4 w-12 h-12 bg-emerald-500/10 blur-2xl rounded-full" />
+												)}
+
 												<div className="flex items-center justify-between mb-2">
 													<p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
 														{signal.label}
@@ -157,16 +176,23 @@ export function FicaSection({
 													)}
 												</div>
 												<div className="flex items-baseline gap-2">
-													<p className={cn(
-														"text-2xl font-bold tracking-tight mt-1 transition-colors",
-														isPass ? "text-emerald-500" : "text-foreground"
-													)}>
+													<p
+														className={cn(
+															"text-2xl font-bold tracking-tight mt-1 transition-colors",
+															isPass ? "text-emerald-500" : "text-foreground"
+														)}>
 														{value}
 													</p>
-													{isPass && <span className="text-[10px] text-emerald-500/60 font-medium">Verified</span>}
+													{isPass && (
+														<span className="text-[10px] text-emerald-500/60 font-medium">
+															Verified
+														</span>
+													)}
 												</div>
 												<p className="text-[10px] text-muted-foreground mt-2 opacity-60 group-hover:opacity-100 transition-opacity">
-													{isPass ? "No fraud signals detected" : "Verification inconclusive"}
+													{isPass
+														? "No fraud signals detected"
+														: "Verification inconclusive"}
 												</p>
 											</div>
 										);
@@ -242,6 +268,66 @@ export function FicaSection({
 							</div>
 							<p className="text-xs text-muted-foreground">{data.banking.avsDetails}</p>
 						</div>
+					</div>
+				</Card>
+
+				<Card className="p-6">
+					<div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
+						<div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
+							<FileCheck className="w-5 h-5 text-muted-foreground" />
+						</div>
+						<div>
+							<h4 className="font-medium text-foreground">VAT Verification</h4>
+							<p className="text-xs text-muted-foreground">
+								VAT number screening on applicant records
+							</p>
+						</div>
+					</div>
+					<div className="space-y-4">
+						<div className="flex items-center justify-between">
+							<p className="text-xs text-muted-foreground">Verification Status</p>
+							<RiskReviewBadge
+								variant={
+									data.vatVerification?.status === "verified"
+										? "success"
+										: data.vatVerification?.status === "not_verified"
+											? "warning"
+											: "default"
+								}>
+								{data.vatVerification?.status === "verified"
+									? "VERIFIED"
+									: data.vatVerification?.status === "not_verified"
+										? "NOT VERIFIED"
+										: "NOT CHECKED"}
+							</RiskReviewBadge>
+						</div>
+						<div>
+							<p className="text-xs text-muted-foreground mb-1">VAT Number</p>
+							<p className="text-sm text-foreground font-medium">
+								{data.vatVerification?.vatNumber || "Not provided"}
+							</p>
+						</div>
+						{data.vatVerification?.tradingName ? (
+							<div>
+								<p className="text-xs text-muted-foreground mb-1">Trading Name</p>
+								<p className="text-sm text-foreground">
+									{data.vatVerification.tradingName}
+								</p>
+							</div>
+						) : null}
+						{data.vatVerification?.office ? (
+							<div>
+								<p className="text-xs text-muted-foreground mb-1">Office</p>
+								<p className="text-sm text-foreground">{data.vatVerification.office}</p>
+							</div>
+						) : null}
+						{data.vatVerification?.message ? (
+							<div className="p-3 bg-muted/20 rounded-lg border border-border/50">
+								<p className="text-xs text-muted-foreground">
+									{data.vatVerification.message}
+								</p>
+							</div>
+						) : null}
 					</div>
 				</Card>
 			</div>

@@ -3,7 +3,13 @@ import { and, desc, eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
-import { aiAnalysisLogs, applicants, riskCheckResults, workflows } from "@/db/schema";
+import {
+	aiAnalysisLogs,
+	applicants,
+	riskAssessments,
+	riskCheckResults,
+	workflows,
+} from "@/db/schema";
 import { buildReportData } from "@/lib/risk-review/build-report-data";
 import { FINANCIAL_RISK_AGENT_NAME } from "@/lib/services/agents/financial-risk.agent";
 
@@ -76,12 +82,21 @@ export async function GET(
 					.orderBy(desc(aiAnalysisLogs.createdAt))
 					.limit(1)
 			: [];
+		const riskAssessmentRows = workflow
+			? await db
+					.select({ aiAnalysis: riskAssessments.aiAnalysis })
+					.from(riskAssessments)
+					.where(eq(riskAssessments.applicantId, applicant.id))
+					.orderBy(desc(riskAssessments.createdAt))
+					.limit(1)
+			: [];
 
 		const reportData = buildReportData(
 			applicant,
 			workflow,
 			riskChecks,
-			financialRiskRows[0]?.rawOutput
+			financialRiskRows[0]?.rawOutput,
+			riskAssessmentRows[0]?.aiAnalysis
 		);
 
 		return NextResponse.json(reportData);

@@ -83,5 +83,14 @@ export interface RiskReviewData {
 			avsDetails: string;
 		};
 		documentAiResult?: Array<{ type: string; value: string }>;
+		vatVerification?: {
+			checked: boolean;
+			status: "verified" | "not_verified" | "not_checked";
+			vatNumber?: string;
+			tradingName?: string;
+			office?: string;
+			message?: string;
+			checkedAt?: string;
+		};
 	};
 }

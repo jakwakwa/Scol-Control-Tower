@@ -35,6 +35,9 @@
     },
     "compound-engineering": {
       "enabled": true
+    },
+    "firecrawl": {
+      "enabled": true
     }
   }
 }

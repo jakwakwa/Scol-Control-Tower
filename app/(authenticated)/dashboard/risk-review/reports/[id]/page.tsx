@@ -6,7 +6,13 @@ import { getDatabaseClient } from "@/app/utils";
 import { DashboardLayout } from "@/components/dashboard";
 import { RiskReviewDetail } from "@/components/dashboard/risk-review";
 import { Button } from "@/components/ui/button";
-import { aiAnalysisLogs, applicants, riskCheckResults, workflows } from "@/db/schema";
+import {
+	aiAnalysisLogs,
+	applicants,
+	riskAssessments,
+	riskCheckResults,
+	workflows,
+} from "@/db/schema";
 import { buildReportData } from "@/lib/risk-review/build-report-data";
 import { FINANCIAL_RISK_AGENT_NAME } from "@/lib/services/agents/financial-risk.agent";
 
@@ -69,11 +75,21 @@ export default async function RiskReviewReportPage({
 				.limit(1)
 		: [];
 
+	const riskAssessmentRows = workflow
+		? await db
+				.select({ aiAnalysis: riskAssessments.aiAnalysis })
+				.from(riskAssessments)
+				.where(eq(riskAssessments.applicantId, applicant.id))
+				.orderBy(desc(riskAssessments.createdAt))
+				.limit(1)
+		: [];
+
 	const reportData = buildReportData(
 		applicant,
 		workflow,
 		riskChecks,
-		financialRiskRows[0]?.rawOutput
+		financialRiskRows[0]?.rawOutput,
+		riskAssessmentRows[0]?.aiAnalysis
 	);
 
 	return (
