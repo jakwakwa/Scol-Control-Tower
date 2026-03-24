@@ -1,4 +1,5 @@
 import type { RiskReviewData, SectionStatus } from "@/lib/risk-review/types";
+import type { FinancialRiskAgentResult } from "@/lib/services/agents/financial-risk.agent";
 import type { RiskCheckRow } from "@/lib/services/risk-check.service";
 
 type ApplicantRow = {
@@ -164,10 +165,25 @@ function buildSectionStatus(check: RiskCheckRow | undefined): SectionStatus {
 	};
 }
 
+function parseFinancialRiskRawOutput(
+	raw: string | null | undefined
+): RiskReviewData["bankStatementAnalysis"] {
+	if (!raw?.trim()) return undefined;
+	const parsed = safeJsonParse<FinancialRiskAgentResult | null>(raw, null);
+	if (!parsed || typeof parsed !== "object" || !("available" in parsed)) {
+		return undefined;
+	}
+	if (parsed.available === true) {
+		return parsed;
+	}
+	return undefined;
+}
+
 export function buildReportData(
 	applicant: ApplicantRow | null,
 	workflow: WorkflowRow | null,
-	riskChecks: RiskCheckRow[]
+	riskChecks: RiskCheckRow[],
+	financialRiskRawOutput?: string | null
 ): RiskReviewData {
 	const applicantId = applicant?.id ?? 0;
 	const transactionId = workflow?.id ? `workflow-${workflow.id}` : `risk-${applicantId}`;
@@ -225,5 +241,6 @@ export function buildReportData(
 		itcData: mergeItc(itcParsed),
 		sanctionsData: mergeSanctions(sanctionsParsed),
 		ficaData: mergeFica(ficaParsed),
+		bankStatementAnalysis: parseFinancialRiskRawOutput(financialRiskRawOutput),
 	};
 }

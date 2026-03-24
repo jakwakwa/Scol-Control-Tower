@@ -1,3 +1,5 @@
+import type { FinancialRiskAnalysisResult } from "@/lib/services/agents/financial-risk.agent";
+
 export interface SectionStatus {
 	machineState: "pending" | "in_progress" | "completed" | "failed" | "manual_required";
 	reviewState: "pending" | "acknowledged" | "approved" | "rejected" | "not_required";
@@ -57,6 +59,8 @@ export interface RiskReviewData {
 		tradeReferences: number | string;
 		recentEnquiries: number | string;
 	};
+	/** AI bank statement analysis (Gemini); complementary to XDS / ITC bureau data */
+	bankStatementAnalysis?: FinancialRiskAnalysisResult;
 	sanctionsData: {
 		sanctionsMatch: string;
 		pepHits: number | string;

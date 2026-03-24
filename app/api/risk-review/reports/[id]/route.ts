@@ -1,10 +1,11 @@
 import { auth } from "@clerk/nextjs/server";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
-import { applicants, riskCheckResults, workflows } from "@/db/schema";
+import { aiAnalysisLogs, applicants, riskCheckResults, workflows } from "@/db/schema";
 import { buildReportData } from "@/lib/risk-review/build-report-data";
+import { FINANCIAL_RISK_AGENT_NAME } from "@/lib/services/agents/financial-risk.agent";
 
 /**
  * GET /api/risk-review/reports/[id]
@@ -62,7 +63,26 @@ export async function GET(
 					.where(eq(riskCheckResults.workflowId, workflow.id))
 			: [];
 
-		const reportData = buildReportData(applicant, workflow, riskChecks);
+		const financialRiskRows = workflow
+			? await db
+					.select({ rawOutput: aiAnalysisLogs.rawOutput })
+					.from(aiAnalysisLogs)
+					.where(
+						and(
+							eq(aiAnalysisLogs.workflowId, workflow.id),
+							eq(aiAnalysisLogs.agentName, FINANCIAL_RISK_AGENT_NAME)
+						)
+					)
+					.orderBy(desc(aiAnalysisLogs.createdAt))
+					.limit(1)
+			: [];
+
+		const reportData = buildReportData(
+			applicant,
+			workflow,
+			riskChecks,
+			financialRiskRows[0]?.rawOutput
+		);
 
 		return NextResponse.json(reportData);
 	} catch (error) {
