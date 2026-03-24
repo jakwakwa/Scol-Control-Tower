@@ -205,9 +205,7 @@ export async function performAggregatedAnalysis(
 	const riskResult =
 		riskSettled.status === "fulfilled" ? riskSettled.value : fallbackRisk;
 	const sanctionsResult =
-		sanctionsSettled.status === "fulfilled"
-			? sanctionsSettled.value
-			: fallbackSanctions;
+		sanctionsSettled.status === "fulfilled" ? sanctionsSettled.value : fallbackSanctions;
 
 	if (validationResult) agentsRun.push("validation");
 	if (riskSettled.status === "fulfilled") agentsRun.push("risk");
@@ -325,7 +323,7 @@ export async function performAggregatedAnalysis(
 		},
 	});
 
-	// Run SOP-required external checks (ProcureCheck live when enabled, rest mocked)
+	// ProcureCheck live when enabled
 	const externalChecks = await runExternalCheckStubs(input);
 
 	// Build result

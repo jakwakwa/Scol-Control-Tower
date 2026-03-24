@@ -117,7 +117,7 @@ export interface RiskAnalysisInput {
 /**
  * Analyze financial risk based on bank statements and applicant data
  *
- * NOTE: This is a mock implementation for Phase 1.
+ * NOTE: This is a mock implementation
  */
 export async function analyzeFinancialRisk(
 	input: RiskAnalysisInput
@@ -127,52 +127,6 @@ export async function analyzeFinancialRisk(
 		throw new Error("No input data provided for risk analysis");
 	}
 
-	if (!(input.bankStatementText?.trim() || input.bankStatementBase64)) {
-		return {
-			bankAnalysis: {
-				accountType: "UNKNOWN",
-				bankName: "UNKNOWN",
-				averageBalance: 0,
-				minimumBalance: 0,
-				maximumBalance: 0,
-				volatilityScore: 0,
-			},
-			cashFlow: {
-				totalCredits: 0,
-				totalDebits: 0,
-				netCashFlow: 0,
-				regularIncomeDetected: false,
-				incomeFrequency: "UNKNOWN",
-				consistencyScore: 0,
-			},
-			stability: {
-				overallScore: 0,
-				debtIndicators: [],
-				gamblingIndicators: [],
-				loanRepayments: 0,
-				hasBounced: false,
-				bouncedCount: 0,
-				bouncedAmount: 0,
-			},
-			creditRisk: {
-				riskCategory: "HIGH",
-				riskScore: 95,
-				affordabilityRatio: 0,
-				redFlags: ["No bank statement evidence provided for automated assessment"],
-				positiveIndicators: [],
-			},
-			overall: {
-				score: 10,
-				recommendation: "MANUAL_REVIEW",
-				reasoning:
-					"Automated risk analysis cannot be completed without readable bank statement evidence.",
-				conditions: [
-					"Provide readable recent bank statements and complete manual risk review",
-				],
-			},
-			dataSource: "Manual Escalation - Insufficient Evidence",
-		};
-	}
 	const ai = getGenAIClient();
 	const prompt = buildRiskPrompt(input);
 
@@ -232,11 +186,11 @@ COMPANY DATA:
 	const statementContext = input.bankStatementBase64
 		? "\nBANK STATEMENT DATA: [PDF provided as inline document data. Analyze the attached statement.]\n"
 		: input.bankStatementText
-		? `
+			? `
 BANK STATEMENT DATA (Extracted Text):
 ${input.bankStatementText.substring(0, 15000)} // Truncate if too long
 `
-		: "\nNO BANK STATEMENT DATA PROVIDED.\n";
+			: "\nNO BANK STATEMENT DATA PROVIDED.\n";
 
 	return `
 You are an expert Financial Risk Analyst evaluating a company for a debit order mandate facility.
