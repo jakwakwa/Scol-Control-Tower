@@ -4,6 +4,12 @@ export const applicantSchema = z
 	.object({
 		companyName: z.string().trim().min(1, "Company name is required"),
 		registrationNumber: z.string().trim().optional(),
+		vatNumber: z
+			.string()
+			.trim()
+			.regex(/^\d{10}$/, "VAT number must be exactly 10 digits")
+			.optional()
+			.or(z.literal("")),
 		contactName: z.string().trim().min(1, "Contact name is required"),
 		idNumber: z.string().trim().optional(),
 		email: z.string().trim().min(1, "Email is required").email("Invalid email address"),

@@ -6,6 +6,7 @@ import {
 	runIndustryRegulatorCheck,
 	runSanctionsEnrichmentCheck,
 	runSocialReputationCheck,
+	runVatVerificationCheck,
 } from "@/lib/services/firecrawl";
 import { generateReporterAnalysis, type ReporterOutput } from "./reporter.agent";
 import {
@@ -36,6 +37,7 @@ export interface AggregatedAnalysisInput {
 		countryCode?: string;
 		address?: string;
 		employeeCount?: number;
+		vatNumber?: string;
 	};
 	documents?: Array<{
 		id: string;
@@ -769,6 +771,7 @@ async function storeAnalysisResult(
  *   ENABLE_FIRECRAWL_INDUSTRY_REG   – Industry regulator via Firecrawl
  *   ENABLE_FIRECRAWL_SANCTIONS_ENRICH – Sanctions evidence enrichment via Firecrawl
  *   ENABLE_FIRECRAWL_SOCIAL_REP     – Social reputation (HelloPeter) via Firecrawl
+ *   ENABLE_FIRECRAWL_VAT_VERIFICATION – VAT verification via vatsearch.co.za
  *
  * All flags default to false; mock fallback is returned on failure.
  */
@@ -877,12 +880,42 @@ async function runExternalCheckStubs(
 		}
 	}
 
+	// --- VAT Verification (Firecrawl Agent) ---
+	let sarsVatSearchResult: {
+		status: "live" | "offline";
+		result: Record<string, unknown> | undefined;
+	} = { status: "offline", result: undefined };
+
+	if (
+		process.env.ENABLE_FIRECRAWL_VAT_VERIFICATION === "true" &&
+		isFirecrawlConfigured() &&
+		input.applicantData.vatNumber
+	) {
+		try {
+			const fcResult = await runVatVerificationCheck({
+				vatNumber: input.applicantData.vatNumber,
+				companyName: input.applicantData.companyName,
+				workflowId: input.workflowId,
+				applicantId: input.applicantId,
+			});
+			sarsVatSearchResult = {
+				status: fcResult.status,
+				result: (fcResult.result as unknown as Record<string, unknown>) || undefined,
+			};
+		} catch (err) {
+			console.error(
+				"[AggregatedAnalysis] Firecrawl VAT verification failed, using mock fallback:",
+				err
+			);
+		}
+	}
+
 	return {
 		xdsCreditCheck: { status: "offline", result: undefined },
 		lexisNexisProcure: { status: "offline", result: undefined },
 		bizPortalRegistration: { status: "offline", result: undefined },
 		efs24IdAvsr: { status: "offline", result: undefined },
-		sarsVatSearch: { status: "offline", result: undefined },
+		sarsVatSearch: sarsVatSearchResult,
 		industryRegulator: industryRegulatorResult,
 		sanctionsEvidenceEnrichment: sanctionsEnrichmentResult,
 		socialReputation: socialReputationResult,

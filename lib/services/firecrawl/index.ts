@@ -23,6 +23,10 @@ export {
 	runSocialReputationCheck,
 	type SocialReputationCheckInput,
 } from "./checks/social-reputation.check";
+export {
+	runVatVerificationCheck,
+	type VatVerificationInput,
+} from "./checks/vat-verification.check";
 export type { AgentOptions, ScrapeOptions, ScrapeResult } from "./firecrawl.client";
 export {
 	agentWithSchema,

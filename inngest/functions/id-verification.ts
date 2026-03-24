@@ -24,15 +24,18 @@ export const autoVerifyIdentity = inngest.createFunction(
       return await processIdentityVerification(applicantId, documentId);
     });
 
-    if (result.error) {
+    if ("error" in result && result.error) {
       throw new Error(`Identity verification failed: ${result.error}`);
     }
+
+    const entitiesFound =
+      "data" in result ? result.data?.entities?.length || 0 : 0;
 
     return { 
       status: "completed", 
       applicantId, 
       documentId, 
-      entitiesFound: result.data?.entities?.length || 0 
+      entitiesFound
     };
   }
 );

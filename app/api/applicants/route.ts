@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
 					contactName: data.contactName,
 					email: data.email,
 					phone: data.phone,
+					vatNumber: data.vatNumber?.trim() || null,
 					idNumber: data.idNumber || null,
 					entityType: data.entityType,
 					productType: data.productType,
