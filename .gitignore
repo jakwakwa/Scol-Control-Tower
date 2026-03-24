@@ -2,7 +2,13 @@
 # dependencies
 /node_modules
 **/node_modules
+*.md
+*.db
+*.pdf
+*.zip
 
+!README.md
+!README.md.bak
 /.pnp
 .pnp.js
 .yarn/install-state.gz
@@ -229,3 +235,4 @@ playwright-report/index.html
 .cursor/rules/LLM-system-instructions.mdc
 Events_by_type_per_hour-2026-03-20T15-23-07.json
 inngest_quote_wait_debug_60eb6106.plan.md
+local.db
