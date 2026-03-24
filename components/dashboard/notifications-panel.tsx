@@ -250,35 +250,39 @@ export function NotificationsPanel({
 								<div
 									key={notification?.id}
 									className={cn(
-										"group relative flex gap-0 x-4 py-3 mb-5 border-border items-center justify-between border-secondary transition-colors",
-										!notification?.read && "bg-secondary/2",
+										"group relative flex gap-0 x-4 py-0 mb-0  items-center justify-between  h-[130px] min-h-[130px] transition-colors",
+										!notification?.read && "bg-secondary/0",
 										isHighSeverity && "bg-destructive text-destructive-foreground",
 										isMediumGrouped && "bg-warning/20 border-4 border-l-warning"
 									)}>
 									{/* Main Action Button */}
 									<button
 										type="button"
-										className="absolute -inset-2 z-20 m-1 w-full left-[0px] max-w-[95%] h-[140px]  focus:outline-none"
+										className="absolute bg-sidebar -inset-1 z-20 m-0 w-full border-1 rounded-xl border-white/10 left-[0px] max-w-[95%] p-0 focus:outline-none"
 										onClick={() => onNotificationClick?.(notification)}>
 										<span className="sr-only mt-4">
 											View notification from {notification?.clientName}
 										</span>
 									</button>
 
+									{!notification?.read && (
+										<span className="absolute  h-2 w-2  top-5 z-30 shrink-0 left-6 rounded-full bg-zinc-800 outline-zinc-600 outline-2" />
+									)}
+
 									{/* Icon */}
 									<div
 										className={cn(
-											"relative z-30 flex h-4 w-12 shrink-0 items-center justify-center rounded-full pointer-events-none mr-2",
+											" z-30 top-14  left-5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full absolute pointer-events-none mr-2",
 											config.bgColor
 										)}>
-										<Icon className={cn("absolute right-2 ml-2 h-4 w-4", config.color)} />
+										<Icon className={cn("  rounded-full w-3 h-3", config.color)} />
 									</div>
 
 									{/* Content */}
-									<div className=" relative z-20 pointer-events-none">
+									<div className="ml-12  mt-0 mr-6 relative z-20 pointer-events-none">
 										<div className="flex items-between justify-between gap-2">
-											<div className="flex items-center gap-4 min-w-0">
-												<p className="text-sm font-medium truncate">
+											<div className="flex items-center gap-4 w-full max-w-7/9">
+												<p className="text-xs font-medium truncate w-fit text-secondary-foreground/70 mb-1">
 													{notification?.clientName}
 												</p>
 												{isManualProcurementAlert && (
@@ -290,25 +294,22 @@ export function NotificationsPanel({
 												)}
 											</div>
 											<div className="flex items-center gap-2">
-												{!notification?.read && (
-													<span className="h-2 w-2 shrink-0 rounded-full bg-blue-500" />
-												)}
 												<button
 													type="button"
 													onClick={e => {
 														e.stopPropagation();
 														onDelete?.(notification);
 													}}
-													className="text-muted-foreground/40 hover:text-red-400 transition-colors cursor-pointer pointer-events-auto p-1">
+													className="text-muted-foreground/40 hover:text-red-400transition-colors cursor-pointer  absolute -right-4 pointer-events-auto p-0">
 													<RiCloseLine className="h-4 w-4" />
 													<span className="sr-only">Dismiss</span>
 												</button>
 											</div>
 										</div>
-										<p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+										<p className="text-xs text-muted-foreground/70 mt-0.5 line-clamp-2">
 											{formatNotificationMessage(notification?.message || "")}
 										</p>
-										<div className="flex items-center justify-between mt-2">
+										<div className="flex items-center justify-between mt-2 relative">
 											<span className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
 												<RiTimeLine className="h-3 w-3" />
 												{formatRelativeTime(notification?.timestamp)}
@@ -321,7 +322,7 @@ export function NotificationsPanel({
 														<Button
 															variant="ghost"
 															size="sm"
-															className="h-6 px-2 text-xs hover:bg-amber-500/20 hover:text-amber-300"
+															className="absolute h-4 px-2 text-xs hover:bg-amber-500/20 hover:text-amber-300"
 															onClick={e => handleAction(e, notification, "view")}>
 															Open Risk Review
 														</Button>
@@ -333,7 +334,7 @@ export function NotificationsPanel({
 															<Button
 																variant="ghost"
 																size="sm"
-																className="h-6 px-2 text-xs hover:bg-emerald-500/90 hover:text-emerald-600/80"
+																className="absolute h-3 px-2 text-xs hover:bg-emerald-500/0 hidden hover:text-emerald-600/80"
 																onClick={e => handleAction(e, notification, "view")}>
 																View
 															</Button>

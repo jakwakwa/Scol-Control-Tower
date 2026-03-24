@@ -308,14 +308,14 @@ function PipelineCard({ workflow }: { workflow: PipelineWorkflow }) {
 			</div>
 
 			{/* Action Menu (Hidden until Hover) */}
-			<div className="absolute top-3 right-3 opacity-100 group-hover:opacity-20 hover:overflow-hidden p-0 hover:rounded-full transition-opacity focus-visible:outline-0">
+			<div className="absolute top-2 right-1.5 opacity-100 group-hover:opacity-20 hover:overflow-hidden p-0 hover:rounded-full transition-opacity focus-visible:outline-0">
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						<Button
 							variant="ghost"
 							size="icon"
-							className="p-3 m-0 h-5 w-5 select-none bg-none border-none">
-							<EllipsisVertical className="text-white bg-none font-black h-3 w-3 p-0 m-0" />
+							className="p-1 m-0 h-4 w-3 select-none bg-transparent border-none shadow-none">
+							<EllipsisVertical className="text-white/60 bg-none font-black h-3 w-3 p-0 m-0" />
 						</Button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end" className="w-[180px] backdrop-blur-xs">

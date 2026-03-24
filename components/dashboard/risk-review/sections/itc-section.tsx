@@ -1,7 +1,7 @@
 import { AlertOctagon, CreditCard, Scale } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { ScoreGauge } from "@/components/dashboard/risk-review/score-gauge";
 import { SectionStatusBanner } from "@/components/dashboard/risk-review/section-status-banner";
+import { Card } from "@/components/ui/card";
 import type { RiskReviewData, SectionStatus } from "@/lib/risk-review/types";
 
 export function ItcSection({
@@ -41,7 +41,9 @@ export function ItcSection({
 							<h4 className="font-medium text-foreground">Payment Defaults</h4>
 						</div>
 						<p className="text-2xl font-bold text-foreground">{data.defaults}</p>
-						<p className="text-xs text-warning-foreground/80 mt-1">{data.defaultDetails}</p>
+						<p className="text-xs text-warning-foreground/80 mt-1">
+							{data.defaultDetails}
+						</p>
 					</Card>
 					<Card className="p-5 sm:col-span-2">
 						<div className="flex items-center gap-3 mb-4">

@@ -149,7 +149,7 @@ export function ApplicantForm({
 		<form onSubmit={handleSubmit(onSubmitForm)} className="space-y-8">
 			{/* Test Mode Banner */}
 			{isTestMode && (
-				<div className="flex items-center justify-between p-4 rounded-lg border border-warning bg-warning/20 shadow-lg shadow-amber-800/5">
+				<div className="flex items-center backdrop-blur-xs bg-primary/10 justify-between p-4 rounded-lg border border-warning bg-warning/20 shadow-lg shadow-amber-800/5">
 					<div className="flex items-center gap-2">
 						<span className="text-warning-foreground animate-pulse text-sm font-medium">
 							<RiTestTubeLine className="h-8 w-8 animate-pulse" /> Test Mode
@@ -408,7 +408,8 @@ export function ApplicantForm({
 				<Button
 					type="submit"
 					disabled={isLoading}
-					className="gap-2 bg-linear-to-r from-stone-500 to-stone-500 hover:from-stone-600 hover:to-stone-600">
+					size="lg"
+					className="gap-2 bg-linear-to-r from-cyan-900 to-180% to-cyan-800 hover:from-secondary hover:to-secondary">
 					{isLoading && <RiLoader4Line className="h-4 w-4 animate-spin" />}
 					{isEditing ? "Save Changes" : "Create Applicant"}
 				</Button>

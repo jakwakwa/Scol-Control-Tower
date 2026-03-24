@@ -95,11 +95,11 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 		<>
 			<div style={{ width: "100vw", height: "1080px", position: "fixed", zIndex: "-2" }}>
 				<Grainient
-					color1={'#11304b'}	
-					color2={'#21354a'}
-					color3={'#28272b'}
-					// 	color1="#192d36"
+					// color1="#192d36"
 					// color2="#21354a"
+					color3="#28272b"
+					color1="#192d36"
+					color2="#21354a"
 					// color3="#404b4d"
 					timeSpeed={0.3}
 					colorBalance={-0.5}
@@ -132,7 +132,7 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 					<div className="flex h-20 items-center justify-between px-8">
 						<div>
 							{title && (
-								<h1 className="text-xl font-bold bg-linear-to-r from-chart-5 to-muted bg-clip-text text-transparent">
+								<h1 className="text-xl font-bold bg-linear-to-r from-chart-5 to-muted-foreground bg-clip-text text-transparent">
 									{title}
 								</h1>
 							)}

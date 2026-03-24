@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { inngest } from "@/inngest";
 import { z } from "zod";
+import { inngest } from "@/inngest";
 import { requireAuthOrBearer } from "@/lib/auth/api-auth";
 
 // Schema for internal UI signals
@@ -9,7 +9,7 @@ const uiSignalSchema = z.object({
 	payload: z.any(),
 });
 
-// Schema for Platform / Agent Callbacks
+// Schema for Platform
 const agentCallbackSchema = z.object({
 	workflowId: z.union([z.string(), z.number()]).optional(),
 	agentId: z.string().optional(),
@@ -31,7 +31,7 @@ const agentCallbackSchema = z.object({
  * POST /api/workflows/[id]/signal
  * Signal a running workflow via Inngest events. Supports:
  * 1. Internal UI Signals ({ signalName, payload })
- * 2. External Agent Webhooks (Direct JSON payload)
+ *
  */
 export async function POST(
 	request: NextRequest,
@@ -62,7 +62,7 @@ export async function POST(
 					name: "onboarding/quality-gate-passed",
 					data: {
 						workflowId,
-						approverId: "human_reviewer", // Defaulting to generic human reviewer as specific ID isn't passed in UI signal yet
+						approverId: "human_reviewer",
 						timestamp: new Date().toISOString(),
 					},
 				});
