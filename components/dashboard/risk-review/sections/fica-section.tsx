@@ -1,7 +1,7 @@
 import { CheckCircle2, FileCheck, Fingerprint, Home, Landmark } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { RiskReviewBadge } from "@/components/dashboard/risk-review/risk-review-badge";
 import { SectionStatusBanner } from "@/components/dashboard/risk-review/section-status-banner";
+import { Card } from "@/components/ui/card";
 import type { RiskReviewData, SectionStatus } from "@/lib/risk-review/types";
 
 export function FicaSection({
@@ -19,7 +19,9 @@ export function FicaSection({
 					<FileCheck className="w-5 h-5 text-chart-4" />
 					<h3 className="font-medium text-foreground">KYC / FICA Verification</h3>
 				</div>
-				<p className="text-xs text-muted-foreground">Last verified: {data.lastVerified}</p>
+				<p className="text-xs text-muted-foreground">
+					Last verified: {data.lastVerified}
+				</p>
 			</div>
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 				<Card className="p-6 md:col-span-2">
@@ -36,7 +38,9 @@ export function FicaSection({
 					</div>
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 						{data.identity.map((person, idx) => (
-							<div key={idx} className="p-4 bg-muted/20 rounded-lg border border-border/50">
+							<div
+								key={idx}
+								className="p-4 bg-muted/20 rounded-lg border border-border/50">
 								<div className="flex items-start justify-between mb-3">
 									<div>
 										<p className="font-medium text-foreground">{person.name}</p>
@@ -68,7 +72,9 @@ export function FicaSection({
 					<div className="space-y-4">
 						<div>
 							<p className="text-xs text-muted-foreground mb-1">Declared Address</p>
-							<p className="text-sm text-foreground font-medium">{data.residence.address}</p>
+							<p className="text-sm text-foreground font-medium">
+								{data.residence.address}
+							</p>
 						</div>
 						<div className="grid grid-cols-2 gap-3 pt-2">
 							<div>
@@ -81,7 +87,9 @@ export function FicaSection({
 									<p className="text-sm font-medium text-chart-4">
 										{data.residence.ageInDays} Days Old
 									</p>
-									<RiskReviewBadge variant="success">{data.residence.status}</RiskReviewBadge>
+									<RiskReviewBadge variant="success">
+										{data.residence.status}
+									</RiskReviewBadge>
 								</div>
 							</div>
 						</div>
@@ -110,7 +118,9 @@ export function FicaSection({
 						<div className="p-3 bg-muted/20 rounded-lg border border-border/50">
 							<div className="flex items-center justify-between mb-2">
 								<span className="text-xs text-muted-foreground">Bank AVS Response</span>
-								<RiskReviewBadge variant="success">{data.banking.avsStatus}</RiskReviewBadge>
+								<RiskReviewBadge variant="success">
+									{data.banking.avsStatus}
+								</RiskReviewBadge>
 							</div>
 							<p className="text-xs text-muted-foreground">{data.banking.avsDetails}</p>
 						</div>

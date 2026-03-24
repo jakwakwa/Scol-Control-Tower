@@ -1,10 +1,10 @@
 import {
 	RiDashboardLine,
 	RiFileList3Line, // Application icon
+	RiQuestionLine, // Help
+	RiSettings4Line, // Settings
 	RiShieldCheckLine, // Risk icon
 	RiTeamLine, // Clients icon
-	RiSettings4Line, // Settings
-	RiQuestionLine, // Help
 } from "@remixicon/react";
 
 export const START_COL_NAV_ITEMS = [

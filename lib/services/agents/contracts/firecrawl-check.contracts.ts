@@ -257,10 +257,9 @@ export type SocialReputationCheckResult = z.infer<
 // Family Contracts - Medium Confidence Regulator
 // ============================================
 
-export const MediumConfidenceRegulatorCheckRequestSchema =
-	CheckRequestBaseSchema.extend({
-		provider: MediumConfidenceRegulatorProviderSchema,
-	});
+export const MediumConfidenceRegulatorCheckRequestSchema = CheckRequestBaseSchema.extend({
+	provider: MediumConfidenceRegulatorProviderSchema,
+});
 export type MediumConfidenceRegulatorCheckRequest = z.infer<
 	typeof MediumConfidenceRegulatorCheckRequestSchema
 >;

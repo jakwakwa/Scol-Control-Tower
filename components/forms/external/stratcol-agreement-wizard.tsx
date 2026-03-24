@@ -11,8 +11,11 @@ import {
 import * as React from "react";
 import type { Resolver } from "react-hook-form";
 import { FormProvider, useFieldArray, useForm } from "react-hook-form";
-import { FormStep, FormWizard } from "@/components/onboarding-forms/form-wizard";
-import { SignatureCanvas } from "@/components/onboarding-forms/signature-canvas";
+import {
+	FormStep,
+	FormWizard,
+} from "@/components/forms/external/onboarding-forms/form-wizard";
+import { SignatureCanvas } from "@/components/forms/external/onboarding-forms/signature-canvas";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";

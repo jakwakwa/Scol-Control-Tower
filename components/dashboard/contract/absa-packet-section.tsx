@@ -4,7 +4,7 @@ import { RiFileUploadLine } from "@remixicon/react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { GlassCard } from "@/components/dashboard";
-import { Absa6995Form } from "@/components/onboarding-forms";
+import { Absa6995Form } from "@/components/forms/external/onboarding-forms";
 import AsyncActionButton from "@/components/shared/async-action-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -153,13 +153,9 @@ export function AbsaPacketSection({
 				<p className="text-base uppercase text-secondary-foreground font-medium">
 					{absaPacketContent.label}
 				</p>
-				<p className="text-stone-300/70 mt-1">
-					{absaPacketContent.description}
-				</p>
+				<p className="text-stone-300/70 mt-1">{absaPacketContent.description}</p>
 				{disabled && (
-					<p className="text-sm text-amber-300/80 mt-2">
-						{absaPacketContent.lockedHint}
-					</p>
+					<p className="text-sm text-amber-300/80 mt-2">{absaPacketContent.lockedHint}</p>
 				)}
 			</div>
 
