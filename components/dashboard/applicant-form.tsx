@@ -44,6 +44,7 @@ export function ApplicantForm({
 		defaultValues: {
 			companyName: initialData?.companyName || "",
 			registrationNumber: initialData?.registrationNumber || "",
+			vatNumber: initialData?.vatNumber || "",
 			contactName: initialData?.contactName || "",
 			idNumber: initialData?.idNumber || "",
 			email: initialData?.email || "",
@@ -79,6 +80,7 @@ export function ApplicantForm({
 		form.reset({
 			companyName: `${isTestMode ? "Jacob Kotze" : "Test Company Inc"}`,
 			registrationNumber: `${isTestMode ? "0787173160001" : "2024/123456/07"}`,
+			vatNumber: "4420106777",
 			contactName: `${isTestMode ? "Jacob Kotzee" : "John Test"}`,
 			idNumber: `${isTestMode ? "8503195187088" : ""}`,
 			email: `${isTestMode ? "jkotzee@icloud.com" : "john.test@testcompany.co.za"}`,
@@ -107,6 +109,7 @@ export function ApplicantForm({
 					body: JSON.stringify({
 						...data,
 						idNumber: data.idNumber?.trim() || undefined,
+						vatNumber: data.vatNumber?.trim() || undefined,
 						employeeCount: data.employeeCount
 							? parseInt(data.employeeCount, 10)
 							: undefined,
@@ -262,6 +265,22 @@ export function ApplicantForm({
 								{...register("industry")}
 								className="border-input-border"
 							/>
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="vatNumber">VAT Number (Optional)</Label>
+							<Input
+								id="vatNumber"
+								placeholder="10-digit VAT number"
+								maxLength={10}
+								{...register("vatNumber")}
+								className={cn(
+									errors.vatNumber ? "border-red-500" : "border-input-border"
+								)}
+							/>
+							{errors.vatNumber && (
+								<p className="text-xs text-red-500">{errors.vatNumber.message}</p>
+							)}
 						</div>
 
 						<div className="space-y-2">

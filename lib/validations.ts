@@ -36,6 +36,11 @@ export const createApplicantSchema = z.object({
 	contactName: z.string().min(2, "Contact name must be at least 2 characters"),
 	email: z.string().email("Invalid email address"),
 	phone: z.string().optional(),
+	vatNumber: z
+		.string()
+		.regex(/^\d{10}$/, "VAT number must be exactly 10 digits")
+		.optional()
+		.or(z.literal("")),
 	idNumber: z
 		.string()
 		.regex(/^\d{13}$/, "ID number must be exactly 13 digits")

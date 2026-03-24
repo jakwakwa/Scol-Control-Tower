@@ -56,12 +56,15 @@ export async function PUT(
 		}
 
 		const data = validation.data;
+		const normalizedVatNumber =
+			data.vatNumber === undefined ? undefined : data.vatNumber.trim() || null;
 
 		// Perform update
 		const updatedApplicantResults = await db
 			.update(applicants)
 			.set({
 				...data,
+				vatNumber: normalizedVatNumber,
 				updatedAt: new Date(),
 			})
 			.where(eq(applicants.id, id))

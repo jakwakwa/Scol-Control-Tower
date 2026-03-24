@@ -31,6 +31,7 @@ export const applicants = sqliteTable("applicants", {
 	companyName: text("company_name").notNull(),
 	tradingName: text("trading_name"),
 	registrationNumber: text("registration_number"),
+	vatNumber: text("vat_number"),
 
 	// Contact Info
 	contactName: text("contact_name").notNull(),
