@@ -1,13 +1,14 @@
 import { RiArrowLeftLine } from "@remixicon/react";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDatabaseClient } from "@/app/utils";
 import { DashboardLayout } from "@/components/dashboard";
 import { RiskReviewDetail } from "@/components/dashboard/risk-review";
 import { Button } from "@/components/ui/button";
-import { applicants, riskCheckResults, workflows } from "@/db/schema";
+import { aiAnalysisLogs, applicants, riskCheckResults, workflows } from "@/db/schema";
 import { buildReportData } from "@/lib/risk-review/build-report-data";
+import { FINANCIAL_RISK_AGENT_NAME } from "@/lib/services/agents/financial-risk.agent";
 
 export default async function RiskReviewReportPage({
 	params,
@@ -54,7 +55,26 @@ export default async function RiskReviewReportPage({
 				.where(eq(riskCheckResults.workflowId, workflow.id))
 		: [];
 
-	const reportData = buildReportData(applicant, workflow, riskChecks);
+	const financialRiskRows = workflow
+		? await db
+				.select({ rawOutput: aiAnalysisLogs.rawOutput })
+				.from(aiAnalysisLogs)
+				.where(
+					and(
+						eq(aiAnalysisLogs.workflowId, workflow.id),
+						eq(aiAnalysisLogs.agentName, FINANCIAL_RISK_AGENT_NAME)
+					)
+				)
+				.orderBy(desc(aiAnalysisLogs.createdAt))
+				.limit(1)
+		: [];
+
+	const reportData = buildReportData(
+		applicant,
+		workflow,
+		riskChecks,
+		financialRiskRows[0]?.rawOutput
+	);
 
 	return (
 		<DashboardLayout

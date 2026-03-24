@@ -30,6 +30,13 @@ export async function executeStage4({
 		return updateWorkflowStatus(workflowId, "processing", 4);
 	});
 
+	await step.run("run-financial-risk-agent", async () => {
+		const { runFinancialRiskAgent } = await import(
+			"@/lib/services/agents/financial-risk.agent"
+		);
+		await runFinancialRiskAgent({ workflowId, applicantId, stage: 4 });
+	});
+
 	const gateStatus = await step.run("read-hybrid-gate", () =>
 		getHybridGateStatus(workflowId)
 	);
