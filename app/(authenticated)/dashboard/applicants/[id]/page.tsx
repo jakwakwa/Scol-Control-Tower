@@ -19,7 +19,7 @@ import {
 	RiUploadCloud2Line,
 } from "@remixicon/react";
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardLayout, GlassCard } from "@/components/dashboard";
 import GreenLanePassCard from "@/components/dashboard/applicants/green-lane-pass-card";
@@ -42,13 +42,16 @@ import { Separator } from "@/components/ui/separator";
 import { RiskBadge, StageBadge, StatusBadge } from "@/components/ui/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import type { workflows } from "@/db/schema";
 import { retryFacilitySubmission } from "@/lib/actions/workflow.actions";
 import { showTwoFactorApproval } from "@/lib/config/workflow-gates";
 import {
-	buildAgreementPreviewEntries,
 	type AgreementContractOverrides,
 	type AgreementPreviewEntry,
+	buildAgreementPreviewEntries,
 } from "@/lib/utils/agreement-defaults";
+
+type Workflow = typeof workflows.$inferSelect;
 
 interface ApplicantDetail {
 	id: number;
@@ -121,19 +124,6 @@ interface Quote {
 	createdAt?: string | number | Date | null;
 }
 
-interface Workflow {
-	id: number;
-	stage?: number | null;
-	status?: string | null;
-	salesEvaluationStatus?: string | null;
-	salesIssuesSummary?: string | null;
-	issueFlaggedBy?: string | null;
-	preRiskRequired?: number | boolean | null;
-	preRiskOutcome?: string | null;
-	applicantDecisionOutcome?: string | null;
-	applicantDeclineReason?: string | null;
-}
-
 interface ContractReviewResponse {
 	success: boolean;
 	message: string;
@@ -155,6 +145,21 @@ interface GreenLaneStatus {
 	requestedAt: string | null;
 	consumed: boolean;
 	consumedAt: string | null;
+}
+
+interface ApplicantDetailApiResponse {
+	applicant: ApplicantDetail | null;
+	documents: ApplicantDocument[];
+	applicantSubmissions: ApplicantFormSubmission[];
+	applicantMagiclinkForms: ApplicantFormInstance[];
+	riskAssessment: RiskAssessment | null;
+	quote: Quote | null;
+	workflow: Workflow | null;
+	sanctionsCheck: SanctionsCheckSnapshot | null;
+	absaPacketSent: boolean;
+	contractReviewed: boolean;
+	contractOverrides: AgreementContractOverrides | null;
+	greenLaneStatus?: GreenLaneStatus;
 }
 
 const formatDate = (value?: string | number | Date | null) => {
@@ -180,7 +185,6 @@ const formatDateTime = (value?: string | number | Date | null) => {
 export default function ApplicantDetailPage() {
 	const params = useParams();
 	const searchParams = useSearchParams();
-	const _router = useRouter();
 	const id = params.id as string;
 	const defaultTab = searchParams.get("tab") || "overview";
 	const [applicant, setApplicant] = useState<ApplicantDetail | null>(null);
@@ -240,9 +244,8 @@ export default function ApplicantDetailPage() {
 	const [contractOverrides, setContractOverrides] =
 		useState<AgreementContractOverrides | null>(null);
 	const [isEditingContract, setIsEditingContract] = useState(false);
-	const [contractDraftEdits, setContractDraftEdits] = useState<
-		AgreementContractOverrides
-	>({});
+	const [contractDraftEdits, setContractDraftEdits] =
+		useState<AgreementContractOverrides>({});
 	const [contractActionLoading, setContractActionLoading] = useState<
 		"draft" | "review" | null
 	>(null);
@@ -276,11 +279,7 @@ export default function ApplicantDetailPage() {
 		Boolean(workflow?.preRiskRequired) && !workflow?.preRiskOutcome;
 	const contractPreviewEntries =
 		applicant && workflow?.stage === 5
-			? buildAgreementPreviewEntries(
-					applicant,
-					applicantSubmissions,
-					contractOverrides
-				)
+			? buildAgreementPreviewEntries(applicant, applicantSubmissions, contractOverrides)
 			: [];
 
 	const handleEditContract = () => {
@@ -592,26 +591,20 @@ export default function ApplicantDetailPage() {
 		}
 	};
 
-	const applyApplicantPayload = useCallback((data: Record<string, unknown>) => {
-		setApplicant((data.applicant as ApplicantDetail | null) || null);
-		setDocuments((data.documents as ApplicantDocument[]) || []);
-		setApplicantSubmissions(
-			(data.applicantSubmissions as ApplicantFormSubmission[]) || []
-		);
-		setApplicantMagiclinkForms(
-			(data.applicantMagiclinkForms as ApplicantFormInstance[]) || []
-		);
-		setRiskAssessment((data.riskAssessment as RiskAssessment | null) || null);
-		setQuote((data.quote as Quote | null) || null);
-		setWorkflow((data.workflow as Workflow | null) || null);
-		setSanctionsCheck((data.sanctionsCheck as SanctionsCheckSnapshot | null) || null);
-		setAbsaPacketSent(Boolean(data.absaPacketSent));
-		setContractReviewed(Boolean(data.contractReviewed));
-		setContractOverrides(
-			(data.contractOverrides as AgreementContractOverrides | null) || null
-		);
+	const applyApplicantPayload = useCallback((data: ApplicantDetailApiResponse) => {
+		setApplicant(data.applicant);
+		setDocuments(data.documents);
+		setApplicantSubmissions(data.applicantSubmissions);
+		setApplicantMagiclinkForms(data.applicantMagiclinkForms);
+		setRiskAssessment(data.riskAssessment);
+		setQuote(data.quote);
+		setWorkflow(data.workflow);
+		setSanctionsCheck(data.sanctionsCheck);
+		setAbsaPacketSent(data.absaPacketSent);
+		setContractReviewed(data.contractReviewed);
+		setContractOverrides(data.contractOverrides);
 		setGreenLaneStatus(
-			(data.greenLaneStatus as GreenLaneStatus) ?? {
+			data.greenLaneStatus ?? {
 				signedQuotePrerequisite: false,
 				requested: false,
 				requestedBy: null,
@@ -627,7 +620,7 @@ export default function ApplicantDetailPage() {
 		if (!response.ok) {
 			throw new Error("Failed to fetch applicant");
 		}
-		const data = (await response.json()) as Record<string, unknown>;
+		const data = (await response.json()) as ApplicantDetailApiResponse;
 		applyApplicantPayload(data);
 		return data;
 	}, [id, applyApplicantPayload]);
@@ -655,7 +648,7 @@ export default function ApplicantDetailPage() {
 
 				try {
 					const data = await refreshApplicantData();
-					const latestWorkflow = (data.workflow as Workflow | null) || null;
+					const latestWorkflow = data.workflow;
 
 					if (expectedOutcome === "approved") {
 						if (
@@ -755,7 +748,7 @@ export default function ApplicantDetailPage() {
 				if (!response.ok) {
 					throw new Error("Failed to fetch applicant");
 				}
-				const data = (await response.json()) as Record<string, unknown>;
+				const data = (await response.json()) as ApplicantDetailApiResponse;
 				if (!mounted) return;
 				applyApplicantPayload(data);
 			} catch (err) {
@@ -980,16 +973,13 @@ export default function ApplicantDetailPage() {
 												⚠️ Workflow Terminated
 											</div>
 											<p className="text-sm">
-												Reason:{" "}
-												{(workflow as any)?.terminationReason ||
-													"No termination reason provided."}
+												Reason:
+												{workflow?.terminationReason || "No termination reason provided."}
 											</p>
-											{(workflow as any)?.terminatedAt && (
+											{workflow?.terminatedAt && (
 												<p className="text-xs mt-1 opacity-80">
-													Terminated at {formatDateTime((workflow as any).terminatedAt)}
-													{(workflow as any)?.terminatedBy
-														? ` by ${(workflow as any).terminatedBy}`
-														: ""}
+													Terminated at {formatDateTime(workflow.terminatedAt)}
+													{workflow?.terminatedBy ? ` by ${workflow.terminatedBy}` : ""}
 												</p>
 											)}
 										</div>
@@ -1974,44 +1964,44 @@ export default function ApplicantDetailPage() {
 											</div>
 										</GlassCard>
 									)}
-								{showTwoFactorApproval(workflow?.stage, workflow?.status) ? (
-									<GlassCard className="mb-6 border-l-4 border-l-blue-500">
-										<h4 className="text-sm font-bold uppercase text-muted-foreground mb-2">
-											Two-Factor Final Approval
-										</h4>
-										<p className="text-sm text-muted-foreground mb-4">
-											Both Risk Manager and Account Manager must approve to complete
-											onboarding.
-										</p>
-										<div className="flex flex-wrap gap-3">
-											<Button
-												onClick={() => handleTwoFactorApproval("risk_manager")}
-												disabled={approvalLoading !== null}
-												className="gap-2 bg-teal-600 hover:bg-teal-700">
-												{approvalLoading === "risk_manager" ? (
-													<RiLoader4Line className="h-4 w-4 animate-spin" />
-												) : (
-													<RiShieldCheckLine className="h-4 w-4" />
-												)}
-												RM Approve
-											</Button>
-											<Button
-												onClick={() => handleTwoFactorApproval("account_manager")}
-												disabled={approvalLoading !== null}
-												className="gap-2 bg-blue-600 hover:bg-blue-700">
-												{approvalLoading === "account_manager" ? (
-													<RiLoader4Line className="h-4 w-4 animate-spin" />
-												) : (
-													<RiCheckLine className="h-4 w-4" />
-												)}
-												AM Approve
-											</Button>
-										</div>
-										{approvalMessage && (
-											<p className="mt-3 text-sm text-amber-700">{approvalMessage}</p>
-										)}
-									</GlassCard>
-								) : null}
+									{showTwoFactorApproval(workflow?.stage, workflow?.status) ? (
+										<GlassCard className="mb-6 border-l-4 border-l-blue-500">
+											<h4 className="text-sm font-bold uppercase text-muted-foreground mb-2">
+												Two-Factor Final Approval
+											</h4>
+											<p className="text-sm text-muted-foreground mb-4">
+												Both Risk Manager and Account Manager must approve to complete
+												onboarding.
+											</p>
+											<div className="flex flex-wrap gap-3">
+												<Button
+													onClick={() => handleTwoFactorApproval("risk_manager")}
+													disabled={approvalLoading !== null}
+													className="gap-2 bg-teal-600 hover:bg-teal-700">
+													{approvalLoading === "risk_manager" ? (
+														<RiLoader4Line className="h-4 w-4 animate-spin" />
+													) : (
+														<RiShieldCheckLine className="h-4 w-4" />
+													)}
+													RM Approve
+												</Button>
+												<Button
+													onClick={() => handleTwoFactorApproval("account_manager")}
+													disabled={approvalLoading !== null}
+													className="gap-2 bg-blue-600 hover:bg-blue-700">
+													{approvalLoading === "account_manager" ? (
+														<RiLoader4Line className="h-4 w-4 animate-spin" />
+													) : (
+														<RiCheckLine className="h-4 w-4" />
+													)}
+													AM Approve
+												</Button>
+											</div>
+											{approvalMessage && (
+												<p className="mt-3 text-sm text-amber-700">{approvalMessage}</p>
+											)}
+										</GlassCard>
+									) : null}
 								</div>
 							</TabsContent>
 						</Tabs>
@@ -2033,7 +2023,7 @@ export default function ApplicantDetailPage() {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-			;
+
 			<AlertDialog open={killSwitchDialogOpen} onOpenChange={setKillSwitchDialogOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
@@ -2057,7 +2047,6 @@ export default function ApplicantDetailPage() {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-			;
 			<AlertDialog open={declineDialogOpen} onOpenChange={setDeclineDialogOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
@@ -2074,7 +2063,6 @@ export default function ApplicantDetailPage() {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-			;
 		</>
 	);
 }
