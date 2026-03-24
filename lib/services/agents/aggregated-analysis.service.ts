@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import { aiAnalysisLogs, riskAssessments, workflowEvents } from "@/db/schema";
+import { parseVatStatus } from "@/lib/risk-review/parsers/vat.parser";
 import {
 	createWorkflowNotification,
 	logWorkflowEvent,
@@ -708,13 +709,19 @@ async function storeAnalysisResult(
 		});
 
 		const vatCheck = result.externalChecks.sarsVatSearch;
-		const vatStatus = vatCheck.result as
+		const vatCheckResult = vatCheck.result as
 			| {
 					verified?: boolean;
 					vatNumber?: string;
 					tradingName?: string;
+					runtimeState?: string;
 			  }
 			| undefined;
+		const derivedVatStatus = parseVatStatus(
+			vatCheck.status,
+			vatCheckResult?.runtimeState,
+			vatCheckResult?.verified
+		);
 
 		if (existing.length > 0) {
 			await db
@@ -754,26 +761,27 @@ async function storeAnalysisResult(
 			}),
 		});
 
-		if (vatCheck.status === "live" && vatStatus?.vatNumber) {
+		if (vatCheck.status === "live" && vatCheckResult?.vatNumber) {
 			await logWorkflowEvent({
 				workflowId,
 				eventType: "vat_verification_completed",
 				payload: {
-					verified: vatStatus.verified === true,
-					vatNumber: vatStatus.vatNumber,
-					tradingName: vatStatus.tradingName,
+					verified: derivedVatStatus === "verified",
+					vatNumber: vatCheckResult.vatNumber,
+					tradingName: vatCheckResult.tradingName,
+					status: derivedVatStatus,
 				},
 			});
 
 			await createWorkflowNotification({
 				workflowId,
 				applicantId,
-				type: vatStatus.verified === true ? "success" : "warning",
+				type: derivedVatStatus === "verified" ? "success" : "warning",
 				title: "VAT Verification",
 				message:
-					vatStatus.verified === true
-						? `VAT number check passed for ${vatStatus.vatNumber}.`
-						: `VAT number check requires manual review for ${vatStatus.vatNumber}.`,
+					derivedVatStatus === "verified"
+						? `VAT number check passed for ${vatCheckResult.vatNumber}.`
+						: `VAT number check requires manual review for ${vatCheckResult.vatNumber}.`,
 				actionable: true,
 				severity: "medium",
 			});

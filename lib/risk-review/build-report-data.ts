@@ -1,3 +1,9 @@
+import {
+	parseAiAnalysisSnapshot,
+	parseMachineState,
+	parseReviewState,
+	parseVatStatus,
+} from "@/lib/risk-review/parsers/vat.parser";
 import type { RiskReviewData, SectionStatus } from "@/lib/risk-review/types";
 import type { FinancialRiskAgentResult } from "@/lib/services/agents/financial-risk.agent";
 import type { RiskCheckRow } from "@/lib/services/risk-check.service";
@@ -162,6 +168,7 @@ function mergeFica(
 			? {
 					checked: parsed.vatVerification.checked ?? false,
 					status: parsed.vatVerification.status ?? "not_checked",
+					errorState: parsed.vatVerification.errorState,
 					vatNumber: parsed.vatVerification.vatNumber,
 					tradingName: parsed.vatVerification.tradingName,
 					office: parsed.vatVerification.office,
@@ -172,55 +179,48 @@ function mergeFica(
 	};
 }
 
-type AggregatedAnalysisSnapshot = {
-	externalChecks?: {
-		sarsVatSearch?: {
-			status?: "offline" | "live";
-			result?: {
-				verified?: boolean;
-				vatNumber?: string;
-				tradingName?: string;
-				office?: string;
-				successMessage?: string;
-				failureMessage?: string;
-			};
-		};
-	};
-	metadata?: {
-		analyzedAt?: string;
-	};
-};
-
 function extractVatVerificationFromAiAnalysis(
 	aiAnalysisRaw?: string | null
 ): RiskReviewData["ficaData"]["vatVerification"] {
-	if (!aiAnalysisRaw) {
+	const parseResult = parseAiAnalysisSnapshot(aiAnalysisRaw ?? null);
+	if (!parseResult.ok) {
 		return DEFAULT_FICA.vatVerification;
 	}
 
-	const parsed = safeJsonParse<AggregatedAnalysisSnapshot | null>(aiAnalysisRaw, null);
-	const vatCheck = parsed?.externalChecks?.sarsVatSearch;
-	if (!vatCheck || vatCheck.status !== "live") {
+	const snapshot = parseResult.value;
+	const vatCheck = snapshot.externalChecks?.sarsVatSearch;
+	if (!vatCheck) {
 		return DEFAULT_FICA.vatVerification;
 	}
 
-	const verified = vatCheck.result?.verified === true;
+	const firecrawlStatus = vatCheck.status === "live" ? "live" : "offline";
+	const runtimeState = vatCheck.result?.runtimeState;
+	const verified = vatCheck.result?.verified;
+	const vatStatus = parseVatStatus(firecrawlStatus, runtimeState, verified);
+
+	const isServiceDown = vatStatus === "service_down";
+	const isErrorState =
+		vatStatus === "timeout" ||
+		vatStatus === "error" ||
+		vatStatus === "manual_review";
+
 	return {
-		checked: true,
-		status: verified ? "verified" : "not_verified",
+		checked: !isServiceDown,
+		status: vatStatus,
+		errorState: isErrorState || isServiceDown ? vatStatus : undefined,
 		vatNumber: vatCheck.result?.vatNumber,
 		tradingName: vatCheck.result?.tradingName,
 		office: vatCheck.result?.office,
 		message: vatCheck.result?.successMessage || vatCheck.result?.failureMessage,
-		checkedAt: parsed?.metadata?.analyzedAt,
+		checkedAt: snapshot.metadata?.analyzedAt,
 	};
 }
 
 function buildSectionStatus(check: RiskCheckRow | undefined): SectionStatus {
 	if (!check) return DEFAULT_SECTION_STATUS;
 	return {
-		machineState: check.machineState as SectionStatus["machineState"],
-		reviewState: check.reviewState as SectionStatus["reviewState"],
+		machineState: parseMachineState(check.machineState),
+		reviewState: parseReviewState(check.reviewState),
 		provider: check.provider ?? undefined,
 		errorDetails: check.errorDetails ?? undefined,
 	};
