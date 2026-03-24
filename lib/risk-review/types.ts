@@ -82,5 +82,6 @@ export interface RiskReviewData {
 			avsStatus: string;
 			avsDetails: string;
 		};
+		documentAiResult?: Array<{ type: string; value: string }>;
 	};
 }

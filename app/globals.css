@@ -95,11 +95,11 @@
       rgba(78, 56, 14, 0.685),
       rgba(26, 23, 31, 0.772));
   --gradient-top-left: linear-gradient(225deg,
-      rgba(28, 30, 34, 0.296),
+      rgba(76, 95, 134, 0.296),
       rgba(26, 30, 35, 0.449),
       rgba(15, 18, 21, 0.809));
   --gradient-bottom-left: linear-gradient(315deg,
-      rgb(20, 24, 28),
+      rgb(14, 38, 49),
       rgba(44, 41, 37, 0.972),
       rgba(9, 38, 61, 0.576));
   --gradient-radial: radial-gradient(#ffe169ff,
@@ -123,13 +123,13 @@
   --charcoal-700: #222226;
   --charcoal-800: #121215a5;
   --charcoal-900: #0e0e10;
-  --background: #0a141b;
+  --background: #0f1315;
   --foreground: #b69a80;
-  --card: #0c12167d;
-  --card-foreground: var(--gold-100);
+  --card: #13110769;
+  --card-foreground: var(--charcoal-200);
   --popover: var(--dark-goldenrod);
-  --popover-foreground: var(--gold-200);
-  --primary: #ab8846;
+  --popover-foreground: var(--gold-100);
+  --primary: #b89d6c;
   --primary-foreground: hsla(180, 68%, 57%, 0.8);
   --secondary: var(--charcoal-500);
   --secondary-foreground: var(--charcoal-100);
@@ -143,7 +143,7 @@
   --input: var(--charcoal-900);
   --ring: var(--gold-500);
   /* teal focus ring                  */
-  --chart-1: #f5c87e;
+  --chart-1: #d5c09e;
   /* gold-500                        */
   --chart-2: #1ad42a;
   /* bright green (chart accent)     */
@@ -157,11 +157,11 @@
   /* 14px — premium rounded feel     */
   --sidebar: #0f0e0d2c;
   /* charcoal-800                    */
-  --sidebar-foreground: var(--gold-200);
+  --sidebar-foreground: var(--gold-100);
   --sidebar-primary: var(--gold-100);
   --sidebar-primary-foreground: var(--charcoal-500);
   --sidebar-accent: #c1a68f9d;
-  --sidebar-accent-foreground: var(--gold-200);
+  --sidebar-accent-foreground: var(--gold-300);
   --sidebar-border: #7b7aa117;
   --sidebar-ring: var(--gold-100);
 }
@@ -296,7 +296,7 @@
 
   .surface-card > :first-child {
     background: transparent !important;
-    background: #21202019 !important;
+    background: #2d1e0848 !important;
     border-radius: 0.3rem !important;
     color: rgb(123, 99, 57) !important;
     padding: 5px 15px !important;
@@ -327,7 +327,7 @@
     inset: 0;
     /* z-index: 0; */
     padding: 20px !important;
-    /* background-color: var(--charcoal-800) !important; */
+    /* background-color: var(--charcoal-900) !important; */
     padding-bottom: 40px !important;
     margin-bottom: 20px !important;
     overflow: hidden;
@@ -350,7 +350,7 @@
     margin-bottom: 10px !important;
     border: 1px solid rgb(18, 20, 24) !important;
     overflow: initial !important;
-    background-color: var(--charcoal-800) !important;
+    background-color: var(--charcoal-600) !important;
     /* background-image: var(--gradient-bottom-left), var(--gradient-top-right) !important; */
     overflow: hidden;
     border-radius: 40px !important;
@@ -569,6 +569,36 @@
     @apply border-border outline-ring/50;
     scrollbar-width: 3px !important;
     scrollbar-color: #1515143f transparent !important;
+  }
+
+  td,
+  td > div,
+  td > div > span,
+  td > div > div {
+    font-size: 0.7rem !important;
+    font-weight: 300 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+
+  }
+
+  th > span,
+  th > button {
+    font-size: 0.6rem !important;
+    font-weight: 300 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: start !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    margin-left: 11px !important;
+
+    min-width: 100% !important;
+    background-color: transparent !important;
+    text-align: left !important;
+    text-transform: uppercase !important;
   }
 
   label {

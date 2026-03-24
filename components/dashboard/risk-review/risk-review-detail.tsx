@@ -183,7 +183,11 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 							/>
 						)}
 						{primaryTab === "fica" && (
-							<FicaSection data={ficaData} status={data.sectionStatuses?.fica} />
+							<FicaSection
+								data={ficaData}
+								status={data.sectionStatuses?.fica}
+								applicantId={data.applicantId}
+							/>
 						)}
 					</div>
 				</div>

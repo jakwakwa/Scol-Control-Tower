@@ -95,11 +95,11 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 		<>
 			<div style={{ width: "100vw", height: "1080px", position: "fixed", zIndex: "-2" }}>
 				<Grainient
-					// color1="#192d36"
+					color1="#266d7b"
 					// color2="#21354a"
-					color3="#28272b"
-					color1="#192d36"
-					color2="#21354a"
+					color3="#26353d"
+					// color1="#7d5c16"
+					color2="#0c141d"
 					// color3="#404b4d"
 					timeSpeed={0.3}
 					colorBalance={-0.5}

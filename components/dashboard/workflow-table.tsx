@@ -264,7 +264,7 @@ export const columns: ColumnDef<WorkflowRow>[] = [
 	{
 		accessorKey: "stage",
 		header: () => (
-			<span className="-ml-4 font-light hover:bg-transparent hover:text-foreground">
+			<span className="-ml-4 text-sm font-medium align-self-center text-center min-w-full	 hover:bg-transparent hover:text-foreground">
 				Stage
 			</span>
 		),
@@ -339,7 +339,7 @@ export const columns: ColumnDef<WorkflowRow>[] = [
 	},
 	{
 		id: "actions",
-		header: () => <span className="-ml-4 font-light text-xs uppercase">Actions</span>,
+		header: () => <span className="-ml-4 hidden font-light text-xs uppercase">Actions</span>,
 		cell: ({ row, table }) => {
 			const meta = table.options.meta as {
 				onManualOverride: (data: WorkflowRow) => void;
