@@ -1,0 +1,69 @@
+---
+title: "Browser-flow stage 1–3: RHF automation sync and applicant POST field persistence"
+description: "Agent-browser could not submit new applicants until RHF received native input/change events; poll loops must use fractional sleep in seconds. Restored registrationNumber and mandateType on createApplicantSchema and POST insert after Zod stripped unknown keys."
+type: fix
+status: resolved
+date: 2026-03-25
+---
+
+# Browser-flow stage 1–3: RHF automation sync and applicant POST field persistence
+
+## Overview
+
+Stage 1–3 browser-flow runs could show **many `GET /api/applicants` and no `POST /api/applicants`**, or “success” paths that **did not persist** registration and mandate data. The fixes span **test automation** (React Hook Form + `agent-browser`), **shell timing** (`sleep` units), and **API/schema alignment** (Zod + Drizzle insert). Operational lessons: **browser verification is mandatory** for this surface, and **do not `git commit` / `git push` unless the user explicitly asks.**
+
+## Symptoms
+
+- After “filling” the new applicant form in `agent-browser`, submit did not result in a created applicant (or navigation stayed on `/dashboard/applicants/new`).
+- Logs showed **no POST** to `/api/applicants` while the UI looked filled (DOM-only updates).
+- **Registration number / mandate type** collected in the dashboard form did not appear in persisted applicant rows even when create “worked,” because the server schema/insert omitted those keys while Zod **stripped** extras from the body.
+- A post-submit URL poll loop accidentally used **`sleep 250`** (250 **seconds** per iteration on typical macOS/bash), making waits effectively infinite.
+
+## Root cause
+
+1. **React Hook Form vs DOM `fill`:** `agent-browser fill` (and similar) sets the DOM `value` only. RHF keeps internal state until React sees **`input` / `change`** events that bubble. Automation submitted while RHF still held empty defaults, so client validation blocked submit or no meaningful POST fired.
+2. **Zod object parsing + missing insert mapping:** `createApplicantSchema` did not include `registrationNumber` / `mandateType`. Unknown keys are stripped on `safeParse`; the route `insert` did not map those columns, so values never reached the database despite the client sending them in `JSON.stringify({ ...data })`.
+
+## Implemented fix
+
+### 1) RHF-safe field entry in `tests/browser-flow/stage1-3.sh`
+
+- Build a JSON payload (e.g. with `bun -e`) for company, CIPC-style registration, contact, email, volumes.
+- Use **`agent-browser eval`** with a **`setNative` helper**: get the native `value` setter from `HTMLInputElement` / `HTMLTextAreaElement` prototype, set the value, then dispatch **`input`** and **`change`** with `{ bubbles: true }` for each real field (`#companyName`, `#registrationNumber`, etc.).
+- Submit with **`button[type="submit"]`** (scroll into view + click).
+- Poll for `/dashboard/applicants/<id>` with **`sleep 0.25`** (seconds → ~250 ms), not `sleep 250`.
+- If the URL lacks an id, poll **`GET /api/applicants`** and match by **email or company name** (avoid “latest id” heuristics).
+
+### 2) Restore server create schema and persistence
+
+- **`lib/validations.ts`:** `createApplicantBaseSchema` adds optional **`registrationNumber`** and **`mandateType`** (`dashboardApplicantMandateTypeEnum` aligned with the form Select). **`createApplicantSchema`** applies **`superRefine`** consistent with [`lib/validations/schemas/applicant.schema.ts`](../../../lib/validations/schemas/applicant.schema.ts): **proprietor** requires **13-digit `idNumber`**; **non-proprietor** (including missing `entityType`) requires **non-empty registration** after trim; optional `idNumber` format check when present.
+- **`app/api/applicants/route.ts`:** `insert` includes **`registrationNumber`** and **`mandateType`** (trim / null as appropriate).
+- **`components/dashboard/applicant-form.tsx`:** POST body explicitly **`trim()`**s **`registrationNumber`** and **`mandateType`** to `undefined` when empty, matching other fields.
+
+### 3) Process / verification discipline
+
+- Run **`bun run test:browser:stage1-3`** (with `dev:browser-flow` or equivalent on `BROWSER_FLOW_PORT`, default **3100**) after changes to this flow.
+- **No commit or push** unless the user explicitly requests it.
+
+## Verification evidence
+
+- `bun run test:browser:stage1-3`: **pass** (preflight, Clerk sign-in, form fill via native setter + events, redirect to `/dashboard/applicants/<id>`, overview/reviews/risk tabs, dashboard/workflows screenshots).
+- `bun run build`: **pass** after schema/route/form updates.
+
+## Prevention
+
+- Treat **`bun run test:browser:stage1-3`** as a **default gate** when touching applicant intake, `createApplicantSchema`, or `POST /api/applicants`.
+- Prefer asserting a real **POST** or **read-back** (API/DB) over “the form looked filled.”
+- **Never assume `sleep N` is milliseconds** — POSIX `sleep` is **seconds**; use fractional seconds (e.g. `0.25`) or event-based waits.
+- When automating **RHF**, avoid raw `fill` unless you confirm **`onChange` paths** fire; use **native value + `input`/`change`** or documented patterns from [`.cursor/skills/browser-flow-test-runner/SKILL.md`](../../../.cursor/skills/browser-flow-test-runner/SKILL.md).
+- Keep **client** [`applicant.schema.ts`](../../../lib/validations/schemas/applicant.schema.ts) and **server** `createApplicantSchema` rules in sync (required fields, enums, trims).
+- **Do not commit or push** without an explicit user instruction.
+
+## Related documentation
+
+- [`docs/issues/integration-issues/2026-03-23-inngest-workflow-stage-transitions-browser-flow-tests.mdx`](2026-03-23-inngest-workflow-stage-transitions-browser-flow-tests.mdx) — browser-flow stack, seeds, stage handoff, Inngest runtime expectations.
+- [`docs/issues/2026-03-23-fix-stage6-inngest-workflow-stuck.mdx`](../2026-03-23-fix-stage6-inngest-workflow-stuck.mdx) — adjacent workflow-stage debugging in the same test family.
+- [`docs/user-guides/e2e-testing.mdx`](../../user-guides/e2e-testing.mdx) — Playwright vs `test:browser:*` distinction.
+- [`tests/browser-flow/_lib.sh`](../../../tests/browser-flow/_lib.sh) — shared env, `BASE_URL`, Clerk login helpers, screenshots.
+- [`setup-browser-flow-dev.sh`](../../../setup-browser-flow-dev.sh) — `dev:browser-flow` entrypoint (port 3100, test DB push, Inngest URL).
+- [`scripts/verify-browser-flow-preflight.ts`](../../../scripts/verify-browser-flow-preflight.ts) — preflight before `test:browser:*`.
