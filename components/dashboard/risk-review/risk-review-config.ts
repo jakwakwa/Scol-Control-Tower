@@ -24,10 +24,13 @@ export const MACHINE_STATE_CONFIG: Record<
 	manual_required: { label: "Manual Review Required", icon: "⚠" },
 };
 
-export const REVIEW_STATE_CONFIG: Record<SectionStatus["reviewState"], { label: string }> = {
+export const REVIEW_STATE_CONFIG: Record<
+	SectionStatus["reviewState"],
+	{ label: string }
+> = {
 	pending: { label: "Awaiting Review" },
 	acknowledged: { label: "Acknowledged" },
 	approved: { label: "Approved" },
 	rejected: { label: "Rejected" },
-	not_required: { label: "N/A" },
+	not_required: { label: "Not Required" },
 };

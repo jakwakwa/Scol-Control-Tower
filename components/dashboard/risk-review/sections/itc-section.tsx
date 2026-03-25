@@ -25,9 +25,7 @@ function formatZARFromCents(cents: number): string {
 	}).format(cents / 100);
 }
 
-function volatilityVariant(
-	score: number
-): "success" | "warning" | "danger" {
+function volatilityVariant(score: number): "success" | "warning" | "danger" {
 	if (score <= 30) return "success";
 	if (score <= 70) return "warning";
 	return "danger";
@@ -172,7 +170,10 @@ function StabilityCard({ s }: { s: FinancialRiskAnalysisResult["stability"] }) {
 					) : (
 						<div className="flex flex-wrap gap-1.5">
 							{s.debtIndicators.map((d, i) => (
-								<RiskReviewBadge key={i} variant="warning" className="max-w-full truncate">
+								<RiskReviewBadge
+									key={i}
+									variant="warning"
+									className="max-w-full truncate">
 									{d}
 								</RiskReviewBadge>
 							))}
@@ -198,17 +199,26 @@ function StabilityCard({ s }: { s: FinancialRiskAnalysisResult["stability"] }) {
 	);
 }
 
-function CreditRiskCard({ cr, overall }: { cr: FinancialRiskAnalysisResult["creditRisk"]; overall: number }) {
+function CreditRiskCard({
+	cr,
+	overall,
+}: {
+	cr: FinancialRiskAnalysisResult["creditRisk"];
+	overall: number;
+}) {
 	return (
 		<Card className="p-6 border-l-4 border-l-primary/40">
-			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				<div className="flex flex-col items-center justify-center bg-muted/20 rounded-xl p-4">
-					<ScoreGauge score={cr.riskScore} label="Credit risk score" max={100} />
-					<RiskReviewBadge variant={riskCategoryVariant(cr.riskCategory)} className="mt-3">
+			<div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+				<div className="flex flex-col items-center justify-center bg-muted/20 rounded-xl px-0">
+					<ScoreGauge score={cr.riskScore} label="AI Statements Score" max={100} />
+					<RiskReviewBadge
+						variant={riskCategoryVariant(cr.riskCategory)}
+						className="mt-3">
 						{cr.riskCategory.replace("_", " ")}
 					</RiskReviewBadge>
 					<p className="text-xs text-muted-foreground mt-2 text-center">
-						Overall assessment: <span className="font-medium text-foreground">{overall}</span>
+						Overall assessment:{" "}
+						<span className="font-medium text-foreground">{overall}</span>
 						/100
 					</p>
 				</div>
@@ -218,7 +228,9 @@ function CreditRiskCard({ cr, overall }: { cr: FinancialRiskAnalysisResult["cred
 						<p className="text-2xl font-bold text-foreground mt-1">
 							{cr.affordabilityRatio.toFixed(2)}
 						</p>
-						<p className="text-xs text-muted-foreground mt-1">&gt;1 suggests income exceeds expenses</p>
+						<p className="text-xs text-muted-foreground mt-1">
+							&gt;1 suggests income exceeds expenses
+						</p>
 					</div>
 					<div>
 						<div className="flex items-center gap-2 mb-2">
@@ -242,14 +254,19 @@ function CreditRiskCard({ cr, overall }: { cr: FinancialRiskAnalysisResult["cred
 					<div>
 						<div className="flex items-center gap-2 mb-2">
 							<Activity className="w-4 h-4 text-chart-4" />
-							<span className="text-sm font-medium text-foreground">Positive indicators</span>
+							<span className="text-sm font-medium text-foreground">
+								Positive indicators
+							</span>
 						</div>
 						{cr.positiveIndicators.length === 0 ? (
 							<p className="text-xs text-muted-foreground">None listed</p>
 						) : (
 							<ul className="flex flex-wrap gap-1.5">
 								{cr.positiveIndicators.map((p, i) => (
-									<RiskReviewBadge key={i} variant="success" className="text-left whitespace-normal">
+									<RiskReviewBadge
+										key={i}
+										variant="success"
+										className="text-left whitespace-normal">
 										{p}
 									</RiskReviewBadge>
 								))}
@@ -340,7 +357,7 @@ export function ItcSection({
 							AI bank statement analysis
 						</span>
 						<span className="text-xs text-muted-foreground sm:ml-auto">
-							Gemini · Complementary to bureau / XDS data
+							Ai Analysis · Complementary to bureau
 						</span>
 					</div>
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">

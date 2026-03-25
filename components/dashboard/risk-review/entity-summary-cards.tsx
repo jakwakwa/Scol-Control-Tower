@@ -1,6 +1,6 @@
 import { Building2 } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { RiskReviewBadge } from "@/components/dashboard/risk-review/risk-review-badge";
+import { Card } from "@/components/ui/card";
 import type { RiskReviewData } from "@/lib/risk-review/types";
 
 export function EntitySummaryCards({
@@ -16,7 +16,9 @@ export function EntitySummaryCards({
 						<Building2 className="w-6 h-6 text-primary" />
 					</div>
 					<div>
-						<h2 className="text-xl font-semibold text-foreground">{globalData.entity.name}</h2>
+						<h2 className="text-xl font-semibold text-foreground">
+							{globalData.entity.name}
+						</h2>
 						<p className="text-sm text-muted-foreground">
 							Reg: {globalData.entity.registrationNumber} • {globalData.entity.entityType}
 						</p>
@@ -30,12 +32,14 @@ export function EntitySummaryCards({
 				</div>
 			</Card>
 
-			<Card className="col-span-1 p-6 relative overflow-hidden flex flex-col items-center justify-center">
-				<div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
+			<Card className="col-span-1 p-6 relative overflow-hidden flex flex-col items-center w-full justify-center">
+				{/* <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl" /> */}
 				<h3 className="text-xs text-muted-foreground font-medium mb-1 uppercase tracking-wider">
 					Overall Risk Score
 				</h3>
-				<p className="text-2xl font-bold text-chart-5 mb-2">{globalData.overallRiskScore}</p>
+				<p className="text-2xl font-bold text-chart-5 mb-2">
+					{globalData.overallRiskScore}
+				</p>
 				<p className="text-xs text-muted-foreground text-center">
 					Calculated from all modules
 				</p>

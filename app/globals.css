@@ -95,7 +95,7 @@
       rgba(78, 56, 14, 0.685),
       rgba(26, 23, 31, 0.772));
   --gradient-top-left: linear-gradient(225deg,
-      rgba(76, 95, 134, 0.296),
+      rgba(167, 91, 36, 0.296),
       rgba(26, 30, 35, 0.449),
       rgba(15, 18, 21, 0.809));
   --gradient-bottom-left: linear-gradient(315deg,
@@ -125,7 +125,7 @@
   --charcoal-900: #0e0e10;
   --background: #0f1315;
   --foreground: #b69a80;
-  --card: #13110769;
+  --card: #0d0c07ae;
   --card-foreground: var(--charcoal-200);
   --popover: var(--dark-goldenrod);
   --popover-foreground: var(--gold-100);
@@ -137,8 +137,8 @@
   --muted-foreground: #999386;
   --accent: #02050c36;
   --accent-foreground: var(--gold-100);
-  --destructive: #ce261d;
-  --destructive-foreground: #f46169;
+  --destructive: #d33049;
+  --destructive-foreground: #f1868c;
   --border: #171208e3;
   --input: var(--charcoal-900);
   --ring: var(--gold-500);
@@ -176,7 +176,7 @@
   /* charcoal-900 — deepest surface  */
   --foreground: #6c5c43;
   /* warm white — primary text       */
-  --card: #1b1b23;
+  --card: #251d04;
   /* charcoal-700 — card surfaces    */
   --card-foreground: #d3b37e;
   --popover: #1c1c1e;
@@ -296,20 +296,22 @@
 
   .surface-card > :first-child {
     background: transparent !important;
-    background: #2d1e0848 !important;
-    border-radius: 0.3rem !important;
+    /* background: #b5afa70b !important; */
+    border-radius: 0.8rem !important;
     color: rgb(123, 99, 57) !important;
     padding: 5px 15px !important;
     font-size: 11.5px !important;
+    backdrop-filter: blur(10px);
     margin: 0px !important;
     padding-left: 2px !important;
   }
 
   .surface-card > :last-child {
-    background: #21202019 !important;
+    background: transparent !important;
     border-radius: 0.4rem !important;
     color: rgb(123, 114, 98) !important;
-    padding: 5px 2px !important;
+    backdrop-filter: blur(10px) !important;
+    padding: 0px !important;
     font-size: 11px !important;
     margin: 0px !important;
     padding-left: 2px !important;
@@ -327,7 +329,7 @@
     inset: 0;
     /* z-index: 0; */
     padding: 20px !important;
-    /* background-color: var(--charcoal-900) !important; */
+    background-color: var(--charcoal-900) !important;
     padding-bottom: 40px !important;
     margin-bottom: 20px !important;
     overflow: hidden;
@@ -350,7 +352,7 @@
     margin-bottom: 10px !important;
     border: 1px solid rgb(18, 20, 24) !important;
     overflow: initial !important;
-    background-color: var(--charcoal-600) !important;
+    background-color: var(--charcoal-700) !important;
     /* background-image: var(--gradient-bottom-left), var(--gradient-top-right) !important; */
     overflow: hidden;
     border-radius: 40px !important;
