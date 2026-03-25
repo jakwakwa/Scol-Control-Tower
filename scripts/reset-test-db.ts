@@ -5,9 +5,9 @@
  *
  * Usage: bun run test:db:reset
  */
-import { config } from "dotenv";
 import { execSync } from "node:child_process";
 import { resolve } from "node:path";
+import { config } from "dotenv";
 
 // Load .env.test only — avoid .env.local so we use the test database
 config({ path: resolve(process.cwd(), ".env.test"), override: true });
@@ -45,13 +45,13 @@ async function reset() {
 	await client.execute("PRAGMA foreign_keys = ON");
 	client.close();
 
-	// Run migrations against test DB (uses drizzle.test.config.ts)
-	execSync("bun run db:migrate:test", {
+	// Test DB only: sync schema from db/schema.ts (never edit migration SQL to fix test drift).
+	execSync("bun run db:push:test", {
 		stdio: "inherit",
 		cwd: process.cwd(),
 	});
 
-	console.info("✅ Test database reset complete");
+	console.info("✅ Test database reset complete (drop all + drizzle-kit push)");
 }
 
 reset().catch(err => {

@@ -13,7 +13,7 @@ Use this skill to execute and troubleshoot the `tests/browser-flow` suite reliab
 2. **Clerk**: Role credentials in `.env.test` (preferred) or `.env.local`:
    - `E2E_CLERK_AM_USERNAME` / `E2E_CLERK_AM_PASSWORD`
    - `E2E_CLERK_RISKMANAGER_USERNAME` / `E2E_CLERK_RISKMANAGER_PASSWORD`
-3. **Migrations**: `bun run db:migrate:test` when the test schema changes; optional clean slate: `bun run test:db:reset`.
+3. **Test schema**: `dev:browser-flow` runs `db:push:test` (Drizzle push from `db/schema.ts`, test Turso only — do not edit migration SQL). Nuclear option: `bun run test:db:reset` (drop all tables + push).
 4. **Start the browser-flow stack** (Next + Inngest on **port 3100** by default, test DB):
    - `bun run dev:browser-flow`
    - Do **not** rely on `bun run dev` alone for these scripts; it uses `DATABASE_URL` from `.env.local`, so you would see dev data instead of the test DB.

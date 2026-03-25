@@ -43,6 +43,12 @@ if [ -z "${TEST_DATABASE_URL:-}" ]; then
 	exit 1
 fi
 
+echo "Syncing test database schema (drizzle-kit push — test Turso only)..."
+if ! bun run db:push:test; then
+	echo "ERROR: db:push:test failed. Check .env.test (TEST_DATABASE_URL, TEST_TURSO_GROUP_AUTH_TOKEN)."
+	exit 1
+fi
+
 echo "Starting browser-flow dev stack..."
 echo "  Port:            ${BROWSER_FLOW_PORT}"
 echo "  Test DB:         E2E_USE_TEST_DB=1 (TEST_DATABASE_URL)"
@@ -50,7 +56,7 @@ echo "  Inngest UI:      ${INNGEST_BASE_URL}"
 echo ""
 
 echo "Starting Inngest dev (sync to Next /api/inngest)..."
-bun x inngest-cli@latest dev -u "http://localhost:${BROWSER_FLOW_PORT}/api/inngest" &
+bun run inngest:dev -- -u "http://localhost:${BROWSER_FLOW_PORT}/api/inngest" &
 sleep 3
 
 echo "Starting Next.js on port ${BROWSER_FLOW_PORT}..."

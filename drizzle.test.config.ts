@@ -1,6 +1,6 @@
 /**
  * Drizzle config for the E2E test database.
- * Loads .env.test only — use for test:db:reset.
+ * Loads .env.test only — used by `db:push:test`, `db:migrate:test`, Studio, and `test:db:reset` (push).
  */
 import { config } from "dotenv";
 import { defineConfig } from "drizzle-kit";
