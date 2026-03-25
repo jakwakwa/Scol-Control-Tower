@@ -9,7 +9,7 @@ import { applicants, workflows } from "../db/schema";
 config({ path: resolve(process.cwd(), ".env.local"), override: false, quiet: true });
 config({ path: resolve(process.cwd(), ".env.test"), override: false, quiet: true });
 
-const target = process.env.BROWSER_FLOW_SEED_TARGET || "app";
+const target = process.env.BROWSER_FLOW_SEED_TARGET || "test";
 const isTestTarget = target === "test";
 
 const url = isTestTarget

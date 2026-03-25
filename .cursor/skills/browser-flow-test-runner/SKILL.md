@@ -9,21 +9,27 @@ Use this skill to execute and troubleshoot the `tests/browser-flow` suite reliab
 
 ## Preconditions
 
-1. Ensure role credentials exist in `.env.test` (preferred) or `.env.local`:
-   - `E2E_CLERK_AM_USERNAME`
-   - `E2E_CLERK_AM_PASSWORD`
-   - `E2E_CLERK_RISKMANAGER_USERNAME`
-   - `E2E_CLERK_RISKMANAGER_PASSWORD`
-2. Start the app + Inngest runtime together:
-   - `bun run dev:all`
-3. Run quick browser verification before tests:
-   - `agent-browser open http://localhost:3000`
+1. **Test database**: `.env.test` must define `TEST_DATABASE_URL` and `TEST_TURSO_GROUP_AUTH_TOKEN` (see `.env.test.example`). Browser-flow targets the same DB as Playwright: `getDatabaseClient()` uses `TEST_DATABASE_URL` when `E2E_USE_TEST_DB=1`.
+2. **Clerk**: Role credentials in `.env.test` (preferred) or `.env.local`:
+   - `E2E_CLERK_AM_USERNAME` / `E2E_CLERK_AM_PASSWORD`
+   - `E2E_CLERK_RISKMANAGER_USERNAME` / `E2E_CLERK_RISKMANAGER_PASSWORD`
+3. **Migrations**: `bun run db:migrate:test` when the test schema changes; optional clean slate: `bun run test:db:reset`.
+4. **Start the browser-flow stack** (Next + Inngest on **port 3100** by default, test DB):
+   - `bun run dev:browser-flow`
+   - Do **not** rely on `bun run dev` alone for these scripts; it uses `DATABASE_URL` from `.env.local`, so you would see dev data instead of the test DB.
+   - Everyday dev + Inngest on **3000** remains: `bun run dev:all`.
+5. **Point tests at the running app** (default in scripts is `http://127.0.0.1:3100`):
+   - Override with `BASE_URL` or `BROWSER_FLOW_BASE_URL`, or set `BROWSER_FLOW_PORT` (default `3100`).
+6. Quick browser smoke before tests (adjust port if needed):
+   - `agent-browser open http://127.0.0.1:3100`
    - `agent-browser wait --load networkidle`
    - `agent-browser eval 'document.querySelector("[data-nextjs-dialog], .vite-error-overlay, #webpack-dev-server-client-overlay") ? "ERROR_OVERLAY" : "OK"'`
    - `agent-browser eval 'document.body.innerText.trim().length > 0 ? "HAS_CONTENT" : "BLANK"'`
    - `agent-browser close`
 
 ## Standard Runs
+
+With `dev:browser-flow` running (default URL `http://127.0.0.1:3100`):
 
 - Stage-by-stage:
   - `bun run test:browser:stage1-3`
@@ -32,12 +38,20 @@ Use this skill to execute and troubleshoot the `tests/browser-flow` suite reliab
 - Full stack:
   - `bun run test:browser-flow-full`
 
+Screenshots use **1920×1080** viewport and **`--full`** (full page). Stage 4 captures all four risk report profile tabs (Procurement, ITC Credit, Sanctions & AML, FICA / KYC). Each stage script ends with a **`/dashboard/workflows`** capture.
+
+## Stage 6 UI approvals (optional)
+
+- Default: RM/AM approvals use `fetch` to `/api/onboarding/approve` (fast, stable).
+- For button + toast evidence: `BROWSER_FLOW_UI_APPROVALS=1 bun run test:browser:stage5-6`
+
 ## Seeded Isolated Runs
 
 Use this when stage scripts are run independently (without relying on a fresh stage1-3 handoff).
 
-1. Seed data:
+1. Seed data (writes to **`TEST_DATABASE_URL`** by default):
    - `bun run test:db:seed:browser-flow`
+   - To seed the app DB instead: `BROWSER_FLOW_SEED_TARGET=app bun run scripts/seed-browser-flow-test-data.ts`
 2. Remove stale handoff file if needed:
    - `tests/browser-flow/.applicant-id`
 3. Run isolated stages:
