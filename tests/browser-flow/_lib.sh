@@ -2,25 +2,26 @@
 # Shared helpers for browser-flow stage scripts (source from repo root context).
 # Call browser_flow_load_env after setting SCRIPT_DIR and REPO_ROOT.
 
+# .env.test first (TEST_*, E2E_*), then .env.local so Clerk keys match the dashboard (no redirect loops).
 browser_flow_load_env() {
-	if [ -f "${REPO_ROOT}/.env.local" ]; then
-		set -a
-		# shellcheck disable=SC1090
-		source "${REPO_ROOT}/.env.local"
-		set +a
-	fi
 	if [ -f "${REPO_ROOT}/.env.test" ]; then
 		set -a
 		# shellcheck disable=SC1090
 		source "${REPO_ROOT}/.env.test"
 		set +a
 	fi
+	if [ -f "${REPO_ROOT}/.env.local" ]; then
+		set -a
+		# shellcheck disable=SC1090
+		source "${REPO_ROOT}/.env.local"
+		set +a
+	fi
 }
 
-# Default app URL for browser-flow (matches dev:browser-flow port).
+# Default http://localhost — matches Next dev "Local" URL; 127.0.0.1 triggers Next 16 dev cross-origin blocks.
 browser_flow_resolve_base_url() {
 	local port="${BROWSER_FLOW_PORT:-3100}"
-	BASE_URL="${BASE_URL:-${BROWSER_FLOW_BASE_URL:-http://127.0.0.1:${port}}}"
+	BASE_URL="${BASE_URL:-${BROWSER_FLOW_BASE_URL:-http://localhost:${port}}}"
 }
 
 browser_flow_init_viewport() {
@@ -44,7 +45,8 @@ browser_flow_capture_workflows() {
 browser_flow_clerk_login() {
 	local username="$1"
 	local password="$2"
-	agent-browser wait 4000
+	agent-browser wait 5000
+	agent-browser wait 'input[name="identifier"]' 2>/dev/null || true
 	agent-browser fill 'input[name="identifier"]' "${username}" ||
 		agent-browser fill 'input[type="email"]' "${username}" ||
 		agent-browser find label "Email address" fill "${username}" ||

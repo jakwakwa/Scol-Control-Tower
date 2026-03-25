@@ -9,7 +9,7 @@ Use this skill to execute and troubleshoot the `tests/browser-flow` suite reliab
 
 ## Preconditions
 
-1. **Test database**: `.env.test` must define `TEST_DATABASE_URL` and `TEST_TURSO_GROUP_AUTH_TOKEN` (see `.env.test.example`). Browser-flow targets the same DB as Playwright: `getDatabaseClient()` uses `TEST_DATABASE_URL` when `E2E_USE_TEST_DB=1`.
+1. **Test database**: `.env.test` must define `TEST_DATABASE_URL` and `TEST_TURSO_GROUP_AUTH_TOKEN` (see `.env.test.example`). Optional `TEST_TURSO_DATABASE_NAME` / `TEST_TURSO_API_TOKEN` are for Turso CLI only. Browser-flow uses `TEST_DATABASE_URL` when `E2E_USE_TEST_DB=1`.
 2. **Clerk**: Role credentials in `.env.test` (preferred) or `.env.local`:
    - `E2E_CLERK_AM_USERNAME` / `E2E_CLERK_AM_PASSWORD`
    - `E2E_CLERK_RISKMANAGER_USERNAME` / `E2E_CLERK_RISKMANAGER_PASSWORD`
@@ -18,10 +18,12 @@ Use this skill to execute and troubleshoot the `tests/browser-flow` suite reliab
    - `bun run dev:browser-flow`
    - Do **not** rely on `bun run dev` alone for these scripts; it uses `DATABASE_URL` from `.env.local`, so you would see dev data instead of the test DB.
    - Everyday dev + Inngest on **3000** remains: `bun run dev:all`.
-5. **Point tests at the running app** (default in scripts is `http://127.0.0.1:3100`):
+5. **Point tests at the running app** (default `http://localhost:3100` — avoids Next 16 dev cross-origin blocks on `/_next/*` when the browser uses `127.0.0.1`):
    - Override with `BASE_URL` or `BROWSER_FLOW_BASE_URL`, or set `BROWSER_FLOW_PORT` (default `3100`).
-6. Quick browser smoke before tests (adjust port if needed):
-   - `agent-browser open http://127.0.0.1:3100`
+6. **Env load order**: `dev:browser-flow` and stage scripts load **`.env.test` then `.env.local`** so **Clerk keys from `.env.local` always win**. Putting `.env.test` second used to overwrite `CLERK_*` and caused Clerk “infinite redirect / keys do not match” errors.
+7. **Preflight** (runs automatically before each `test:browser:*` command): `bun run test:browser:preflight` checks required env vars and that `/sign-in` responds on `localhost:${BROWSER_FLOW_PORT}`.
+8. Quick browser smoke (adjust port if needed):
+   - `agent-browser open http://localhost:3100`
    - `agent-browser wait --load networkidle`
    - `agent-browser eval 'document.querySelector("[data-nextjs-dialog], .vite-error-overlay, #webpack-dev-server-client-overlay") ? "ERROR_OVERLAY" : "OK"'`
    - `agent-browser eval 'document.body.innerText.trim().length > 0 ? "HAS_CONTENT" : "BLANK"'`
@@ -29,7 +31,7 @@ Use this skill to execute and troubleshoot the `tests/browser-flow` suite reliab
 
 ## Standard Runs
 
-With `dev:browser-flow` running (default URL `http://127.0.0.1:3100`):
+With `dev:browser-flow` running (open **`http://localhost:3100`** in the browser; scripts default to that host):
 
 - Stage-by-stage:
   - `bun run test:browser:stage1-3`
