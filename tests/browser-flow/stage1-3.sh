@@ -91,53 +91,113 @@ TIMESTAMP=$(date +%s)
 COMPANY_NAME="Browser Flow Test Co ${TIMESTAMP}"
 E2E_EMAIL="e2e-browserflow-${TIMESTAMP}@test.co.za"
 
+# agent-browser fill sets DOM value only; React Hook Form ignores it until input events fire.
+FIELD_JSON="$(
+	COMPANY_NAME="${COMPANY_NAME}" E2E_EMAIL="${E2E_EMAIL}" bun -e '
+console.log(JSON.stringify({
+	companyName: process.env.COMPANY_NAME,
+	registrationNumber: "2024/123456/07",
+	contactName: "E2E Test Contact",
+	email: process.env.E2E_EMAIL,
+	phone: "+27 82 000 0001",
+	industry: "Technology",
+	employeeCount: "10",
+	estimatedTransactionsPerMonth: "100",
+}))
+'
+)"
+
 agent-browser snapshot -i
-agent-browser fill "#companyName" "${COMPANY_NAME}"
-agent-browser fill "#registrationNumber" "2024/${TIMESTAMP:0:6}/07"
-agent-browser fill "#contactName" "E2E Test Contact"
-agent-browser fill "#email" "${E2E_EMAIL}"
-agent-browser fill "#phone" "+27 82 000 0001"
-agent-browser fill "#industry" "Technology"
-agent-browser fill "#employeeCount" "10"
-agent-browser fill "#estimatedTransactionsPerMonth" "100"
+agent-browser eval --stdin <<EVALEOF
+(() => {
+	const fields = ${FIELD_JSON};
+	const setNative = (el, value) => {
+		if (!el) {
+			return;
+		}
+		if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
+			return;
+		}
+		const proto =
+			el instanceof HTMLTextAreaElement
+				? window.HTMLTextAreaElement.prototype
+				: window.HTMLInputElement.prototype;
+		const desc = Object.getOwnPropertyDescriptor(proto, "value");
+		if (desc?.set) {
+			desc.set.call(el, value);
+		}
+		el.dispatchEvent(new Event("input", { bubbles: true }));
+		el.dispatchEvent(new Event("change", { bubbles: true }));
+	};
+	const pairs = [
+		["#companyName", fields.companyName],
+		["#registrationNumber", fields.registrationNumber],
+		["#contactName", fields.contactName],
+		["#email", fields.email],
+		["#phone", fields.phone],
+		["#industry", fields.industry],
+		["#employeeCount", fields.employeeCount],
+		["#estimatedTransactionsPerMonth", fields.estimatedTransactionsPerMonth],
+	];
+	for (const [sel, val] of pairs) {
+		setNative(document.querySelector(sel), String(val ?? ""));
+	}
+	return "OK";
+})()
+EVALEOF
 
 browser_flow_shot "${SCREENSHOT_DIR}/stage1-form-filled.png"
-echo "--- Form filled, submitting ---"
+echo "--- Form filled (RHF-synced), submitting ---"
 
-agent-browser find text "Create Applicant" click
-agent-browser wait --load networkidle
-agent-browser wait 3000
+agent-browser scrollintoview 'button[type="submit"]' 2>/dev/null || true
+agent-browser click 'button[type="submit"]'
+
+# Wait for client navigation after POST (avoid networkidle stall on long-lived streams).
+for _ in $(seq 1 40); do
+	CURRENT_URL=$(agent-browser get url)
+	if echo "${CURRENT_URL}" | grep -qE '/dashboard/applicants/[0-9]+'; then
+		break
+	fi
+	sleep 0.25
+done
+agent-browser wait 1500
 
 CURRENT_URL=$(agent-browser get url)
-echo "--- Redirected to: ${CURRENT_URL} ---"
+echo "--- After submit: ${CURRENT_URL} ---"
 
 APPLICANT_ID=$(echo "$CURRENT_URL" | grep -oE 'applicants/[0-9]+' | grep -oE '[0-9]+' || echo "")
 
 if [ -z "$APPLICANT_ID" ]; then
-	echo "WARNING: Could not extract APPLICANT_ID from URL; resolving via API by email / company"
-	APPLICANT_ID=$(agent-browser eval --stdin <<EVALEOF
+	echo "WARNING: No applicant id in URL; polling /api/applicants (email or company match only)"
+	for attempt in $(seq 1 5); do
+		APPLICANT_ID=$(agent-browser eval --stdin <<EVALEOF
 (async () => {
-  const email = "${E2E_EMAIL}";
-  const company = "${COMPANY_NAME}";
+  const email = "${E2E_EMAIL}".trim().toLowerCase();
+  const company = "${COMPANY_NAME}".trim();
   const res = await fetch("/api/applicants");
   const data = await res.json();
   const list = data.applicants || [];
-  const byEmail = list.find((a) => a.email === email);
+  const byEmail = list.find((a) => String(a.email || "").trim().toLowerCase() === email);
   if (byEmail) return String(byEmail.id);
-  const byCompany = list.find((a) => (a.companyName || "") === company);
+  const byCompany = list.find((a) => String(a.companyName || "").trim() === company);
   if (byCompany) return String(byCompany.id);
-  const sorted = [...list].sort((a, b) => Number(b.id) - Number(a.id));
-  const latest = sorted[0];
-  return latest ? String(latest.id) : "";
+  return "";
 })()
 EVALEOF
-	)
+		)
+		APPLICANT_ID=$(echo "$APPLICANT_ID" | tr -d '"' | xargs)
+		if [ -n "$APPLICANT_ID" ]; then
+			break
+		fi
+		echo "--- API poll ${attempt}/5 ---"
+		sleep 1
+	done
 fi
 
 APPLICANT_ID=$(echo "$APPLICANT_ID" | tr -d '"' | xargs)
 
 if [ -z "$APPLICANT_ID" ]; then
-	echo "ERROR: Failed to get APPLICANT_ID"
+	echo "ERROR: Failed to get APPLICANT_ID (submit did not navigate and no matching row in /api/applicants within ~5s)"
 	exit 1
 fi
 
@@ -148,12 +208,16 @@ browser_flow_shot "${SCREENSHOT_DIR}/stage1-created.png"
 echo "--- Verifying overview tab (application details) ---"
 agent-browser open "${BASE_URL}/dashboard/applicants/${APPLICANT_ID}?tab=overview"
 agent-browser wait --load networkidle
-agent-browser wait 2000
+agent-browser wait 5000
 verify_no_error_overlay
 verify_has_content
 
 OVERVIEW_OK=$(agent-browser eval --stdin <<EVALEOF
-document.body.innerText.includes("${COMPANY_NAME}") ? "OK" : "MISSING"
+(() => {
+  const needle = "${COMPANY_NAME}".trim().toLowerCase();
+  const t = document.body.innerText.toLowerCase();
+  return t.includes(needle) ? "OK" : "MISSING";
+})()
 EVALEOF
 )
 OVERVIEW_OK=$(echo "$OVERVIEW_OK" | tr -d '"' | xargs)
