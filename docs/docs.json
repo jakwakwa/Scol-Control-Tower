@@ -65,12 +65,12 @@
             ]
           },
           {
-          "group": "Issues",
-          "pages": [
-            "issues/2026-03-23-fix-stage6-inngest-workflow-stuck",
-            "issues/2026-03-22-refactor-forms-hub-workflow-gates",
-            "issues/2026-03-01-feat-harden-procurement-fallback-plan"
-          ]
+            "group": "Issues",
+            "pages": [
+              "issues/2026-03-23-fix-stage6-inngest-workflow-stuck",
+              "issues/2026-03-22-refactor-forms-hub-workflow-gates",
+              "issues/2026-03-01-feat-harden-procurement-fallback-plan"
+            ]
           },
           {
             "group": "AI tools",
@@ -118,8 +118,8 @@
     ]
   },
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/light.svg",
+    "light": "/logo/control_tower_logo.png",
+    "dark": "/logo/control_tower_logo.png",
     "href": "https://stratcolltd.mintlify.app/user-guides/overview"
   },
   "navbar": {
