@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
 			.values([
 				{
 					companyName: data.companyName,
+					registrationNumber: data.registrationNumber?.trim() || null,
 					contactName: data.contactName,
 					email: data.email,
 					phone: data.phone,
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
 					entityType: data.entityType,
 					productType: data.productType,
 					industry: data.industry,
+					mandateType: data.mandateType ?? null,
 					employeeCount: data.employeeCount,
 					estimatedTransactionsPerMonth:
 						data.estimatedTransactionsPerMonth != null

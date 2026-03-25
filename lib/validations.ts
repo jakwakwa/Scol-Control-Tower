@@ -31,8 +31,17 @@ export const productTypeEnum = z.enum([
 	"call_centre",
 ]);
 
-export const createApplicantSchema = z.object({
+/** Mandate type values from dashboard applicant form Select */
+export const dashboardApplicantMandateTypeEnum = z.enum([
+	"debit_order",
+	"eft_collection",
+	"realtime_clearing",
+	"managed_collection",
+]);
+
+const createApplicantBaseSchema = z.object({
 	companyName: z.string().min(2, "Company name must be at least 2 characters"),
+	registrationNumber: z.string().trim().optional().or(z.literal("")),
 	contactName: z.string().min(2, "Contact name must be at least 2 characters"),
 	email: z.string().email("Invalid email address"),
 	phone: z.string().optional(),
@@ -51,14 +60,51 @@ export const createApplicantSchema = z.object({
 	industry: z.string().optional(),
 	employeeCount: z.number().int().positive().optional(),
 	estimatedTransactionsPerMonth: z.coerce.number().int().min(0).optional(),
+	mandateType: dashboardApplicantMandateTypeEnum.optional(),
 	notes: z.string().optional(),
 });
 
-export const updateApplicantSchema = createApplicantSchema.partial().extend({
+export const createApplicantSchema = createApplicantBaseSchema.superRefine((data, ctx) => {
+	if (data.entityType === "proprietor") {
+		const id = data.idNumber?.trim();
+		if (!id) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "ID number is required for Proprietors",
+				path: ["idNumber"],
+			});
+		} else if (!/^\d{13}$/.test(id)) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "ID number must be exactly 13 digits",
+				path: ["idNumber"],
+			});
+		}
+	} else {
+		const reg = data.registrationNumber?.trim();
+		if (!reg) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "Registration number is required for Companies",
+				path: ["registrationNumber"],
+			});
+		}
+		const id = data.idNumber?.trim();
+		if (id && !/^\d{13}$/.test(id)) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "ID number must be exactly 13 digits",
+				path: ["idNumber"],
+			});
+		}
+	}
+});
+
+export const updateApplicantSchema = createApplicantBaseSchema.partial().extend({
 	status: applicantStatusEnum.optional(),
 });
 
-export type CreateApplicantInput = z.infer<typeof createApplicantSchema>;
+export type CreateApplicantInput = z.infer<typeof createApplicantBaseSchema>;
 export type UpdateApplicantInput = z.infer<typeof updateApplicantSchema>;
 
 // ============================================

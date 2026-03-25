@@ -1,0 +1,80 @@
+{
+  "workspace_roots": [
+    "/Users/jakwakwa/Repos/stratcol-apps/Scol-Control-Tower"
+  ],
+  "transcript_source": "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts",
+  "transcripts": {
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/12ced982-4db6-48dc-89c3-dd8caefdd967/12ced982-4db6-48dc-89c3-dd8caefdd967.jsonl": {
+      "mtime_ms": 1774390521234,
+      "processed_at": "2026-03-25T23:27:31Z"
+    },
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/1f110ba2-0e10-4314-a103-50e7429d043a/1f110ba2-0e10-4314-a103-50e7429d043a.jsonl": {
+      "mtime_ms": 1774431367758,
+      "processed_at": "2026-03-25T23:27:31Z"
+    },
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/2b294d1a-e940-40fb-a81b-9219b92a03dc/2b294d1a-e940-40fb-a81b-9219b92a03dc.jsonl": {
+      "mtime_ms": 1774197550530,
+      "processed_at": "2026-03-25T23:27:31Z"
+    },
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/30571969-9f60-422e-a1b7-55ef2bd7bdaa/30571969-9f60-422e-a1b7-55ef2bd7bdaa.jsonl": {
+      "mtime_ms": 1774224503197,
+      "processed_at": "2026-03-25T23:27:31Z"
+    },
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/67985d2d-82af-4bc4-af9d-af5615ef4110/67985d2d-82af-4bc4-af9d-af5615ef4110.jsonl": {
+      "mtime_ms": 1774354505435,
+      "processed_at": "2026-03-25T23:27:31Z"
+    },
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/708e58a1-ff3f-4066-a172-b68332aa5482/708e58a1-ff3f-4066-a172-b68332aa5482.jsonl": {
+      "mtime_ms": 1774264145490,
+      "processed_at": "2026-03-25T23:27:31Z"
+    },
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/899f8f4b-2ccc-4d70-bea4-391b39665872/899f8f4b-2ccc-4d70-bea4-391b39665872.jsonl": {
+      "mtime_ms": 1774383627858,
+      "processed_at": "2026-03-25T23:27:31Z"
+    },
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/9ef6f1d9-b07c-4b80-9bbb-249bfb81f518/9ef6f1d9-b07c-4b80-9bbb-249bfb81f518.jsonl": {
+      "mtime_ms": 1774198501718,
+      "processed_at": "2026-03-25T23:27:31Z"
+    },
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/b8a6d60d-d7fa-4cfd-858f-a6a5b82a99cc/b8a6d60d-d7fa-4cfd-858f-a6a5b82a99cc.jsonl": {
+      "mtime_ms": 1774468751949,
+      "processed_at": "2026-03-25T23:27:31Z"
+    },
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/c17781f1-c486-4363-b62c-96fc3f431cbd/c17781f1-c486-4363-b62c-96fc3f431cbd.jsonl": {
+      "mtime_ms": 1774315679979,
+      "processed_at": "2026-03-25T23:27:31Z"
+    },
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/c2ca29e9-33db-4b9d-a46b-a8377b12a29f/c2ca29e9-33db-4b9d-a46b-a8377b12a29f.jsonl": {
+      "mtime_ms": 1774481083533,
+      "processed_at": "2026-03-25T23:27:31Z"
+    },
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/c7b008ee-a4fc-4e13-8e17-98a1b78f11d8/c7b008ee-a4fc-4e13-8e17-98a1b78f11d8.jsonl": {
+      "mtime_ms": 1774261911175,
+      "processed_at": "2026-03-25T23:27:31Z"
+    },
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/d1c162ac-8553-40ae-b36a-c8f2e51fe887/d1c162ac-8553-40ae-b36a-c8f2e51fe887.jsonl": {
+      "mtime_ms": 1774224659659,
+      "processed_at": "2026-03-25T23:27:31Z"
+    },
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/d7b7da91-ced9-498f-92da-60ddd9f7b2e6/d7b7da91-ced9-498f-92da-60ddd9f7b2e6.jsonl": {
+      "mtime_ms": 1774321891207,
+      "processed_at": "2026-03-25T23:27:31Z"
+    },
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/e3c2b3a5-5ac8-421a-bdee-ac2499573f3f/e3c2b3a5-5ac8-421a-bdee-ac2499573f3f.jsonl": {
+      "mtime_ms": 1774262266060,
+      "processed_at": "2026-03-25T23:27:31Z"
+    },
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/e9aa8408-7639-4679-a439-f21a4e0fe8b8/e9aa8408-7639-4679-a439-f21a4e0fe8b8.jsonl": {
+      "mtime_ms": 1774204669431,
+      "processed_at": "2026-03-25T23:27:31Z"
+    },
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/eb75b731-a291-44ec-84df-e4afe861a969/eb75b731-a291-44ec-84df-e4afe861a969.jsonl": {
+      "mtime_ms": 1774391954496,
+      "processed_at": "2026-03-25T23:27:31Z"
+    },
+    "/Users/jakwakwa/.cursor/projects/Users-jakwakwa-Documents-code-workspaces-Scol-Control-Tower-code-workspace/agent-transcripts/f3955488-14a0-4dbb-b278-6e052233d1b9/f3955488-14a0-4dbb-b278-6e052233d1b9.jsonl": {
+      "mtime_ms": 1774289496299,
+      "processed_at": "2026-03-25T23:27:31Z"
+    }
+  }
+}

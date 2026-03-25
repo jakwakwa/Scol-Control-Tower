@@ -1,7 +1,8 @@
 ---
-description:  avoids blocking unused code paths
+description: avoids blocking unused code paths
 alwaysApply: false
 ---
+
 ## Defer Await Until Needed
 
 Move `await` operations into the branches where they're actually used to avoid blocking code paths that don't need them.

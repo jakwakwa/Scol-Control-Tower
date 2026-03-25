@@ -1,4 +1,7 @@
-# CLAUDE.md
+---
+description: 
+alwaysApply: true
+---
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -24,15 +27,9 @@ bun run db:migrate             # Run migrations
 bun run db:studio              # Open Drizzle Studio UI
 bun run db:reset               # Drop all tables and re-migrate
 
-# E2E Tests (Playwright)
-bun run test:e2e               # Run all tests
-bun run test:e2e:ui            # Run with Playwright UI
-bun run test:e2e:headed        # Run with visible browser
-bun run test:e2e:debug         # Debug mode
-bun run test:browser:stage1-3  # Browser flow tests by stage
-bun run test:browser:stage4
-bun run test:browser:stage5-6
-bun run test:browser-flow-full # All browser flow tests
+# E2E / Browser Tests
+```
+bun run test:browser-flow-full 
 ```
 
 ## Architecture
@@ -65,7 +62,7 @@ bun run test:browser-flow-full # All browser flow tests
 - `db/schema.ts` — Single-file Drizzle schema (all tables)
 - `components/` — `dashboard/`, `forms/`, `emails/`, `ui/` (shadcn), `shared/`, `layout/`
 - `actions/` — Next.js server actions
-- `tests/` — Playwright E2E and browser flow tests
+- `tests/` —  E2E browser flow tests
 - `scripts/` — DB reset/seed scripts, PostHog dashboard creation
 
 ### Database Schema (Turso/LibSQL via Drizzle)
@@ -108,7 +105,7 @@ The key event is `perimeter_validation_attempt` with properties: `env`, `perimet
 ## Code Style
 
 - **Formatter/Linter**: Biome — tabs, 90-char line width, strict correctness and security rules
-- **TypeScript**: Strict mode, `ESNext` target, path alias `@/*` maps to project root
+- **TypeScript**: Strict mode, `ESNext` target, path alias `@/*` maps to project root, no any or unkown types
 - **No `console.log`**: Only `console.assert`, `console.warn`, and `console.error` are allowed
 
 ## Environment Setup
@@ -121,11 +118,9 @@ Copy `.env.example` to `.env.local`. Minimum required:
 - `OPENSANCTIONS_KEY`
 - `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
 
-For E2E tests: `E2E_CLERK_USER_*` credentials in `.env.test`. Tests inject a separate test database; never run `db:reset` against the test DB manually.
-
+For E2E tests: `E2E_CLERK_*` credentials in `.env.test`. Tests inject a separate test database; always run `db:reset:test` against the test DB
 ## Key Reference Files
 
-- `AGENTS.md` — learned workspace facts and user preferences
 - `docs/posthog-perimeter-dashboard.md` — PostHog dashboard docs
 - `docs/rollout-plans/inngest-perimeter-validation-rollout.md` — Inngest perimeter rollout
 - `.agents/skills/` — domain-specific skill files (PostHog instrumentation, Inngest middleware, ProcureCheck API, etc.)
