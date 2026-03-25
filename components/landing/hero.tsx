@@ -16,7 +16,7 @@ export function Hero() {
 						transition={{ duration: 0.5 }}>
 						<div className="flex justify-center mb-8">
 							<Image
-								src="/assets/control_tower_logo_.svg"
+								src="/control_tower_logo.png"
 								alt="Control Tower Logo"
 								width={200}
 								height={64}

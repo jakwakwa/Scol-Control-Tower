@@ -31,9 +31,3 @@ This document closes the eight plan todos with **executor evidence** (no manual 
 ## 7. `quote_pipeline` server event
 
 - **Done:** `captureServerEvent` `quote_pipeline` on manager approve (`step: manager_quote_approve`, `path`, `workflow_id`, `quote_id`, `inngest_sync: ok`) and on signed quotation submit (`step: signed_quotation_submit`, `path: /api/forms/submit`, …).
-
-## 8. Playwright / Clerk verification
-
-- **Command:** `bun run test:e2e -- e2e/tests/dashboard/navigation.spec.ts`
-- **Result:** **Exit 1** — global setup failed: Clerk sign-in `identifier is required when strategy is password`; dotenv reported **0** vars loaded from `.env.test` in this environment (secrets not available to the agent runner).
-- **Action for CI/local:** Ensure `.env.test` contains the E2E Clerk identifiers expected by `e2e/tests/global.setup.ts` (see `.env.test.example`), then re-run `bun run test:e2e`.

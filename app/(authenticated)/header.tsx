@@ -8,7 +8,7 @@ export function Header() {
 					<div className="flex items-center gap-x-3">
 						<div className="flex items-center gap-3 text-aquamarine">
 							<img
-								src="/assets/control_tower_logo_.svg"
+								src="/control_tower_logo.png"
 								alt="StratCol"
 								className="h-6"
 								aria-hidden="true"
