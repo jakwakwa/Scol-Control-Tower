@@ -97,12 +97,7 @@ login_as() {
 		echo "--- ${role} session already authenticated ---"
 	else
 		agent-browser snapshot -i
-		agent-browser find label "Email address" fill "${username}"
-		agent-browser find role button click --name "Continue"
-		agent-browser wait 2000
-		agent-browser snapshot -i
-		agent-browser find label "Password" fill "${password}"
-		agent-browser find role button click --name "Continue"
+		browser_flow_clerk_login "${username}" "${password}"
 	fi
 
 	agent-browser wait 5000
