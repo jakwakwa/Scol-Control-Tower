@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
 	reactStrictMode: true,
+	// agent-browser and some clients use 127.0.0.1 while Next prints localhost — avoid blocked dev origins
+	allowedDevOrigins: ["127.0.0.1"],
 	images: {
 		remotePatterns: [
 			{ protocol: "https", hostname: "images.unsplash.com" },

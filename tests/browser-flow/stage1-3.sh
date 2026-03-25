@@ -8,7 +8,8 @@ set -euo pipefail
 #   BASE_URL / BROWSER_FLOW_BASE_URL / BROWSER_FLOW_PORT (default 3100)
 #   E2E_CLERK_AM_USERNAME, E2E_CLERK_AM_PASSWORD (or risk manager fallbacks)
 #
-# Run stack: bun run dev:browser-flow  (uses TEST_DATABASE_URL + E2E_USE_TEST_DB=1)
+# Run stack: bun run dev:browser-flow  (uses TEST_DATABASE_URL + E2E_USE_TEST_DB=1).
+# Default BASE_URL is http://localhost:3100 (not 127.0.0.1) for Next dev same-origin.
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
