@@ -108,6 +108,8 @@ export function ApplicantForm({
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						...data,
+						registrationNumber: data.registrationNumber?.trim() || undefined,
+						mandateType: data.mandateType?.trim() || undefined,
 						idNumber: data.idNumber?.trim() || undefined,
 						vatNumber: data.vatNumber?.trim() || undefined,
 						employeeCount: data.employeeCount

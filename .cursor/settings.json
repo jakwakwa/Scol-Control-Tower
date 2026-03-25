@@ -15,9 +15,6 @@
     "clerk": {
       "enabled": true
     },
-    "superpowers": {
-      "enabled": true
-    },
     "linear": {
       "enabled": true
     },
@@ -27,9 +24,6 @@
     "parallel": {
       "enabled": true
     },
-    "runlayer": {
-      "enabled": true
-    },
     "create-plugin": {
       "enabled": true
     },
@@ -37,6 +31,9 @@
       "enabled": true
     },
     "firecrawl": {
+      "enabled": true
+    },
+    "continual-learning": {
       "enabled": true
     }
   }
