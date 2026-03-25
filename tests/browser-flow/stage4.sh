@@ -79,12 +79,7 @@ if echo "$CURRENT_URL" | grep -q "/dashboard"; then
 	echo "--- Session already authenticated; skipping sign-in form ---"
 else
 	agent-browser snapshot -i
-	agent-browser find label "Email address" fill "${RISK_USERNAME}"
-	agent-browser find role button click --name "Continue"
-	agent-browser wait 2000
-	agent-browser snapshot -i
-	agent-browser find label "Password" fill "${RISK_PASSWORD}"
-	agent-browser find role button click --name "Continue"
+	browser_flow_clerk_login "${RISK_USERNAME}" "${RISK_PASSWORD}"
 fi
 
 agent-browser wait 5000

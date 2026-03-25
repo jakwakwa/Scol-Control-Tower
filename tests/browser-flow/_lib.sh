@@ -38,3 +38,20 @@ browser_flow_capture_workflows() {
 	agent-browser wait 2000
 	browser_flow_shot "${SCREENSHOT_DIR}/${name}"
 }
+
+# Clerk <SignIn /> uses name="identifier" and name="password" on inputs; label text varies by theme.
+# Prefer those selectors — "find label Email address" often fails when snapshot lists no interactive elements.
+browser_flow_clerk_login() {
+	local username="$1"
+	local password="$2"
+	agent-browser wait 4000
+	agent-browser fill 'input[name="identifier"]' "${username}" ||
+		agent-browser fill 'input[type="email"]' "${username}" ||
+		agent-browser find label "Email address" fill "${username}" ||
+		agent-browser find label "Email" fill "${username}"
+	agent-browser find role button click --name "Continue"
+	agent-browser wait 3000
+	agent-browser fill 'input[name="password"]' "${password}" ||
+		agent-browser find label "Password" fill "${password}"
+	agent-browser find role button click --name "Continue"
+}
