@@ -126,7 +126,7 @@ Copy `.env.example` to `.env.local`. Minimum required:
 - `OPENSANCTIONS_KEY`
 - `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
 
-For E2E tests: `E2E_CLERK_USER_*` credentials in `.env.test`. Tests inject a separate test database; never run `db:reset` against the test DB manually.
+For E2E / browser-flow tests: `E2E_CLERK_AM_*` and `E2E_CLERK_RISKMANAGER_*` in `.env.test` (see `.env.test.example`). Tests inject a separate test database; never run `db:reset` against the test DB manually.
 
 ## Key Reference Files
 
@@ -262,7 +262,7 @@ Copy `.env.example` to `.env.local`. Minimum required:
 - `OPENSANCTIONS_KEY`
 - `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
 
-For E2E tests: `E2E_CLERK_USER_*` credentials in `.env.test`. Tests inject a separate test database; never run `db:reset` against the test DB manually.
+For E2E / browser-flow tests: `E2E_CLERK_AM_*` and `E2E_CLERK_RISKMANAGER_*` in `.env.test` (see `.env.test.example`). Tests inject a separate test database; never run `db:reset` against the test DB manually.
 
 ## Key Reference Files
 
