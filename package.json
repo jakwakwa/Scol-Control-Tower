@@ -9,6 +9,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:test": "drizzle-kit migrate --config=drizzle.test.config.ts",
+    "db:push:test": "drizzle-kit push --config=drizzle.test.config.ts --force",
     "db:reset": "bun run scripts/drop-all-tables.ts && bun run db:migrate",
     "db:studio": "drizzle-kit studio",
     "test:e2e": "playwright test",
@@ -19,6 +20,7 @@
     "test:db:seed:browser-flow": "bun run scripts/seed-browser-flow-test-data.ts",
     "dev:all": "./setup-dev.sh",
     "dev:browser-flow": "./setup-browser-flow-dev.sh",
+    "inngest:dev": "inngest dev",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "docs:install": "bun --cwd docs install",
@@ -98,9 +100,11 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "drizzle-kit": "^0.31.10",
+    "inngest-cli": "^1.15.0",
     "typescript": "^5.9.3",
     "@types/bun": "latest"
   },
+  "trustedDependencies": ["inngest-cli"],
   "overrides": {
     "express": "4.20.0",
     "body-parser": "1.20.3",
