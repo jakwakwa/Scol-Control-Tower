@@ -162,7 +162,9 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 			</Button>
 		),
 		cell: ({ row }) => (
-			<div className="text-sm">{row.original.employeeCount?.toLocaleString() || "—"}</div>
+			<div className="text-sm">
+				{row.original.employeeCount?.toLocaleString() || "n/a"}
+			</div>
 		),
 	},
 	{

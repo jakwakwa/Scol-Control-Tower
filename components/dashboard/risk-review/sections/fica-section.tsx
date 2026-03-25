@@ -1,4 +1,5 @@
 import { RiCloseLine } from "@remixicon/react";
+import { formatDate } from "date-fns";
 import {
 	CheckCircle2,
 	FileCheck,
@@ -63,10 +64,10 @@ export function FicaSection({
 			<div className="flex items-center justify-between bg-muted/30 p-4 rounded-xl border border-border">
 				<div className="flex items-center gap-3">
 					<FileCheck className="w-5 h-5 text-chart-4" />
-					<h3 className="font-medium text-foreground">KYC / FICA Verification</h3>
+					<h3 className="font-medium text-foreground">FICA Verification</h3>
 				</div>
 				<p className="text-xs text-muted-foreground">
-					Last verified: {data.lastVerified}
+					Last verified: {formatDate(Date.now(), " MMM d Y")}
 				</p>
 			</div>
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -288,15 +289,15 @@ export function FicaSection({
 						</div>
 					</div>
 					<div className="space-y-4">
-					<div className="flex items-center justify-between">
-						<p className="text-xs text-muted-foreground">Verification Status</p>
-						<RiskReviewBadge
-							variant={getVatBadgeVariant(
-								data.vatVerification?.status ?? "not_checked"
-							)}>
-							{formatVatStatus(data.vatVerification?.status ?? "not_checked")}
-						</RiskReviewBadge>
-					</div>
+						<div className="flex items-center justify-between">
+							<p className="text-xs text-muted-foreground">Verification Status</p>
+							<RiskReviewBadge
+								variant={getVatBadgeVariant(
+									data.vatVerification?.status ?? "not_checked"
+								)}>
+								{formatVatStatus(data.vatVerification?.status ?? "not_checked")}
+							</RiskReviewBadge>
+						</div>
 						<div>
 							<p className="text-xs text-muted-foreground mb-1">VAT Number</p>
 							<p className="text-sm text-foreground font-medium">

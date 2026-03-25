@@ -31,7 +31,7 @@ const DEFAULT_SECTION_STATUS: SectionStatus = {
 const DEFAULT_PROCUREMENT: RiskReviewData["procurementData"] = {
 	cipcStatus: "Pending",
 	taxStatus: "Pending",
-	taxExpiry: "—",
+	taxExpiry: "",
 	beeLevel: "—",
 	beeExpiry: "—",
 	riskAlerts: [],
@@ -163,7 +163,9 @@ function mergeFica(
 					avsDetails: parsed.banking.avsDetails ?? DEFAULT_FICA.banking.avsDetails,
 				}
 			: DEFAULT_FICA.banking,
-		documentAiResult: Array.isArray(parsed.documentAiResult) ? parsed.documentAiResult : undefined,
+		documentAiResult: Array.isArray(parsed.documentAiResult)
+			? parsed.documentAiResult
+			: undefined,
 		vatVerification: parsed.vatVerification
 			? {
 					checked: parsed.vatVerification.checked ?? false,
@@ -200,9 +202,7 @@ function extractVatVerificationFromAiAnalysis(
 
 	const isServiceDown = vatStatus === "service_down";
 	const isErrorState =
-		vatStatus === "timeout" ||
-		vatStatus === "error" ||
-		vatStatus === "manual_review";
+		vatStatus === "timeout" || vatStatus === "error" || vatStatus === "manual_review";
 
 	return {
 		checked: !isServiceDown,
@@ -253,9 +253,7 @@ export function buildReportData(
 		? new Date(workflow.startedAt).toISOString()
 		: new Date().toISOString();
 
-	const checkMap = new Map(
-		riskChecks.map(c => [c.checkType, c])
-	);
+	const checkMap = new Map(riskChecks.map(c => [c.checkType, c]));
 
 	const procCheck = checkMap.get("PROCUREMENT");
 	const procurementParsed = procCheck?.payload
