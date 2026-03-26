@@ -22,7 +22,12 @@ test-results/
 blob-report/
 # Screenshots and run artifacts (Inngest dev server, approvals, etc.) — do not commit
 *.png
-# Browser-flow test artifacts
+
+!public/control_tower_logo.png
+!public/assets/risk-thumb.png
+!public/assets/mandates.png
+!public/assets/sales-thumb.png
+# Browser-flo!w test artifacts
 tests/browser-flow/.applicant-id
 tests/browser-flow/screenshots/
 tests/browser-flow/.seed-output.json
