@@ -2,15 +2,17 @@
 
 import {
 	RiAlertLine,
+	RiCertificate2Line,
 	RiCheckDoubleLine,
-	RiCheckLine,
 	RiCloseLine,
 	RiNotification3Line,
 	RiPauseCircleLine,
 	RiProhibitedLine,
+	RiSendInsLine,
 	RiTimeLine,
 	RiUserLine,
 } from "@remixicon/react";
+import { FileWarningIcon, StampIcon } from "lucide-react";
 import Link from "next/link";
 import { type ElementType, type MouseEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -45,13 +47,13 @@ const notificationConfig: Record<
 > = {
 	awaiting: {
 		icon: RiUserLine,
-		color: "text-warning-foreground",
-		bgColor: "bg-warning/50",
+		color: "text-violet-400",
+		bgColor: "bg-violet-500/15",
 	},
 	completed: {
-		icon: RiCheckLine,
-		color: "text-emerald-700",
-		bgColor: "bg-emerald-500/70",
+		icon: RiCertificate2Line,
+		color: "text-cyan-400",
+		bgColor: "bg-cyan-600/20",
 	},
 	failed: {
 		icon: RiCloseLine,
@@ -74,19 +76,19 @@ const notificationConfig: Record<
 		bgColor: "bg-red-500/10",
 	},
 	warning: {
-		icon: RiAlertLine,
-		color: "text-amber-500",
-		bgColor: "bg-amber-500/20",
+		icon: FileWarningIcon,
+		color: "text-yellow-300",
+		bgColor: "bg-yellow-500/20",
 	},
 	info: {
-		icon: RiNotification3Line,
-		color: "text-blue-500",
-		bgColor: "bg-blue-500/10",
+		icon: StampIcon,
+		color: "text-pink-400",
+		bgColor: "bg-pink-500/10",
 	},
 	success: {
-		icon: RiCheckLine,
+		icon: RiSendInsLine,
 		color: "text-emerald-500",
-		bgColor: "bg-emerald-500/10",
+		bgColor: "bg-emerald-700/20",
 	},
 	terminated: {
 		icon: RiProhibitedLine,
@@ -94,7 +96,6 @@ const notificationConfig: Record<
 		bgColor: "bg-red-500/20",
 	},
 };
-
 
 interface NotificationsPanelProps {
 	notifications: WorkflowNotification[];
@@ -182,7 +183,7 @@ export function NotificationsPanel({
 			</PopoverTrigger>
 			<PopoverContent
 				align="end"
-				className="w-[380px] border-secondary/10 bg-black/40 backdrop-blur-sm p-0">
+				className="w-[380px] border-amber-200/10 border-1 -inset-1 bg-zinc-950/20 backdrop-blur-sm mx-auto">
 				{/* Header */}
 				<div className="flex items-center justify-between border-b border-secondary/10 px-4 py-3">
 					<h3 className="text-sm font-semibold">Notifications</h3>
@@ -232,7 +233,7 @@ export function NotificationsPanel({
 									{/* Main Action Button */}
 									<button
 										type="button"
-										className="absolute bg-sidebar -inset-1 z-20 m-0 w-full border-1 rounded-xl border-white/10 left-[0px] max-w-[95%] p-0 focus:outline-none"
+										className="absolute bg-black/30 -inset-1 z-20 m-0 w-full border-1 border-amber-300/15 rounded-xl left-[0px] p-0 focus:outline-1"
 										onClick={() => onNotificationClick?.(notification)}>
 										<span className="sr-only mt-4">
 											View notification from {notification?.clientName}
@@ -246,10 +247,12 @@ export function NotificationsPanel({
 									{/* Icon */}
 									<div
 										className={cn(
-											" z-30 top-14  left-5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full absolute pointer-events-none mr-2",
+											" z-30 top-1/2 bottom-1/2  left-3 flex h-6 p-0 m-0 w-6 shrink-0 items-center bg-transparent justify-center rounded-full absolute pointer-events-none ",
 											config.bgColor
 										)}>
-										<Icon className={cn("  rounded-full w-3 h-3", config.color)} />
+										<Icon
+											className={cn("  rounded-full w-3 h-3 bg-none", config.color)}
+										/>
 									</div>
 
 									{/* Content */}
@@ -274,24 +277,25 @@ export function NotificationsPanel({
 													</Badge>
 												)}
 											</div>
-											<div className="flex items-center gap-2">
-												<button
-													type="button"
-													onClick={e => {
-														e.stopPropagation();
-														onDelete?.(notification);
-													}}
-													className="text-muted-foreground/40 hover:text-red-400transition-colors cursor-pointer  absolute -right-4 pointer-events-auto p-0">
-													<RiCloseLine className="h-4 w-4" />
-													<span className="sr-only">Dismiss</span>
-												</button>
-											</div>
 										</div>
-										<p className="text-xs text-muted-foreground/70 mt-0.5 line-clamp-2">
+
+										<p className="text-[11.5px] text-muted-foreground/90 italic font-extralight mt-1.5 line-clamp-3">
 											{formatNotificationMessage(notification?.message || "")}
 										</p>
+										<div className="flex items-center  absolute z-40 -top-2 gap-2 right-0">
+											<button
+												type="button"
+												onClick={e => {
+													e.stopPropagation();
+													onDelete?.(notification);
+												}}
+												className="text-pink-400/70 bg-transparent hover:text-red-900 transition-colors text-xs border-red-700/50 cursor-pointer  absolute -right-4 pointer-events-auto p-0">
+												<RiCloseLine className="h-2.5 p-0	border-0 outline-0  w-2.5 " />
+												<span className="sr-only">Dismiss</span>
+											</button>
+										</div>
 										<div className="flex items-center justify-between mt-2 relative">
-											<span className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
+											<span className="text-[10px] text-amber-200/80 flex items-center gap-1">
 												<RiTimeLine className="h-3 w-3" />
 												{formatRelativeTime(notification?.timestamp)}
 											</span>
@@ -320,6 +324,7 @@ export function NotificationsPanel({
 																View
 															</Button>
 														)}
+
 													{/* Error/Timeout Actions */}
 													{!isManualProcurementAlert &&
 														(notification?.type === "error" ||
@@ -357,8 +362,8 @@ export function NotificationsPanel({
 					<div className="border-t border-secondary/10 p-2">
 						<Link href="/dashboard/notifications">
 							<Button
-								variant="ghost"
-								className="w-full h-8 text-xs text-muted-foreground hover:text-foreground">
+								variant="default"
+								className="w-full h-8 text-xs text-muted-foreground bg-primary/50 hover:text-foreground">
 								View all notifications
 							</Button>
 						</Link>
@@ -385,7 +390,14 @@ function formatRelativeTime(date: Date): string {
 // --- Toast Helpers with Actions ---
 
 export function showWorkflowToast(
-	type: "awaiting" | "completed" | "failed" | "timeout" | "paused" | "error" | "terminated",
+	type:
+		| "awaiting"
+		| "completed"
+		| "failed"
+		| "timeout"
+		| "paused"
+		| "error"
+		| "terminated",
 	clientName: string,
 	onAction?: (action: "approve" | "reject" | "view") => void
 ) {
