@@ -9,8 +9,27 @@
  * - google/gemini-2.0-flash: Fast document parsing
  */
 import { GoogleGenAI } from "@posthog/ai";
+import { GoogleGenAI as GoogleGenAISdk } from "@google/genai";
 import { z } from "zod";
 import { getOptionalPostHogClient } from "@/lib/posthog-server";
+
+function requireGoogleGenAIKey(): string {
+	const apiKey = process.env.GOOGLE_GENAI_KEY;
+	if (!apiKey) {
+		throw new Error(
+			"GOOGLE_GENAI_KEY is required for AI operations. Add it to environment variables."
+		);
+	}
+	return apiKey;
+}
+
+/**
+ * Raw @google/genai client for APIs not wrapped by @posthog/ai (e.g. `interactions`).
+ * PostHog still captures `models.generateContent` via {@link getGenAIClient}.
+ */
+function getGoogleGenAISdkClient(): GoogleGenAISdk {
+	return new GoogleGenAISdk({ apiKey: requireGoogleGenAIKey() });
+}
 
 /**
  * Get thinking model for complex analysis tasks
@@ -65,14 +84,10 @@ export function isAIConfigured(): boolean {
  * (model, latency, token usage) for all models.generateContent() calls.
  */
 export function getGenAIClient(): GoogleGenAI {
-	const apiKey = process.env.GOOGLE_GENAI_KEY;
-	if (!apiKey) {
-		throw new Error(
-			"GOOGLE_GENAI_KEY is required for AI operations. Add it to environment variables."
-		);
-	}
-
-	return new GoogleGenAI({ apiKey, posthog: getOptionalPostHogClient() ?? undefined });
+	return new GoogleGenAI({
+		apiKey: requireGoogleGenAIKey(),
+		posthog: getOptionalPostHogClient() ?? undefined,
+	});
 }
 
 interface StructuredInteractionOptions<TSchema extends z.ZodTypeAny> {
@@ -88,7 +103,7 @@ interface StructuredInteractionOptions<TSchema extends z.ZodTypeAny> {
 export async function runStructuredInteraction<TSchema extends z.ZodTypeAny>(
 	options: StructuredInteractionOptions<TSchema>
 ): Promise<z.infer<TSchema>> {
-	const ai = getGenAIClient();
+	const ai = getGoogleGenAISdkClient();
 	const interaction = await ai.interactions.create({
 		model: options.model,
 		input: options.input,
