@@ -14,7 +14,10 @@ import {
 	mergeExternalCheckIntoAiAnalysisJson,
 	persistMergedAiAnalysis,
 } from "@/lib/risk-review/manual-firecrawl-checks";
-import { IndustryRegulatorProviderSchema } from "@/lib/services/agents/contracts/firecrawl-check.contracts";
+import {
+	type IndustryRegulatorCheckResult,
+	IndustryRegulatorProviderSchema,
+} from "@/lib/services/agents/contracts/firecrawl-check.contracts";
 import { runIndustryRegulatorCheck } from "@/lib/services/firecrawl";
 
 const PostBodySchema = z
@@ -78,7 +81,7 @@ export async function POST(
 
 		const applicantData = applicantRowToApplicantData(applicant);
 
-		let fcResult;
+		let fcResult: IndustryRegulatorCheckResult;
 		try {
 			fcResult = await runIndustryRegulatorCheck({
 				applicantId,
