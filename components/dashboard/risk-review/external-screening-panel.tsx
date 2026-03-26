@@ -57,8 +57,11 @@ function slotToIndustryReview(slot: ExternalSlot): IndustryRegulatorReviewData {
 		checkedAt: typeof r.checkedAt === "string" ? r.checkedAt : undefined,
 		provider: typeof meta?.provider === "string" ? meta.provider : undefined,
 		registrationStatus:
-			typeof first?.registrationStatus === "string" ? first.registrationStatus : undefined,
-		evidenceMatchName: typeof first?.matchedName === "string" ? first.matchedName : undefined,
+			typeof first?.registrationStatus === "string"
+				? first.registrationStatus
+				: undefined,
+		evidenceMatchName:
+			typeof first?.matchedName === "string" ? first.matchedName : undefined,
 	};
 }
 
@@ -90,7 +93,8 @@ function slotToSocialReview(slot: ExternalSlot): SocialReputationReviewData {
 		checkedAt: typeof r.checkedAt === "string" ? r.checkedAt : undefined,
 		summaryRating: typeof r.summaryRating === "number" ? r.summaryRating : undefined,
 		complaintCount: typeof r.complaintCount === "number" ? r.complaintCount : undefined,
-		complimentCount: typeof r.complimentCount === "number" ? r.complimentCount : undefined,
+		complimentCount:
+			typeof r.complimentCount === "number" ? r.complimentCount : undefined,
 		businessName:
 			typeof first?.matchedName === "string"
 				? first.matchedName
@@ -182,10 +186,12 @@ export function ExternalScreeningPanel({
 	applicantId,
 	industryInitial,
 	socialInitial,
+	ui,
 }: {
 	applicantId: number;
 	industryInitial?: RiskReviewData["industryRegulatorCheck"];
 	socialInitial?: RiskReviewData["socialReputationCheck"];
+	ui: RiskReviewData["externalScreeningUi"];
 }) {
 	const router = useRouter();
 	const [providerChoice, setProviderChoice] = useState<string>(AUTO_PROVIDER);
@@ -276,91 +282,89 @@ export function ExternalScreeningPanel({
 		}
 	}, [applicantId, router]);
 
+	if (!(ui.industryRegulator || ui.socialReputation)) {
+		return null;
+	}
+
 	return (
 		<div className="space-y-6">
-			<Card className="overflow-hidden">
-				<div className="p-5 border-b border-border bg-muted/30">
-					<h3 className="font-medium text-foreground flex items-center gap-2">
-						<Building2 className="w-4 h-4 text-primary" />
-						Industry regulator register (Firecrawl)
-					</h3>
-					<p className="text-xs text-muted-foreground mt-1">
-						Requires Firecrawl and{" "}
-						<code className="text-[10px]">ENABLE_FIRECRAWL_INDUSTRY_REG</code> or{" "}
-						<code className="text-[10px]">ENABLE_MANUAL_FIRECRAWL_SCREENING</code>.
-					</p>
-				</div>
-				<div className="p-5 space-y-4">
-					<div className="space-y-2 max-w-md">
-						<Label htmlFor="regulator-provider">Regulator override</Label>
-						<Select value={providerChoice} onValueChange={setProviderChoice}>
-							<SelectTrigger id="regulator-provider">
-								<SelectValue placeholder="Auto from industry" />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value={AUTO_PROVIDER}>Auto (from industry)</SelectItem>
-								{REGULATOR_PROVIDERS.map(p => (
-									<SelectItem key={p} value={p}>
-										{p}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
+			{ui.industryRegulator && (
+				<Card className="overflow-hidden">
+					<div className="p-5 border-b border-border bg-muted/30">
+						<h3 className="font-medium text-foreground flex items-center gap-2">
+							<Building2 className="w-4 h-4 text-primary" />
+							Industry regulator register (Firecrawl)
+						</h3>
 					</div>
-					<Button type="button" onClick={runIndustry} disabled={industryLoading}>
-						{industryLoading ? (
-							<>
-								<Loader2 className="w-4 h-4 mr-2 animate-spin" />
-								Running…
-							</>
+					<div className="p-5 space-y-4">
+						<div className="space-y-2 max-w-md">
+							<Label htmlFor="regulator-provider">Regulator override</Label>
+							<Select value={providerChoice} onValueChange={setProviderChoice}>
+								<SelectTrigger id="regulator-provider">
+									<SelectValue placeholder="Auto from industry" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value={AUTO_PROVIDER}>Auto (from industry)</SelectItem>
+									{REGULATOR_PROVIDERS.map(p => (
+										<SelectItem key={p} value={p}>
+											{p}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+						<Button type="button" onClick={runIndustry} disabled={industryLoading}>
+							{industryLoading ? (
+								<>
+									<Loader2 className="w-4 h-4 mr-2 animate-spin" />
+									Running…
+								</>
+							) : (
+								"Run industry regulator check"
+							)}
+						</Button>
+						{industryError && <p className="text-sm text-destructive">{industryError}</p>}
+						{industry ? (
+							<IndustrySummary data={industry} />
 						) : (
-							"Run industry regulator check"
+							<p className="text-sm text-muted-foreground">
+								No saved register check yet.
+							</p>
 						)}
-					</Button>
-					{industryError && (
-						<p className="text-sm text-destructive">{industryError}</p>
-					)}
-					{industry ? (
-						<IndustrySummary data={industry} />
-					) : (
-						<p className="text-sm text-muted-foreground">No saved register check yet.</p>
-					)}
-				</div>
-			</Card>
+					</div>
+				</Card>
+			)}
 
-			<Card className="overflow-hidden">
-				<div className="p-5 border-b border-border bg-muted/30">
-					<h3 className="font-medium text-foreground flex items-center gap-2">
-						<MessageCircle className="w-4 h-4 text-primary" />
-						Social reputation (HelloPeter)
-					</h3>
-					<p className="text-xs text-muted-foreground mt-1">
-						Requires Firecrawl and{" "}
-						<code className="text-[10px]">ENABLE_FIRECRAWL_SOCIAL_REP</code> or manual
-						screening flag.
-					</p>
-				</div>
-				<div className="p-5 space-y-4">
-					<Button type="button" onClick={runSocial} disabled={socialLoading}>
-						{socialLoading ? (
-							<>
-								<Loader2 className="w-4 h-4 mr-2 animate-spin" />
-								Running…
-							</>
+			{ui.socialReputation && (
+				<Card className="overflow-hidden">
+					<div className="p-5 border-b border-border bg-muted/30">
+						<h3 className="font-medium text-foreground flex items-center gap-2">
+							<MessageCircle className="w-4 h-4 text-primary" />
+							Social reputation (HelloPeter)
+						</h3>
+					</div>
+					<div className="p-5 space-y-4">
+						<Button type="button" onClick={runSocial} disabled={socialLoading}>
+							{socialLoading ? (
+								<>
+									<Loader2 className="w-4 h-4 mr-2 animate-spin" />
+									Running…
+								</>
+							) : (
+								"Run HelloPeter reputation check"
+							)}
+						</Button>
+						{socialError && <p className="text-sm text-destructive">{socialError}</p>}
+						{social ? (
+							<SocialSummary data={social} />
 						) : (
-							"Run HelloPeter reputation check"
+							<p className="text-sm text-muted-foreground">
+								No saved reputation check yet.
+							</p>
 						)}
-					</Button>
-					{socialError && <p className="text-sm text-destructive">{socialError}</p>}
-					{social ? (
-						<SocialSummary data={social} />
-					) : (
-						<p className="text-sm text-muted-foreground">
-							No saved reputation check yet.
-						</p>
-					)}
-				</div>
-			</Card>
+					</div>
+				</Card>
+			)}
 		</div>
 	);
 }

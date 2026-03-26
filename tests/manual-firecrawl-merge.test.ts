@@ -101,5 +101,9 @@ describe("buildReportData external check extractors", () => {
 		expect(data.industryRegulatorCheck?.registrationStatus).toBe("Registered");
 		expect(data.socialReputationCheck?.summaryRating).toBe(72);
 		expect(data.socialReputationCheck?.businessName).toBe("Acme on HelloPeter");
+		expect(data.externalScreeningUi).toEqual({
+			industryRegulator: expect.any(Boolean),
+			socialReputation: expect.any(Boolean),
+		});
 	});
 });

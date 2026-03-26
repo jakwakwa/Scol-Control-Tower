@@ -183,11 +183,15 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 									status={data.sectionStatuses?.sanctions}
 									onAnalyzeMedia={handleAnalyzeMedia}
 								/>
-								<ExternalScreeningPanel
-									applicantId={data.applicantId}
-									industryInitial={data.industryRegulatorCheck}
-									socialInitial={data.socialReputationCheck}
-								/>
+								{(data.externalScreeningUi.industryRegulator ||
+									data.externalScreeningUi.socialReputation) && (
+									<ExternalScreeningPanel
+										applicantId={data.applicantId}
+										industryInitial={data.industryRegulatorCheck}
+										socialInitial={data.socialReputationCheck}
+										ui={data.externalScreeningUi}
+									/>
+								)}
 							</div>
 						)}
 						{primaryTab === "fica" && (
