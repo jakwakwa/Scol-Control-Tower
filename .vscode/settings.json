@@ -29,7 +29,6 @@
 			"source.fixAll.biome": "never"
 		}
 	},
-	"workbench.preferredHighContrastColorTheme": "Vira Ocean High Contrast",
 	"gradle.autoDetect": "off",
 	"biome.enabled": true,
 	"biome.configurationPath": "biome.json",
@@ -78,4 +77,19 @@
 		"editor.defaultFormatter": "vscode.json-language-features"
 	},
 	"git.ignoreLimitWarning": true,
+	"[css]": {
+		"editor.defaultFormatter": "vscode.css-language-features"
+	},
+	"editor.maxTokenizationLineLength": 100000,
+	"cSpell.words": [
+		"ABSA",
+		"FIRECRAWL",
+		"GENAI",
+		"inngest",
+		"ngrok",
+		"OPENSANCTIONS",
+		"posthog",
+		"PROCURECHECK",
+		"turso"
+	],
 }

@@ -147,7 +147,7 @@ function SanctionCard({
 							{item.companyName || "Unknown Company"}
 						</CardTitle>
 						<p className="text-xs text-muted-foreground mt-0.5">
-							{item.contactName || "Unknown Contact"} · {item.registrationNumber || "—"}
+							{item.contactName || "Unknown Contact"} · {item.registrationNumber || "n/a"}
 						</p>
 					</div>
 					<div className="flex flex-col items-end gap-1 shrink-0">

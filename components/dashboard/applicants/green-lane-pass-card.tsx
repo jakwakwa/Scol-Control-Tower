@@ -1,12 +1,12 @@
 "use client";
 
 import { RiCheckLine, RiLoader4Line, RiShieldCheckLine } from "@remixicon/react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { GlassCard } from "@/components/dashboard";
-import { Button } from "@/components/ui/button";
 import ConfirmActionDrawer from "@/components/shared/confirm-action-drawer";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
 
 export interface GreenLaneStatus {
 	signedQuotePrerequisite: boolean;
@@ -129,7 +129,9 @@ export default function GreenLanePassCard({
 							});
 						}}
 						trigger={
-							<Button disabled={loading} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+							<Button
+								disabled={loading}
+								className="gap-2 bg-emerald-800 mt-8 hover:bg-emerald-700">
 								{loading ? (
 									<RiLoader4Line className="h-4 w-4 animate-spin" />
 								) : (

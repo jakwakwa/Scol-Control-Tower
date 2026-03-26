@@ -121,7 +121,7 @@ export default async function AgentsPage({
 			description="Monitor your external agent fleet"
 			notifications={workflowNotifications}>
 			{/* Agent Stats */}
-			<DashboardGrid columns={4} className="mb-8">
+			<DashboardGrid columns={2} className="mb-8">
 				<StatsCard
 					title="Total Agents"
 					value={stats.totalAgents}
@@ -153,7 +153,7 @@ export default async function AgentsPage({
 
 			{/* Agent Grid */}
 			<DashboardSection title="Agent Fleet">
-				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
 					{agents.map(agent => (
 						<AgentStatusCard key={agent.id} agent={agent} />
 					))}

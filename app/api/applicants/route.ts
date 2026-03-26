@@ -4,6 +4,7 @@ import { applicants, workflows } from "@/db/schema";
 import { createApplicantSchema } from "@/lib/validations";
 import { inngest } from "@/inngest";
 import { requireAuth } from "@/lib/auth/api-auth";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 /**
  * GET /api/applicants
@@ -75,13 +76,16 @@ export async function POST(request: NextRequest) {
 			.values([
 				{
 					companyName: data.companyName,
+					registrationNumber: data.registrationNumber?.trim() || null,
 					contactName: data.contactName,
 					email: data.email,
 					phone: data.phone,
+					vatNumber: data.vatNumber?.trim() || null,
 					idNumber: data.idNumber || null,
 					entityType: data.entityType,
 					productType: data.productType,
 					industry: data.industry,
+					mandateType: data.mandateType ?? null,
 					employeeCount: data.employeeCount,
 					estimatedTransactionsPerMonth:
 						data.estimatedTransactionsPerMonth != null
@@ -116,15 +120,36 @@ export async function POST(request: NextRequest) {
 			throw new Error("Failed to create workflow record");
 		}
 
-		// Start the Control Tower workflow
+		// Start the Control Tower workflow with enriched payload
 		try {
 			await inngest.send({
 				name: "onboarding/lead.created",
-				data: { applicantId: newApplicant.id, workflowId: newWorkflow.id },
+				data: { 
+					applicantId: newApplicant.id, 
+					workflowId: newWorkflow.id,
+					companyName: newApplicant.companyName,
+					contactName: newApplicant.contactName,
+					email: newApplicant.email,
+					source: "dashboard",
+					createdAt: new Date().toISOString(),
+				},
 			});
 		} catch (inngestError) {
 			console.error("[API] Failed to start Inngest workflow:", inngestError);
 		}
+
+		captureServerEvent({
+			distinctId: authResult.userId,
+			event: "applicant_created",
+			properties: {
+				applicant_id: newApplicant.id,
+				workflow_id: newWorkflow.id,
+				company_name: newApplicant.companyName,
+				entity_type: newApplicant.entityType,
+				product_type: newApplicant.productType,
+				industry: newApplicant.industry,
+			},
+		});
 
 		return NextResponse.json(
 			{ applicant: newApplicant, workflow: newWorkflow },

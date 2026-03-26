@@ -3,9 +3,9 @@
   "theme": "linden",
   "name": "StratCol Control Tower Docs",
   "colors": {
-    "primary": "#b79e76",
-    "light": "#857c6e",
-    "dark": "#a48e2d"
+    "primary": "#b67f1f",
+    "light": "#e0af46",
+    "dark": "#9427a9"
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -67,6 +67,8 @@
           {
             "group": "Issues",
             "pages": [
+              "issues/2026-03-23-fix-stage6-inngest-workflow-stuck",
+              "issues/2026-03-22-refactor-forms-hub-workflow-gates",
               "issues/2026-03-01-feat-harden-procurement-fallback-plan"
             ]
           },
@@ -104,21 +106,27 @@
               "api-reference/endpoint/system",
               "api-reference/endpoint/onboarding"
             ]
+          },
+          {
+            "group": "External APIs",
+            "pages": [
+              "api-reference/external_apis/procurecheck/procurecheck_web_api"
+            ]
           }
         ]
       }
     ]
   },
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/light.svg",
+    "light": "/logo/control_tower_logo.png",
+    "dark": "/logo/control_tower_logo.png",
     "href": "https://stratcolltd.mintlify.app/user-guides/overview"
   },
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "label": "Preview App",
+        "href": "https://preview.podzist.com"
       }
     ],
     "primary": {
@@ -148,15 +156,39 @@
   },
   "background": {
     "color": {
-      "light": "#c8a16d",
-      "dark": "#1b170e"
+      "light": "#ededf5",
+      "dark": "#38210c"
     },
-    "decoration": "gradient"
+    "decoration": "grid"
   },
   "appearance": {
     "default": "dark"
   },
   "fonts": {
-    "family": "Inter"
+    "family": "Poppins",
+    "weight": 500,
+    "heading": {
+      "family": "Lato",
+      "weight": 600
+    },
+    "body": {
+      "family": "Merriweather",
+      "weight": 400
+    }
+  },
+  "banner": {
+    "content": "V.0.5.2.alpha",
+    "dismissible": true
+  },
+  "api": {
+    "playground": {
+      "display": "auth"
+    }
+  },
+  "interaction": {
+    "drilldown": true
+  },
+  "icons": {
+    "library": "tabler"
   }
 }

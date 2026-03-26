@@ -1,8 +1,8 @@
-import { Button } from "@/components/ui/button";
 import {
 	PRIMARY_RISK_TABS,
 	type PrimaryRiskTabId,
 } from "@/components/dashboard/risk-review/risk-review-config";
+import { Button } from "@/components/ui/button";
 
 export function RiskReviewTabs({
 	activeTab,
@@ -20,7 +20,7 @@ export function RiskReviewTabs({
 					className={`flex flex-col items-start px-5 py-8 rounded-md border transition-all ${
 						activeTab === tab.id
 							? "bg-secondary border-primary/50 shadow-md shadow-primary/5"
-							: "bg-card/30 border-border hover:bg-secondary/50 hover:border-border"
+							: "bg-card/30 border-border hover:bg-black/20     hover:border-border"
 					}`}>
 					<span
 						className={`text-sm font-semibold pb-1 leading-2.5 ${

@@ -2,6 +2,8 @@ import { eq } from "drizzle-orm";
 import { getBaseUrl, getDatabaseClient } from "@/app/utils";
 import { applicants, documents, documentUploads } from "@/db/schema";
 import { WORKFLOW_TIMEOUTS } from "@/lib/constants/workflow-timeouts";
+import { parseVatStatus } from "@/lib/risk-review/parsers/vat.parser";
+import type { VatStatus } from "@/lib/risk-review/types";
 import {
 	type BatchValidationResult,
 	validateDocumentsBatch,
@@ -24,6 +26,7 @@ import {
 	handleStateCollision,
 } from "@/lib/services/state-lock.service";
 import { terminateRun } from "@/lib/services/terminate-run.service";
+import { runVatVerificationCheck } from "@/lib/services/firecrawl";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 import { inngest } from "../../../client";
 import { guardKillSwitch, runSanctionsForWorkflow } from "../helpers";
@@ -527,6 +530,126 @@ export async function executeStage3({
 			await updateRiskCheckMachineState(workflowId, "FICA", "manual_required", {
 				errorDetails: errorMessage,
 			});
+		}
+	});
+
+	// -----------------------------------------------------------------------
+	// VAT sub-agent: non-blocking, evidence-only peer check.
+	//
+	// Invariants:
+	//   - Skipped when applicant.vatNumber is absent.
+	//   - Failures set VAT evidence status only; they never mutate FICA
+	//     machine state or trigger any kill-switch / terminate-run call.
+	//   - The returned object is evidence metadata only — not a gate decision.
+	// -----------------------------------------------------------------------
+	await step.run("check-vat", async () => {
+		const db = getDatabaseClient();
+		const [applicant] = db
+			? await db.select().from(applicants).where(eq(applicants.id, applicantId))
+			: [];
+
+		if (!applicant?.vatNumber) {
+			return { status: "not_checked" satisfies VatStatus };
+		}
+
+		const vatNumber = applicant.vatNumber;
+
+		// Format guard — runVatVerificationCheck will throw on invalid format;
+		// surface as invalid_input without letting the exception propagate.
+		if (!/^\d{10}$/.test(vatNumber)) {
+			console.warn(
+				`[ControlTower] VAT check skipped: invalid format for applicant ${applicantId}`
+			);
+			await logWorkflowEvent({
+				workflowId,
+				eventType: "vat_verification_completed",
+				payload: {
+					vatNumber,
+					status: "invalid_input",
+					reason: "VAT number does not match required 10-digit format",
+				},
+			});
+			return { status: "invalid_input" satisfies VatStatus };
+		}
+
+		try {
+			const result = await runVatVerificationCheck({
+				vatNumber,
+				companyName: applicant.companyName ?? undefined,
+				workflowId,
+				applicantId,
+			});
+
+			const vatStatus = parseVatStatus(
+				result.status,
+				result.result?.runtimeState,
+				result.result?.verified
+			);
+
+			await logWorkflowEvent({
+				workflowId,
+				eventType: "vat_verification_completed",
+				payload: {
+					vatNumber,
+					status: vatStatus,
+					verified: result.result?.verified ?? false,
+					tradingName: result.result?.tradingName,
+					runtimeState: result.result?.runtimeState,
+				},
+			});
+
+			const notificationType =
+				vatStatus === "verified"
+					? ("success" as const)
+					: vatStatus === "manual_review"
+						? ("warning" as const)
+						: vatStatus === "not_verified"
+							? ("warning" as const)
+							: ("info" as const);
+
+			const notificationTitle =
+				vatStatus === "verified"
+					? "VAT Verification Passed"
+					: vatStatus === "not_verified"
+						? "VAT Verification: No Match Found"
+						: vatStatus === "manual_review"
+							? "VAT Verification: Manual Review Required"
+							: "VAT Verification: Check Inconclusive";
+
+			const notificationMessage =
+				vatStatus === "verified"
+					? `VAT number ${vatNumber} confirmed via SARS lookup.`
+					: vatStatus === "not_verified"
+						? `VAT number ${vatNumber} could not be confirmed. Manual review recommended.`
+						: `VAT check returned status: ${vatStatus}. Evidence recorded for risk review.`;
+
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: notificationType,
+				title: notificationTitle,
+				message: notificationMessage,
+				actionable: vatStatus !== "verified",
+				severity: vatStatus === "verified" ? "low" : "medium",
+			});
+
+			return { status: vatStatus };
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			console.error("[ControlTower] VAT check failed (non-blocking):", error);
+
+			await logWorkflowEvent({
+				workflowId,
+				eventType: "vat_verification_completed",
+				payload: {
+					vatNumber,
+					status: "error",
+					error: errorMessage,
+				},
+			});
+
+			// Evidence-only: do not rethrow, do not call kill-switch or terminateRun.
+			return { status: "error" satisfies VatStatus };
 		}
 	});
 

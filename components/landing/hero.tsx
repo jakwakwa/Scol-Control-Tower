@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 
 export function Hero() {
 	return (
-		<section className="relative pt-32 pb-20 md:pt-21 md:pb-32 overflow-hidden bg-background">
+		<section className="relative pt-32 pb-20 md:pt-21 md:pb-32 overflow-hidden ">
 			<div className="container px-4 mx-auto relative z-10">
 				<div className="max-w-4xl mx-auto text-center mb-16">
 					<motion.div
@@ -16,7 +16,7 @@ export function Hero() {
 						transition={{ duration: 0.5 }}>
 						<div className="flex justify-center mb-8">
 							<Image
-								src="/assets/control_tower_logo_.svg"
+								src="/control_tower_logo.png"
 								alt="Control Tower Logo"
 								width={200}
 								height={64}
@@ -24,37 +24,15 @@ export function Hero() {
 								priority
 							/>
 						</div>
-						<h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-8 text-foreground">
+						<h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-8 text-white/90">
 							Accelerate Trust.
 							<br />
 							Automate Onboarding.
 						</h1>
-						<p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
-							Transform your client intake from a paper chase into a digital science. The
-							central command for Sales and Compliance teams.
+						<p className="text-xl text-white/80 mb-10 max-w-2xl mx-auto leading-relaxed">
+							Here we Transformed our client intake from a paper chase into a digital
+							science. Our central contral tower for Sales and Compliance teams.
 						</p>
-						<div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-							<a href="/dashboard">
-								<Button
-									size="lg"
-									className="rounded-xl h-12 py-6 px-4 text-base bg-primary font-bold tracking-tight shadow-lg shadow-black/50 text-gray-950/70 bg-primary">
-									Launch Control Tower
-									<ArrowRight className="ml-2 h-4 w-4" />
-								</Button>
-							</a>
-							<a
-								href="https://stratcolltd.mintlify.app/user-guides/overview"
-								target="_blank"
-								rel="noopener noreferrer">
-								<Button
-									variant="outline"
-									size="lg"
-									className="rounded-xl h-12 px-4 py-6 text-base border-border/70 text-foreground hover:bg-muted">
-									<FileText className="mr-2 h-4 w-4" />
-									View Documentation
-								</Button>
-							</a>
-						</div>
 					</motion.div>
 				</div>
 
@@ -72,21 +50,28 @@ export function Hero() {
 						perspective: 1000,
 					}}
 					className="relative max-w-6xl mx-auto">
-					<div className="relative rounded-xl border border-border bg-card/50 backdrop-blur-sm shadow-2xl overflow-hidden group">
+					<div className="relative rounded-xl border-none bg-card/50 backdrop-blur-sm shadow-2xl overflow-hidden group">
 						<div className="absolute inset-0 bg-linear-to-b from-transparent to-background/20 z-20 pointer-events-none" />
-
-						{/* Dashboard Image */}
-						<Image
-							src="/assets/dashboard-mockup.png"
-							alt="StratCol Control Tower Dashboard Interface"
-							width={1200}
-							height={800}
-							className="w-full h-auto object-cover shadow-inner"
-						/>
 					</div>
-
+					<div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+						<a href="/dashboard">
+							<Button variant="secondary" size="lg">
+								Launch Control Tower
+								<ArrowRight className="mx-2 h-4 w-4" />
+							</Button>
+						</a>
+						<a
+							href="https://stratcolltd.mintlify.app/user-guides/overview"
+							target="_blank"
+							rel="noopener noreferrer">
+							<Button variant="secondary" size="lg" className="bg-cyan-500">
+								<FileText className="mr-2 h-4 w-4" />
+								View Documentation
+							</Button>
+						</a>
+					</div>
 					{/* Glow Effect */}
-					<div className="absolute -inset-4 bg-primary/10 blur-3xl -z-10 rounded-[3rem] opacity-40" />
+					<div className="absolute w-1/2 mx-auto -inset-2 animate-pulse bg-primary/20 blur-2xl -z-1 shadow-sm shadow-cyan-400/90 rounded opacity-90"></div>
 				</motion.div>
 			</div>
 

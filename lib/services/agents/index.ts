@@ -21,6 +21,15 @@ export {
 	requiresManualReview as requiresManualRiskReview,
 } from "./risk.agent";
 
+// Financial Risk Agent — bank statement analysis (Gemini), multi-stage, logs to ai_analysis_logs
+export {
+	FINANCIAL_RISK_AGENT_NAME,
+	runFinancialRiskAgent,
+	type FinancialRiskAgentInput,
+	type FinancialRiskAgentResult,
+	type FinancialRiskAnalysisResult,
+} from "./financial-risk.agent";
+
 // Sanctions Agent (Mock Implementation - Phase 1)
 export {
 	type BatchSanctionsInput,

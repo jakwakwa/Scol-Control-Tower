@@ -128,7 +128,7 @@ export default async function DashboardPage() {
 			actions={
 				<Link href="/dashboard/applicants/new">
 					<Button variant="secondary">
-						<RiUserAddLine color="var(--color-teal-200)" />
+						<RiUserAddLine color="var(--color-amber-200)" />
 						New Applicant
 					</Button>
 				</Link>

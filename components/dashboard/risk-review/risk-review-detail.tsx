@@ -55,7 +55,8 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 		return <div className="p-8 text-center text-muted-foreground">Loading risk data...</div>;
 	}
 
-	const { globalData, procurementData, itcData, sanctionsData, ficaData } = data;
+	const { globalData, procurementData, itcData, sanctionsData, ficaData, bankStatementAnalysis } =
+		data;
 
 	const handleAdjudicate = async (outcome: "APPROVED" | "REJECTED") => {
 		setAdjudicationSubmitting(true);
@@ -110,6 +111,7 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
       Overall Score: ${globalData.overallRiskScore}
       Procurement Data: ${JSON.stringify(procurementData)}
       ITC Data: ${JSON.stringify(itcData)}
+      Bank statement AI: ${JSON.stringify(bankStatementAnalysis ?? null)}
       Sanctions Data: ${JSON.stringify(sanctionsData)}
       FICA Data: ${JSON.stringify(ficaData)}
     `;
@@ -167,7 +169,11 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 							/>
 						)}
 						{primaryTab === "itc" && (
-							<ItcSection data={itcData} status={data.sectionStatuses?.itc} />
+							<ItcSection
+								data={itcData}
+								status={data.sectionStatuses?.itc}
+								bankStatementAnalysis={bankStatementAnalysis}
+							/>
 						)}
 						{primaryTab === "sanctions" && (
 							<SanctionsSection
@@ -177,7 +183,11 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 							/>
 						)}
 						{primaryTab === "fica" && (
-							<FicaSection data={ficaData} status={data.sectionStatuses?.fica} />
+							<FicaSection
+								data={ficaData}
+								status={data.sectionStatuses?.fica}
+								applicantId={data.applicantId}
+							/>
 						)}
 					</div>
 				</div>

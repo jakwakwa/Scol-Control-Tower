@@ -1,5 +1,11 @@
 import type { z } from "zod";
 import type { KillSwitchReason } from "@/lib/services/kill-switch.service";
+import { getValidationModeForEvent } from "@/lib/config/perimeter-validation";
+import { 
+	recordValidationFailure, 
+	recordValidationSuccess, 
+	inferProducer 
+} from "@/lib/services/telemetry/perimeter-metrics";
 
 /**
  * Structured perimeter validation result.
@@ -18,12 +24,27 @@ export interface PerimeterValidationFailure {
 	messages: string[];
 	terminationReason: KillSwitchReason;
 	raw: Record<string, unknown>;
+	validationMode: "strict" | "warn";
 }
 
 export interface PerimeterValidationSuccess<T> {
 	ok: true;
 	data: T;
 	failure?: undefined;
+	validationMode: "strict" | "warn" | "disabled";
+}
+
+export interface PerimeterValidationWarning<T> {
+	ok: true;
+	data: T;
+	warning: {
+		eventName: string;
+		sourceSystem: string;
+		failedPaths: string[];
+		messages: string[];
+		raw: Record<string, unknown>;
+	};
+	validationMode: "warn";
 }
 
 export interface PerimeterValidationError {
@@ -34,6 +55,7 @@ export interface PerimeterValidationError {
 
 export type PerimeterValidationResult<T> =
 	| PerimeterValidationSuccess<T>
+	| PerimeterValidationWarning<T>
 	| PerimeterValidationError;
 
 interface ValidatePerimeterInput<T> {
@@ -42,6 +64,7 @@ interface ValidatePerimeterInput<T> {
 	eventName: string;
 	sourceSystem: string;
 	terminationReason: KillSwitchReason;
+	compatibilitySchema?: z.ZodType<any>;
 }
 
 export function validatePerimeter<T>({
@@ -50,24 +73,112 @@ export function validatePerimeter<T>({
 	eventName,
 	sourceSystem,
 	terminationReason,
+	compatibilitySchema,
 }: ValidatePerimeterInput<T>): PerimeterValidationResult<T> {
-	const result = schema.safeParse(data);
+	const validationMode = getValidationModeForEvent(eventName);
+	const raw = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
+	const applicantId = typeof raw.applicantId === "number" ? raw.applicantId : 0;
+	const workflowId = typeof raw.workflowId === "number" ? raw.workflowId : 0;
+	const producer = inferProducer(eventName, sourceSystem);
 
-	if (result.success) {
-		return { ok: true, data: result.data };
+	if (validationMode === "disabled") {
+		const fallbackSchema = compatibilitySchema || (schema as any).passthrough();
+		const result = fallbackSchema.safeParse(data);
+		
+		if (result.success) {
+			recordValidationSuccess({
+				eventName,
+				sourceSystem,
+				validationMode,
+				producer,
+				workflowId,
+				applicantId,
+			});
+			return { ok: true, data: result.data, validationMode };
+		}
+
+		recordValidationFailure({
+			eventName,
+			sourceSystem,
+			validationMode: "warn", // Don't fail in disabled mode
+			failedPaths: ["schema_parse_error"],
+			messages: ["Failed to parse payload even with passthrough schema"],
+			producer,
+			workflowId,
+			applicantId,
+		});
+		
+		return { ok: true, data: data as T, validationMode };
 	}
 
-	const raw = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
-	const applicantId =
-		typeof raw.applicantId === "number" ? raw.applicantId : 0;
-	const workflowId =
-		typeof raw.workflowId === "number" ? raw.workflowId : 0;
+	const strictResult = schema.safeParse(data);
 
-	const fieldErrors = result.error.flatten().fieldErrors;
+	if (strictResult.success) {
+		recordValidationSuccess({
+			eventName,
+			sourceSystem,
+			validationMode,
+			producer,
+			workflowId,
+			applicantId,
+		});
+		return { ok: true, data: strictResult.data, validationMode };
+	}
+
+	const fieldErrors = strictResult.error.flatten().fieldErrors;
 	const failedPaths = Object.keys(fieldErrors);
 	const messages = Object.values(fieldErrors)
 		.flat()
 		.filter((m): m is string => typeof m === "string");
+
+	recordValidationFailure({
+		eventName,
+		sourceSystem,
+		validationMode,
+		failedPaths,
+		messages,
+		producer,
+		workflowId,
+		applicantId,
+	});
+
+	if (validationMode === "warn" && compatibilitySchema) {
+		const compatResult = compatibilitySchema.safeParse(data);
+		
+		if (compatResult.success) {
+			return {
+				ok: true,
+				data: compatResult.data,
+				warning: {
+					eventName,
+					sourceSystem,
+					failedPaths,
+					messages,
+					raw,
+				},
+				validationMode: "warn",
+			};
+		}
+	}
+
+	if (validationMode === "warn") {
+		const passthroughResult = (schema as any).passthrough().safeParse(data);
+		
+		if (passthroughResult.success) {
+			return {
+				ok: true,
+				data: passthroughResult.data,
+				warning: {
+					eventName,
+					sourceSystem,
+					failedPaths,
+					messages,
+					raw,
+				},
+				validationMode: "warn",
+			};
+		}
+	}
 
 	return {
 		ok: false,
@@ -80,6 +191,7 @@ export function validatePerimeter<T>({
 			messages,
 			terminationReason,
 			raw,
+			validationMode: validationMode === "warn" ? "warn" : "strict",
 		},
 	};
 }

@@ -87,12 +87,17 @@ export async function POST(request: NextRequest) {
 			throw new Error("Failed to create workflow record");
 		}
 
-		// 5. Trigger Control Tower workflow
+		// 5. Trigger Control Tower workflow with enriched payload
 		await inngest.send({
 			name: "onboarding/lead.created",
 			data: {
 				applicantId: newApplicant.id,
 				workflowId: newWorkflow.id,
+				companyName: newApplicant.companyName,
+				contactName: newApplicant.contactName,
+				email: newApplicant.email,
+				source: "webhook",
+				createdAt: new Date().toISOString(),
 			},
 		});
 

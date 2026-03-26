@@ -60,7 +60,7 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 				}
 				onCheckedChange={value => table.toggleAllPageRowsSelected(!!value)}
 				aria-label="Select all"
-				className="translate-y-0.5"
+				className="translate-y-0.5 hidden w-0"
 			/>
 		),
 		cell: ({ row }) => (
@@ -68,7 +68,7 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 				checked={row.getIsSelected()}
 				onCheckedChange={value => row.toggleSelected(!!value)}
 				aria-label="Select row"
-				className="translate-y-0.5"
+				className="translate-y-0.5 hidden w-0"
 			/>
 		),
 		enableSorting: false,
@@ -77,7 +77,9 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 	{
 		accessorKey: "companyName",
 		header: ({ column }) => (
-			<Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+			<Button
+				variant="ghost"
+				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
 				{column.getIsSorted() === "asc" ? (
 					<RiArrowUpSLine className="ml-2 h-4 w-4" />
 				) : column.getIsSorted() === "desc" ? (
@@ -115,7 +117,9 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 		cell: ({ row }) => (
 			<div>
 				<div className="text-xs font-light">{row.original.contactName}</div>
-				<div className="text-xs font-light text-muted-foreground">{row.original.email}</div>
+				<div className="text-xs font-light text-muted-foreground">
+					{row.original.email}
+				</div>
 			</div>
 		),
 	},
@@ -158,7 +162,9 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 			</Button>
 		),
 		cell: ({ row }) => (
-			<div className="text-sm">{row.original.employeeCount?.toLocaleString() || "—"}</div>
+			<div className="text-sm">
+				{row.original.employeeCount?.toLocaleString() || "n/a"}
+			</div>
 		),
 	},
 	{
@@ -181,7 +187,7 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 		cell: ({ row }) => {
 			const config = statusConfig[row.original.status] || {
 				label: row.original.status,
-				color: "bg-secondary/10 text-muted-foreground",
+				color: "bg-black/20     text-muted-foreground",
 			};
 			return (
 				<span
@@ -205,7 +211,7 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 						<DropdownMenuTrigger
 							className={cn(
 								buttonVariants({ variant: "ghost", size: "icon" }),
-								"h-8 w-8 hover:bg-secondary/10"
+								"h-8 w-8 hover:bg-background/50"
 							)}>
 							<RiMoreLine className="h-4 w-4" />
 						</DropdownMenuTrigger>

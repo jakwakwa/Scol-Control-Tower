@@ -28,7 +28,7 @@ export function WorkflowSteps() {
 			title: "FICA Review",
 			description: "AI + Human Loop",
 			icon: ShieldCheck,
-			color: "text-amber-600 dark:text-amber-400",
+			color: "text-amber-900 dark:text-amber-100",
 			bgColor: "bg-amber-100 dark:bg-amber-900/20",
 			borderColor: "border-amber-200 dark:border-amber-800",
 		},

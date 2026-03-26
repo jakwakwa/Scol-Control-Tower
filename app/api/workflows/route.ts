@@ -4,8 +4,9 @@ import { workflows } from "@/db/schema";
 import { z } from "zod";
 import { inngest } from "@/inngest";
 import { requireAuth } from "@/lib/auth/api-auth";
+import { captureServerEvent } from "@/lib/posthog-server";
+import { auth } from "@clerk/nextjs/server";
 
-// Schema for creating a workflow (define locally if not available in validations yet)
 const createWorkflowSchema = z.object({
 	applicantId: z.number(),
 	stage: z.number().default(1),
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
 				metadata: data.metadata,
 				decisionType: data.decisionType,
 				targetResource: data.targetResource,
-			} as any)
+			})
 			.returning();
 
 		const newWorkflow = newWorkflowResults[0];
@@ -113,6 +114,18 @@ export async function POST(request: NextRequest) {
 		} catch (inngestError) {
 			console.error("Failed to start Inngest workflow:", inngestError);
 		}
+
+		const { userId } = await auth();
+		captureServerEvent({
+			distinctId: userId ?? `applicant_${newWorkflow.applicantId}`,
+			event: "workflow_started",
+			properties: {
+				workflow_id: newWorkflow.id,
+				applicant_id: newWorkflow.applicantId,
+				stage: newWorkflow.stage,
+				stage_name: newWorkflow.stageName,
+			},
+		});
 
 		return NextResponse.json({ workflow: newWorkflow }, { status: 201 });
 	} catch (error) {
