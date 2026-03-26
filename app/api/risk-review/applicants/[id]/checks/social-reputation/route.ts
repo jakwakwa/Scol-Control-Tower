@@ -38,7 +38,7 @@ export async function POST(
 		}
 
 		const gate = assertManualFirecrawlAllowed("social");
-		if (!gate.ok) {
+		if (gate.ok === false) {
 			return NextResponse.json({ error: gate.error }, { status: gate.status });
 		}
 
