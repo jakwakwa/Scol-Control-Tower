@@ -132,6 +132,15 @@ export interface RiskReviewData {
 	industryRegulatorCheck?: IndustryRegulatorReviewData;
 	/** HelloPeter / social reputation check (from aiAnalysis.externalChecks.socialReputation) */
 	socialReputationCheck?: SocialReputationReviewData;
+
+	/**
+	 * Server-derived feature flags: show Firecrawl screening actions only when configured
+	 * and ENABLE_FIRECRAWL_* or ENABLE_MANUAL_FIRECRAWL_SCREENING is set.
+	 */
+	externalScreeningUi: {
+		industryRegulator: boolean;
+		socialReputation: boolean;
+	};
 }
 
 /** Industry regulator external check slice for risk review UI */

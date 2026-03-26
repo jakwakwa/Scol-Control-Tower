@@ -50,6 +50,26 @@ export function assertManualFirecrawlAllowed(
 	return { ok: true };
 }
 
+/**
+ * Whether each external screening action should appear in the risk review UI.
+ * Matches {@link assertManualFirecrawlAllowed} (Firecrawl configured + env flags).
+ */
+export function getExternalScreeningUiAvailability(): {
+	industryRegulator: boolean;
+	socialReputation: boolean;
+} {
+	if (!isFirecrawlConfigured()) {
+		return { industryRegulator: false, socialReputation: false };
+	}
+	const manual = process.env.ENABLE_MANUAL_FIRECRAWL_SCREENING === "true";
+	const industryOn = process.env.ENABLE_FIRECRAWL_INDUSTRY_REG === "true";
+	const socialOn = process.env.ENABLE_FIRECRAWL_SOCIAL_REP === "true";
+	return {
+		industryRegulator: manual || industryOn,
+		socialReputation: manual || socialOn,
+	};
+}
+
 export function industryResultToExternalSlot(
 	fc: IndustryRegulatorCheckResult
 ): ExternalCheckPersistSlot {

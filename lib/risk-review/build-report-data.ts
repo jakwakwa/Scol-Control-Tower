@@ -1,3 +1,4 @@
+import { getExternalScreeningUiAvailability } from "@/lib/risk-review/manual-firecrawl-checks";
 import {
 	parseAiAnalysisSnapshot,
 	parseMachineState,
@@ -252,8 +253,11 @@ function extractIndustryRegulatorFromAiAnalysis(
 		checkedAt: typeof r.checkedAt === "string" ? r.checkedAt : undefined,
 		provider: typeof meta?.provider === "string" ? meta.provider : undefined,
 		registrationStatus:
-			typeof first?.registrationStatus === "string" ? first.registrationStatus : undefined,
-		evidenceMatchName: typeof first?.matchedName === "string" ? first.matchedName : undefined,
+			typeof first?.registrationStatus === "string"
+				? first.registrationStatus
+				: undefined,
+		evidenceMatchName:
+			typeof first?.matchedName === "string" ? first.matchedName : undefined,
 	};
 }
 
@@ -286,7 +290,8 @@ function extractSocialReputationFromAiAnalysis(
 		checkedAt: typeof r.checkedAt === "string" ? r.checkedAt : undefined,
 		summaryRating: typeof r.summaryRating === "number" ? r.summaryRating : undefined,
 		complaintCount: typeof r.complaintCount === "number" ? r.complaintCount : undefined,
-		complimentCount: typeof r.complimentCount === "number" ? r.complimentCount : undefined,
+		complimentCount:
+			typeof r.complimentCount === "number" ? r.complimentCount : undefined,
 		businessName:
 			typeof first?.matchedName === "string"
 				? first.matchedName
@@ -389,5 +394,6 @@ export function buildReportData(
 		bankStatementAnalysis: parseFinancialRiskRawOutput(financialRiskRawOutput),
 		industryRegulatorCheck: extractIndustryRegulatorFromAiAnalysis(aiAnalysisRaw),
 		socialReputationCheck: extractSocialReputationFromAiAnalysis(aiAnalysisRaw),
+		externalScreeningUi: getExternalScreeningUiAvailability(),
 	};
 }
