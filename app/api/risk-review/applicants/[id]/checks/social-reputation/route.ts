@@ -13,6 +13,7 @@ import {
 	persistMergedAiAnalysis,
 	socialResultToExternalSlot,
 } from "@/lib/risk-review/manual-firecrawl-checks";
+import type { SocialReputationCheckResult } from "@/lib/services/agents/contracts/firecrawl-check.contracts";
 import { runSocialReputationCheck } from "@/lib/services/firecrawl";
 
 /**
@@ -60,7 +61,7 @@ export async function POST(
 
 		const applicantData = applicantRowToApplicantData(applicant);
 
-		let fcResult;
+		let fcResult: SocialReputationCheckResult;
 		try {
 			fcResult = await runSocialReputationCheck({
 				applicantId,
