@@ -29,6 +29,15 @@ This project emits `perimeter_validation_attempt` with properties `env`, `perime
 
 - If the dashboard already has four insight tiles, the script exits without duplicating. Set `POSTHOG_PERIMETER_FORCE_INSIGHTS=1` to force creating another full set (you may want to delete duplicates in PostHog afterward).
 
+## In-app analytics (`/dashboard/analytics`)
+
+The app can render **PostHog dashboards** in-product (trends line charts and HogQL/data tables via `POST /api/projects/:id/query/`). Code: [`lib/posthog-rest.ts`](../lib/posthog-rest.ts), [`app/api/analytics/posthog/`](../app/api/analytics/posthog/), [`components/dashboard/analytics/posthog-analytics-dashboard.tsx`](../components/dashboard/analytics/posthog-analytics-dashboard.tsx).
+
+- **Auth:** `org:admin`, Clerk permission **`org:analytics:view`**, or comma-separated **`POSTHOG_ANALYTICS_ALLOWED_USER_IDS`** (Clerk user ids) for bootstrap.
+- **Secrets:** Use **`POSTHOG_PERSONAL_API_KEY`** (`phx_…`) only on the server. **`NEXT_PUBLIC_POSTHOG_KEY`** / **`NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`** (`phc_…`) are for capture only and do not authenticate the private REST API.
+- **Host:** If `NEXT_PUBLIC_POSTHOG_HOST` is the ingest URL (`*.i.posthog.com`), set **`POSTHOG_API_HOST=https://us.posthog.com`** (or your region’s app host) for REST.
+- **Personal key scopes:** At least **dashboard read**, **insight read**, and **query read** (often labeled `query:read` in PostHog).
+
 ## Feature flag (same project)
 
 Create flag key **`perimeter_validation_config`** (JSON / remote config payload) as described in [inngest-perimeter-validation-rollout.md](./rollout-plans/inngest-perimeter-validation-rollout.md). Target **preview** vs **production** using person properties: the app evaluates flags with `personProperties.deployment_env` derived from `VERCEL_ENV`.

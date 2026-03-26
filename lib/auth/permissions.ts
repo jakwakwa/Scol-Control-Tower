@@ -21,6 +21,8 @@ export const PERMISSIONS = {
 	RISK_ASSESSMENT_CONFIGURE: "org:risk_assessment:configure",
 	RISK_ASSESSMENT_OVERRIDE_DENIED: "org:risk_assessment:override_denied",
 	WORKFLOW_TERMINATE: "org:workflow:terminate",
+	/** View in-app PostHog analytics (private REST + charts). Configure in Clerk Roles & Permissions. */
+	ANALYTICS_VIEW: "org:analytics:view",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

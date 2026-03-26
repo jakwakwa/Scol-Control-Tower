@@ -20,11 +20,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPostHogProjectToken } from "../../lib/posthog-env";
+import { getPostHogProjectId, posthogProjectFetch } from "../../lib/posthog-rest";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const DEFAULT_HOST = "https://us.posthog.com";
-const DEFAULT_PROJECT_ID = "349918";
 const DASHBOARD_NAME_DEFAULT = "Perimeter validation — Control Tower";
 
 function loadDotEnvFiles(): void {
@@ -53,51 +52,6 @@ function loadDotEnvFiles(): void {
 	}
 }
 
-/** Private REST API lives on the app host; ingest URLs (`*.i.posthog.com`) are wrong for `/api/projects/...`. */
-function resolvePostHogApiHost(): string {
-	const explicit = process.env.POSTHOG_API_HOST?.trim();
-	if (explicit) return explicit.replace(/\/$/, "");
-	const pub = process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim().replace(/\/$/, "") || "";
-	if (/\.i\.posthog\.com/i.test(pub) || /\/ingest\b/i.test(pub)) return DEFAULT_HOST;
-	if (pub) return pub;
-	return DEFAULT_HOST;
-}
-
-async function posthogFetch<T>(
-	host: string,
-	projectId: string,
-	apiKey: string,
-	path: string,
-	init?: RequestInit
-): Promise<T> {
-	const base = host.replace(/\/$/, "");
-	const url = `${base}/api/projects/${projectId}${path.startsWith("/") ? path : `/${path}`}`;
-	const res = await fetch(url, {
-		...init,
-		headers: {
-			Authorization: `Bearer ${apiKey}`,
-			"Content-Type": "application/json",
-			...init?.headers,
-		},
-	});
-	const text = await res.text();
-	let data: unknown = text;
-	try {
-		data = text ? JSON.parse(text) : null;
-	} catch {
-		/* keep text */
-	}
-	if (!res.ok) {
-		let msg = `PostHog API ${res.status} ${url}: ${typeof data === "string" ? data : JSON.stringify(data)}`;
-		if (res.status === 401 && apiKey.startsWith("phc_")) {
-			msg +=
-				"\n\nHint: Bearer token looks like a project key (phc_…). Dashboard/insight writes need POSTHOG_PERSONAL_API_KEY (phx_…) from PostHog → User settings → Personal API keys.";
-		}
-		throw new Error(msg);
-	}
-	return data as T;
-}
-
 interface DashboardSummary {
 	id: number;
 	name: string;
@@ -119,60 +73,27 @@ interface InsightCreateResponse {
 	name?: string;
 }
 
-async function findDashboardByName(
-	host: string,
-	projectId: string,
-	apiKey: string,
-	name: string
-): Promise<number | null> {
-	const list = await posthogFetch<DashboardList>(
-		host,
-		projectId,
-		apiKey,
-		"/dashboards/?limit=500",
-		{ method: "GET" }
-	);
+async function findDashboardByName(name: string): Promise<number | null> {
+	const list = await posthogProjectFetch<DashboardList>("/dashboards/?limit=500", { method: "GET" });
 	const hit = list.results?.find(d => d.name === name);
 	return hit?.id ?? null;
 }
 
-async function createDashboard(
-	host: string,
-	projectId: string,
-	apiKey: string,
-	name: string
-): Promise<number> {
-	const created = await posthogFetch<DashboardSummary>(
-		host,
-		projectId,
-		apiKey,
-		"/dashboards/",
-		{
-			method: "POST",
-			body: JSON.stringify({
-				name,
-				description:
-					"Perimeter schema validation telemetry (event: perimeter_validation_attempt). Created by scripts/posthog/create-perimeter-dashboard.ts",
-				pinned: false,
-			}),
-		}
-	);
+async function createDashboard(name: string): Promise<number> {
+	const created = await posthogProjectFetch<DashboardSummary>("/dashboards/", {
+		method: "POST",
+		body: JSON.stringify({
+			name,
+			description:
+				"Perimeter schema validation telemetry (event: perimeter_validation_attempt). Created by scripts/posthog/create-perimeter-dashboard.ts",
+			pinned: false,
+		}),
+	});
 	return created.id;
 }
 
-async function getDashboardTilesMeta(
-	host: string,
-	projectId: string,
-	apiKey: string,
-	dashboardId: number
-): Promise<{ tileCount: number; insightNames: Set<string> }> {
-	const d = await posthogFetch<DashboardDetail>(
-		host,
-		projectId,
-		apiKey,
-		`/dashboards/${dashboardId}/`,
-		{ method: "GET" }
-	);
+async function getDashboardTilesMeta(dashboardId: number): Promise<{ tileCount: number; insightNames: Set<string> }> {
+	const d = await posthogProjectFetch<DashboardDetail>(`/dashboards/${dashboardId}/`, { method: "GET" });
 	const tiles = d.tiles ?? [];
 	const insightNames = new Set<string>();
 	for (const t of tiles) {
@@ -182,13 +103,8 @@ async function getDashboardTilesMeta(
 	return { tileCount: tiles.filter(t => t.insight?.id).length, insightNames };
 }
 
-async function createInsight(
-	host: string,
-	projectId: string,
-	apiKey: string,
-	body: Record<string, unknown>
-): Promise<InsightCreateResponse> {
-	return posthogFetch<InsightCreateResponse>(host, projectId, apiKey, "/insights/", {
+async function createInsight(body: Record<string, unknown>): Promise<InsightCreateResponse> {
+	return posthogProjectFetch<InsightCreateResponse>("/insights/", {
 		method: "POST",
 		body: JSON.stringify(body),
 	});
@@ -199,8 +115,7 @@ async function main(): Promise<void> {
 
 	const personalKey = process.env.POSTHOG_PERSONAL_API_KEY?.trim();
 	const projectToken = getPostHogProjectToken();
-	const host = resolvePostHogApiHost();
-	const projectId = process.env.POSTHOG_PROJECT_ID?.trim() || DEFAULT_PROJECT_ID;
+	const projectId = getPostHogProjectId();
 	const dashboardName =
 		process.env.POSTHOG_PERIMETER_DASHBOARD_NAME?.trim() || DASHBOARD_NAME_DEFAULT;
 	const forceInsights = process.env.POSTHOG_PERIMETER_FORCE_INSIGHTS === "1";
@@ -218,20 +133,12 @@ async function main(): Promise<void> {
 		process.exit(1);
 	}
 
-	const apiKey = personalKey;
-
-	let dashboardId = await findDashboardByName(host, projectId, apiKey, dashboardName);
+	let dashboardId = await findDashboardByName(dashboardName);
 	if (dashboardId == null) {
-		dashboardId = await createDashboard(host, projectId, apiKey, dashboardName);
-	} else {
+		dashboardId = await createDashboard(dashboardName);
 	}
 
-	const { tileCount: existingTiles, insightNames } = await getDashboardTilesMeta(
-		host,
-		projectId,
-		apiKey,
-		dashboardId
-	);
+	const { tileCount: existingTiles, insightNames } = await getDashboardTilesMeta(dashboardId);
 	if (existingTiles >= 4 && !forceInsights) {
 		return;
 	}
@@ -399,7 +306,7 @@ LIMIT 100
 			continue;
 		}
 		try {
-			const _ins = await createInsight(host, projectId, apiKey, body);
+			const _ins = await createInsight(body);
 			insightNames.add(insightName);
 		} catch (e) {
 			console.error(`Failed insight "${title}":`, e instanceof Error ? e.message : e);

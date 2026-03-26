@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 import { useDashboardStore } from "@/lib/dashboard-store";
 import { getNotificationRoute } from "@/lib/notifications/semantics";
 import { cn } from "@/lib/utils";
-import Grainient from "../Grainient";
 import { NotificationsPanel, type WorkflowNotification } from "./notifications-panel";
 import { Sidebar } from "./sidebar";
 
@@ -15,7 +14,6 @@ interface DashboardShellProps {
 	children: React.ReactNode;
 	notifications?: WorkflowNotification[];
 }
-
 
 export function DashboardShell({ children, notifications = [] }: DashboardShellProps) {
 	const router = useRouter();
@@ -67,33 +65,8 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 	return (
 		<>
 			<div style={{ width: "100vw", height: "1080px", position: "fixed", zIndex: "-2" }}>
-				<Grainient
-					color1="#266d7b"
-					// color2="#21354a"
-					color3="#26353d"
-					// color1="#7d5c16"
-					color2="#0c141d"
-					// color3="#404b4d"
-					timeSpeed={0.3}
-					colorBalance={-0.5}
-					warpStrength={2}
-					warpFrequency={1}
-					warpSpeed={0.2}
-					warpAmplitude={50}
-					blendAngle={1}
-					blendSoftness={0.9}
-					rotationAmount={310}
-					noiseScale={2.45}
-					grainAmount={0.09}
-					grainScale={1}
-					grainAnimated={false}
-					contrast={1.2}
-					gamma={1.05}
-					saturation={0.7}
-					centerX={-0.2}
-					centerY={-3}
-					zoom={2.2}
-				/>
+				{/* BACKGROUNDs */}
+				<div className="size-[130%] w-full bg-radial-[at_25%_-50%] from-primary/90 via-cyan-600/10 to-primary/10 to-95%" />
 			</div>
 
 			<Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
