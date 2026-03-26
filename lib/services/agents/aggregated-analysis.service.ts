@@ -3,16 +3,16 @@ import { getDatabaseClient } from "@/app/utils";
 import { aiAnalysisLogs, riskAssessments, workflowEvents } from "@/db/schema";
 import { parseVatStatus } from "@/lib/risk-review/parsers/vat.parser";
 import {
-	createWorkflowNotification,
-	logWorkflowEvent,
-} from "@/lib/services/notification-events.service";
-import {
 	isFirecrawlConfigured,
 	runIndustryRegulatorCheck,
 	runSanctionsEnrichmentCheck,
 	runSocialReputationCheck,
 	runVatVerificationCheck,
 } from "@/lib/services/firecrawl";
+import {
+	createWorkflowNotification,
+	logWorkflowEvent,
+} from "@/lib/services/notification-events.service";
 import { generateReporterAnalysis, type ReporterOutput } from "./reporter.agent";
 import {
 	analyzeFinancialRisk,
