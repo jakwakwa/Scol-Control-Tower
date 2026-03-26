@@ -96,6 +96,7 @@ const nextConfig = {
 				"https://clerk-telemetry.com",
 				"https://vitals.vercel-insights.com",
 				"*.googleusercontent.com",
+				"https://*.posthog.com",
 				"https://us.i.posthog.com",
 				"https://us-assets.i.posthog.com",
 			],
