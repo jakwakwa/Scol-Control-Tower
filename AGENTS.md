@@ -4,6 +4,7 @@
 - Do not run `git commit` or `git push` unless the user explicitly asks.
 - For narrow test-fix or debugging tasks, do not change production application code without explicit permission; prefer tests, scripts, env, or docs unless the user expands scope.
 - When editing applicant intake (`app/api/applicants`, applicant forms, validations), treat registration and mandate-related API behavior as contractual unless the user approves a breaking change.
+- When delegating to long-running subagents (for example deep Inngest or audit passes), wait for them to finish before summarizing, closing the task, or assuming results.
 
 ## Learned Workspace Facts
 
@@ -14,3 +15,4 @@
 - Applicant detail URLs support `?tab=` values `overview`, `documents`, `forms`, `risk`, and `reviews` for automation that needs explicit tab state.
 - `/dashboard/risk-review/reports/[id]` uses four client-side primary tabs (Procurement, ITC Credit, Sanctions & AML, FICA / KYC) without URL parameters; capture evidence by clicking each tab and using full-page screenshots.
 - Shell scripts under `tests/browser-flow/` share `tests/browser-flow/_lib.sh` for env loading, base URL resolution, viewport sizing, `agent-browser screenshot --full`, Clerk login via `input[name="identifier"]` / `input[name="password"]`, and optional `BROWSER_FLOW_UI_APPROVALS=1` for button-driven Stage 5–6 approvals alongside API assertions.
+- Do not hand-edit committed Drizzle migration files; for local or test databases use a clean reset and new migrations through the normal generate path instead of rewriting history.

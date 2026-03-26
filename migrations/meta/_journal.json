@@ -78,6 +78,13 @@
       "when": 1774379451024,
       "tag": "0010_warm_true_believers",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1774493613851,
+      "tag": "0011_spicy_zodiak",
+      "breakpoints": true
     }
   ]
 }

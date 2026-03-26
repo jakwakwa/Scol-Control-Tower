@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { ArrowRight, Briefcase, Check, Shield } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,12 +27,12 @@ export function RoleTabs() {
 							<TabsList className="bg-black/10 rounded-xl mx-auto w-full border border-border p-0">
 								<TabsTrigger
 									value="sales"
-									className="px-8 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg transition-all">
+									className="px-8 py-3 data-[state=active]:shadow-sm data-[state=active]:shadow-[var(--gold-500)]/90 data-[state=active]:text-[var(--gold-500)] rounded-lg transition-all">
 									Account Executives
 								</TabsTrigger>
 								<TabsTrigger
 									value="risk"
-									className="px-8 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg transition-all">
+									className="px-8 py-3 data-[state=active]:shadow-sm data-[state=active]:shadow-[var(--gold-500)]/90 data-[state=active]:text-[var(--gold-500)] rounded-lg transition-all">
 									For Risk Managers
 								</TabsTrigger>
 							</TabsList>
@@ -72,6 +73,13 @@ export function RoleTabs() {
 											</ul>
 										</div>
 										<div className="relative aspect-square md:aspect-auto h-full min-h-[300px] bg-muted/50 rounded-xl border border-border p-4">
+											<Image
+												src="/assets/mandates.png"
+												alt="Sales Thumb"
+												width={500}
+												height={500}
+												className="absolute top-0 left-0 w-180 h-180 object-cover"
+											/>
 											{/* Abstract Visualization */}
 											<div className="absolute inset-0 bg-linear-to-br from-primary/5 to-transparent" />
 											<div className="absolute bottom-4 right-4 bg-card p-4 rounded-lg border border-border shadow-xl max-w-xs animate-in slide-in-from-bottom-5 fade-in duration-700">
@@ -133,6 +141,13 @@ export function RoleTabs() {
 										</div>
 										<div className="relative aspect-square md:aspect-auto h-full min-h-[300px] bg-muted/50 rounded-xl border border-border p-4">
 											{/* Abstract Visualization */}
+											<Image
+												src="/assets/risk-thumb.png"
+												alt="Risk Assessment"
+												width={500}
+												height={500}
+												className="absolute top-0 left-0 w-120 h-120 object-cover"
+											/>
 											<div className="absolute inset-0 bg-linear-to-br from-warning/5 to-transparent" />
 											<div className="absolute top-4 left-4 bg-card p-4 rounded-lg border border-border shadow-xl max-w-xs animate-in slide-in-from-left-5 fade-in duration-700">
 												<div className="flex items-center gap-3 mb-2">
