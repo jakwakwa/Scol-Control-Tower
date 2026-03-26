@@ -106,6 +106,14 @@ export type AggregatedAnalysisSnapshot = {
 				runtimeState?: string;
 			};
 		};
+		industryRegulator?: {
+			status?: "offline" | "live";
+			result?: Record<string, unknown>;
+		};
+		socialReputation?: {
+			status?: "offline" | "live";
+			result?: Record<string, unknown>;
+		};
 	};
 	metadata?: {
 		analyzedAt?: string;

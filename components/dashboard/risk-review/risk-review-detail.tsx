@@ -8,6 +8,7 @@ import { PrintableAuditReport } from "@/components/dashboard/risk-review/printab
 import { RiskReviewHeader } from "@/components/dashboard/risk-review/risk-review-header";
 import { RiskReviewTabs } from "@/components/dashboard/risk-review/risk-review-tabs";
 import type { PrimaryRiskTabId } from "@/components/dashboard/risk-review/risk-review-config";
+import { ExternalScreeningPanel } from "@/components/dashboard/risk-review/external-screening-panel";
 import { FicaSection } from "@/components/dashboard/risk-review/sections/fica-section";
 import { ItcSection } from "@/components/dashboard/risk-review/sections/itc-section";
 import { ProcurementSection } from "@/components/dashboard/risk-review/sections/procurement-section";
@@ -176,11 +177,18 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 							/>
 						)}
 						{primaryTab === "sanctions" && (
-							<SanctionsSection
-								data={sanctionsData}
-								status={data.sectionStatuses?.sanctions}
-								onAnalyzeMedia={handleAnalyzeMedia}
-							/>
+							<div className="space-y-8">
+								<SanctionsSection
+									data={sanctionsData}
+									status={data.sectionStatuses?.sanctions}
+									onAnalyzeMedia={handleAnalyzeMedia}
+								/>
+								<ExternalScreeningPanel
+									applicantId={data.applicantId}
+									industryInitial={data.industryRegulatorCheck}
+									socialInitial={data.socialReputationCheck}
+								/>
+							</div>
 						)}
 						{primaryTab === "fica" && (
 							<FicaSection
