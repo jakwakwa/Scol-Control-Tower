@@ -1,0 +1,38 @@
+[
+  {
+    "event": "quote_created",
+    "description": "A new quote is created in the onboarding pipeline (Stage 2)",
+    "file": "app/api/quotes/route.ts",
+    "properties": ["applicant_id", "workflow_id", "product_type", "mandate_type"]
+  },
+  {
+    "event": "risk_decision_made",
+    "description": "A pre-risk decision (APPROVED/REJECTED) is recorded by a user",
+    "file": "app/api/risk-decision/pre/route.ts",
+    "properties": ["applicant_id", "workflow_id", "decision", "risk_level"]
+  },
+  {
+    "event": "procurement_decision_made",
+    "description": "A procurement decision (CLEARED/DENIED) is recorded by the Risk Manager; DENIED triggers kill switch",
+    "file": "app/api/risk-decision/procurement/route.ts",
+    "properties": ["applicant_id", "workflow_id", "decision", "kill_switch_triggered"]
+  },
+  {
+    "event": "absa_packet_sent",
+    "description": "ABSA 6995 PDF packet is sent via email in Stage 5",
+    "file": "app/api/workflows/[id]/absa/send/route.ts",
+    "properties": ["applicant_id", "workflow_id"]
+  },
+  {
+    "event": "green_lane_granted",
+    "description": "Account Manager manually grants Green Lane, bypassing Stage 4 review",
+    "file": "app/api/workflows/[id]/green-lane/route.ts",
+    "properties": ["applicant_id", "workflow_id", "granted_by"]
+  },
+  {
+    "event": "approval_callback_received",
+    "description": "External approval callback received, routing to quote or quality gate Inngest event",
+    "file": "app/api/applicants/approval/route.ts",
+    "properties": ["applicant_id", "approval_status", "routed_to"]
+  }
+]
