@@ -1,11 +1,17 @@
 import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import { aiAnalysisLogs, riskAssessments, workflowEvents } from "@/db/schema";
+import { parseVatStatus } from "@/lib/risk-review/parsers/vat.parser";
+import {
+	createWorkflowNotification,
+	logWorkflowEvent,
+} from "@/lib/services/notification-events.service";
 import {
 	isFirecrawlConfigured,
 	runIndustryRegulatorCheck,
 	runSanctionsEnrichmentCheck,
 	runSocialReputationCheck,
+	runVatVerificationCheck,
 } from "@/lib/services/firecrawl";
 import { generateReporterAnalysis, type ReporterOutput } from "./reporter.agent";
 import {
@@ -36,6 +42,7 @@ export interface AggregatedAnalysisInput {
 		countryCode?: string;
 		address?: string;
 		employeeCount?: number;
+		vatNumber?: string;
 	};
 	documents?: Array<{
 		id: string;
@@ -205,9 +212,7 @@ export async function performAggregatedAnalysis(
 	const riskResult =
 		riskSettled.status === "fulfilled" ? riskSettled.value : fallbackRisk;
 	const sanctionsResult =
-		sanctionsSettled.status === "fulfilled"
-			? sanctionsSettled.value
-			: fallbackSanctions;
+		sanctionsSettled.status === "fulfilled" ? sanctionsSettled.value : fallbackSanctions;
 
 	if (validationResult) agentsRun.push("validation");
 	if (riskSettled.status === "fulfilled") agentsRun.push("risk");
@@ -325,7 +330,7 @@ export async function performAggregatedAnalysis(
 		},
 	});
 
-	// Run SOP-required external checks (ProcureCheck live when enabled, rest mocked)
+	// ProcureCheck live when enabled
 	const externalChecks = await runExternalCheckStubs(input);
 
 	// Build result
@@ -703,6 +708,21 @@ async function storeAnalysisResult(
 			dataSource: "Live",
 		});
 
+		const vatCheck = result.externalChecks.sarsVatSearch;
+		const vatCheckResult = vatCheck.result as
+			| {
+					verified?: boolean;
+					vatNumber?: string;
+					tradingName?: string;
+					runtimeState?: string;
+			  }
+			| undefined;
+		const derivedVatStatus = parseVatStatus(
+			vatCheck.status,
+			vatCheckResult?.runtimeState,
+			vatCheckResult?.verified
+		);
+
 		if (existing.length > 0) {
 			await db
 				.update(riskAssessments)
@@ -741,6 +761,32 @@ async function storeAnalysisResult(
 			}),
 		});
 
+		if (vatCheck.status === "live" && vatCheckResult?.vatNumber) {
+			await logWorkflowEvent({
+				workflowId,
+				eventType: "vat_verification_completed",
+				payload: {
+					verified: derivedVatStatus === "verified",
+					vatNumber: vatCheckResult.vatNumber,
+					tradingName: vatCheckResult.tradingName,
+					status: derivedVatStatus,
+				},
+			});
+
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: derivedVatStatus === "verified" ? "success" : "warning",
+				title: "VAT Verification",
+				message:
+					derivedVatStatus === "verified"
+						? `VAT number check passed for ${vatCheckResult.vatNumber}.`
+						: `VAT number check requires manual review for ${vatCheckResult.vatNumber}.`,
+				actionable: true,
+				severity: "medium",
+			});
+		}
+
 		// Log Reporter Agent output to ai_analysis_logs
 		if (result.agents.reporter) {
 			await db.insert(aiAnalysisLogs).values({
@@ -771,6 +817,7 @@ async function storeAnalysisResult(
  *   ENABLE_FIRECRAWL_INDUSTRY_REG   – Industry regulator via Firecrawl
  *   ENABLE_FIRECRAWL_SANCTIONS_ENRICH – Sanctions evidence enrichment via Firecrawl
  *   ENABLE_FIRECRAWL_SOCIAL_REP     – Social reputation (HelloPeter) via Firecrawl
+ *   ENABLE_FIRECRAWL_VAT_VERIFICATION – VAT verification via vatsearch.co.za
  *
  * All flags default to false; mock fallback is returned on failure.
  */
@@ -879,12 +926,42 @@ async function runExternalCheckStubs(
 		}
 	}
 
+	// --- VAT Verification (Firecrawl Agent) ---
+	let sarsVatSearchResult: {
+		status: "live" | "offline";
+		result: Record<string, unknown> | undefined;
+	} = { status: "offline", result: undefined };
+
+	if (
+		process.env.ENABLE_FIRECRAWL_VAT_VERIFICATION === "true" &&
+		isFirecrawlConfigured() &&
+		input.applicantData.vatNumber
+	) {
+		try {
+			const fcResult = await runVatVerificationCheck({
+				vatNumber: input.applicantData.vatNumber,
+				companyName: input.applicantData.companyName,
+				workflowId: input.workflowId,
+				applicantId: input.applicantId,
+			});
+			sarsVatSearchResult = {
+				status: fcResult.status,
+				result: (fcResult.result as unknown as Record<string, unknown>) || undefined,
+			};
+		} catch (err) {
+			console.error(
+				"[AggregatedAnalysis] Firecrawl VAT verification failed, using mock fallback:",
+				err
+			);
+		}
+	}
+
 	return {
 		xdsCreditCheck: { status: "offline", result: undefined },
 		lexisNexisProcure: { status: "offline", result: undefined },
 		bizPortalRegistration: { status: "offline", result: undefined },
 		efs24IdAvsr: { status: "offline", result: undefined },
-		sarsVatSearch: { status: "offline", result: undefined },
+		sarsVatSearch: sarsVatSearchResult,
 		industryRegulator: industryRegulatorResult,
 		sanctionsEvidenceEnrichment: sanctionsEnrichmentResult,
 		socialReputation: socialReputationResult,

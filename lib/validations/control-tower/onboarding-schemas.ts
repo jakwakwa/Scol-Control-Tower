@@ -12,12 +12,31 @@ import { z } from "zod";
 // Onboarding Lead Created (canonical)
 // ============================================
 
+// Strict schema for enhanced validation rollout
 export const LeadCreatedSchema = z.object({
 	applicantId: z.number().int().positive("applicantId must be a positive integer"),
 	workflowId: z.number().int().positive("workflowId must be a positive integer"),
+	companyName: z.string().min(1, "companyName is required"),
+	contactName: z.string().min(1, "contactName is required"),
+	email: z.string().email("email must be a valid email address"),
+	source: z.enum(["dashboard", "webhook", "api"]).default("api"),
+	createdAt: z.string().datetime().optional(),
+});
+
+// Compatibility schema for warn-mode fallback during rollout
+export const LeadCreatedCompatSchema = z.object({
+	applicantId: z.number().int().positive("applicantId must be a positive integer"),
+	workflowId: z.number().int().positive("workflowId must be a positive integer"),
+	// All other fields optional for backward compatibility
+	companyName: z.string().optional(),
+	contactName: z.string().optional(),
+	email: z.string().optional(),
+	source: z.string().optional(),
+	createdAt: z.string().optional(),
 });
 
 export type LeadCreatedPayload = z.infer<typeof LeadCreatedSchema>;
+export type LeadCreatedCompatPayload = z.infer<typeof LeadCreatedCompatSchema>;
 
 // ============================================
 // Sanctions Providers
@@ -48,13 +67,34 @@ export const SanctionsMatchDetailSchema = z.object({
 
 export type SanctionsMatchDetail = z.infer<typeof SanctionsMatchDetailSchema>;
 
+// V2 strict schema for enhanced validation rollout
 export const ExternalSanctionsIngressSchema = z.object({
+	version: z.literal("v2").default("v2"),
 	workflowId: z.number().int().positive("workflowId must be a positive integer"),
 	applicantId: z.number().int().positive("applicantId must be a positive integer"),
 	provider: z.enum(SANCTIONS_PROVIDERS),
 	externalCheckId: z.string().min(1, "externalCheckId is required for idempotency"),
 	checkedAt: z.string().datetime("checkedAt must be a valid ISO datetime string"),
 	passed: z.boolean(),
+	isBlocked: z.boolean().optional().default(false),
+	riskLevel: z.enum(["CLEAR", "LOW", "MEDIUM", "HIGH", "BLOCKED"]),
+	isPEP: z.boolean().optional().default(false),
+	requiresEDD: z.boolean().optional().default(false),
+	adverseMediaCount: z.number().int().nonnegative().optional().default(0),
+	matchDetails: z.array(SanctionsMatchDetailSchema).optional().default([]),
+	rawPayload: z.record(z.string(), z.unknown()).optional(),
+});
+
+// V1 compatibility schema for legacy payloads during rollout
+export const ExternalSanctionsIngressCompatSchema = z.object({
+	version: z.union([z.literal("v1"), z.undefined()]).optional(),
+	workflowId: z.number().int().positive("workflowId must be a positive integer"),
+	applicantId: z.number().int().positive("applicantId must be a positive integer"),
+	provider: z.enum(SANCTIONS_PROVIDERS),
+	externalCheckId: z.string().min(1, "externalCheckId is required for idempotency"),
+	checkedAt: z.string().datetime("checkedAt must be a valid ISO datetime string"),
+	passed: z.boolean(),
+	// All other fields optional for backward compatibility
 	isBlocked: z.boolean().optional().default(false),
 	riskLevel: z.enum(["CLEAR", "LOW", "MEDIUM", "HIGH", "BLOCKED"]).optional(),
 	isPEP: z.boolean().optional().default(false),
@@ -65,6 +105,7 @@ export const ExternalSanctionsIngressSchema = z.object({
 });
 
 export type ExternalSanctionsIngress = z.infer<typeof ExternalSanctionsIngressSchema>;
+export type ExternalSanctionsIngressCompat = z.infer<typeof ExternalSanctionsIngressCompatSchema>;
 
 // ============================================
 // Legacy Sanctions Event (kept for backward compat)

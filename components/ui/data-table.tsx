@@ -1,7 +1,7 @@
 "use client";
 
 import { RiArrowLeftSLine, RiArrowRightSLine } from "@remixicon/react";
-import type { ColumnDef, SortingState } from "@tanstack/react-table";
+import type { ColumnDef, SortingState, TableMeta } from "@tanstack/react-table";
 import {
 	flexRender,
 	getCoreRowModel,
@@ -24,7 +24,7 @@ import {
 interface DataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
 	data: TData[];
-	meta?: Record<string, any>;
+	meta?: TableMeta<TData>;
 	/** Server-driven pagination — total number of pages */
 	pageCount?: number;
 	/** Current page index (0-based) */
@@ -152,7 +152,7 @@ export function DataTable<TData, TValue>({
 
 				{/* Pagination Footer */}
 				{showPagination && (
-					<div className="flex items-center justify-between px-4 py-3 border-t border-sidebar-border bg-sidebar/30">
+					<div className="flex items-center justify-between px-4 py-3 border-t border-sidebar-border bg-accent shadow-lg shadow-black/30">
 						<span className="text-xs text-muted-foreground">
 							Page {currentPage + 1} of {totalPages}
 						</span>

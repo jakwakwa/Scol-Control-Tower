@@ -1,0 +1,101 @@
+---
+title: "Fix: Stage 6 Workflow Stuck — Inngest Orchestration (3 Bugs)"
+description: "Three interconnected bugs in Stage 6 caused the Inngest-driven onboarding workflow to stall: an approval race condition, a missing return after terminateRun, and a broken CEL expression for contract signature matching."
+type: fix
+status: resolved
+date: 2026-03-23
+---
+
+# Fix: Stage 6 Workflow Stuck — Inngest Orchestration
+
+## Overview
+
+Three interconnected bugs in `stage6_activation.ts` and `app/api/onboarding/approve/route.ts` caused the Inngest-driven onboarding workflow to stall at Stage 6. Each bug surfaced sequentially — fixing one revealed the next.
+
+## Bug 1 — Approval Race Condition
+
+**Symptom**: Both Risk Manager and Account Manager approved via the UI, but the workflow remained stuck at "awaiting dual approval". No events appeared in Inngest.
+
+**Root Cause**: The `inngest.send()` call in the approval API route was inside the `if (!approvalState.alreadyRecorded)` guard. If a user approved before Stage 6's `waitForEvent` was active, the approval was persisted (setting `alreadyRecorded = true`), but when re-approved later, the guard blocked the Inngest event from being sent.
+
+**Fix**: Moved `inngest.send()` outside the `alreadyRecorded` guard so the event is always dispatched. Inngest's `waitForEvent` is idempotent — it consumes only the first matching event and ignores duplicates.
+
+```typescript
+// BEFORE: inngest.send() was inside the if-block
+// AFTER: inngest.send() is always called
+if (!approvalState.alreadyRecorded) {
+    await db.insert(workflowEvents).values({ /* ... */ });
+}
+
+await inngest.send({
+    name: eventName,
+    data: { workflowId, applicantId, approvedBy: userId, decision, reason, timestamp },
+});
+```
+
+**File**: `app/api/onboarding/approve/route.ts`
+
+---
+
+## Bug 2 — Missing Return After Timeout
+
+**Symptom**: If either approval `waitForEvent` timed out, the function crashed with a null-access error instead of terminating cleanly.
+
+**Root Cause**: After calling `terminateRun()` in the timeout branch, there was no `return` statement. Execution fell through to code that accessed `.data.decision` on a `null` event result.
+
+**Fix**: Added explicit `return` statements after every `terminateRun` call in timeout paths.
+
+```typescript
+await step.run("terminate-approval-timeout", () =>
+    terminateRun({ workflowId, applicantId, stage: 6, reason: terminationReason, notes })
+);
+
+return {
+    status: "terminated" as const,
+    stage: 6,
+    reason: `Approval timeout: ${terminationReason}`,
+};
+```
+
+**File**: `inngest/functions/control-tower/stages/stage6_activation.ts`
+
+---
+
+## Bug 3 — Broken CEL Expression for Contract Signature
+
+**Symptom**: After Bug 1 was fixed, the workflow progressed past approvals and sent the contract. The applicant completed and signed the form, but the workflow stuck again — the `form/decision.responded` event was silently dropped.
+
+**Root Cause**: The CEL `if` expression on `wait-contract-decision` was:
+
+```
+async.data.formType == 'AGREEMENT_CONTRACT'
+```
+
+`async.data` refers to the **trigger event** (`onboarding/lead.created`), which does not carry a `formType` field. The condition always evaluated to `false`, causing the incoming `form/decision.responded` event to be silently discarded.
+
+**Fix**: Changed `async.data.formType` to `event.data.formType` so the condition checks the **incoming** event's payload:
+
+```
+event.data.workflowId == async.data.workflowId && event.data.formType == 'AGREEMENT_CONTRACT'
+```
+
+**File**: `inngest/functions/control-tower/stages/stage6_activation.ts`
+
+---
+
+## Key Takeaways
+
+<Warning>
+**Inngest hot-reload limitation**: Code changes via Next.js hot-reload do **not** retroactively update already-running `waitForEvent` conditions. Stuck workflow instances must be manually recovered after deploying a fix.
+</Warning>
+
+| Rule | Detail |
+|------|--------|
+| **Always send Inngest events unconditionally** | Use the database for deduplication of persistence, not for gating event dispatch to `waitForEvent` |
+| **Always return after `terminateRun`** | Timeout branches must exit the function to prevent null-access crashes |
+| **Verify CEL `event.data` vs `async.data`** | `event.data` = incoming event payload; `async.data` = trigger event payload. Misreferencing is silent |
+
+## Related Documentation
+
+- [Compound-docs solution file](../solutions/integration-issues/stage6-workflow-stuck-inngest-orchestration-20260323.md)
+- [Harden the Procurement Fallback Framework](/issues/2026-03-01-feat-harden-procurement-fallback-plan) — related state-locking and ghost-process patterns

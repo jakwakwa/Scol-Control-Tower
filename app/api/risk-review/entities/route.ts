@@ -1,5 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import { count, desc, eq, notInArray } from "drizzle-orm";
+import { and, count, desc, eq, like, notInArray, or } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants, riskCheckResults, workflows } from "@/db/schema";
@@ -51,12 +51,23 @@ export async function GET(request: NextRequest) {
 		const offset = (page - 1) * pageSize;
 
 		const terminalStatuses = ["completed", "terminated", "failed"];
+		const search = url.searchParams.get("search") || "";
+
+		const whereClause = and(
+			notInArray(workflows.status, terminalStatuses),
+			search
+				? or(
+						like(applicants.companyName, `%${search}%`),
+						like(applicants.contactName, `%${search}%`)
+					)
+				: undefined
+		);
 
 		const [totalResult] = await db
 			.select({ value: count() })
 			.from(workflows)
 			.leftJoin(applicants, eq(workflows.applicantId, applicants.id))
-			.where(notInArray(workflows.status, terminalStatuses));
+			.where(whereClause);
 
 		const totalCount = totalResult?.value ?? 0;
 
@@ -68,7 +79,7 @@ export async function GET(request: NextRequest) {
 			})
 			.from(workflows)
 			.leftJoin(applicants, eq(workflows.applicantId, applicants.id))
-			.where(notInArray(workflows.status, terminalStatuses))
+			.where(whereClause)
 			.orderBy(desc(workflows.id))
 			.limit(pageSize)
 			.offset(offset);

@@ -1,18 +1,15 @@
 "use client";
 
-import {
-	RiFileUploadLine,
-} from "@remixicon/react";
+import { RiFileUploadLine } from "@remixicon/react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Absa6995Form } from "@/components/onboarding-forms";
+import { GlassCard } from "@/components/dashboard";
+import { Absa6995Form } from "@/components/forms/external/onboarding-forms";
 import AsyncActionButton from "@/components/shared/async-action-button";
-import type { Absa6995FormData } from "@/lib/validations/onboarding";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { GlassCard } from "@/components/dashboard";
-import { contractReviewContent } from "@/app/(authenticated)/dashboard/applicants/[id]/contract/content";
+import type { Absa6995FormData } from "@/lib/validations/onboarding";
 
 interface DocumentUpload {
 	id: number;
@@ -27,6 +24,13 @@ interface AbsaPacketSectionProps {
 	disabled: boolean;
 	onRefresh: () => Promise<unknown>;
 }
+
+const absaPacketContent = {
+	label: "Step 1 - ABSA 6995 Packet",
+	description:
+		"Fill in the ABSA 6995 form for recordkeeping, then upload the prefilled PDF and send it to the test address. Once ABSA has approved, confirm the approval in the sidebar.",
+	lockedHint: "Complete the contract review step first.",
+};
 
 export function AbsaPacketSection({
 	workflowId,
@@ -105,14 +109,11 @@ export function AbsaPacketSection({
 		try {
 			await toast.promise(
 				(async () => {
-					const response = await fetch(
-						`/api/onboarding/forms/${workflowId}/absa_6995`,
-						{
-							method: "POST",
-							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify({ formData: data, isDraft: false }),
-						}
-					);
+					const response = await fetch(`/api/onboarding/forms/${workflowId}/absa_6995`, {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ formData: data, isDraft: false }),
+					});
 					if (!response.ok) throw new Error("Failed to submit form");
 					await onRefresh();
 				})(),
@@ -150,19 +151,15 @@ export function AbsaPacketSection({
 		<GlassCard className="space-y-6">
 			<div>
 				<p className="text-base uppercase text-secondary-foreground font-medium">
-					{contractReviewContent.absaPacketSection.label}
+					{absaPacketContent.label}
 				</p>
-				<p className="text-stone-300/70 mt-1">
-					{contractReviewContent.absaPacketSection.description}
-				</p>
+				<p className="text-stone-300/70 mt-1">{absaPacketContent.description}</p>
 				{disabled && (
-					<p className="text-sm text-amber-300/80 mt-2">
-						{contractReviewContent.absaPacketSection.lockedHint}
-					</p>
+					<p className="text-sm text-amber-300/80 mt-2">{absaPacketContent.lockedHint}</p>
 				)}
 			</div>
 
-			<div className={disabled ? "pointer-events-none opacity-60" : ""}>
+			<div className={disabled ? " opacity-60" : ""}>
 				<Absa6995Form
 					workflowId={workflowId}
 					initialData={initialFormData}
@@ -200,8 +197,7 @@ export function AbsaPacketSection({
 									size="sm"
 									onClick={() => fileInputRef.current?.click()}
 									className="gap-1.5"
-									disabled={disabled}
-								>
+									disabled={disabled}>
 									<RiFileUploadLine className="h-4 w-4" />
 									Choose PDF
 								</Button>
@@ -214,8 +210,7 @@ export function AbsaPacketSection({
 									{absaDocuments.map(doc => (
 										<li
 											key={doc.id}
-											className="flex items-center justify-between rounded-lg border p-3"
-										>
+											className="flex items-center justify-between rounded-lg border p-3">
 											<span className="text-sm">{doc.fileName ?? "PDF"}</span>
 											<AsyncActionButton
 												size="sm"

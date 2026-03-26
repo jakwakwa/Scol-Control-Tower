@@ -21,62 +21,8 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { applicants, internalForms, workflows } from "@/db/schema";
+import { INTERNAL_FORM_CONFIGS } from "@/lib/config/internal-forms";
 import { cn } from "@/lib/utils";
-
-// ============================================
-// Types
-// ============================================
-
-type FormTypeKey =
-	| "stratcol_agreement"
-	| "facility_application"
-	| "absa_6995"
-	| "fica_documents";
-
-interface FormConfig {
-	type: FormTypeKey;
-	title: string;
-	description: string;
-	stage: number;
-	icon: typeof RiFileTextLine;
-}
-
-// ============================================
-// Form Configuration
-// ============================================
-
-const FORM_CONFIGS: FormConfig[] = [
-	{
-		type: "stratcol_agreement",
-		title: "StratCol Agreement",
-		description: "Core contract establishing legal relationship and entity data",
-		stage: 2,
-		icon: RiFileTextLine,
-	},
-	{
-		type: "facility_application",
-		title: "Facility Application",
-		description:
-			"Service selection and volume metrics used for pre-risk and quote calculation",
-		stage: 2,
-		icon: RiFileTextLine,
-	},
-	{
-		type: "absa_6995",
-		title: "Absa 6995 Pre-screening",
-		description: "Mandatory bank assessment for collection facilities",
-		stage: 3,
-		icon: RiFileTextLine,
-	},
-	{
-		type: "fica_documents",
-		title: "FICA Documents",
-		description:
-			"Required documents for FICA verification, then ITC and main sanctions checks run",
-		stage: 3,
-		icon: RiFileTextLine,
-	},
-];
 
 // ============================================
 // Status Configuration
@@ -100,7 +46,7 @@ const STATUS_CONFIG = {
 	},
 	approved: {
 		label: "Approved",
-		colour: "bg-teal-500/40 text-teal-700",
+		colour: "bg-emerald-500/70 emerald-100",
 		icon: RiCheckLine,
 	},
 	rejected: {
@@ -164,7 +110,7 @@ export default async function FormsHubPage({
 	const formMap = new Map(forms.map(f => [f.formType, f]));
 
 	// Calculate progress
-	const totalForms = FORM_CONFIGS.length;
+	const totalForms = INTERNAL_FORM_CONFIGS.length;
 	const completedForms = forms.filter(
 		f => f.status === "approved" || f.status === "submitted"
 	).length;
@@ -185,11 +131,10 @@ export default async function FormsHubPage({
 			<div className="space-y-8">
 				{/* Header */}
 				<div>
-					<h1 className="text-2xl font-bold text-foreground">Onboarding Forms</h1>
+					<h1 className="text-2xl font-bold text-foreground">Internal Forms</h1>
 					<p className="text-muted-foreground mt-1">
-						{applicant?.companyName || "Unknown"} - Complete forms in order: Facility
-						Application, Pre-risk (if flagged), Quote, then FICA to trigger ITC and
-						sanctions checks.
+						{applicant?.companyName || "Unknown"} — Complete internal forms for this
+						applicant.
 					</p>
 				</div>
 
@@ -209,7 +154,7 @@ export default async function FormsHubPage({
 							</div>
 							<div className="h-2 rounded-full bg-muted overflow-hidden">
 								<div
-									className="h-full bg-teal-500 transition-all duration-500"
+									className="h-full bg-emerald-500 transition-all duration-500"
 									style={{ width: `${progressPercent}%` }}
 								/>
 							</div>
@@ -219,11 +164,10 @@ export default async function FormsHubPage({
 
 				{/* Forms Grid */}
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-					{FORM_CONFIGS.map(config => {
+					{INTERNAL_FORM_CONFIGS.map(config => {
 						const form = formMap.get(config.type);
 						const status = form?.status || "not_started";
 						const statusConfig = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG];
-						const Icon = config.icon;
 						const StatusIcon = statusConfig.icon;
 
 						const isAccessible =
@@ -244,7 +188,7 @@ export default async function FormsHubPage({
 									<div className="flex items-start justify-between">
 										<div className="flex items-center gap-3">
 											<div className="p-2 rounded-lg bg-muted">
-												<Icon className="h-5 w-5 text-muted-foreground" />
+												<RiFileTextLine className="h-5 w-5 text-muted-foreground" />
 											</div>
 											<div>
 												<CardTitle className="text-base">{config.title}</CardTitle>

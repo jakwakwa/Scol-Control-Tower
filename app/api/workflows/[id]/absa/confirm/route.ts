@@ -77,37 +77,30 @@ export async function POST(
 			gate: "absa_approval_confirmed",
 			actorId: userId,
 		});
-		if (!applied) {
-			return NextResponse.json({
-				success: true,
-				workflowId,
-				applicantId,
-				message: "ABSA approval was already confirmed",
-				alreadyConfirmed: true,
-			});
-		}
 
 		const confirmedAt = new Date().toISOString();
-		await logWorkflowEventOnce({
-			workflowId,
-			eventType: "absa_approval_confirmed",
-			payload: {
-				confirmedBy: userId,
-				notes,
-				timestamp: confirmedAt,
-			},
-			actorType: "user",
-			actorId: userId,
-		});
+		if (applied) {
+			await logWorkflowEventOnce({
+				workflowId,
+				eventType: "absa_approval_confirmed",
+				payload: {
+					confirmedBy: userId,
+					notes,
+					timestamp: confirmedAt,
+				},
+				actorType: "user",
+				actorId: userId,
+			});
 
-		await createWorkflowNotification({
-			workflowId,
-			applicantId,
-			type: "success",
-			title: "ABSA Approval Confirmed",
-			message: "ABSA contract approval was manually confirmed. Workflow advancing.",
-			actionable: false,
-		});
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: "success",
+				title: "ABSA Approval Confirmed",
+				message: "ABSA contract approval was manually confirmed. Workflow advancing.",
+				actionable: false,
+			});
+		}
 
 		await inngest.send({
 			name: "form/absa-6995.completed",
@@ -122,8 +115,10 @@ export async function POST(
 			success: true,
 			workflowId,
 			applicantId,
-			message: "ABSA approval confirmed and workflow advanced",
-			alreadyConfirmed: false,
+			message: applied
+				? "ABSA approval confirmed and workflow advanced"
+				: "ABSA approval was already confirmed",
+			alreadyConfirmed: !applied,
 		});
 	} catch (error) {
 		console.error("[AbsaConfirm] Error:", error);

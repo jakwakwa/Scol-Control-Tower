@@ -27,20 +27,20 @@ export const EmailLayout = ({ preview, children }: EmailLayoutProps) => {
 						extend: {
 							colors: {
 								brand: "#000000",
-								offwhite: "#fafafa",
+								offwhite: "#e0e0e0",
 							},
 						},
 					},
 				}}>
 				<Body className="bg-white my-auto mx-auto font-sans">
-					<Container className="border border-solid border-[#eaeaea] rounded my-[40px] mx-auto p-[20px] max-w-[465px]">
-						<Section className="mt-[32px]">
+					<Container className="border border-solid border-[#eaeaea] rounded my-[40px] mx-auto p-[20px] max-w-[565px]">
+						<Section className="mt-[24px]">
 							<Img
-								src={`${process.env.NEXT_PUBLIC_APP_URL || "https://stratcol-onboard-ai.vercel.app"}/assets/control_tower_logo_.svg`}
-								width="150"
-								height="50"
-								alt="StratCol"
-								className="my-0 mx-auto"
+								src={`${process.env.NEXT_PUBLIC_APP_URL || "https://preview.podzist"}/control_tower_logo.png`}
+								width="200"
+								height="75"
+								alt="StratCol Control Tower Ltd Logo"
+								className="my-3 mx-auto"
 							/>
 						</Section>
 						{children}

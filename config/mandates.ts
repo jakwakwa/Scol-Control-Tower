@@ -1,8 +1,8 @@
 import {
 	RiBankCardLine,
 	RiExchangeDollarLine,
-	RiSecurePaymentLine,
 	RiHandCoinLine,
+	RiSecurePaymentLine,
 } from "@remixicon/react";
 
 export const MANDATE_TYPES = [

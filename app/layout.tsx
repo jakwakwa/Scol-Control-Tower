@@ -1,7 +1,6 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { DM_Sans, Inter } from "next/font/google";
-import DottedGridHeightSync from "@/components/layout/dotted-grid-height-sync";
 
 import "./globals.css";
 
@@ -28,9 +27,8 @@ export default function RootLayout({
 		<ClerkProvider>
 			<html lang="en" className={dmSans.variable} suppressHydrationWarning>
 				<body
-					className={`dotted-grid-container-main  overscroll-none  ${inter.className} override-padding-reset`}
+					className={`bg-background  overscroll-none  ${inter.className} override-padding-reset`}
 					suppressHydrationWarning>
-					<DottedGridHeightSync />
 					{children}
 				</body>
 			</html>

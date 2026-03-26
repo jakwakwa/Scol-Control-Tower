@@ -171,54 +171,55 @@ export const facilityApplicantDetailsSchema = z.object({
 	marketingMethod: optionalString(),
 });
 
-export const facilityInsuranceDetailsSchema = z.object({
-	isInsuranceClient: z.boolean().default(false),
-	noneFscaRegulatedCollections: yesNoBooleanSchema,
-	fscaCollections: z
-		.object({
-			funeralPoliciesUpTo30000: yesNoBooleanSchema,
-			shortTermInsurance: yesNoBooleanSchema,
-			riskOnlyPolicies: yesNoBooleanSchema,
-			riskAndSavingsGuaranteed: yesNoBooleanSchema,
-			savingsAndInvestmentsWithoutGuarantees: yesNoBooleanSchema,
-			retirementAnnuitiesAndPreservationFunds: yesNoBooleanSchema,
-			pensionsOnGroupBasis: yesNoBooleanSchema,
-			unitTrust: yesNoBooleanSchema,
-		})
-		.default({}),
-	rolePlayers: z
-		.object({
-			isInsurer: yesNoBooleanSchema,
-			insurerNames: optionalString(),
-			isUma: yesNoBooleanSchema,
-			umaName: optionalString(),
-			isCallCaptiveOwner: yesNoBooleanSchema,
-			callCaptiveOwnerName: optionalString(),
-			isVapProductOwner: yesNoBooleanSchema,
-			vapProductsOrServices: optionalString(),
-			isIntermediaryFsp: yesNoBooleanSchema,
-			intermediaryInsurerNames: optionalString(),
-			intermediaryUmaName: optionalString(),
-			intermediaryCallCaptiveOwnerName: optionalString(),
-			intermediaryProductOwners: optionalString(),
-			isJuristicRepresentative: yesNoBooleanSchema,
-			juristicOperatingFsp: optionalString(),
-		})
-		.default({}),
-})
-.superRefine((value, ctx) => {
-	if (!value.isInsuranceClient) {
-		return;
-	}
+export const facilityInsuranceDetailsSchema = z
+	.object({
+		isInsuranceClient: z.boolean().default(false),
+		noneFscaRegulatedCollections: yesNoBooleanSchema,
+		fscaCollections: z
+			.object({
+				funeralPoliciesUpTo30000: yesNoBooleanSchema,
+				shortTermInsurance: yesNoBooleanSchema,
+				riskOnlyPolicies: yesNoBooleanSchema,
+				riskAndSavingsGuaranteed: yesNoBooleanSchema,
+				savingsAndInvestmentsWithoutGuarantees: yesNoBooleanSchema,
+				retirementAnnuitiesAndPreservationFunds: yesNoBooleanSchema,
+				pensionsOnGroupBasis: yesNoBooleanSchema,
+				unitTrust: yesNoBooleanSchema,
+			})
+			.default({}),
+		rolePlayers: z
+			.object({
+				isInsurer: yesNoBooleanSchema,
+				insurerNames: optionalString(),
+				isUma: yesNoBooleanSchema,
+				umaName: optionalString(),
+				isCallCaptiveOwner: yesNoBooleanSchema,
+				callCaptiveOwnerName: optionalString(),
+				isVapProductOwner: yesNoBooleanSchema,
+				vapProductsOrServices: optionalString(),
+				isIntermediaryFsp: yesNoBooleanSchema,
+				intermediaryInsurerNames: optionalString(),
+				intermediaryUmaName: optionalString(),
+				intermediaryCallCaptiveOwnerName: optionalString(),
+				intermediaryProductOwners: optionalString(),
+				isJuristicRepresentative: yesNoBooleanSchema,
+				juristicOperatingFsp: optionalString(),
+			})
+			.default({}),
+	})
+	.superRefine((value, ctx) => {
+		if (!value.isInsuranceClient) {
+			return;
+		}
 
-	if (value.noneFscaRegulatedCollections === undefined) {
-		ctx.addIssue({
-			code: z.ZodIssueCode.custom,
-			path: ["noneFscaRegulatedCollections"],
-			message: "Required for insurance clients",
-		});
-	}
-});
+		if (value.noneFscaRegulatedCollections === undefined) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["noneFscaRegulatedCollections"],
+				message: "Required for insurance clients",
+			});
+		}
+	});
 
 // ============================================
 // Complete Facility Application Schema

@@ -5,8 +5,7 @@ import ExternalFormShell from "@/components/forms/external/external-form-shell";
 import styles from "@/components/forms/external/external-form-theme.module.css";
 
 /**
- * Kitchen sink page to preview all magic link forms.
- * Dev-only — generates test tokens and opens forms in new tabs.
+ * Dev-only — External magic linked forms for dev testing only! generates test tokens and opens forms in new tabs.
  */
 
 interface FormEntry {
@@ -109,7 +108,7 @@ export default function DevFormsPage() {
 	}, []);
 
 	return (
-		<div className="min-h-screen bg-[#f4f1ed]">
+		<div className="min-h-screen  min-w-screen m-0 p-0">
 			<ExternalFormShell
 				title="Forms Kitchen Sink"
 				description="Generate magic link tokens and preview all form types. Each click creates a fresh token and opens the form in a new tab.">

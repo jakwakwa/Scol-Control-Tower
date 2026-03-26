@@ -1,0 +1,14 @@
+---
+description: Manual shortcut for Inngest implementation work in the current workspace. Prefer /inngest-runtime or the inngest-runtime subagent.
+alwaysApply: false
+---
+# Inngest Implementation
+
+Follow the **`inngest-runtime`** skill end-to-end, or invoke the **`inngest-runtime`** subagent from the agent picker.
+
+Do not chain the old topic-only skills manually unless you are reading them as support files under `~/.cursor/skills/inngest/`.
+
+## Success criteria
+
+- Concrete file changes and verification steps
+- Replay-safe steps and justified function / flow-control choices

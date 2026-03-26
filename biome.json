@@ -146,6 +146,18 @@
 			}
 		}
 	},
+	"overrides": [
+		{
+			"includes": ["scripts/posthog/**/*.ts"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "off"
+					}
+				}
+			}
+		}
+	],
 	"javascript": {
 		"formatter": {
 			"jsxQuoteStyle": "double",

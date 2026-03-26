@@ -1,16 +1,17 @@
 "use client";
 
-import { useState } from "react";
 import {
-	RiCheckLine,
-	RiCheckboxCircleLine,
-	RiLoader4Line,
 	RiCheckboxBlankCircleLine,
-	RiFileTextLine,
+	RiCheckboxCircleLine,
+	RiCheckLine,
 	RiContractLine,
+	RiFileTextLine,
+	RiLoader4Line,
 	RiShieldCheckLine,
 	RiUserLine,
 } from "@remixicon/react";
+import { useState } from "react";
+import { toast } from "sonner";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +22,6 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 // ============================================
 // Types
@@ -70,17 +70,9 @@ interface ChecklistItem {
 // Checklist Item Component
 // ============================================
 
-function ChecklistItemRow({
-	item,
-	isLast,
-}: {
-	item: ChecklistItem;
-	isLast: boolean;
-}) {
+function ChecklistItemRow({ item, isLast }: { item: ChecklistItem; isLast: boolean }) {
 	const Icon = item.icon;
-	const CheckIcon = item.checked
-		? RiCheckboxCircleLine
-		: RiCheckboxBlankCircleLine;
+	const CheckIcon = item.checked ? RiCheckboxCircleLine : RiCheckboxBlankCircleLine;
 
 	return (
 		<div
@@ -142,22 +134,23 @@ export function FinalApprovalCard({
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState(false);
-	const { data: approvalData, mutate: mutateApprovalStatus } = useSWR<ApprovalStatusResponse>(
-		`/api/onboarding/approve?workflowId=${workflowId}`,
-		async (url: string) => {
-			const response = await fetch(url);
-			if (!response.ok) {
-				throw new Error("Failed to fetch approval status");
-			}
-			return (await response.json()) as ApprovalStatusResponse;
-		},
-		{
-			refreshInterval: current => {
-				if (!current) return 4000;
-				return current.bothApproved || workflowStatus === "completed" ? 0 : 4000;
+	const { data: approvalData, mutate: mutateApprovalStatus } =
+		useSWR<ApprovalStatusResponse>(
+			`/api/onboarding/approve?workflowId=${workflowId}`,
+			async (url: string) => {
+				const response = await fetch(url);
+				if (!response.ok) {
+					throw new Error("Failed to fetch approval status");
+				}
+				return (await response.json()) as ApprovalStatusResponse;
 			},
-		}
-	);
+			{
+				refreshInterval: current => {
+					if (!current) return 4000;
+					return current.bothApproved || workflowStatus === "completed" ? 0 : 4000;
+				},
+			}
+		);
 
 	const riskManagerApproval = approvalData?.riskManagerApproval ?? null;
 	const accountManagerApproval = approvalData?.accountManagerApproval ?? null;
@@ -167,9 +160,10 @@ export function FinalApprovalCard({
 		riskManagerApproval?.decision === "APPROVED" &&
 		accountManagerApproval?.decision === "APPROVED";
 
-	const hasUserApproved = userRole === "risk_manager"
-		? riskManagerApproval?.decision === "APPROVED"
-		: accountManagerApproval?.decision === "APPROVED";
+	const hasUserApproved =
+		userRole === "risk_manager"
+			? riskManagerApproval?.decision === "APPROVED"
+			: accountManagerApproval?.decision === "APPROVED";
 
 	const checklistItems: ChecklistItem[] = [
 		{
@@ -189,24 +183,26 @@ export function FinalApprovalCard({
 		{
 			id: "risk_manager",
 			label: "Risk Manager Approval",
-			description: riskManagerApproval?.decision === "APPROVED"
-				? `Approved by ${riskManagerApproval.approvedBy}`
-				: "Awaiting Risk Manager approval",
+			description:
+				riskManagerApproval?.decision === "APPROVED"
+					? `Approved by ${riskManagerApproval.approvedBy}`
+					: "Awaiting Risk Manager approval",
 			checked: riskManagerApproval?.decision === "APPROVED",
 			icon: RiShieldCheckLine,
 		},
 		{
 			id: "account_manager",
 			label: "Account Manager Approval",
-			description: accountManagerApproval?.decision === "APPROVED"
-				? `Approved by ${accountManagerApproval.approvedBy}`
-				: "Awaiting Account Manager approval",
+			description:
+				accountManagerApproval?.decision === "APPROVED"
+					? `Approved by ${accountManagerApproval.approvedBy}`
+					: "Awaiting Account Manager approval",
 			checked: accountManagerApproval?.decision === "APPROVED",
 			icon: RiUserLine,
 		},
 	];
 
-	const completedCount = checklistItems.filter((item) => item.checked).length;
+	const completedCount = checklistItems.filter(item => item.checked).length;
 
 	const handleApprove = async (decision: "APPROVED" | "REJECTED") => {
 		if (!canApprove && decision === "APPROVED") return;
@@ -266,7 +262,8 @@ export function FinalApprovalCard({
 								Onboarding Complete
 							</h3>
 							<p className="text-sm text-muted-foreground mt-1">
-								Both Risk Manager and Account Manager have approved. Onboarding is complete.
+								Both Risk Manager and Account Manager have approved. Onboarding is
+								complete.
 							</p>
 						</div>
 					</div>
@@ -301,7 +298,7 @@ export function FinalApprovalCard({
 
 			<CardContent className="space-y-4">
 				{/* Progress Bar */}
-				<div className="h-2 rounded-full bg-secondary/10 overflow-hidden">
+				<div className="h-2 rounded-full bg-black/20     overflow-hidden">
 					<div
 						className={cn(
 							"h-full transition-all duration-500 rounded-full",
@@ -335,7 +332,8 @@ export function FinalApprovalCard({
 				{hasUserApproved ? (
 					<div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-center">
 						<p className="text-sm text-emerald-400 font-medium">
-							You have approved as {userRole.replace("_", " ")}. Waiting for the other approver.
+							You have approved as {userRole.replace("_", " ")}. Waiting for the other
+							approver.
 						</p>
 					</div>
 				) : (
@@ -355,7 +353,8 @@ export function FinalApprovalCard({
 							) : (
 								<>
 									<RiCheckLine className="h-4 w-4" />
-									Approve as {userRole === "risk_manager" ? "Risk Manager" : "Account Manager"}
+									Approve as{" "}
+									{userRole === "risk_manager" ? "Risk Manager" : "Account Manager"}
 								</>
 							)}
 						</Button>
@@ -370,7 +369,7 @@ export function FinalApprovalCard({
 				)}
 
 				{/* Helper Text */}
-				{!(canApprove || hasUserApproved ) && (
+				{!(canApprove || hasUserApproved) && (
 					<p className="text-xs text-muted-foreground text-center">
 						Contract and ABSA approval must be confirmed before approval
 					</p>

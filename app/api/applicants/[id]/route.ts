@@ -15,6 +15,7 @@ import {
 	workflowEvents,
 	workflows,
 } from "@/db/schema";
+import type { AgreementContractOverrides } from "@/lib/utils/agreement-defaults";
 import { updateApplicantSchema } from "@/lib/validations";
 
 /**
@@ -55,12 +56,15 @@ export async function PUT(
 		}
 
 		const data = validation.data;
+		const normalizedVatNumber =
+			data.vatNumber === undefined ? undefined : data.vatNumber.trim() || null;
 
 		// Perform update
 		const updatedApplicantResults = await db
 			.update(applicants)
 			.set({
 				...data,
+				vatNumber: normalizedVatNumber,
 				updatedAt: new Date(),
 			})
 			.where(eq(applicants.id, id))
@@ -134,6 +138,7 @@ export async function GET(
 		// Fetch quote for the most recent workflow if exists
 		let quote = null;
 		let contractReviewed = false;
+		let contractOverrides: AgreementContractOverrides | null = null;
 		let absaPacketSent = false;
 		let absaFormData: {
 			form: { id: number; status: string };
@@ -236,6 +241,16 @@ export async function GET(
 			}
 
 			contractReviewed = Boolean(latestWorkflow.contractDraftReviewedAt);
+			if (latestWorkflow.metadata) {
+				try {
+					const metadata = JSON.parse(latestWorkflow.metadata) as {
+						contractOverrides?: AgreementContractOverrides;
+					};
+					contractOverrides = metadata.contractOverrides ?? null;
+				} catch {
+					contractOverrides = null;
+				}
+			}
 			absaPacketSent = Boolean(latestWorkflow.absaPacketSentAt);
 			absaFormData = absaForm
 				? {
@@ -302,6 +317,7 @@ export async function GET(
 			quote,
 			sanctionsCheck,
 			contractReviewed,
+			contractOverrides,
 			absaPacketSent,
 			absaFormData,
 			absaDocuments,

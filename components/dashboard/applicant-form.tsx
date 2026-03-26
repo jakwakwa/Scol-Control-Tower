@@ -3,9 +3,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { RiLoader4Line, RiTestTubeLine } from "@remixicon/react";
 import { useRouter } from "next/navigation";
+import posthog from "posthog-js";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-
 import { GlassCard } from "@/components/dashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { getPostHogProjectToken } from "@/lib/posthog-env";
 import { cn } from "@/lib/utils";
 import {
 	type ApplicantFormData,
@@ -43,6 +44,7 @@ export function ApplicantForm({
 		defaultValues: {
 			companyName: initialData?.companyName || "",
 			registrationNumber: initialData?.registrationNumber || "",
+			vatNumber: initialData?.vatNumber || "",
 			contactName: initialData?.contactName || "",
 			idNumber: initialData?.idNumber || "",
 			email: initialData?.email || "",
@@ -76,18 +78,19 @@ export function ApplicantForm({
 	// Fill form with test data for testing
 	const fillTestData = () => {
 		form.reset({
-			companyName: `${isTestMode ? "Jacob Kotzee T/a Doodles Digital" : "Test Company Inc"}`,
+			companyName: `${isTestMode ? "Jacob Kotze" : "Test Company Inc"}`,
 			registrationNumber: `${isTestMode ? "0787173160001" : "2024/123456/07"}`,
+			vatNumber: "4420106777",
 			contactName: `${isTestMode ? "Jacob Kotzee" : "John Test"}`,
-			idNumber: `${isTestMode ? "8501015009087" : ""}`,
+			idNumber: `${isTestMode ? "8503195187088" : ""}`,
 			email: `${isTestMode ? "jkotzee@icloud.com" : "john.test@testcompany.co.za"}`,
-			phone: `${isTestMode ? "+27 76 341 0291" : "+27 82 123 4567"}`,
-			entityType: isTestMode ? "company" : "company",
+			phone: `${isTestMode ? "" : "+27 82 123 4567"}`,
+			entityType: isTestMode ? "proprietor" : "company",
 			productType: "standard",
-			industry: `${isTestMode ? "Software Development" : "Financial Services"}`,
+			industry: `${isTestMode ? "IT" : "Financial Services"}`,
 			mandateType: `${isTestMode ? "Debit Order" : "debit_order"}`,
 			employeeCount: `${isTestMode ? "1" : "5"}`,
-			estimatedTransactionsPerMonth: `${isTestMode ? "5000" : "1500"}`,
+			estimatedTransactionsPerMonth: `${isTestMode ? "20" : "1500"}`,
 			notes: "test applicant input - auto-generated for credit check testing",
 		});
 	};
@@ -105,7 +108,10 @@ export function ApplicantForm({
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						...data,
+						registrationNumber: data.registrationNumber?.trim() || undefined,
+						mandateType: data.mandateType?.trim() || undefined,
 						idNumber: data.idNumber?.trim() || undefined,
+						vatNumber: data.vatNumber?.trim() || undefined,
 						employeeCount: data.employeeCount
 							? parseInt(data.employeeCount, 10)
 							: undefined,
@@ -120,6 +126,16 @@ export function ApplicantForm({
 				}
 
 				const responseData = await response.json();
+				if (getPostHogProjectToken()) {
+					posthog.capture("applicant_form_submitted", {
+						company_name: data.companyName,
+						entity_type: data.entityType,
+						product_type: data.productType,
+						industry: data.industry,
+						applicant_id: responseData.applicant?.id,
+					});
+				}
+
 				if (responseData.applicant?.id) {
 					router.push(`/dashboard/applicants/${responseData.applicant.id}`);
 				} else {
@@ -138,7 +154,7 @@ export function ApplicantForm({
 		<form onSubmit={handleSubmit(onSubmitForm)} className="space-y-8">
 			{/* Test Mode Banner */}
 			{isTestMode && (
-				<div className="flex items-center justify-between p-4 rounded-lg border border-warning bg-warning/20 shadow-lg shadow-amber-800/5">
+				<div className="flex items-center backdrop-blur-xs bg-primary/10 justify-between p-4 rounded-lg border border-warning bg-warning/20 shadow-lg shadow-amber-800/5">
 					<div className="flex items-center gap-2">
 						<span className="text-warning-foreground animate-pulse text-sm font-medium">
 							<RiTestTubeLine className="h-8 w-8 animate-pulse" /> Test Mode
@@ -251,6 +267,22 @@ export function ApplicantForm({
 								{...register("industry")}
 								className="border-input-border"
 							/>
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="vatNumber">VAT Number (Optional)</Label>
+							<Input
+								id="vatNumber"
+								placeholder="10-digit VAT number"
+								maxLength={10}
+								{...register("vatNumber")}
+								className={cn(
+									errors.vatNumber ? "border-red-500" : "border-input-border"
+								)}
+							/>
+							{errors.vatNumber && (
+								<p className="text-xs text-red-500">{errors.vatNumber.message}</p>
+							)}
 						</div>
 
 						<div className="space-y-2">
@@ -397,7 +429,8 @@ export function ApplicantForm({
 				<Button
 					type="submit"
 					disabled={isLoading}
-					className="gap-2 bg-linear-to-r from-stone-500 to-stone-500 hover:from-stone-600 hover:to-stone-600">
+					size="lg"
+					className="gap-2 bg-linear-to-r from-cyan-900 to-180% to-cyan-800 hover:from-secondary hover:to-secondary">
 					{isLoading && <RiLoader4Line className="h-4 w-4 animate-spin" />}
 					{isEditing ? "Save Changes" : "Create Applicant"}
 				</Button>

@@ -3,7 +3,7 @@
 import { RiFilter3Line, RiRefreshLine } from "@remixicon/react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { DashboardLayout } from "@/components/dashboard";
+import { DashboardLayout, SearchInput } from "@/components/dashboard";
 import {
 	SanctionAdjudication,
 	type SanctionItem,
@@ -13,16 +13,7 @@ import { Button } from "@/components/ui/button";
 export default function SanctionsPage() {
 	const [items, setItems] = useState<SanctionItem[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
-	const [_searchTerm, _setSearchTerm] = useState("");
-	// Error state was in client.tsx, risk-review handles errors in catch blocks with toast.
-	// We can keep error state if we want to show a specific error UI,
-	// or switch to toast to match risk-review more closely if desired.
-	// risk-review uses toast.error("Failed to load risk review queue");
-	// client.tsx used an error state variable.
-	// I will keep the error state variable to be safe, but maybe display it better or use toast as well?
-	// The user said "Sanctions page UI is implemented **incorrectly**... Analyze risk-review... as the correct example".
-	// risk-review uses toast. client.tsx used inline error div.
-	// I will switch to using toast for errors to match the pattern.
+	const [searchTerm, setSearchTerm] = useState("");
 
 	const fetchItems = useCallback(async () => {
 		setIsLoading(true);
@@ -36,7 +27,7 @@ export default function SanctionsPage() {
 			setItems(data.items || []);
 		} catch (err) {
 			console.error("Error fetching sanctions:", err);
-			toast.error(err instanceof Error ? err.message : "Failed to load sanctions");
+			toast.error("Failed to load sanctions adjudicator queue");
 		} finally {
 			setIsLoading(false);
 		}
@@ -46,17 +37,13 @@ export default function SanctionsPage() {
 		fetchItems();
 	}, [fetchItems]);
 
-	// Filter items based on search? (Risk review does this)
-	// client.tsx didn't have search.
-	// But Dashboard layout usually implies search.
-	// The user might expect search.
-	// I'll add search logic if reasonable, or just the layout.
-	// The prompt implies the *UI pattern* is wrong.
-	// I will implement the search filter to be consistent with Risk Review if I can guess the fields.
-	// SanctionItem structure? I saw it in client.tsx imports but not definition.
-	// I'll check `SanctionItem` definition if possible.
-	// Or I can just omit search for now if not strictly required, but `DashboardLayout` looks empty without it.
-	// RiskReviewPage has search.
+	const filteredItems = items.filter(
+		item =>
+			item.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			item.contactName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			item.matchedEntity?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			item.sanctionListSource?.toLowerCase().includes(searchTerm.toLowerCase())
+	);
 
 	return (
 		<DashboardLayout
@@ -72,14 +59,22 @@ export default function SanctionsPage() {
 						<RiRefreshLine className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
 						Refresh
 					</Button>
-					{/* Add Filters button if needed to match pattern, though maybe non-functional */}
 					<Button variant="outline" className="gap-2">
 						<RiFilter3Line className="h-4 w-4" />
 						Filters
 					</Button>
 				</div>
 			}>
-			<SanctionAdjudication items={items} onRefresh={fetchItems} />
+			{/* Search Bar */}
+			<div className="flex flex-col md:flex-row items-center gap-7 mb-6">
+				<SearchInput
+					placeholder="Search company, contact, or match..."
+					value={searchTerm}
+					onChange={setSearchTerm}
+				/>
+			</div>
+
+			<SanctionAdjudication items={filteredItems} onRefresh={fetchItems} />
 		</DashboardLayout>
 	);
 }

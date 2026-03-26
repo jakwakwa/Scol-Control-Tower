@@ -20,6 +20,7 @@ import {
 	type ProcureCheckBusinessCreditResponse,
 	type ProcureCheckTokenResponse,
 } from "./procure-check.types";
+import { performXDSCreditCheck } from "./xds.service";
 
 // ============================================
 // Configuration
@@ -56,6 +57,11 @@ export interface ITCCheckOptions {
  */
 export async function performITCCheck(options: ITCCheckOptions): Promise<ITCCheckResult> {
 	const { applicantId } = options;
+	const useXDS = process.env.ENABLE_XDS_ITC === "true";
+
+	if (useXDS) {
+		return performXDSCreditCheck(options);
+	}
 
 	// Fetch applicant data
 	const db = getDatabaseClient();

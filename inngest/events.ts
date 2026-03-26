@@ -693,7 +693,7 @@ export type Events = {
 			confirmedAt: string;
 		};
 	};
-	
+
 	/** Unified sanction adjudication event (clear or confirm) */
 	"sanction/adjudicated": {
 		data: {

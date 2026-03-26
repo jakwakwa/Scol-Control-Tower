@@ -1,0 +1,103 @@
+---
+title: "XDS Connect: spec URL vs live ASMX endpoint, SOAP 1.1 vs 1.2, and Login verification"
+description: "Expert Detailed Online PDF lists http://www.web.xds.co.za/XDSConnectWS; live service responds on /xdsconnect/XDSconnectWS.asmx with SOAP 1.1. Documented verification steps, NotAuthenticated meaning, ProductID/ReportID, and gap in app xds.service.ts."
+type: integration
+status: documented
+date: 2026-03-26
+---
+
+# XDS Connect: spec URL vs live ASMX endpoint, SOAP 1.1 vs 1.2, and Login verification
+
+## Overview
+
+Integration work for XDS (South African credit bureau) exposed a mismatch between the **PDF technical spec** endpoint and the **endpoint shown on XDS’s own test form**. The spec’s root path returned **404/HTML** from the public internet; the **ASMX** path returns **HTTP 200** and valid **SOAP 1.1** XML. Successful `Login` returns a ticket string; failed auth returns **`NotAuthenticated`** in `LoginResult`. **`ProductID`** and **`ReportID`** are subscriber-defined product/report selectors — not invented locally; the Expert Detailed Online spec fixes them to **41** and **18** for that product.
+
+## Symptoms
+
+- POSTs to `http://www.web.xds.co.za/XDSConnectWS` (and HTTPS variants) returned **404** or **HTML**, not SOAP.
+- A smoke script using `application/soap+xml` (SOAP 1.2 style) against the spec URL could not extract `LoginResult`.
+- After switching to the ASMX URL with **SOAP 1.1** (`text/xml` + `SOAPAction`), responses were valid SOAP but `LoginResult` was **`NotAuthenticated`** even after password rotation in `.env.local`.
+
+## Root cause
+
+1. **Wrong physical path:** The documented `.../XDSConnectWS` URL is not the live ASMX entry point for this environment. The working pattern (from XDS test UI) is:
+
+   - **POST** `/xdsconnect/XDSconnectWS.asmx`
+   - **Host:** `www.web.xds.co.za`
+   - Example full URL: `http://www.web.xds.co.za/xdsconnect/XDSconnectWS.asmx` (HTTPS equivalent also returned 200 for WSDL probe).
+
+2. **SOAP version / headers:** The ASMX service expects **SOAP 1.1**-style requests:
+
+   - `Content-Type: text/xml; charset=utf-8`
+   - `SOAPAction: "http://www.web.xds.co.za/XDSConnectWS/Login"` (per operation)
+
+   Using **SOAP 1.2** (`application/soap+xml` with `action=...`) against the wrong URL produced misleading failures (HTML/404).
+
+3. **`NotAuthenticated`:** When the endpoint is correct, `LoginResult` of `NotAuthenticated` indicates **rejected credentials or account not enabled** for this web service (not a transport bug). Resolution is with **XDS support** (correct subscriber user, product enablement, environment).
+
+4. **Optional XML elements in WSDL:** Comments like `<!--Optional:-->` on `strUser` / `strPwd` mean **schema-optional nodes**, not “anonymous login is allowed.” Omitting valid credentials does not yield a ticket.
+
+## Working verification (manual)
+
+Use **SOAP 1.1** against the ASMX endpoint. Replace placeholders with env-backed values (never commit secrets).
+
+```http
+POST /xdsconnect/XDSconnectWS.asmx HTTP/1.1
+Host: www.web.xds.co.za
+Content-Type: text/xml; charset=utf-8
+SOAPAction: "http://www.web.xds.co.za/XDSConnectWS/Login"
+```
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xds="http://www.web.xds.co.za/XDSConnectWS">
+  <soap:Body>
+    <xds:Login>
+      <xds:strUser>YOUR_USERNAME</xds:strUser>
+      <xds:strPwd>YOUR_PASSWORD</xds:strPwd>
+    </xds:Login>
+  </soap:Body>
+</soap:Envelope>
+```
+
+**Success:** HTTP 200, body contains `<LoginResult>` with a long ticket-like string (not `NotAuthenticated`).  
+**Auth failure:** `<LoginResult>NotAuthenticated</LoginResult>`.
+
+Repository helper script: [`scripts/test-xds-service.sh`](../../../scripts/test-xds-service.sh) — ensure `XDS_BASE_URL` points at the **ASMX** URL if you extend it for SOAP 1.1 parity.
+
+## ProductID and ReportID
+
+- **`ProductID`:** Identifies the **XDS product / enquiry type** configured for your subscriber (e.g. consumer vs commercial workflows, DOVS-linked products, etc.).
+- **`ReportID`:** Selects the **specific report layout or variant** under that product where the API requires it.
+
+For **Expert Detailed Online** (internal PDF: `docs/Technical specs Expert Detailed Online V 1.1.pdf`), the spec states **Product ID 41** and **Report ID 18**. These should match XDS provisioning; if XDS maps your account differently, they will tell you.
+
+## Application code note (follow-up)
+
+[`lib/services/xds.service.ts`](../../../lib/services/xds.service.ts) currently:
+
+- Defaults `XDS_BASE_URL` to `http://www.web.xds.co.za/XDSConnectWS` (the **404** path in verification).
+- Sends **`application/soap+xml`** (SOAP 1.2 style) and uses the SOAP 1.2 envelope namespace.
+
+To match verified live behaviour, a follow-up change should:
+
+- Default or document `XDS_BASE_URL` as `http://www.web.xds.co.za/xdsconnect/XDSconnectWS.asmx` (or HTTPS equivalent).
+- Use **SOAP 1.1** envelope namespace, **`text/xml`**, and **`SOAPAction`** per operation.
+- Treat `LoginResult` values **`NotAuthenticated`** (and similar) as explicit auth failures before caching tickets.
+
+Feature flag routing remains in [`lib/services/itc.service.ts`](../../../lib/services/itc.service.ts) via `ENABLE_XDS_ITC`.
+
+## Prevention
+
+- **Verify the ASMX URL and WSDL** (`...asmx?WSDL`) before debugging credentials.
+- **Do not assume** the PDF’s bare `XDSConnectWS` path is the same as production routing.
+- Keep **test credentials** out of docs; reference env vars (`XDS_USERNAME`, `XDS_PASSWORD`, `XDS_BASE_URL`).
+- Align automated scripts and `fetch` clients on **one SOAP version** (1.1 for this ASMX stack).
+
+## Related documentation
+
+- [`docs/Technical specs Expert Detailed Online V 1.1.pdf`](../../Technical%20specs%20Expert%20Detailed%20Online%20V%201.1.pdf) — method order, Product 41 / Report 18 (endpoint text may be superseded by ASMX path).
+- [`lib/services/xds.service.ts`](../../../lib/services/xds.service.ts) — runtime integration (pending SOAP 1.1/URL alignment).
+- [`lib/services/xds.types.ts`](../../../lib/services/xds.types.ts) — XML helpers and mapping.
+- [`scripts/test-xds-service.sh`](../../../scripts/test-xds-service.sh) — shell smoke test.
+- [`docs/agent-contracts/firecrawl-check-contracts.mdx`](../../agent-contracts/firecrawl-check-contracts.mdx) — mentions XDS as an external verification surface (context only).

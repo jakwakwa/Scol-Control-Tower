@@ -3,6 +3,7 @@ import { notifications, workflows, applicants } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import type { WorkflowNotification } from "@/components/dashboard/notifications-panel";
+import { isNotificationType } from "@/lib/notifications/types";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 
@@ -47,7 +48,7 @@ export default async function DashboardRootLayout({
 				workflowId: n.workflowId || 0,
 				applicantId: n.applicantId || 0,
 				clientName: n.clientName || "Unknown",
-				type: n.type as WorkflowNotification["type"],
+				type: isNotificationType(n.type) ? n.type : ("info" as const),
 				message: n.message,
 				timestamp: n.createdAt,
 				read: n.read,

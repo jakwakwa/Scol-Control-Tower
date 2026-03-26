@@ -1,11 +1,15 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getDatabaseClient } from "@/app/utils";
 import { inngest } from "@/inngest";
+import { captureServerEvent } from "@/lib/posthog-server";
 import {
 	getFormInstanceByToken,
+	recordFormDecision,
 	recordFormSubmission,
 } from "@/lib/services/form.service";
+import { syncSignedQuotationDecisionToQuoteAndInngest } from "@/lib/services/signed-quotation-workflow.service";
 import {
 	createWorkflowNotification,
 	logWorkflowEvent,
@@ -16,8 +20,8 @@ import {
 	type FacilityApplicationForm,
 	facilityApplicationSchema,
 	signedQuotationSchema,
-	stratcolAgreementSchema,
 } from "@/lib/validations/forms";
+import { stratcolAgreementSchema } from "@/lib/validations/onboarding";
 
 const formSubmissionSchema = z.object({
 	token: z.string().min(10),
@@ -39,8 +43,18 @@ const formSchemaMap: Record<FormType, z.ZodSchema> = {
 };
 
 const extractSubmittedBy = (formType: FormType, data: Record<string, unknown>) => {
-	if (formType === "SIGNED_QUOTATION" || formType === "AGREEMENT_CONTRACT") {
+	if (formType === "SIGNED_QUOTATION") {
 		return typeof data.signatureName === "string" ? data.signatureName : undefined;
+	}
+	if (formType === "AGREEMENT_CONTRACT") {
+		const nested = data as {
+			signature?: { name?: unknown };
+			signatoryAndOwners?: { authorisedRepresentative?: { name?: unknown } };
+		};
+		if (typeof nested.signature?.name === "string") return nested.signature.name;
+		if (typeof nested.signatoryAndOwners?.authorisedRepresentative?.name === "string") {
+			return nested.signatoryAndOwners.authorisedRepresentative.name;
+		}
 	}
 	return undefined;
 };
@@ -182,6 +196,62 @@ export async function POST(request: NextRequest) {
 			});
 		}
 
+		// Signed quotation: sync quote + Inngest on submit so a failed /decision request cannot strand the workflow.
+		if (formType === "SIGNED_QUOTATION" && formInstance.workflowId) {
+			const db = getDatabaseClient();
+			if (!db) {
+				return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
+			}
+			const decisionUpdate = await recordFormDecision({
+				formInstanceId: formInstance.id,
+				outcome: "APPROVED",
+			});
+			if (decisionUpdate) {
+				await logWorkflowEvent({
+					workflowId: formInstance.workflowId,
+					eventType: "stage_change",
+					payload: {
+						step: "form-decision-recorded",
+						formType,
+						decision: "APPROVED" as const,
+						applicantMagiclinkFormId: formInstance.id,
+					},
+				});
+				const syncResult = await syncSignedQuotationDecisionToQuoteAndInngest(
+					db,
+					formInstance.workflowId,
+					formInstance.applicantId,
+					"APPROVED"
+				);
+				if (!syncResult.ok) {
+					return NextResponse.json(
+						{ error: "No quote available for this workflow" },
+						{ status: 404 }
+					);
+				}
+				await createWorkflowNotification({
+					workflowId: formInstance.workflowId,
+					applicantId: formInstance.applicantId,
+					type: "completed",
+					title: "SIGNED QUOTATION approved",
+					message: "Applicant approved this step.",
+					actionable: false,
+				});
+				captureServerEvent({
+					distinctId: `applicant_${formInstance.applicantId}`,
+					event: "quote_pipeline",
+					properties: {
+						step: "signed_quotation_submit",
+						path: "/api/forms/submit",
+						workflow_id: formInstance.workflowId,
+						applicant_id: formInstance.applicantId,
+						quote_id: syncResult.quoteId,
+						inngest_sync: "ok",
+					},
+				});
+			}
+		}
+
 		if (formInstance.workflowId) {
 			await inngest.send({
 				name: "form/submitted",
@@ -223,6 +293,17 @@ export async function POST(request: NextRequest) {
 			}
 
 		}
+
+		captureServerEvent({
+			distinctId: `applicant_${formInstance.applicantId}`,
+			event: "form_submitted",
+			properties: {
+				form_type: formType,
+				workflow_id: formInstance.workflowId,
+				applicant_id: formInstance.applicantId,
+				submission_id: submission.id,
+			},
+		});
 
 		return NextResponse.json({
 			success: true,

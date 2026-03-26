@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import posthog from "posthog-js";
 import styles from "@/components/forms/external/external-form-theme.module.css";
 import type { DocumentRequirement } from "@/config/document-requirements";
+import { getPostHogProjectToken } from "@/lib/posthog-env";
 
 interface UploadViewProps {
 	token: string;
@@ -71,6 +73,15 @@ export default function UploadView({ token, requirements }: UploadViewProps) {
 		}
 
 		setStatuses(prev => ({ ...prev, [requirement.type]: "uploaded" }));
+
+		if (getPostHogProjectToken()) {
+			posthog.capture("document_uploaded", {
+				document_type: requirement.type,
+				category: requirement.category,
+				required: requirement.required,
+				file_count: files.length,
+			});
+		}
 	};
 
 	return (

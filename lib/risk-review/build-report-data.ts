@@ -1,4 +1,11 @@
+import {
+	parseAiAnalysisSnapshot,
+	parseMachineState,
+	parseReviewState,
+	parseVatStatus,
+} from "@/lib/risk-review/parsers/vat.parser";
 import type { RiskReviewData, SectionStatus } from "@/lib/risk-review/types";
+import type { FinancialRiskAgentResult } from "@/lib/services/agents/financial-risk.agent";
 import type { RiskCheckRow } from "@/lib/services/risk-check.service";
 
 type ApplicantRow = {
@@ -24,7 +31,7 @@ const DEFAULT_SECTION_STATUS: SectionStatus = {
 const DEFAULT_PROCUREMENT: RiskReviewData["procurementData"] = {
 	cipcStatus: "Pending",
 	taxStatus: "Pending",
-	taxExpiry: "—",
+	taxExpiry: "",
 	beeLevel: "—",
 	beeExpiry: "—",
 	riskAlerts: [],
@@ -63,6 +70,11 @@ const DEFAULT_FICA: RiskReviewData["ficaData"] = {
 		accountNumber: "—",
 		avsStatus: "—",
 		avsDetails: "—",
+	},
+	documentAiResult: undefined,
+	vatVerification: {
+		checked: false,
+		status: "not_checked",
 	},
 };
 
@@ -151,23 +163,89 @@ function mergeFica(
 					avsDetails: parsed.banking.avsDetails ?? DEFAULT_FICA.banking.avsDetails,
 				}
 			: DEFAULT_FICA.banking,
+		documentAiResult: Array.isArray(parsed.documentAiResult)
+			? parsed.documentAiResult
+			: undefined,
+		vatVerification: parsed.vatVerification
+			? {
+					checked: parsed.vatVerification.checked ?? false,
+					status: parsed.vatVerification.status ?? "not_checked",
+					errorState: parsed.vatVerification.errorState,
+					vatNumber: parsed.vatVerification.vatNumber,
+					tradingName: parsed.vatVerification.tradingName,
+					office: parsed.vatVerification.office,
+					message: parsed.vatVerification.message,
+					checkedAt: parsed.vatVerification.checkedAt,
+				}
+			: DEFAULT_FICA.vatVerification,
+	};
+}
+
+function extractVatVerificationFromAiAnalysis(
+	aiAnalysisRaw?: string | null
+): RiskReviewData["ficaData"]["vatVerification"] {
+	const parseResult = parseAiAnalysisSnapshot(aiAnalysisRaw ?? null);
+	if (!parseResult.ok) {
+		return DEFAULT_FICA.vatVerification;
+	}
+
+	const snapshot = parseResult.value;
+	const vatCheck = snapshot.externalChecks?.sarsVatSearch;
+	if (!vatCheck) {
+		return DEFAULT_FICA.vatVerification;
+	}
+
+	const firecrawlStatus = vatCheck.status === "live" ? "live" : "offline";
+	const runtimeState = vatCheck.result?.runtimeState;
+	const verified = vatCheck.result?.verified;
+	const vatStatus = parseVatStatus(firecrawlStatus, runtimeState, verified);
+
+	const isServiceDown = vatStatus === "service_down";
+	const isErrorState =
+		vatStatus === "timeout" || vatStatus === "error" || vatStatus === "manual_review";
+
+	return {
+		checked: !isServiceDown,
+		status: vatStatus,
+		errorState: isErrorState || isServiceDown ? vatStatus : undefined,
+		vatNumber: vatCheck.result?.vatNumber,
+		tradingName: vatCheck.result?.tradingName,
+		office: vatCheck.result?.office,
+		message: vatCheck.result?.successMessage || vatCheck.result?.failureMessage,
+		checkedAt: snapshot.metadata?.analyzedAt,
 	};
 }
 
 function buildSectionStatus(check: RiskCheckRow | undefined): SectionStatus {
 	if (!check) return DEFAULT_SECTION_STATUS;
 	return {
-		machineState: check.machineState as SectionStatus["machineState"],
-		reviewState: check.reviewState as SectionStatus["reviewState"],
+		machineState: parseMachineState(check.machineState),
+		reviewState: parseReviewState(check.reviewState),
 		provider: check.provider ?? undefined,
 		errorDetails: check.errorDetails ?? undefined,
 	};
 }
 
+function parseFinancialRiskRawOutput(
+	raw: string | null | undefined
+): RiskReviewData["bankStatementAnalysis"] {
+	if (!raw?.trim()) return undefined;
+	const parsed = safeJsonParse<FinancialRiskAgentResult | null>(raw, null);
+	if (!parsed || typeof parsed !== "object" || !("available" in parsed)) {
+		return undefined;
+	}
+	if (parsed.available === true) {
+		return parsed;
+	}
+	return undefined;
+}
+
 export function buildReportData(
 	applicant: ApplicantRow | null,
 	workflow: WorkflowRow | null,
-	riskChecks: RiskCheckRow[]
+	riskChecks: RiskCheckRow[],
+	financialRiskRawOutput?: string | null,
+	aiAnalysisRaw?: string | null
 ): RiskReviewData {
 	const applicantId = applicant?.id ?? 0;
 	const transactionId = workflow?.id ? `workflow-${workflow.id}` : `risk-${applicantId}`;
@@ -175,9 +253,7 @@ export function buildReportData(
 		? new Date(workflow.startedAt).toISOString()
 		: new Date().toISOString();
 
-	const checkMap = new Map(
-		riskChecks.map(c => [c.checkType, c])
-	);
+	const checkMap = new Map(riskChecks.map(c => [c.checkType, c]));
 
 	const procCheck = checkMap.get("PROCUREMENT");
 	const procurementParsed = procCheck?.payload
@@ -198,6 +274,8 @@ export function buildReportData(
 	const ficaParsed = ficaCheck?.payload
 		? safeJsonParse<Partial<RiskReviewData["ficaData"]>>(ficaCheck.payload, null)
 		: null;
+	const vatVerification = extractVatVerificationFromAiAnalysis(aiAnalysisRaw);
+	const mergedFica = mergeFica(ficaParsed);
 
 	return {
 		workflowId: workflow?.id ?? 0,
@@ -224,6 +302,10 @@ export function buildReportData(
 		procurementData: mergeProcurement(procurementParsed),
 		itcData: mergeItc(itcParsed),
 		sanctionsData: mergeSanctions(sanctionsParsed),
-		ficaData: mergeFica(ficaParsed),
+		ficaData: {
+			...mergedFica,
+			vatVerification,
+		},
+		bankStatementAnalysis: parseFinancialRiskRawOutput(financialRiskRawOutput),
 	};
 }
