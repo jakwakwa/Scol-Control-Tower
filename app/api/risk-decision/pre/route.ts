@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { inngest } from "@/inngest/client";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 const PreRiskDecisionSchema = z.object({
 	workflowId: z.number().int().positive(),
@@ -48,6 +49,17 @@ export async function POST(request: NextRequest) {
 					decidedBy: userId,
 					timestamp: new Date().toISOString(),
 				},
+			},
+		});
+
+		captureServerEvent({
+			distinctId: userId,
+			event: "risk_decision_made",
+			properties: {
+				applicant_id: applicantId,
+				workflow_id: workflowId,
+				decision: decision.outcome,
+				stage,
 			},
 		});
 

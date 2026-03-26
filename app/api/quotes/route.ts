@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
 import { quotes } from "@/db/schema";
+import { captureServerEvent } from "@/lib/posthog-server";
 import { createQuoteSchema } from "@/lib/validations/quotes";
 
 /**
@@ -50,6 +51,17 @@ export async function POST(request: NextRequest) {
 				status: "draft",
 			})
 			.returning();
+
+		captureServerEvent({
+			distinctId: data.applicantId.toString(),
+			event: "quote_created",
+			properties: {
+				applicant_id: data.applicantId,
+				workflow_id: data.workflowId,
+				product_type: data.details,
+				generated_by: data.generatedBy || "platform",
+			},
+		});
 
 		return NextResponse.json({ quote: newQuoteResults[0] }, { status: 201 });
 	} catch (error) {

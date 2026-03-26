@@ -13,6 +13,7 @@ import {
 	logWorkflowEventOnce,
 	markStage5GateOnce,
 } from "@/lib/services/workflow-command.service";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 const SendAbsaSchema = z.object({
 	applicantId: z.number().int().positive(),
@@ -143,6 +144,15 @@ export async function POST(
 			title: "ABSA Packet Sent",
 			message: `Prefilled ABSA 6995 PDF was sent to ${process.env.ABSA_TEST_EMAIL ?? "ABSA test address"}.`,
 			actionable: false,
+		});
+
+		captureServerEvent({
+			distinctId: userId,
+			event: "absa_packet_sent",
+			properties: {
+				applicant_id: applicantId,
+				workflow_id: workflowId,
+			},
 		});
 
 		return NextResponse.json({

@@ -8,8 +8,9 @@
  * - anthropic/claude-sonnet-4: Complex analysis, risk scoring
  * - google/gemini-2.0-flash: Fast document parsing
  */
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from "@posthog/ai";
 import { z } from "zod";
+import { getOptionalPostHogClient } from "@/lib/posthog-server";
 
 /**
  * Get thinking model for complex analysis tasks
@@ -60,6 +61,8 @@ export function isAIConfigured(): boolean {
 
 /**
  * Create a Google GenAI client using project-standard env key.
+ * Wrapped with @posthog/ai to auto-capture $ai_generation events
+ * (model, latency, token usage) for all models.generateContent() calls.
  */
 export function getGenAIClient(): GoogleGenAI {
 	const apiKey = process.env.GOOGLE_GENAI_KEY;
@@ -69,7 +72,7 @@ export function getGenAIClient(): GoogleGenAI {
 		);
 	}
 
-	return new GoogleGenAI({ apiKey });
+	return new GoogleGenAI({ apiKey, posthog: getOptionalPostHogClient() ?? undefined });
 }
 
 interface StructuredInteractionOptions<TSchema extends z.ZodTypeAny> {
