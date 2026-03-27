@@ -729,16 +729,6 @@ export const aiFeedbackLogsRelations = relations(aiFeedbackLogs, ({ one }) => ({
 }));
 
 // ============================================
-// Legacy table (kept for compatibility)
-// ============================================
-
-export const todos = sqliteTable("todos", {
-	id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
-	description: text("description").notNull(),
-	completed: integer("completed", { mode: "boolean" }).notNull().default(false),
-});
-
-// ============================================
 // Internal Forms Tables
 // ============================================
 

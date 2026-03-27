@@ -38,7 +38,6 @@ async function reset() {
 		await db.delete(schema.activityLogs);
 		await db.delete(schema.applicants);
 		await db.delete(schema.agents);
-		await db.delete(schema.todos);
 	} catch (error) {
 		console.error("Error resetting database:", error);
 		process.exit(1);

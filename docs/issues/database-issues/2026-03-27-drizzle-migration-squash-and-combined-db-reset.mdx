@@ -1,0 +1,76 @@
+---
+title: "Drizzle: failed db:reset (duplicate migration SQL), fresh baseline squash, and combined dev+test reset"
+description: "db:migrate failed after drop because migration 0003 duplicated ALTERs from 0002 (green_lane columns). Resolved by squashing migrations from db/schema.ts, removing legacy todos, shared libsql drop helper, and db:reset applying migrations to dev and test Turso when .env.test defines TEST_DATABASE_URL."
+type: fix
+status: resolved
+date: 2026-03-27
+---
+
+# Drizzle: failed `db:reset` (duplicate migration SQL), fresh baseline squash, and combined dev+test reset
+
+## Overview
+
+`bun run db:reset` ran `drizzle-kit migrate` after dropping all tables and failed with **exit code 1** and little console output. Investigation showed **duplicate `ALTER TABLE workflows ADD green_lane_*` statements** across the old **`0002_*`** and **`0003_*`** migration files (since removed in the squash; SQLite error: **duplicate column name**). The team chose a **full migration squash**: delete the old chain, generate a single baseline from [`db/schema.ts`](../../../db/schema.ts), drop the legacy **`todos`** table, and **combine** dev and test database resets so **`bun run db:reset`** migrates **both** Turso databases when [`.env.test`](../../../.env.test.example) provides `TEST_DATABASE_URL`.
+
+## Symptoms
+
+- `bun run db:reset` → `drizzle-kit migrate` **fails** after `scripts/drop-all-tables.ts` (spinner, then exit code 1, often **without** printing the underlying SQLite error).
+- Applying SQL manually showed failure at **0003** when **0002** had already added the same `workflows` columns.
+- `drizzle-kit generate` with an **empty** `migrations/meta/` folder can error with **ENOENT** for `migrations/meta/_journal.json` until a minimal journal exists (empty `entries` array) so `generate` can run.
+
+## Root cause
+
+1. **Overlapping generated migrations:** Drizzle produced **`0002`** (green lane columns) and later **`0003`** that repeated the same **`ALTER TABLE workflows ADD …`** block, so a clean apply order **0000 → 0001 → 0002 → 0003** failed on duplicate column names.
+2. **Opaque migrate output:** `drizzle-kit migrate` did not always surface the LibSQL error string in the terminal, which slowed diagnosis until statements were run in isolation.
+3. **Test DB drift strategy:** `test:db:reset` previously used **`drizzle-kit push`**, which can match **`db/schema.ts`** without applying committed **`migrations/*.sql`**, diverging from the migration path used on dev/production-style flows.
+
+## Implemented solution
+
+### 1) Fresh baseline from schema (squash)
+
+- Removed numbered SQL files **`0000`–`0011`**, old **`migrations/meta/*`** snapshots, and generated [`migrations/schema.ts`](../../../migrations/schema.ts) / [`migrations/relations.ts`](../../../migrations/relations.ts) (when present).
+- Seeded **`migrations/meta/_journal.json`** with an **empty `entries` array** (version/dialect aligned with Drizzle) so **`bun run db:generate`** can run.
+- Ran **`bun run db:generate`** to produce a **single** initial migration (e.g. `0000_<tag>.sql`) and updated journal + snapshot.
+- Preserved optional FTS notes by moving non-journal SQL to [`scripts/sql/optional_fts_screening.sql`](../../../scripts/sql/optional_fts_screening.sql) (manual / optional; not part of the journal).
+
+### 2) Remove legacy `todos` table
+
+- Deleted the **`todos`** `sqliteTable` block from [`db/schema.ts`](../../../db/schema.ts) and removed **`await db.delete(schema.todos)`** from [`scripts/reset-db.ts`](../../../scripts/reset-db.ts) so the squashed baseline does not recreate an unused table.
+
+### 3) Shared drop helper and combined `db:reset`
+
+- Added [`scripts/libsql-drop-all.ts`](../../../scripts/libsql-drop-all.ts) exporting **`dropAllLibsqlObjects(url, authToken, label)`** to drop all user tables/views (including Drizzle migration metadata).
+- [`scripts/drop-all-tables.ts`](../../../scripts/drop-all-tables.ts) now uses that helper for **dev** only (still runnable standalone).
+- New [`scripts/db-reset.ts`](../../../scripts/db-reset.ts) is wired to **`package.json`** as **`db:reset`**: **drop dev → `db:migrate` →** if **`.env.test`** exists **and** **`TEST_DATABASE_URL`** is set, **drop test → `db:migrate:test`**. If no test config, logs skip reason and exits successfully after dev.
+
+### 4) Test-only reset uses migrations, not push
+
+- [`scripts/reset-test-db.ts`](../../../scripts/reset-test-db.ts) (**`test:db:reset`**) now does **drop all + `db:migrate:test`** (same SQL chain as dev). **`db:push:test`** remains in `package.json` for **ad-hoc** schema sync when intentionally bypassing migration files.
+
+### 5) Browser-flow dev script alignment
+
+- [`setup-browser-flow-dev.sh`](../../../setup-browser-flow-dev.sh) runs **`db:migrate:test`** before starting the stack (pending migrations on test Turso), with a log hint to run **`test:db:reset`** if migrate fails.
+
+### 6) Operational docs
+
+- [`AGENTS.md`](../../../AGENTS.md) and [`rules.mdc`](../../../rules.mdc) describe **`db:reset`** (dev + optional test) vs **`test:db:reset`** (test only) vs **`db:push:test`** (optional push).
+
+## Verification
+
+- **`bun run db:reset`:** completes with **`[✓] migrations applied successfully!`** for dev; test half runs when `.env.test` + `TEST_DATABASE_URL` are configured.
+- **`bun run test:db:reset`:** drop + migrate on test Turso.
+- **`bun run build`:** pass after schema/script changes.
+
+## Prevention
+
+- After **`db:generate`**, scan new SQL for **duplicate `ALTER TABLE … ADD`** across consecutive migrations; prefer **one migration per logical change** or regenerate from a clean diff.
+- When **squashing** migrations, treat **production / long-lived staging** as a **separate cutover** (new DB or agreed baseline); you cannot replay a new `0000` on a DB that already applied the old chain without coordination.
+- Prefer **`db:reset`** (or **`test:db:reset`**) for **parity with `migrations/`**; reserve **`db:push:test`** for deliberate push-only workflows.
+- If **`drizzle-kit generate`** errors on missing **`_journal.json`**, add a minimal journal (empty entries) once, then generate.
+
+## Related documentation
+
+- [`AGENTS.md`](../../../AGENTS.md) — test Turso vs migrations, browser-flow conventions.
+- [`drizzle.config.ts`](../../../drizzle.config.ts) / [`drizzle.test.config.ts`](../../../drizzle.test.config.ts) — `out: "./migrations"` shared by dev and test migrate.
+- [`.cursor/skills/browser-flow-test-runner/SKILL.md`](../../../.cursor/skills/browser-flow-test-runner/SKILL.md) — test schema / reset notes.
+- [`docs/user-guides/e2e-testing.mdx`](../../user-guides/e2e-testing.mdx) — E2E and test DB usage (if present).
