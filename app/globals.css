@@ -91,17 +91,17 @@
       rgb(158 121 46),
       #6e4c0dff);
   --gradient-bottom-right: linear-gradient(135deg,
-      hsla(35.17 42.03% 40.59% / 0.96),
+      hsla(35, 41%, 26%, 0.96),
       #0C0B0E8C,
-      rgba(59 41 20 / 0.59));
+      rgba(95, 72, 45, 0.59));
   --gradient-top-left: linear-gradient(225deg,
-      rgba(110 68 10 / 0.73),
-      rgb(53 40 29),
-      rgba(22 27 33 / 0.81));
+      rgba(63, 44, 18, 0.73),
+      rgb(64, 45, 30),
+      rgba(31, 36, 41, 0.81));
   --gradient-bottom-left: linear-gradient(315deg,
       rgb(21 24 31),
-      rgba(72 46 12 / 0.97),
-      rgba(32 33 38 / 0.87));
+      rgba(67, 54, 37, 0.97),
+      rgba(29, 30, 35, 0.87));
   --gradient-radial: radial-gradient(#ffe169ff,
       rgb(54, 49, 30),
       rgb(80, 71, 39),
@@ -125,7 +125,7 @@
   --charcoal-900: #0E0E10;
   --background: #141415F6;
   --foreground: #D99D65;
-  --card: oklch(0.17 0.01 18.02 / 0.68);
+  --card: oklch(24.7% 0.01564 18.168 / 0.201);
   --card-foreground: var(--gold-100);
   --popover: #00000078;
   --popover-foreground: var(--gold-200);
@@ -350,14 +350,14 @@
     padding: 30px !important;
     background-blend-mode: multiply, darken !important;
     margin-bottom: 10px !important;
-    border: 1px solid rgb(18, 20, 24) !important;
+    border: 1px solid rgba(18, 20, 24, 0.42) !important;
     overflow: initial !important;
-    background-color: #2c384384 !important;
+    background-color: #13181e61 !important;
     /* background-image: var(--gradient-bottom-left), var(--gradient-top-right) !important; */
     overflow: hidden;
     border-radius: 40px !important;
     background-size: 300% 200% !important;
-    box-shadow: inset 0.1px -31.4px 50px -1px hsla(240, 14%, 15%, 0.694), inset 0px -10px 10px 0px hsla(27, 43%, 4%, 0.736), inset 0 -1px 20px 0px rgba(7, 7, 7, 0.62), 0.5px 5px 21px -1px rgba(1, 1, 2, 0.531) !important;
+    box-shadow: inset 0.1px -31.4px 20px -1px hsla(240, 14%, 15%, 0.147), inset 0px -10px 10px 0px hsla(27, 43%, 4%, 0.14), inset 0 -1px 20px 0px rgba(7, 7, 7, 0.221), 0.5px 5px 21px -1px rgba(1, 1, 2, 0.531) !important;
   }
 
   .dotted-grid-container {

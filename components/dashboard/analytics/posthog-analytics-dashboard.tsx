@@ -115,7 +115,7 @@ function InsightTile({ insightId, title }: { insightId: number; title: string | 
 							<LineChart
 								data={mergeSeriesForRecharts(data.result.series)}
 								margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
-								<CartesianGrid strokeDasharray="3 3" className="stroke-muted/30" />
+								<CartesianGrid strokeDasharray="3 3" className="stroke-white/20" />
 								<XAxis
 									dataKey="x"
 									tick={{ fontSize: 11 }}
@@ -144,10 +144,10 @@ function InsightTile({ insightId, title }: { insightId: number; title: string | 
 						</ResponsiveContainer>
 					</div>
 				) : data.result.kind === "table" ? (
-					<div className="overflow-x-auto rounded-md border border-secondary/10">
+					<div className="overflow-x-auto rounded-md border border-card/30">
 						<table className="w-full text-left text-xs">
 							<thead>
-								<tr className="border-b border-secondary/10 bg-secondary/5">
+								<tr className="border-b border-card/10 bg-card/25">
 									{data.result.columns.map(c => (
 										<th key={c} className="px-3 py-2 font-medium">
 											{c}

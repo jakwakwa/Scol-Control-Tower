@@ -12,17 +12,26 @@ import {
 	StatsCard,
 } from "@/components/dashboard";
 import type { WorkflowNotification } from "@/components/dashboard/notifications-panel";
-import { getQuoteAgentStats, getRiskAgentStats } from "@/lib/services/agent-stats";
+import {
+	getFinancialRiskAgentStats,
+	getIdentityVerificationAgentStats,
+	getQuoteAgentStats,
+	getRiskAgentStats,
+} from "@/lib/services/agent-stats";
+import { getFastModel, getHighStakesModel } from "@/lib/ai/models";
 
 export default async function AgentsPage({
 	workflowNotifications,
 }: {
 	workflowNotifications: WorkflowNotification[];
 }) {
-	// Fetch real stats
-	const [riskStats, quoteStats] = await Promise.all([
+
+
+	const [riskStats, quoteStats, financialRiskStats, identityVerificationStats] = await Promise.all([
 		getRiskAgentStats(),
 		getQuoteAgentStats(),
+		getFinancialRiskAgentStats(),
+		getIdentityVerificationAgentStats(),
 	]);
 
 	const agents = [
@@ -35,7 +44,7 @@ export default async function AgentsPage({
 			lastCallbackAt: riskStats.lastCallbackAt,
 			callbackCount: riskStats.callbackCount,
 			errorCount: riskStats.errorCount,
-			aiModel: "Gemini 3 Flash",
+			aiModel: getHighStakesModel(),
 			provider: "Google" as const,
 			description:
 				"Analyzes bank statements and accountant letters for FICA compliance and risk scoring.",
@@ -49,62 +58,40 @@ export default async function AgentsPage({
 			lastCallbackAt: quoteStats.lastCallbackAt,
 			callbackCount: quoteStats.callbackCount,
 			errorCount: quoteStats.errorCount,
-			aiModel: "Gemini 3 Flash",
+			aiModel: getFastModel(),
 			provider: "Google" as const,
 			description:
 				"Generates risk-adjusted quotes based on company profile and credit score.",
 		},
 		{
 			id: "3",
-			agentId: "xt_doc_agent_v1",
-			name: "Document Generator",
-			taskType: "document_generation",
-			status: "inactive" as const,
-			lastCallbackAt: undefined,
-			callbackCount: 0,
-			errorCount: 0,
-			aiModel: "-",
-			provider: "Planned" as const,
-			description: "Planned capability - agent not active.",
+			agentId: "xt_financial_risk_agent_v1",
+			name: "Financial Risk Agent",
+			taskType: "financial_risk_assessment",
+			status: "active" as const,
+			lastCallbackAt: financialRiskStats.lastCallbackAt,
+			callbackCount: financialRiskStats.callbackCount,
+			errorCount: financialRiskStats.errorCount,
+			aiModel: getHighStakesModel(),
+			provider: "Google" as const,
+			description: "Analyzes financial documents for risk assessment.",
 		},
+
 		{
 			id: "4",
-			agentId: "xt_esign_agent_v1",
-			name: "E-Signature Handler",
-			taskType: "electronic_signature",
-			status: "inactive" as const,
-			lastCallbackAt: undefined,
-			callbackCount: 0,
-			errorCount: 0,
-			aiModel: "-",
-			provider: "Planned" as const,
-			description: "Planned capability - agent not active.",
-		},
-		{
-			id: "5",
-			agentId: "xt_sync_agent_v1",
-			name: "agreementContract_sync",
-			taskType: "data_sync",
-			status: "inactive" as const,
-			lastCallbackAt: undefined,
-			callbackCount: 0,
-			errorCount: 0,
-			aiModel: "-",
-			provider: "Planned" as const,
-			description: "Planned capability - agent not active.",
-		},
-		{
-			id: "6",
-			agentId: "xt_notify_agent_v1",
-			name: "Notification Handler",
-			taskType: "notification",
-			status: "inactive" as const,
-			lastCallbackAt: undefined,
-			callbackCount: 0,
-			errorCount: 0,
-			aiModel: "-",
-			provider: "Planned" as const,
-			description: "Planned capability - agent not active.",
+			agentId: "xt_document-proofer_v1",
+			name: "Document Proofing Agent",
+			taskType: "document_proofing",
+			status: "active" as const,
+			lastCallbackAt: identityVerificationStats.lastCallbackAt,
+			callbackCount: identityVerificationStats.callbackCount,
+			errorCount: identityVerificationStats.errorCount,
+			primaryStatLabel: "Verifications",
+			secondaryStatLabel: "Failures",
+			lastActivityLabel: "Last verification",
+			aiModel: "Google Cloud Document AI",
+			provider: "Google" as const,
+			description: "Scans and verifies legitimacy of ID documents via Document AI Identity Proofing.",
 		},
 	];
 
@@ -131,21 +118,18 @@ export default async function AgentsPage({
 				<StatsCard
 					title="Active"
 					value={stats.activeAgents}
-					change={{ value: 0, trend: "neutral" }}
 					icon={RiCheckDoubleLine}
 					iconColor="green"
 				/>
 				<StatsCard
 					title="Total Callbacks"
 					value={stats.totalCallbacks}
-					change={{ value: 15, trend: "up" }}
 					icon={RiTimeLine}
 					iconColor="blue"
 				/>
 				<StatsCard
 					title="Errors"
 					value={stats.totalErrors}
-					change={{ value: 2, trend: "down" }}
 					icon={RiAlertLine}
 					iconColor="red"
 				/>
