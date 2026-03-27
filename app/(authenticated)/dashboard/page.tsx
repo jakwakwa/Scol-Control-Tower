@@ -139,7 +139,6 @@ export default async function DashboardPage() {
 				<StatsCard
 					title="Total Applications"
 					value={workflowsCount}
-					change={{ value: 12, trend: "up" }}
 					icon={RiFileTextLine}
 					iconColor="blue"
 				/>
@@ -149,23 +148,21 @@ export default async function DashboardPage() {
 						activeWorkflows.filter(w => !["won", "lost", "completed"].includes(w.stage))
 							.length
 					}
-					change={{ value: 5, trend: "up" }}
+				
 					icon={RiTimeLine}
-					iconColor="amber" // Used cyan in screenshot, mapping to StratCol palette
+					iconColor="amber" 
 				/>
 				<StatsCard
 					title="Completed"
 					value={
 						activeWorkflows.filter(w => ["won", "activation"].includes(w.stage)).length
 					}
-					change={{ value: 18, trend: "up" }}
 					icon={RiCheckboxCircleLine}
 					iconColor="green"
 				/>
 				<StatsCard
 					title="High Risk"
-					value={1}
-					change={{ value: 8, trend: "down" }}
+					value={activeWorkflows.filter(w => w.payload.riskLevel === "high").length}
 					icon={RiShieldCheckLine}
 					iconColor="red"
 				/>
