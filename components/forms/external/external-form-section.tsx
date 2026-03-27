@@ -16,9 +16,9 @@ export default function ExternalFormSection({
 	bodyClassName,
 }: ExternalFormSectionProps) {
 	return (
-		<section className={styles.externalCard}>
+		<section className="bg-transparent rounded-t-xl  px-0">
 			<div className={styles.externalSectionHeader}>{title}</div>
-			<div className={cn(styles.externalSectionBody, bodyClassName)}>
+			<div className="bg-white flex flex-col rounded-t-0 px-8 py-8 rounded-b-xl shadow-xl shadow-black/5 overflow-hidden">
 				{note ? <p className={styles.externalSectionNote}>{note}</p> : null}
 				{children}
 			</div>
