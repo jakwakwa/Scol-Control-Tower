@@ -3,16 +3,25 @@ import type * as React from "react";
 import { cn } from "@/lib/utils";
 
 function Card({
+	variant = "default",
 	className,
 	size = "default",
 	...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+}: React.ComponentProps<"div"> & {
+	variant?: "default" | "secondary" | "outline";
+	size?: "default" | "sm";
+}) {
 	return (
 		<div
 			data-slot="card"
+			data-variant={variant}
 			data-size={size}
 			className={cn(
-				"shadow-md shadow-black/10 surface-card text-foreground gap-6 overflow-hidden outline-0  px-12 py-12 text-sm ring-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-4 data-[size=sm]:py-4 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl group/card flex flex-col mb-4",
+				"shadow-md shadow-black/10	 text-foreground gap-6 overflow-hidden outline-0  px-12 py-12 text-sm ring-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-4 data-[size=sm]:py-4 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl group/card flex flex-col mb-4",
+				variant === "default" && "surface-card",
+				variant === "secondary" &&
+					"bg-background glass-card rounded-2xl border border-primary/10",
+				variant === "outline" && "outline outline-1 outline-border",
 				className
 			)}
 			{...props}

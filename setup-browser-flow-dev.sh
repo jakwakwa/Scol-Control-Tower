@@ -43,9 +43,9 @@ if [ -z "${TEST_DATABASE_URL:-}" ]; then
 	exit 1
 fi
 
-echo "Syncing test database schema (drizzle-kit push — test Turso only)..."
-if ! bun run db:push:test; then
-	echo "ERROR: db:push:test failed. Check .env.test (TEST_DATABASE_URL, TEST_TURSO_GROUP_AUTH_TOKEN)."
+echo "Applying pending migrations to test DB (drizzle-kit migrate — test Turso only)..."
+if ! bun run db:migrate:test; then
+	echo "ERROR: db:migrate:test failed. Check .env.test (TEST_DATABASE_URL, TEST_TURSO_GROUP_AUTH_TOKEN), or run bun run test:db:reset for a full drop + migrate."
 	exit 1
 fi
 

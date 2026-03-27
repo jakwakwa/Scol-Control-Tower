@@ -26,6 +26,7 @@ import { createWorkflowNotification } from "@/lib/services/notification-events.s
 import { sendInternalAlertEmail } from "@/lib/services/email.service";
 import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 const GreenLaneRequestSchema = z.object({
 	applicantId: z.number().int().positive("Applicant ID is required"),
@@ -195,6 +196,17 @@ export async function POST(
 				},
 			});
 		}
+
+		captureServerEvent({
+			distinctId: userId,
+			event: "green_lane_granted",
+			properties: {
+				applicant_id: applicantId,
+				workflow_id: workflowId,
+				granted_by: userId,
+				risk_level: applicant.riskLevel,
+			},
+		});
 
 		return NextResponse.json({
 			success: true,

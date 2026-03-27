@@ -512,63 +512,6 @@ export const applicantsRelations = relations(applicants, ({ many, one }) => ({
 }));
 
 /**
- * Agents
- */
-export const agents = sqliteTable("agents", {
-	id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
-	agentId: text("agent_id").notNull().unique(), // e.g., "xt_risk_agent_v2"
-	name: text("name").notNull(),
-	description: text("description"),
-	webhookUrl: text("webhook_url"),
-	taskType: text("task_type", {
-		enum: [
-			"document_generation",
-			"electronic_signature",
-			"risk_verification",
-			"data_sync",
-			"notification",
-		],
-	}).notNull(),
-	status: text("status", { enum: ["active", "inactive", "error"] })
-		.notNull()
-		.default("active"),
-	lastCallbackAt: integer("last_callback_at", { mode: "timestamp" }),
-	callbackCount: integer("callback_count").notNull().default(0),
-	errorCount: integer("error_count").notNull().default(0),
-	createdAt: integer("created_at", { mode: "timestamp" })
-		.notNull()
-		.$defaultFn(() => new Date()),
-});
-
-/**
- * external Callbacks - Agent callback records
- */
-export const agentCallbacks = sqliteTable("xt_callbacks", {
-	id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
-	workflowId: integer("workflow_id")
-		.notNull()
-		.references(() => workflows.id),
-	eventId: text("event_id").notNull(), // From incoming webhook
-	agentId: text("agent_id").notNull(), // e.g., "xt_risk_agent_v2"
-	status: text("status", {
-		enum: ["received", "validated", "processed", "rejected", "error"],
-	})
-		.notNull()
-		.default("received"),
-	decision: text("decision", {
-		enum: ["approved", "rejected", "pending_info"],
-	}),
-	outcome: text("outcome"), // Full decision JSON
-	rawPayload: text("raw_payload").notNull(), // Complete incoming JSON
-	validationErrors: text("validation_errors"), // Any Zod errors
-	humanActor: text("human_actor"), // Email of human who made decision
-	processedAt: integer("processed_at", { mode: "timestamp" }),
-	receivedAt: integer("received_at", { mode: "timestamp" })
-		.notNull()
-		.$defaultFn(() => new Date()),
-});
-
-/**
  * Quotes table - Generated fee structures
  */
 export const quotes = sqliteTable("quotes", {
@@ -610,7 +553,6 @@ export const workflowsRelations = relations(workflows, ({ one, many }) => ({
 	}),
 	quotes: many(quotes),
 	events: many(workflowEvents),
-	callbacks: many(agentCallbacks),
 	internalForms: many(internalForms),
 	documentUploads: many(documentUploads),
 	signatures: many(signatures),
@@ -706,13 +648,6 @@ export const quotesRelations = relations(quotes, ({ one }) => ({
 	}),
 }));
 
-export const agentCallbacksRelations = relations(agentCallbacks, ({ one }) => ({
-	workflow: one(workflows, {
-		fields: [agentCallbacks.workflowId],
-		references: [workflows.id],
-	}),
-}));
-
 export const aiFeedbackLogsRelations = relations(aiFeedbackLogs, ({ one }) => ({
 	workflow: one(workflows, {
 		fields: [aiFeedbackLogs.workflowId],
@@ -727,16 +662,6 @@ export const aiFeedbackLogsRelations = relations(aiFeedbackLogs, ({ one }) => ({
 		references: [workflowEvents.id],
 	}),
 }));
-
-// ============================================
-// Legacy table (kept for compatibility)
-// ============================================
-
-export const todos = sqliteTable("todos", {
-	id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
-	description: text("description").notNull(),
-	completed: integer("completed", { mode: "boolean" }).notNull().default(false),
-});
 
 // ============================================
 // Internal Forms Tables

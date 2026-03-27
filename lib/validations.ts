@@ -127,61 +127,6 @@ export const workflowStatusEnum = z.enum([
 	"timeout",
 ]);
 
-export const createWorkflowSchema = z.object({
-	applicantId: z.number().int().positive("Applicant ID is required"),
-});
-
-export type CreateWorkflowInput = z.infer<typeof createWorkflowSchema>;
-
-// ============================================
-// external Callback Schemas
-// ============================================
-
-export const agentCallbackDecisionSchema = z.object({
-	outcome: z.enum(["APPROVED", "REJECTED", "PENDING_INFO"]),
-	manualOverrides: z
-		.object({
-			riskScore: z.number().optional(),
-			note: z.string().optional(),
-		})
-		.optional(),
-});
-
-export const agentCallbackAuditSchema = z.object({
-	humanActor: z.string().email(),
-	timestamp: z.string().datetime(),
-});
-
-export const agentCallbackSchema = z.object({
-	workflowId: z.string().or(z.number()),
-	agentId: z.string().min(1, "Agent ID is required"),
-	status: z.enum(["COMPLETED", "FAILED", "PENDING"]),
-	decision: agentCallbackDecisionSchema.optional(),
-	audit: agentCallbackAuditSchema.optional(),
-});
-
-export type agentCallbackInput = z.infer<typeof agentCallbackSchema>;
-
-// ============================================
-// Outgoing Webhook Payload Schema
-// ============================================
-
-export const dispatchPayloadSchema = z.object({
-	eventId: z.string(),
-	workflowId: z.string().or(z.number()),
-	taskType: z.enum([
-		"DOCUMENT_GENERATION",
-		"ELECTRONIC_SIGNATURE",
-		"RISK_VERIFICATION",
-		"DATA_SYNC",
-		"NOTIFICATION",
-	]),
-	payload: z.record(z.string(), z.unknown()),
-	callbackUrl: z.string().url(),
-});
-
-export type DispatchPayload = z.infer<typeof dispatchPayloadSchema>;
-
 // ============================================
 // Agent Schemas
 // ============================================

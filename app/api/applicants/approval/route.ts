@@ -6,6 +6,7 @@ import { eq, type InferSelectModel } from "drizzle-orm";
 import { z } from "zod";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
 import { requireAuthOrBearer } from "@/lib/auth/api-auth";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 // Flexible schema to handle both Quote and Approval payloads
 const approvalSchema = z.object({
@@ -160,6 +161,19 @@ export async function POST(request: NextRequest) {
 			await inngest.send({
 				name: eventName as any,
 				data: eventData,
+			});
+		}
+
+		if (eventName) {
+			captureServerEvent({
+				distinctId: data.applicantId?.toString() ?? workflowId?.toString() ?? "unknown",
+				event: "approval_callback_received",
+				properties: {
+					applicant_id: data.applicantId,
+					workflow_id: workflowId,
+					routed_to: eventName,
+					approval_status: data.approved,
+				},
 			});
 		}
 

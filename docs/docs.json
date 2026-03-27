@@ -67,6 +67,8 @@
           {
             "group": "Issues",
             "pages": [
+              "issues/database-issues/2026-03-27-remove-legacy-agents-xt-callbacks-dead-callback-plumbing",
+              "issues/database-issues/2026-03-27-drizzle-migration-squash-and-combined-db-reset",
               "issues/2026-03-23-fix-stage6-inngest-workflow-stuck",
               "issues/2026-03-22-refactor-forms-hub-workflow-gates",
               "issues/2026-03-01-feat-harden-procurement-fallback-plan"

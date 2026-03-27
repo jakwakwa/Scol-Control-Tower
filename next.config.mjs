@@ -22,9 +22,7 @@ const nextConfig = {
 			{ protocol: "https", hostname: "i.ytimg.com" },
 		],
 	},
-	turbopack: {
-		root: "/Users/jakwakwa/Repos/stratcol-apps/Scol-Control-Tower",
-	},
+	turbopack: {},
 	skipTrailingSlashRedirect: true,
 	async rewrites() {
 		return [
@@ -96,6 +94,7 @@ const nextConfig = {
 				"https://clerk-telemetry.com",
 				"https://vitals.vercel-insights.com",
 				"*.googleusercontent.com",
+				"https://*.posthog.com",
 				"https://us.i.posthog.com",
 				"https://us-assets.i.posthog.com",
 			],

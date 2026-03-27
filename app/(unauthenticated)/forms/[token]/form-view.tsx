@@ -196,7 +196,7 @@ export default function FormView({
 			{quoteSummary ? (
 				<div className={styles.externalCard}>
 					<div className={styles.externalSectionHeader}>Quotation summary</div>
-					<div className={styles.externalSectionBody}>
+					<div>
 						<p className={styles.externalSectionNote}>
 							Amount: R {(quoteSummary.amount / 100).toLocaleString()}
 						</p>
