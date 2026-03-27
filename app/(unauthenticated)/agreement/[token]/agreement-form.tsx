@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import posthog from "posthog-js";
 import { useState } from "react";
 import ExternalStatusCard from "@/components/forms/external/external-status-card";
@@ -41,8 +42,15 @@ export default function AgreementForm({
 	}
 
 	return (
-		<div className="contract-page py-8">
+		<div className="w-full">
 			<div className="mb-6 text-xs font-light	 text-muted-foreground">
+				<Image
+					src="/stratcol-corporate-logo-external.svg"
+					alt="StratCol"
+					width={160}
+					height={54}
+					className="h-24 w-auto mb-4"
+				/>
 				<h1 className="text-xl font-bold">STRATCOL AGREEMENT</h1>
 				<div>StratCol Ltd, Reg no: 1983/001494/06</div>
 				<div>StratCol Premium Collections (Pty) Ltd, Reg no: 2015/071843/07</div>

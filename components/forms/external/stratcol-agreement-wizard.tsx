@@ -212,7 +212,7 @@ export function ExternalStratcolAgreementWizard({
 		<FormProvider {...methods}>
 			<form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
 				{process.env.NEXT_PUBLIC_TEST_FORMS === "true" && (
-					<div className="mb-2 p-4 border border-dashed border-yellow-500/50 bg-yellow-50/50 rounded-lg flex items-center justify-between">
+					<div className="mb-2 p-4 border border-dashed border-yellow-500/50  rounded-lg flex items-center justify-between">
 						<div className="space-y-1">
 							<p className="text-sm font-medium text-yellow-800">Testing Mode Active</p>
 							<p className="text-xs text-yellow-700">
@@ -566,7 +566,7 @@ export function ExternalStratcolAgreementWizard({
 									<div className="flex items-center gap-2 p-4 rounded-lg border border-border bg-muted/30">
 										<Checkbox
 											id="useSameAccount"
-											checked={useSameAccount}
+											checked={useSameAccount ?? false}
 											onCheckedChange={checked =>
 												setValue(
 													"bankingAndMandates.useSameAccountForDebit",
@@ -641,7 +641,7 @@ export function ExternalStratcolAgreementWizard({
 										<div className="flex items-start gap-3">
 											<Checkbox
 												id="declarations"
-												checked={watch("declarationsAccepted")}
+												checked={watch("declarationsAccepted") ?? false}
 												onCheckedChange={checked =>
 													setValue("declarationsAccepted", checked as boolean)
 												}

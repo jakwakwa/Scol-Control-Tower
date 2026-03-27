@@ -1,3 +1,4 @@
+import Image from "next/image";
 import styles from "./external-form-theme.module.css";
 
 interface ExternalStatusCardProps {
@@ -15,6 +16,15 @@ export default function ExternalStatusCard({
 
 	return (
 		<div className={styles.successCard}>
+			<div className="flex justify-center mb-4">
+				<Image
+					src="/stratcol-corporate-logo-external.svg"
+					alt="StratCol"
+					width={140}
+					height={47}
+					className="h-auto w-auto"
+				/>
+			</div>
 			<div className={`${styles.statusIcon} ${isError ? styles.statusIconError : ""}`}>
 				{isError ? (
 					<svg

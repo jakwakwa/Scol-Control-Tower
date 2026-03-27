@@ -283,20 +283,20 @@
   .surface-card {
     background: rgb(42 32 23) !important;
 
-    background: var(--gradient-top-left), var(--gradient-bottom-left) !important;
-    border-radius: 0.95rem !important;
-    inset: -1 !important;
+    background: linear-gradient(135deg, #33677674, #584d40fd) !important;
+    border-radius: 1.1rem !important;
+    /* inset: -1 !important; */
     padding: 10px 12px !important;
     margin: 3px 5px !important;
-    outline: 1.5px solid transparent !important;
-    border: 1px solid #1c1c1f !important;
-    box-shadow: inset 0px 0px 0px 1px rgb(21, 21, 27), 0px 3px 7px 1px rgba(0, 0, 0, 0.21), 0px 2px 3px -1px rgba(3, 2, 2, 0.688) !important;
+    /* outline: 1.5px solid transparent !important; */
+    border: 1px solid #11111316 !important;
+    box-shadow: inset 0px 0px 0px 1px rgba(175, 183, 187, 0.028), 0px 3px 7px 1px rgba(0, 0, 0, 0.21), 0px 2px 3px -1px rgba(27, 16, 16, 0.688) !important;
 
   }
 
   .surface-card > :first-child {
     background: transparent !important;
-    /* background: #b5afa70b !important; */
+    background: #1418191d !important;
     border-radius: 0.8rem !important;
     color: rgb(123, 99, 57) !important;
     padding: 5px 15px !important;
@@ -352,12 +352,12 @@
     margin-bottom: 10px !important;
     border: 1px solid rgb(18, 20, 24) !important;
     overflow: initial !important;
-    background-color: #13181C84 !important;
+    background-color: #2c384384 !important;
     /* background-image: var(--gradient-bottom-left), var(--gradient-top-right) !important; */
     overflow: hidden;
     border-radius: 40px !important;
     background-size: 300% 200% !important;
-    box-shadow: inset 0.1px -31.4px 50px -1px hsla(240, 3%, 6%, 0.694), inset 0px -10px 10px 0px hsla(27, 43%, 4%, 0.736), inset 0 -1px 20px 0px rgba(7, 7, 7, 0.62), 0.5px 5px 21px -1px rgba(1, 1, 2, 0.531) !important;
+    box-shadow: inset 0.1px -31.4px 50px -1px hsla(240, 14%, 15%, 0.694), inset 0px -10px 10px 0px hsla(27, 43%, 4%, 0.736), inset 0 -1px 20px 0px rgba(7, 7, 7, 0.62), 0.5px 5px 21px -1px rgba(1, 1, 2, 0.531) !important;
   }
 
   .dotted-grid-container {
@@ -524,16 +524,16 @@
 
   input,
   textarea {
-    outline: 1px solid #c7841844 !important;
+    outline: 1px solid #da8c0f44;
     border-radius: 10px !important;
-    padding: 10px 15px !important;
+    padding: 10px 15px;
     padding-left: 10px;
     margin: 0px !important;
     font-size: 13px !important;
     font-weight: 400 !important;
     color: var(--color-input-foreground);
-    background-color: var(--charcoal-800) !important;
-    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1) !important;
+    background-color: var(--charcoal-800);
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease !important;
   }
 
@@ -616,12 +616,12 @@
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus,
   input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 1000px rgb(25, 31, 32) inset !important;
+    -webkit-box-shadow: 0 0 0 1000px rgba(9, 10, 10, 0.873) inset !important;
     /* background-image: #89bfcb !important; */
     transition: background-color 50000s ease-in-out 0s;
     /* Prevents transition flash */
     /* mix-blend-mode: color-dodge; */
-    -webkit-text-fill-color: #c7a756;
+    -webkit-text-fill-color: #e7a661;
     /* background-blend-mode: darken !important; */
     outline: #d5560cd6;
     border: 1px solid #383026e3;

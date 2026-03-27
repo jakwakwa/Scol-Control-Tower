@@ -114,9 +114,9 @@ export default function DevFormsPage() {
 				description="Generate magic link tokens and preview all form types. Each click creates a fresh token and opens the form in a new tab.">
 				{error ? <div className={styles.errorBanner}>{error}</div> : null}
 
-				<section className={styles.externalCard}>
+				<section className="bg-transparent rounded-xl flex flex-col gap-3 overflow-hidden mx-4">
 					<div className={styles.externalSectionHeader}>DEV ONLY</div>
-					<div className={styles.externalSectionBody}>
+					<div>
 						<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 							{FORMS.map(form => (
 								<div key={form.type} className={styles.ownerCard}>
@@ -149,9 +149,9 @@ export default function DevFormsPage() {
 				</section>
 
 				{generatedLinks.length > 0 ? (
-					<section className={styles.externalCard}>
+					<section className="">
 						<div className={styles.externalSectionHeader}>Generated Links</div>
-						<div className={styles.externalSectionBody}>
+						<div>
 							<div className={styles.historyList}>
 								{generatedLinks.map((link, i) => {
 									const form = FORMS.find(item => item.type === link.type);
