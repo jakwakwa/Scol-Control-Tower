@@ -10,7 +10,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:test": "drizzle-kit migrate --config=drizzle.test.config.ts",
     "db:push:test": "drizzle-kit push --config=drizzle.test.config.ts --force",
-    "db:reset": "bun run scripts/drop-all-tables.ts && bun run db:migrate",
+    "db:reset": "bun run scripts/db-reset.ts",
     "db:studio": "drizzle-kit studio",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",

@@ -4,7 +4,7 @@ CREATE TABLE `activity_logs` (
 	`action` text NOT NULL,
 	`description` text NOT NULL,
 	`performed_by` text,
-	`created_at` integer DEFAULT '"2026-03-11T12:15:25.175Z"',
+	`created_at` integer DEFAULT '"2026-03-27T07:51:38.318Z"',
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -121,6 +121,7 @@ CREATE TABLE `applicants` (
 	`company_name` text NOT NULL,
 	`trading_name` text,
 	`registration_number` text,
+	`vat_number` text,
 	`contact_name` text NOT NULL,
 	`id_number` text,
 	`email` text NOT NULL,
@@ -284,7 +285,7 @@ CREATE TABLE `risk_assessments` (
 	`reviewed_by` text,
 	`reviewed_at` integer,
 	`notes` text,
-	`created_at` integer DEFAULT '"2026-03-11T12:15:25.175Z"',
+	`created_at` integer DEFAULT '"2026-03-27T07:51:38.317Z"',
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -338,12 +339,6 @@ CREATE TABLE `signatures` (
 	`signed_at` integer NOT NULL,
 	FOREIGN KEY (`workflow_id`) REFERENCES `workflows`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`internal_form_id`) REFERENCES `internal_forms`(`id`) ON UPDATE no action ON DELETE no action
-);
---> statement-breakpoint
-CREATE TABLE `todos` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`description` text NOT NULL,
-	`completed` integer DEFAULT false NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `workflow_events` (
@@ -401,6 +396,12 @@ CREATE TABLE `workflows` (
 	`mandate_last_sent_at` integer,
 	`risk_manager_approval` text,
 	`account_manager_approval` text,
+	`contract_draft_reviewed_at` integer,
+	`contract_draft_reviewed_by` text,
+	`absa_packet_sent_at` integer,
+	`absa_packet_sent_by` text,
+	`absa_approval_confirmed_at` integer,
+	`absa_approval_confirmed_by` text,
 	`sales_evaluation_status` text,
 	`sales_issues_summary` text,
 	`issue_flagged_by` text,
@@ -417,6 +418,11 @@ CREATE TABLE `workflows` (
 	`state_lock_version` integer DEFAULT 0,
 	`state_locked_at` integer,
 	`state_locked_by` text,
+	`green_lane_requested_at` integer,
+	`green_lane_requested_by` text,
+	`green_lane_request_notes` text,
+	`green_lane_request_source` text,
+	`green_lane_consumed_at` integer,
 	`metadata` text,
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
