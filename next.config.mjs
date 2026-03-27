@@ -22,9 +22,7 @@ const nextConfig = {
 			{ protocol: "https", hostname: "i.ytimg.com" },
 		],
 	},
-	turbopack: {
-		root: "/Users/jakwakwa/Repos/stratcol-apps/Scol-Control-Tower",
-	},
+	turbopack: {},
 	skipTrailingSlashRedirect: true,
 	async rewrites() {
 		return [
