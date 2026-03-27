@@ -22,7 +22,9 @@ const nextConfig = {
 			{ protocol: "https", hostname: "i.ytimg.com" },
 		],
 	},
-	turbopack: {},
+	turbopack: {
+		root: process.cwd(),
+	},
 	skipTrailingSlashRedirect: true,
 	async rewrites() {
 		return [
