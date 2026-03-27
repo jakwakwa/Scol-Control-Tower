@@ -2,6 +2,7 @@
 
 import {
 	RiAlarmWarningLine,
+	RiBarChart2Line,
 	RiBarChartBoxAiFill,
 	RiDashboardLine,
 	RiMenuFoldLine,
@@ -18,6 +19,7 @@ import { Button } from "../ui/button";
 const navigation = [
 	{ name: "Overview", href: "/dashboard", icon: RiDashboardLine },
 	{ name: "Applicants", href: "/dashboard/applicants", icon: RiUserAddLine },
+	{ name: "Analytics", href: "/dashboard/analytics", icon: RiBarChart2Line },
 	{ name: "Workflows", href: "/dashboard/workflows", icon: RiBarChartBoxAiFill },
 	{
 		name: "Risk Review",

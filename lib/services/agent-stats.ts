@@ -1,12 +1,27 @@
-import { and, desc, eq, like, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, like, sql } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
-import { quotes, workflowEvents } from "@/db/schema";
+import {
+	aiAnalysisLogs,
+	documentUploads,
+	documents,
+	quotes,
+	workflowEvents,
+} from "@/db/schema";
+import { FINANCIAL_RISK_AGENT_NAME } from "@/lib/services/agents/financial-risk.agent";
 
 export interface AgentStats {
 	callbackCount: number;
 	errorCount: number;
 	lastCallbackAt?: Date;
 }
+
+/** Same ID types as `inngest/functions/id-verification.ts` (document/uploaded → auto-verify). */
+export const IDENTITY_DOCUMENT_TYPES_FOR_STATS = [
+	"ID_DOCUMENT",
+	"PROPRIETOR_ID",
+	"DIRECTOR_ID",
+	"FICA_ID",
+] as const;
 
 /**
  * Get stats for the Risk Verification Agent
@@ -97,5 +112,107 @@ export async function getQuoteAgentStats(): Promise<AgentStats> {
 		callbackCount: successResult[0].count,
 		errorCount: errorResult[0].count,
 		lastCallbackAt: lastQuote[0]?.createdAt || undefined,
+	};
+}
+
+const financialRiskAgent = eq(aiAnalysisLogs.agentName, FINANCIAL_RISK_AGENT_NAME);
+
+/** Success: structured JSON with top-level `available: true` (see financial-risk.agent). */
+const financialRiskSuccessWhere = and(
+	financialRiskAgent,
+	sql`json_extract(${aiAnalysisLogs.rawOutput}, '$.available') = 1`
+);
+
+/** Recorded failure path: `available: false` in persisted rawOutput. */
+const financialRiskErrorWhere = and(
+	financialRiskAgent,
+	sql`json_extract(${aiAnalysisLogs.rawOutput}, '$.available') = 0`
+);
+
+/**
+ * Financial Risk Agent — bank statement analysis (Gemini).
+ * Source: `ai_analysis_logs` rows for {@link FINANCIAL_RISK_AGENT_NAME}.
+ */
+export async function getFinancialRiskAgentStats(): Promise<AgentStats> {
+	const db = getDatabaseClient();
+	if (!db) return { callbackCount: 0, errorCount: 0 };
+
+	const [successResult, errorResult, lastSuccess] = await Promise.all([
+		db
+			.select({ count: sql<number>`count(*)` })
+			.from(aiAnalysisLogs)
+			.where(financialRiskSuccessWhere),
+		db
+			.select({ count: sql<number>`count(*)` })
+			.from(aiAnalysisLogs)
+			.where(financialRiskErrorWhere),
+		db
+			.select({ createdAt: aiAnalysisLogs.createdAt })
+			.from(aiAnalysisLogs)
+			.where(financialRiskSuccessWhere)
+			.orderBy(desc(aiAnalysisLogs.createdAt))
+			.limit(1),
+	]);
+
+	return {
+		callbackCount: successResult[0].count,
+		errorCount: errorResult[0].count,
+		lastCallbackAt: lastSuccess[0]?.createdAt ?? undefined,
+	};
+}
+
+/**
+ * Automated ID verification (Document AI), aligned with `processIdentityVerification` / Inngest `autoVerifyIdentity`.
+ *
+ * - **callbackCount**: verified ID rows written by Document AI (`documents` + `document_uploads`).
+ * - **errorCount**: Inngest failures are not persisted in SQLite today; remains 0 unless instrumented elsewhere.
+ */
+export async function getIdentityVerificationAgentStats(): Promise<AgentStats> {
+	const db = getDatabaseClient();
+	if (!db) return { callbackCount: 0, errorCount: 0 };
+
+	const idTypes = [...IDENTITY_DOCUMENT_TYPES_FOR_STATS];
+
+	const docWhere = and(
+		inArray(documents.type, idTypes),
+		eq(documents.processingStatus, "verified"),
+		like(documents.processingResult, "%documentAiResult%")
+	);
+
+	const uploadWhere = and(
+		inArray(documentUploads.documentType, idTypes),
+		eq(documentUploads.verificationStatus, "verified"),
+		eq(documentUploads.verifiedBy, "Document AI")
+	);
+
+	const [docCount, uploadCount, lastDoc, lastUpload] = await Promise.all([
+		db.select({ count: sql<number>`count(*)` }).from(documents).where(docWhere),
+		db
+			.select({ count: sql<number>`count(*)` })
+			.from(documentUploads)
+			.where(uploadWhere),
+		db
+			.select({ verifiedAt: documents.verifiedAt })
+			.from(documents)
+			.where(docWhere)
+			.orderBy(desc(documents.verifiedAt))
+			.limit(1),
+		db
+			.select({ verifiedAt: documentUploads.verifiedAt })
+			.from(documentUploads)
+			.where(uploadWhere)
+			.orderBy(desc(documentUploads.verifiedAt))
+			.limit(1),
+	]);
+
+	const times: number[] = [];
+	if (lastDoc[0]?.verifiedAt) times.push(lastDoc[0].verifiedAt.getTime());
+	if (lastUpload[0]?.verifiedAt) times.push(lastUpload[0].verifiedAt.getTime());
+
+	return {
+		callbackCount: docCount[0].count + uploadCount[0].count,
+		errorCount: 0,
+		lastCallbackAt:
+			times.length > 0 ? new Date(Math.max(...times)) : undefined,
 	};
 }

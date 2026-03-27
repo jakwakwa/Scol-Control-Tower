@@ -26,6 +26,7 @@ import { OVERRIDE_CATEGORIES } from "@/lib/constants/override-taxonomy";
 import { recordFeedbackLog } from "@/lib/services/divergence.service";
 import { executeKillSwitch } from "@/lib/services/kill-switch.service";
 import { acquireStateLock, markStaleData } from "@/lib/services/state-lock.service";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 // ============================================
 // Request Schema
@@ -205,6 +206,19 @@ export async function POST(request: NextRequest) {
 					overrideDetails: decision.overrideDetails,
 					timestamp: new Date().toISOString(),
 				},
+			},
+		});
+
+		captureServerEvent({
+			distinctId: userId,
+			event: "procurement_decision_made",
+			properties: {
+				applicant_id: applicantId,
+				workflow_id: workflowId,
+				decision: decision.outcome,
+				kill_switch_triggered: decision.outcome === "DENIED",
+				override_category: decision.overrideCategory,
+				risk_score: procureCheckResult.riskScore,
 			},
 		});
 

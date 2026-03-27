@@ -166,7 +166,7 @@ export function StepTitles({ steps, currentStep, className }: StepTitlesProps) {
 			<p className="text-xs text-muted-foreground uppercase tracking-wider">
 				Step {currentStep + 1} of {steps.length}
 			</p>
-			<h3 className="text-lg font-semibold text-foreground mt-1">
+			<h3 className="text-lg font-semibold text-foreground my-4">
 				{currentStepData?.title}
 			</h3>
 			{currentStepData?.description && (
@@ -297,12 +297,12 @@ export function FormWizard({
 	}, [onSaveDraft]);
 
 	return (
-		<Card className={cn("w-full", className)}>
+		<Card  className={cn(" rounded-4xl w-full h-full", className)}>
 			{/* Header */}
 			{(title || showStepIndicator) && (
-				<CardHeader className="space-y-4">
+				<CardHeader className="space-y-2 py-8">
 					{title && (
-						<CardTitle className="text-xl font-bold text-center">{title}</CardTitle>
+						<CardTitle className="text-xl my-3 text-white font-bold text-center">{title}</CardTitle>
 					)}
 
 					{showStepIndicator && (

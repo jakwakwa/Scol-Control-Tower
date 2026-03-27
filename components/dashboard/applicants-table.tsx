@@ -211,7 +211,7 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 						<DropdownMenuTrigger
 							className={cn(
 								buttonVariants({ variant: "ghost", size: "icon" }),
-								"h-8 w-8 hover:bg-background/50"
+								"h-8 w-8 hover:bg-background"
 							)}>
 							<RiMoreLine className="h-4 w-4" />
 						</DropdownMenuTrigger>

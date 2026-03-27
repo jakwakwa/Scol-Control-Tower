@@ -1,0 +1,62 @@
+---
+title: "Remove legacy `agents` / `xt_callbacks` and dead workflow callback plumbing"
+description: "Dropped unused Zapier-era SQLite tables and Drizzle relations, removed the `onboarding/agent-callback` signal path and event, cleaned validations, and regenerated a single Drizzle baseline migration with `db:generate` + `db:reset` + `bun run build`."
+type: fix
+status: resolved
+date: 2026-03-27
+---
+
+# Remove legacy `agents` / `xt_callbacks` and dead workflow callback plumbing
+
+## Overview
+
+The database layer still defined unused Zapier-era tables **`agents`** and **`xt_callbacks`** (`agentCallbacks`), with Drizzle relations and `scripts/reset-db.ts` teardown, even though nothing in the application queried or inserted them. **`POST /api/workflows/[id]/signal`** and **`inngest/events.ts`** still exposed an **`onboarding/agent-callback`** path with no in-repo consumer, and **`lib/validations.ts`** retained related unused schemas. Removing the tables required aligning the migration baseline (squash/regenerate) so fresh **`db:reset`** runs apply a coherent schema without legacy `CREATE TABLE` statements.
+
+This work complements the same-day write-up on [**failed `db:reset` / migration squash / combined dev+test reset**](./2026-03-27-drizzle-migration-squash-and-combined-db-reset.mdx), which focuses on duplicate migration SQL and operational reset flow. **This document** focuses on **schema + API + Inngest + validations** cleanup for the legacy callback surface.
+
+## Symptoms
+
+- **`db/schema.ts`** still exported `agents` and `agentCallbacks` / `xt_callbacks` and `workflowsRelations.callbacks`, bloating the model for no runtime use.
+- **`POST /api/workflows/[id]/signal`** accepted a second body shape and emitted **`onboarding/agent-callback`** even though no Inngest function consumed that event in-repo.
+- **`lib/validations.ts`** contained duplicate/unused callback and workflow schemas alongside live applicant APIs.
+
+## Root cause
+
+- **Historical integration**: External callback-style automation was superseded by Inngest and first-party APIs; persistence and event names were never fully removed.
+- **Schema vs. migrations**: After deleting tables from the schema, the committed migration chain still had to be regenerated so new databases do not recreate removed tables.
+- **Leftover API surface**: The signal route and `Events` map kept a parse branch and event entry after the integration was obsolete.
+
+## Implemented solution
+
+1. **`db/schema.ts`** — Remove the `agents` and `xt_callbacks` table definitions; remove `callbacks: many(agentCallbacks)` from `workflowsRelations` and delete `agentCallbacksRelations`.
+2. **`scripts/reset-db.ts`** — Remove `db.delete(schema.agentCallbacks)` and `db.delete(schema.agents)`.
+3. **`app/api/workflows/[id]/signal/route.ts`** — Single Zod schema: `signalName` ∈ `qualityGatePassed` | `humanOverride`, `payload: z.unknown()`; remove the agent-callback branch and `inngest.send` for `onboarding/agent-callback`; keep **`onboarding/quality-gate-passed`** when `signalName === "qualityGatePassed"`.
+4. **`inngest/events.ts`** — Remove `"onboarding/agent-callback"` from the `Events` map.
+5. **`lib/validations.ts`** — Remove unused agent-callback schemas, duplicate `createWorkflowSchema` / `CreateWorkflowInput`, and `dispatchPayloadSchema` / `DispatchPayload` where superseded; confirm with grep and **`bun run build`**.
+6. **Migration baseline** — Delete existing **`migrations/*.sql`** and **`migrations/meta/*`** (and any generated **`migrations/schema.ts`** / **`migrations/relations.ts`** if present), seed **`migrations/meta/_journal.json`** with an empty **`entries`** array (version/dialect unchanged), run **`bun run db:generate`**, then **`bun run db:reset`** and **`bun run build`**. (See the [related issue](./2026-03-27-drizzle-migration-squash-and-combined-db-reset.mdx) for the full operational story: `db-reset.ts`, test DB parity, `ENOENT` on journal.)
+
+### External contract
+
+Clients that POST the **legacy agent-callback** JSON to **`/api/workflows/[id]/signal`** receive **400** with **`error: "Invalid signal data"`** and Zod **`details`**. The accepted shape is **`{ signalName: "qualityGatePassed" | "humanOverride", payload: unknown }`** (see [`app/api/workflows/[id]/signal/route.ts`](../../../app/api/workflows/[id]/signal/route.ts)).
+
+## Prevention
+
+- **Prove tables are dead** before removal: grep for table names, raw SQL, seeds, and out-of-repo callers (e.g. Zapier) — not only Drizzle usage.
+- **Do not hand-edit** committed migration SQL to paper over drift; regenerate from **`db/schema.ts`** and a controlled reset path per team conventions.
+- **Squash only with a cutover story** for environments that already applied an old chain; new `0000_*.sql` does not rewrite remote databases that ran the previous journal (see **When not to squash** in [`docs/solutions/database-issues/drizzle-schema-cleanup-migration-squash-dead-api-inngest-paths.md`](../../solutions/database-issues/drizzle-schema-cleanup-migration-squash-dead-api-inngest-paths.md#when-not-to-squash)).
+
+## Verification
+
+```bash
+rg 'xt_callbacks|agentCallbacks|onboarding/agent-callback|sqliteTable\("agents"' --glob '*.ts' --glob '*.tsx'
+
+bun run build
+bun run db:reset
+# optional: bun run test:db:reset
+```
+
+## Cross-references
+
+- **Same-day migration / reset issue:** [Drizzle: failed db:reset, squash, combined dev+test reset](./2026-03-27-drizzle-migration-squash-and-combined-db-reset.mdx) (that page **See also** links back here).
+- **Compound solution doc:** [Drizzle schema cleanup, migration squash, dead API/Inngest paths](../../solutions/database-issues/drizzle-schema-cleanup-migration-squash-dead-api-inngest-paths.md)
+- **Workspace facts:** [`AGENTS.md`](../../../AGENTS.md) — `db:reset` vs `test:db:reset`, legacy **`agents`** / **`xt_callbacks`** note
