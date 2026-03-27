@@ -1,7 +1,6 @@
 .gemini/**/*.md
 .agents/**/*.md
 .agent/**/*.md 
-e2e
 
 migrations/**/*.sql
 tests/browser-flow/screenshots/
