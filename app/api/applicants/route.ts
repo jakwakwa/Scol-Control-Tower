@@ -76,13 +76,16 @@ export async function POST(request: NextRequest) {
 			.values([
 				{
 					companyName: data.companyName,
+					registrationNumber: data.registrationNumber?.trim() || null,
 					contactName: data.contactName,
 					email: data.email,
 					phone: data.phone,
+					vatNumber: data.vatNumber?.trim() || null,
 					idNumber: data.idNumber || null,
 					entityType: data.entityType,
 					productType: data.productType,
 					industry: data.industry,
+					mandateType: data.mandateType ?? null,
 					employeeCount: data.employeeCount,
 					estimatedTransactionsPerMonth:
 						data.estimatedTransactionsPerMonth != null

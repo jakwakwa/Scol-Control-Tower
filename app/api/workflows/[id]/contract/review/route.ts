@@ -6,6 +6,7 @@ import { getDatabaseClient } from "@/app/utils";
 import { workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
+import type { AgreementContractOverrides } from "@/lib/utils/agreement-defaults";
 import {
 	logWorkflowEventOnce,
 	markStage5GateOnce,
@@ -14,6 +15,8 @@ import {
 const ContractReviewSchema = z.object({
 	applicantId: z.number().int().positive(),
 	reviewNotes: z.string().max(2000).optional(),
+	contractOverrides: z.record(z.string(), z.string().max(500)).optional(),
+	markReviewed: z.boolean().optional(),
 });
 
 export async function POST(
@@ -47,7 +50,12 @@ export async function POST(
 			);
 		}
 
-		const { applicantId, reviewNotes } = parsed.data;
+		const {
+			applicantId,
+			reviewNotes,
+			contractOverrides,
+			markReviewed = true,
+		} = parsed.data;
 		const db = await getDatabaseClient();
 		if (!db) {
 			return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
@@ -66,33 +74,59 @@ export async function POST(
 			return NextResponse.json({ error: "Applicant/workflow mismatch" }, { status: 409 });
 		}
 
+		if (contractOverrides && Object.keys(contractOverrides).length > 0) {
+			let metadata: { contractOverrides?: AgreementContractOverrides } = {};
+			if (workflow.metadata) {
+				try {
+					metadata = JSON.parse(workflow.metadata) as {
+						contractOverrides?: AgreementContractOverrides;
+					};
+				} catch {
+					metadata = {};
+				}
+			}
+
+			await db
+				.update(workflows)
+				.set({
+					metadata: JSON.stringify({
+						...metadata,
+						contractOverrides,
+					}),
+				})
+				.where(eq(workflows.id, workflowId));
+		}
+
+		if (!markReviewed) {
+			return NextResponse.json({
+				success: true,
+				workflowId,
+				applicantId,
+				message: "Contract draft saved",
+				alreadyReviewed: Boolean(workflow.contractDraftReviewedAt),
+			});
+		}
+
 		const applied = await markStage5GateOnce({
 			workflowId,
 			gate: "contract_reviewed",
 			actorId: userId,
 		});
-		if (!applied) {
-			return NextResponse.json({
-				success: true,
-				workflowId,
-				applicantId,
-				message: "Contract draft review already recorded",
-				alreadyReviewed: true,
-			});
-		}
 
 		const reviewedAt = new Date().toISOString();
-		await logWorkflowEventOnce({
-			workflowId,
-			eventType: "contract_draft_reviewed",
-			payload: {
-				reviewedBy: userId,
-				reviewNotes,
-				timestamp: reviewedAt,
-			},
-			actorType: "user",
-			actorId: userId,
-		});
+		if (applied) {
+			await logWorkflowEventOnce({
+				workflowId,
+				eventType: "contract_draft_reviewed",
+				payload: {
+					reviewedBy: userId,
+					reviewNotes,
+					timestamp: reviewedAt,
+				},
+				actorType: "user",
+				actorId: userId,
+			});
+		}
 
 		await inngest.send({
 			name: "contract/draft.reviewed",
@@ -109,8 +143,10 @@ export async function POST(
 			success: true,
 			workflowId,
 			applicantId,
-			message: "Contract draft review recorded",
-			alreadyReviewed: false,
+			message: applied
+				? "Contract draft review recorded"
+				: "Contract draft review already recorded",
+			alreadyReviewed: !applied,
 		});
 	} catch (error) {
 		console.error("[ContractReviewAction] Error:", error);

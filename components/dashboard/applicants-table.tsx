@@ -60,7 +60,7 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 				}
 				onCheckedChange={value => table.toggleAllPageRowsSelected(!!value)}
 				aria-label="Select all"
-				className="translate-y-0.5"
+				className="translate-y-0.5 hidden w-0"
 			/>
 		),
 		cell: ({ row }) => (
@@ -68,7 +68,7 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 				checked={row.getIsSelected()}
 				onCheckedChange={value => row.toggleSelected(!!value)}
 				aria-label="Select row"
-				className="translate-y-0.5"
+				className="translate-y-0.5 hidden w-0"
 			/>
 		),
 		enableSorting: false,
@@ -162,7 +162,9 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 			</Button>
 		),
 		cell: ({ row }) => (
-			<div className="text-sm">{row.original.employeeCount?.toLocaleString() || "—"}</div>
+			<div className="text-sm">
+				{row.original.employeeCount?.toLocaleString() || "n/a"}
+			</div>
 		),
 	},
 	{
@@ -209,7 +211,7 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 						<DropdownMenuTrigger
 							className={cn(
 								buttonVariants({ variant: "ghost", size: "icon" }),
-								"h-8 w-8 hover:bg-background/50"
+								"h-8 w-8 hover:bg-background"
 							)}>
 							<RiMoreLine className="h-4 w-4" />
 						</DropdownMenuTrigger>

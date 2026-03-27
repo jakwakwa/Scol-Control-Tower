@@ -81,9 +81,7 @@ export function validatePerimeter<T>({
 	const workflowId = typeof raw.workflowId === "number" ? raw.workflowId : 0;
 	const producer = inferProducer(eventName, sourceSystem);
 
-	// Disabled mode - skip validation entirely
 	if (validationMode === "disabled") {
-		// Use compatibility schema if available, otherwise passthrough
 		const fallbackSchema = compatibilitySchema || (schema as any).passthrough();
 		const result = fallbackSchema.safeParse(data);
 		
@@ -98,8 +96,7 @@ export function validatePerimeter<T>({
 			});
 			return { ok: true, data: result.data, validationMode };
 		}
-		
-		// Even in disabled mode, record if we can't parse at all
+
 		recordValidationFailure({
 			eventName,
 			sourceSystem,
@@ -114,7 +111,6 @@ export function validatePerimeter<T>({
 		return { ok: true, data: data as T, validationMode };
 	}
 
-	// Try strict schema first
 	const strictResult = schema.safeParse(data);
 
 	if (strictResult.success) {
@@ -129,14 +125,12 @@ export function validatePerimeter<T>({
 		return { ok: true, data: strictResult.data, validationMode };
 	}
 
-	// Strict validation failed - extract error details
 	const fieldErrors = strictResult.error.flatten().fieldErrors;
 	const failedPaths = Object.keys(fieldErrors);
 	const messages = Object.values(fieldErrors)
 		.flat()
 		.filter((m): m is string => typeof m === "string");
 
-	// Record the validation failure for telemetry
 	recordValidationFailure({
 		eventName,
 		sourceSystem,
@@ -148,7 +142,6 @@ export function validatePerimeter<T>({
 		applicantId,
 	});
 
-	// In warn mode, try compatibility schema fallback
 	if (validationMode === "warn" && compatibilitySchema) {
 		const compatResult = compatibilitySchema.safeParse(data);
 		
@@ -168,7 +161,6 @@ export function validatePerimeter<T>({
 		}
 	}
 
-	// In warn mode without compatibility schema, use passthrough
 	if (validationMode === "warn") {
 		const passthroughResult = (schema as any).passthrough().safeParse(data);
 		
@@ -188,7 +180,6 @@ export function validatePerimeter<T>({
 		}
 	}
 
-	// Strict mode or warn mode fallback failed - return error
 	return {
 		ok: false,
 		failure: {

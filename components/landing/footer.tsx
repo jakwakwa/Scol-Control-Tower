@@ -16,7 +16,7 @@ export const Footer = () => {
 					<a href="/sign-up">
 						<Button
 							size="lg"
-							className="rounded-full h-12 px-8 text-base bg-primary text-primary-foreground hover:bg-primary/90">
+							className="rounded-full h-12 px-8 text-base bg-[var(--gold-500)] hover:bg-[var(--gold-600)] text-white">
 							Request Access
 							<ArrowRight className="ml-2 h-4 w-4" />
 						</Button>
@@ -24,7 +24,7 @@ export const Footer = () => {
 				</div>
 
 				{/* Footer Links */}
-				<div className="flex flex-col md:flex-row justify-between items-center gap-6 pt-12 border-t border-border">
+				<div className="flex flex-col md:flex-row justify-between relative 	 z-50 bottom-0 left-0 items-center  backdrop-blur-sm shadow-2xl w-full mx-0	 p-6 gap-6 pt-12 mt-12 border-t border-border">
 					<div className="flex flex-col items-center md:items-start gap-2">
 						<div className="text-xl font-bold text-foreground tracking-tighter">
 							SCOL <span className="text-muted-foreground">CONTROL TOWER</span>

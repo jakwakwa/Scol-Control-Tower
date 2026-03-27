@@ -14,7 +14,8 @@ type EventType =
 	| "agent_callback"
 	| "human_override"
 	| "timeout"
-	| "error";
+	| "error"
+	| "vat_verification_completed";
 
 interface ActivityEvent {
 	id: number;
@@ -44,7 +45,7 @@ const eventConfig: Record<
 	agent_callback: {
 		icon: RiCheckLine,
 		color: "text-emerald-700",
-		bgColor: "bg-teal-500/40",
+		bgColor: "bg-emerald-500/70",
 	},
 	human_override: {
 		icon: RiUserLine,
@@ -57,6 +58,11 @@ const eventConfig: Record<
 		bgColor: "bg-stone-500/20",
 	},
 	error: { icon: RiAlertLine, color: "text-red-400", bgColor: "bg-red-500/20" },
+	vat_verification_completed: {
+		icon: RiCheckLine,
+		color: "text-teal-500",
+		bgColor: "bg-teal-500/20",
+	},
 };
 
 interface ActivityFeedProps {

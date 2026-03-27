@@ -2,7 +2,14 @@
 # dependencies
 /node_modules
 **/node_modules
+# *.md
+# *.db
+# *.pdf
+# *.zip
 
+!README.md
+!README.md.bak
+!CLAUDE.md
 /.pnp
 .pnp.js
 .yarn/install-state.gz
@@ -15,6 +22,15 @@ test-results/
 blob-report/
 # Screenshots and run artifacts (Inngest dev server, approvals, etc.) — do not commit
 *.png
+
+!public/control_tower_logo.png
+!public/assets/risk-thumb.png
+!public/assets/mandates.png
+!public/assets/sales-thumb.png
+# Browser-flo!w test artifacts
+tests/browser-flow/.applicant-id
+tests/browser-flow/screenshots/
+tests/browser-flow/.seed-output.json
 
 # next.js
 /.next/
@@ -225,3 +241,10 @@ playwright-report/index.html
 .cursor/rules/LLM-system-instructions.mdc
 Events_by_type_per_hour-2026-03-20T15-23-07.json
 inngest_quote_wait_debug_60eb6106.plan.md
+local.db
+docs/plans/2026-03-25-feat-notifications-vat-ui-future-proofing-plan.md
+id_front_and_back.pdf
+Technical Specs_Director Enquiry 1 copy.pdf
+.gitignore
+implementation_plan-idproof.md
+Technical Specs_Director Enquiry 1.pdf

@@ -7,7 +7,7 @@
  */
 
 import "../envConfig";
-import { createClient } from "@libsql/client";
+import { dropAllLibsqlObjects } from "./libsql-drop-all";
 
 const url = process.env.DATABASE_URL;
 const authToken = process.env.TURSO_GROUP_AUTH_TOKEN;
@@ -17,29 +17,11 @@ if (!url) {
 	process.exit(1);
 }
 
-const client = createClient({ url, authToken });
-
-async function dropAll() {
-	await client.execute("PRAGMA foreign_keys = OFF");
-
-	const objects = await client.execute(
-		"SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%'"
-	);
-
-	for (const row of objects.rows) {
-		if (typeof row.name !== "string" || typeof row.type !== "string") {
-			continue;
-		}
-
-		const keyword = row.type === "view" ? "VIEW" : "TABLE";
-		await client.execute(`DROP ${keyword} IF EXISTS "${row.name}"`);
-	}
-
-	await client.execute("PRAGMA foreign_keys = ON");
-	client.close();
-}
-
-dropAll().catch(err => {
-	console.error("❌ Failed:", err);
-	process.exit(1);
-});
+dropAllLibsqlObjects(url, authToken, "dev")
+	.then(() => {
+		console.info("✅ Done.");
+	})
+	.catch(err => {
+		console.error("❌ Failed:", err);
+		process.exit(1);
+	});

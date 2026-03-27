@@ -1,6 +1,6 @@
 "use server";
 
-import { inngest } from "@/inngest/client";
+import { and, desc, eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import {
 	applicantMagiclinkForms,
@@ -9,7 +9,7 @@ import {
 	internalSubmissions,
 	workflows,
 } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { inngest } from "@/inngest/client";
 import type { FacilityApplicationForm } from "@/lib/validations/forms";
 
 const toNumber = (value: unknown): number => {
@@ -121,10 +121,9 @@ export async function retryFacilitySubmission(workflowId: number) {
 		}
 
 		// 5. Construct the event payload (same logic as in the route handler)
-		const serviceTypes =
-			formData.facilitySelection?.serviceTypes?.length
-				? formData.facilitySelection.serviceTypes
-				: formData.serviceTypes || [];
+		const serviceTypes = formData.facilitySelection?.serviceTypes?.length
+			? formData.facilitySelection.serviceTypes
+			: formData.serviceTypes || [];
 		const mandateType = deriveMandateType(serviceTypes);
 		const mandateVolume =
 			toNumber(

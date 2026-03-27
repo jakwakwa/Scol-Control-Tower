@@ -3,9 +3,9 @@
   "theme": "linden",
   "name": "StratCol Control Tower Docs",
   "colors": {
-    "primary": "#b67f1f",
+    "primary": "#231b0d",
     "light": "#e0af46",
-    "dark": "#9427a9"
+    "dark": "#936f01"
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -67,6 +67,10 @@
           {
             "group": "Issues",
             "pages": [
+              "issues/database-issues/2026-03-27-remove-legacy-agents-xt-callbacks-dead-callback-plumbing",
+              "issues/database-issues/2026-03-27-drizzle-migration-squash-and-combined-db-reset",
+              "issues/2026-03-23-fix-stage6-inngest-workflow-stuck",
+              "issues/2026-03-22-refactor-forms-hub-workflow-gates",
               "issues/2026-03-01-feat-harden-procurement-fallback-plan"
             ]
           },
@@ -115,11 +119,7 @@
       }
     ]
   },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/light.svg",
-    "href": "https://stratcolltd.mintlify.app/user-guides/overview"
-  },
+  "logo": "/images/logo-liquidstratcolMedium.png",
   "navbar": {
     "links": [
       {
@@ -155,7 +155,7 @@
   "background": {
     "color": {
       "light": "#ededf5",
-      "dark": "#38210c"
+      "dark": "#0f202e"
     },
     "decoration": "grid"
   },

@@ -5,7 +5,7 @@ import type * as React from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-	"group/button inline-flex shrink-0 items-center justify-center rounded-sm shadow-black shadow-md border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-black select-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 active:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50  dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+	"group/button inline-flex shrink-0 items-center justify-center rounded-sm  hover:bg-black/10 border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-black select-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 active:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50  dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
 	{
 		variants: {
 			variant: {
@@ -14,7 +14,7 @@ const buttonVariants = cva(
 				outline:
 					"border-border border-0 bg-input/30 hover:bg-input/50 hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
 				secondary:
-					"bg-primary/40 text-muted-foreground hover:bg-secondary border-none outline-0  aria-expanded:bg-secondary font-bold aria-expanded:text-secondary-foreground",
+					"bg-primary text-white/90 hover:bg-secondary border-none outline-0  aria-expanded:bg-secondary font-bold aria-expanded:text-secondary-foreground",
 				ghost:
 					"hover:bg-none hover:text-foreground bg-white/0 dark:hover:bg-muted/50 px-0	",
 				destructive:

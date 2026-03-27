@@ -1,11 +1,12 @@
 /**
- * StratCol Onboarding Control Tower Workflow — SOP-Aligned (6-Stage)
+ * StratCol Onboarding Control Tower Workflow
  *
  * Stage 1: Lead Capture & Initiation — Account Manager data entry → Facility dispatch kickoff
  * Stage 2: Facility, Pre-Risk & Quote — Facility app → sales evaluation (+ optional pre-risk sanctions) → mandate mapping → AI quote → Manager review → signed quote → Mandate collection (7-day retry, max 8)
- * Stage 3: Procurement & AI     — Parallel: Procurement risk + FICA intake → ITC + sanctions (main check) → AI multi-agent analysis + Reporter Agent
- * Stage 4: Risk Review           — Risk Manager final review (no auto-approve bypass)
- * Stage 5: Contract              — Account Manager review/edit AI contract + ABSA handoff gate
+ * Stage 3: Risk assesment
+ *    Procurement (api procurecheck api ) + FICA intake (procurecheck) → ITC (XDS API credit bereau) + sanctions (opensanctions (un list, PEP))
+ * Stage 4: Risk Review Report risk assesment  -  Risk Manager final review (no auto-approve bypass)
+ * Stage 5: Stratcol Agreement Contract              — Account Manager review/edit  contract + ABSA handoff gate = absa approve - send stratcol agreement to external applicant via magic link resend email
  * Stage 6: Final Approval        — Two-factor: Risk Manager + Account Manager → Final contract sent
  *
  * Architecture:
@@ -19,6 +20,7 @@
 import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants, workflowEvents } from "@/db/schema";
+import { ensurePerimeterValidationConfigLoaded } from "@/lib/config/perimeter-validation";
 import {
 	checkReApplicant,
 	logReApplicantAttempt,
@@ -26,17 +28,20 @@ import {
 import { sendReApplicantDeniedEmail } from "@/lib/services/email.service";
 import { executeKillSwitch } from "@/lib/services/kill-switch.service";
 import { logWorkflowEvent } from "@/lib/services/notification-events.service";
-import { terminateRun } from "@/lib/services/terminate-run.service";
 import { ensureRiskChecksExist } from "@/lib/services/risk-check.service";
-import { ensurePerimeterValidationConfigLoaded } from "@/lib/config/perimeter-validation";
-import { 
-	LeadCreatedSchema, 
-	LeadCreatedCompatSchema 
+import { terminateRun } from "@/lib/services/terminate-run.service";
+import {
+	LeadCreatedCompatSchema,
+	LeadCreatedSchema,
 } from "@/lib/validations/control-tower/onboarding-schemas";
 import { validatePerimeter } from "@/lib/validations/control-tower/perimeter-validation";
 import { inngest } from "../client";
 
-import type { WorkflowContext } from "./control-tower/types";
+import type {
+	ControlTowerEvent,
+	ControlTowerStepTools,
+	WorkflowContext,
+} from "./control-tower/types";
 
 // ============================================
 // Constants (re-exported from centralised module)
@@ -61,7 +66,7 @@ export const controlTowerWorkflow = inngest.createFunction(
 		],
 	},
 	{ event: "onboarding/lead.created" },
-	async ({ event, step }) => {
+	async ({ event, step }: { event: ControlTowerEvent; step: ControlTowerStepTools }) => {
 		await ensurePerimeterValidationConfigLoaded();
 
 		const perimeterResult = validatePerimeter({
@@ -208,8 +213,8 @@ export const controlTowerWorkflow = inngest.createFunction(
 			"./control-tower/ControlTowerOrchestrator"
 		);
 		return runControlTowerOrchestrator({
-			event: event as any, // Cast to any to bypass exact inferred event match since we are inside the same handler
-			step: step as any,
+			event,
+			step,
 			context,
 		});
 	}

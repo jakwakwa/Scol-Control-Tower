@@ -92,11 +92,11 @@ export default function UploadView({ token, requirements }: UploadViewProps) {
 			</p>
 
 			{Object.entries(grouped).map(([category, items]) => (
-				<section key={category} className={styles.externalCard}>
+				<section key={category}>
 					<div className={styles.externalSectionHeader}>
 						{category.replace(/_/g, " ")}
 					</div>
-					<div className={styles.externalSectionBody}>
+					<div className={styles.externalCard}>
 						{items.map(req => (
 							<div key={req.type} className={styles.ownerCard}>
 								<div className="flex items-start justify-between gap-4">

@@ -1,15 +1,19 @@
 #!/usr/bin/env bun
 /**
- * Reset the E2E test database (Turso).
+ * Reset the E2E test database (Turso) using the same migration SQL as dev.
  * Loads .env.test only (not .env.local) so TEST_* vars are used.
  *
  * Usage: bun run test:db:reset
+ *
+ * For dev + test in one go, use `bun run db:reset` (applies migrations to both
+ * when `.env.test` defines TEST_DATABASE_URL).
  */
-import { config } from "dotenv";
 import { execSync } from "node:child_process";
 import { resolve } from "node:path";
+import { config } from "dotenv";
 
-// Load .env.test only — avoid .env.local so we use the test database
+import { dropAllLibsqlObjects } from "./libsql-drop-all";
+
 config({ path: resolve(process.cwd(), ".env.test"), override: true });
 
 const url = process.env.TEST_DATABASE_URL;
@@ -21,37 +25,17 @@ if (!url) {
 	process.exit(1);
 }
 
-const { createClient } = await import("@libsql/client");
-const client = createClient({ url, authToken });
-
 async function reset() {
-	console.info("🧹 Resetting test database...");
+	await dropAllLibsqlObjects(url, authToken, "test");
 
-	await client.execute("PRAGMA foreign_keys = OFF");
-
-	const objects = await client.execute(
-		"SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%'"
-	);
-
-	for (const row of objects.rows) {
-		if (typeof row.name !== "string" || typeof row.type !== "string") {
-			continue;
-		}
-
-		const keyword = row.type === "view" ? "VIEW" : "TABLE";
-		await client.execute(`DROP ${keyword} IF EXISTS "${row.name}"`);
-	}
-
-	await client.execute("PRAGMA foreign_keys = ON");
-	client.close();
-
-	// Run migrations against test DB (uses drizzle.test.config.ts)
+	console.info("📦 Applying migrations (test)...");
 	execSync("bun run db:migrate:test", {
 		stdio: "inherit",
 		cwd: process.cwd(),
+		env: process.env,
 	});
 
-	console.info("✅ Test database reset complete");
+	console.info("✅ Test database reset complete (drop all + migrations applied).");
 }
 
 reset().catch(err => {

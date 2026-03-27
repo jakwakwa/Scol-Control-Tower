@@ -1,18 +1,68 @@
 .externalPage {
-	max-width: 900px;
-	margin: 0 auto;
-	padding: 2rem 1rem 4rem;
+	max-width: 100%;
+	margin: 0 !important;
+	width: 100vw;
+	background-color: white !important;
+	margin: 0 0;
+	padding: 1rem 10rem 3rem;
+	padding-top: 220px !important;
+}
+
+
+@media (max-width: 640px) {
+	.externalPage {
+		padding: 1rem 1rem 3rem;
+		min-width: 100%;
+		margin: 0;
+	}
 }
 
 .externalHero {
-	background: linear-gradient(135deg, #ffffff 60%, #fdf6e7 100%);
+	position: absolute !important;
+	left: 0;
+	top: 0;
+	/* margin-bottom: 280px !important; */
+	display: flex;
+	flex-direction: row-reverse;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	background: linear-gradient(135deg, #faf9f8 30%, #faf2e3 100%);
 	border-radius: 12px;
-	padding: 2rem 2.5rem;
+	height: 180px;
+	width: 100vw;
+	margin: 0 !important;
+	padding: 2rem 3.5rem !important;
 	margin-bottom: 1.5rem;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+	box-shadow: 0 8px 8px rgba(58, 65, 73, 0.125);
+}
+
+@media (max-width: 800px) {
+	.externalHero {
+
+		flex-direction: column;
+	}
+}
+
+.externalHero img {
+	width: 300px;
+	height: 300px;
+	margin: 0 !important;
+	padding: 0 !important;
+	/* border-radius: 9999px; */
+	/* object-fit: cover; */
+}
+
+.externalHeroText {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: center;
+	gap: 1rem;
 }
 
 .externalHero h1 {
+
 	font-size: 1.75rem;
 	font-weight: 800;
 	color: #355c7d;
@@ -25,20 +75,26 @@
 	font-size: 0.85rem;
 	color: #6b7280;
 	line-height: 1.6;
-	max-width: 70ch;
+	/* padding: 40px; */
+
 }
 
 .externalCard {
-	background: white;
-	border-radius: 12px;
-	box-shadow: 0 1px 8px rgba(0, 0, 0, 0.05);
+
+	background: rgb(255, 255, 255);
+	border-radius: 22px;
+	box-shadow: 0 3px 2px rgba(215, 215, 239, 0.49), 0 7px 8px 1px rgba(217, 217, 231, 0.62), 0 1px 2px 0px #201c1cfa;
 	margin-bottom: 1.5rem;
+	margin: 2rem !important;
+	padding: 0 2rem;
 	overflow: hidden;
 }
 
 .externalSectionHeader {
-	background: linear-gradient(90deg, #c9a356, #d4af61);
-	color: #1a1a1a;
+	background: linear-gradient(90deg, #c68708, #82583d);
+	color: #f9edd5;
+	border-top-left-radius: 15px;
+	border-top-right-radius: 15px;
 	padding: 0.5rem 1.5rem;
 	font-size: 0.8rem;
 	font-weight: 700;
@@ -46,7 +102,11 @@
 }
 
 .externalSectionBody {
-	padding: 1.25rem 1.5rem;
+	padding: 2rem 11rem !important;
+	/* background: #ffffff1b; */
+	border-radius: 20px !important;
+	box-shadow: 0px 1px 1px 0px #202633, 0px 1px 5px 1px #2b2e432d, 0px 4px 3px 0px #2d456ad2 !important;
+
 }
 
 .externalSectionNote {
@@ -81,7 +141,7 @@
 .externalField label {
 	font-size: 0.75rem;
 	font-weight: 600;
-	color: #374151;
+	color: #6c7a91;
 }
 
 .requiredStar {
@@ -92,21 +152,46 @@
 .externalInput,
 .externalSelect,
 .externalTextarea {
-	border: 1px solid #d1d5db;
-	border-radius: 6px;
-	padding: 0.5rem 0.75rem;
+	border: 0.5px solid #c4dcf3e1 !important;
+	inset: 1;
+	border-radius: 8px;
 	font-size: 0.85rem;
-	color: #1f2937;
-	background: #fafbfc;
+	color: #475466;
+	background: hsl(210, 67%, 99%);
 	transition: border-color 0.15s, box-shadow 0.15s;
+	padding: 0.8rem 0.75rem;
+	outline: 1px solid #fef5f5 !important;
+
+}
+
+.externalInput,
+.externalTextarea {
+	box-shadow: inset 0px 1px 1px 0px #b4c3e3c7, inset 0px 1px 5px 1px #6b78cf2d, inset 0px 4px 3px 0px #c6cedb39;
+}
+
+.externalSelect {
+	box-shadow: 0px 8px 0px -2px #666f780f, 0px 2px 1px 1px #5c78a011, 0px 1px 1px 0px #d9deede8, 0px 2px 8px -1px #426aba7d, 0 1px 1px 1px #22428b2e;
+
+
+}
+
+.externalSelect:focus {
+	outline: none;
+
+	box-shadow: inset 0px 2px 4px 0px #dc8f0b92, inset 0px 4px 9px 1px #a7b1ff68, inset 0px -1px 8px 0px #236ddb18, 0 0 1px 2px #dca31fc1;
+	background-color: #f0f5f8;
+	color: #a18376;
 }
 
 .externalInput:focus,
-.externalSelect:focus,
 .externalTextarea:focus {
 	outline: none;
-	border-color: #c9a356;
-	box-shadow: 0 0 0 3px rgba(201, 163, 86, 0.15);
+
+	box-shadow: inset 0px 1px 3px 0px #eedebd, inset 0px 1px 1px 0px #bc89243a, inset 0px 2px 3px 0px #4b36232b, 0 0 0px 2px #b69622;
+	background-color: #fafafa;
+	color: #6e7680;
+	/* outline: 1px solid 
+	box-shadow: 0 0 0 3px rgba(201, 163, 86, 0.15); */
 }
 
 .externalInput::placeholder,
@@ -195,10 +280,11 @@
 	max-width: 520px;
 	margin: 6rem auto;
 	text-align: center;
-	background: white;
+	/* background: white; */
 	border-radius: 16px;
+	background: #ffffff !important;
 	padding: 3rem 2rem;
-	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+	box-shadow: 0 4px 20px rgba(23, 15, 15, 0.805);
 }
 
 .successCard h2 {
@@ -232,7 +318,7 @@
 .statusIconSvgSuccess {
 	height: 2rem;
 	width: 2rem;
-	color: #16a34a;
+	color: #18895c;
 }
 
 .statusIconSvgError {
@@ -280,7 +366,7 @@
 
 .consent label {
 	font-size: 0.8rem;
-	color: #374151;
+	color: #5b6b85;
 	line-height: 1.5;
 }
 
@@ -360,7 +446,7 @@
 }
 
 .acceptance strong {
-	color: #355c7d;
+	color: #2266a1;
 }
 
 .masterIdBar {

@@ -13,6 +13,10 @@ interface Agent {
 	aiModel: string;
 	provider: string;
 	description: string;
+	/** Defaults to "Callbacks" / "Errors" / "Last callback" when omitted. */
+	primaryStatLabel?: string;
+	secondaryStatLabel?: string;
+	lastActivityLabel?: string;
 }
 
 const statusConfig = {
@@ -43,6 +47,9 @@ interface AgentStatusCardProps {
 
 export function AgentStatusCard({ agent, onClick }: AgentStatusCardProps) {
 	const config = statusConfig[agent.status];
+	const primaryStatLabel = agent.primaryStatLabel ?? "Callbacks";
+	const secondaryStatLabel = agent.secondaryStatLabel ?? "Errors";
+	const lastActivityLabel = agent.lastActivityLabel ?? "Last callback";
 
 	const containerClasses = cn(
 		"group relative overflow-hidden flex flex-col card-form rounded-4xl border border-primary/30 bg-card/50 backdrop-blur-lg p-6",
@@ -103,21 +110,21 @@ export function AgentStatusCard({ agent, onClick }: AgentStatusCardProps) {
 			{/* Stats */}
 			<div className="mt-4 grid grid-cols-2 gap-4 pt-4 border-t border-secondary/5">
 				<div>
-					<p className="text-xs text-muted-foreground">Callbacks</p>
+					<p className="text-xs text-muted-foreground">{primaryStatLabel}</p>
 					<p className="text-lg font-bold">{agent.callbackCount}</p>
 				</div>
 				<div>
-					<p className="text-xs text-muted-foreground">Errors</p>
+					<p className="text-xs text-muted-foreground">{secondaryStatLabel}</p>
 					<p className={cn("text-lg font-bold", agent.errorCount > 0 && "text-red-400")}>
 						{agent.errorCount}
 					</p>
 				</div>
 			</div>
 
-			{/* Last callback */}
+			{/* Last activity */}
 			{agent.lastCallbackAt && (
 				<div className="mt-4 text-xs text-muted-foreground">
-					Last callback: {formatRelativeTime(agent.lastCallbackAt)}
+					{lastActivityLabel}: {formatRelativeTime(agent.lastCallbackAt)}
 				</div>
 			)}
 		</>

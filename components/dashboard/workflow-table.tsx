@@ -160,7 +160,7 @@ export function WorkflowStageIndicator({
 							className={cn(
 								"flex items-center justify-center rounded-full font-medium transition-all",
 								compact ? "h-5 w-5 text-[9px]" : "h-7 w-7 text-xs",
-								stage < currentStage && "bg-teal-500/40 text-emerald-600/80",
+								stage < currentStage && "bg-emerald-500/70 text-emerald-600/80",
 								stage === currentStage &&
 									"bg-stone-500/20 text-stone-400 ring-2 ring-stone-500/30",
 								stage > currentStage && "bg-secondary/5 text-muted-foreground"
@@ -177,7 +177,7 @@ export function WorkflowStageIndicator({
 								className={cn(
 									"h-0.5 transition-colors",
 									compact ? "w-1.5" : "w-2.5",
-									stage < currentStage ? "bg-teal-500/40" : "bg-background/50"
+									stage < currentStage ? "bg-emerald-500/70" : "bg-background/50"
 								)}
 							/>
 						)}
@@ -209,7 +209,7 @@ export const columns: ColumnDef<WorkflowRow>[] = [
 				}
 				onCheckedChange={value => table.toggleAllPageRowsSelected(!!value)}
 				aria-label="Select all"
-				className="translate-y-0.5"
+				className="translate-y-0.5 hidden"
 			/>
 		),
 		cell: ({ row }) => (
@@ -217,7 +217,7 @@ export const columns: ColumnDef<WorkflowRow>[] = [
 				checked={row.getIsSelected()}
 				onCheckedChange={value => row.toggleSelected(!!value)}
 				aria-label="Select row"
-				className="translate-y-0.5"
+				className="translate-y-0.5 hidden"
 			/>
 		),
 		enableSorting: false,
@@ -264,7 +264,7 @@ export const columns: ColumnDef<WorkflowRow>[] = [
 	{
 		accessorKey: "stage",
 		header: () => (
-			<span className="-ml-4 font-light hover:bg-transparent hover:text-foreground">
+			<span className="-ml-4 text-sm font-medium align-self-center text-center min-w-full	 hover:bg-transparent hover:text-foreground">
 				Stage
 			</span>
 		),
@@ -339,7 +339,7 @@ export const columns: ColumnDef<WorkflowRow>[] = [
 	},
 	{
 		id: "actions",
-		header: () => <span className="-ml-4 font-light text-xs uppercase">Actions</span>,
+		header: () => <span className="-ml-4 hidden font-light text-xs uppercase">Actions</span>,
 		cell: ({ row, table }) => {
 			const meta = table.options.meta as {
 				onManualOverride: (data: WorkflowRow) => void;
@@ -358,7 +358,7 @@ export const columns: ColumnDef<WorkflowRow>[] = [
 							<Button
 								variant="ghost"
 								size="icon"
-								className="h-8 w-8 hover:bg-teal-500/40 hover:text-emerald-600/80 transition-colors"
+								className="h-8 w-8 hover:bg-emerald-500/70 hover:text-emerald-600/80 transition-colors"
 								onClick={() => meta?.onQuickApprove(row.original)}
 								title="Approve">
 								<RiThumbUpLine className="h-4 w-4" />

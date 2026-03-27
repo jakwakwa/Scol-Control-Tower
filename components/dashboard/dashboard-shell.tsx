@@ -2,11 +2,11 @@
 
 import { UserButton, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import posthog from "posthog-js";
+import { useEffect, useState } from "react";
 import { useDashboardStore } from "@/lib/dashboard-store";
+import { getNotificationRoute } from "@/lib/notifications/semantics";
 import { cn } from "@/lib/utils";
-import Grainient from "../Grainient";
 import { NotificationsPanel, type WorkflowNotification } from "./notifications-panel";
 import { Sidebar } from "./sidebar";
 
@@ -14,35 +14,6 @@ interface DashboardShellProps {
 	children: React.ReactNode;
 	notifications?: WorkflowNotification[];
 }
-
-const getNotificationRoute = (notification: WorkflowNotification): string => {
-	const message = notification.message.toLowerCase();
-	const isPreRiskReview =
-		message.includes("pre-risk") || message.includes("sales evaluation");
-	const isQuoteReview =
-		message.includes("quote ready for review") ||
-		message.includes("overlimit: quote requires special approval") ||
-		message.includes("quotation");
-	const isProcurementManualCheck =
-		message.includes("manual procurement check required") ||
-		message.includes("procurement_check_failed") ||
-		message.includes("procurecheck failed") ||
-		message.includes("procurement review required");
-	const isSanctionsManualCheck =
-		message.includes("manual sanctions check required") ||
-		message.includes("sanctions_check_failed") ||
-		message.includes("automated sanctions checks failed");
-
-	if (isProcurementManualCheck || isSanctionsManualCheck) {
-		return "/dashboard/risk-review";
-	}
-
-	if (isPreRiskReview || isQuoteReview) {
-		return `/dashboard/applicants/${notification.applicantId}?tab=reviews`;
-	}
-
-	return `/dashboard/applicants/${notification.applicantId}`;
-};
 
 export function DashboardShell({ children, notifications = [] }: DashboardShellProps) {
 	const router = useRouter();
@@ -93,31 +64,9 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 
 	return (
 		<>
-			<div style={{ width: "100vw", height: "1080px", position: "fixed", zIndex: "-3" }}>
-				<Grainient
-					color1="#322f39"
-					color2="#1f3c43"
-					color3="#fab24d"
-					timeSpeed={0.3}
-					colorBalance={-0.17}
-					warpStrength={0.7}
-					warpFrequency={5}
-					warpSpeed={0.9}
-					warpAmplitude={50}
-					blendAngle={0}
-					blendSoftness={0.35}
-					rotationAmount={310}
-					noiseScale={2.25}
-					grainAmount={0.08}
-					grainScale={3}
-					grainAnimated={false}
-					contrast={1.2}
-					gamma={0.9}
-					saturation={0.9}
-					centerX={-0.44}
-					centerY={0}
-					zoom={2}
-				/>
+			<div style={{ width: "100vw", height: "1080px", position: "fixed", zIndex: "-2" }}>
+				{/* BACKGROUNDs */}
+				<div className="size-[90%] w-full bg-radial-[at_0%_-80%] from-primary via-50% via-zinc-800 to-zinc-900 to-90%" />
 			</div>
 
 			<Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
@@ -125,11 +74,11 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 			{/* Main content */}
 			<main className={cn(`pl-64 transition-all duration-300`, isCollapsed && "pl-20")}>
 				{/* Header */}
-				<header className="sticky top-0 z-30 border-b border-sidebar-border bg-transparent backdrop-blur-lg">
+				<header className="sticky top-0 z-30 border-b border-sidebar-border bg-transparent">
 					<div className="flex h-20 items-center justify-between px-8">
 						<div>
 							{title && (
-								<h1 className="text-xl font-bold bg-linear-to-r from-chart-5 to-muted bg-clip-text text-transparent">
+								<h1 className="text-xl font-bold bg-linear-to-r from-chart-5 to-muted-foreground bg-clip-text text-transparent">
 									{title}
 								</h1>
 							)}

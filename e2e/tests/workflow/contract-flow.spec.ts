@@ -1,9 +1,7 @@
-import path from "node:path";
 import type { APIRequestContext } from "@playwright/test";
 import { expect, test } from "../../fixtures";
 
 const INNGEST_BASE = process.env.INNGEST_BASE_URL || "http://localhost:9288";
-const ABSA_TEST_PDF = path.join(process.cwd(), "e2e", "fixtures", "absa-test.pdf");
 
 type WorkflowSnapshot = {
 	workflowId: number;
@@ -186,41 +184,34 @@ test.describe("Contract Flow — Contract → ABSA → Applicant", () => {
 			)
 			.toBe("5:awaiting_human");
 
-		// Stage 5: Contract → ABSA upload → ABSA send → ABSA approved (via UI)
-		await authenticatedPage.goto(`/dashboard/applicants/${applicantId}/contract`);
+		// Stage 5: Contract review now lives on the applicant detail Reviews tab.
+		await authenticatedPage.goto(`/dashboard/applicants/${applicantId}?tab=reviews`);
 		await expect(authenticatedPage).toHaveURL(
-			new RegExp(`/dashboard/applicants/${applicantId}/contract`)
+			new RegExp(`/dashboard/applicants/${applicantId}\\?tab=reviews`)
 		);
 
-		// 1. Mark contract draft reviewed
+		await authenticatedPage.getByRole("button", { name: /edit contract/i }).click();
 		await authenticatedPage
-			.getByRole("button", { name: /mark contract draft reviewed/i })
+			.getByRole("button", { name: /save & mark reviewed/i })
 			.click();
-		await authenticatedPage.getByRole("button", { name: /yes, approve review/i }).click();
-		await expect(
-			authenticatedPage.getByText(/contract draft review recorded/i)
-		).toBeVisible({ timeout: 10_000 });
 
-		// 2. Upload ABSA PDF (section unlocks after contract review)
-		const fileInput = authenticatedPage.locator(
-			'input[type="file"][accept="application/pdf"]'
-		);
-		await fileInput.setInputFiles(ABSA_TEST_PDF);
+		await expect
+			.poll(
+				async () => {
+					const snap = await getSnapshot(request, applicantId);
+					return `${snap.stage}:${snap.status}`;
+				},
+				pollOpts
+			)
+			.toBe("5:awaiting_human");
 
-		// 3. Send to ABSA
-		const sendBtn = authenticatedPage.getByRole("button", {
-			name: /send to absa/i,
+		// Stage 5 ABSA packet actions remain covered outside this deprecated route path.
+		await request.post(`/api/workflows/${workflowId}/absa/confirm`, {
+			data: {
+				applicantId,
+				notes: "E2E ABSA approval confirmation",
+			},
 		});
-		await expect(sendBtn.first()).toBeVisible({ timeout: 15_000 });
-		await sendBtn.first().click();
-
-		// 4. Confirm ABSA approved (button enables after packet sent)
-		const confirmBtn = authenticatedPage.getByRole("button", {
-			name: /confirm absa approved/i,
-		});
-		await expect(confirmBtn).toBeEnabled({ timeout: 15_000 });
-		await confirmBtn.click();
-		await authenticatedPage.getByRole("button", { name: /yes, confirm absa/i }).click();
 
 		await expect
 			.poll(

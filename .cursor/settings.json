@@ -1,24 +1,39 @@
 {
   "plugins": {
-    "clerk": {
+    "inngest": {
+      "enabled": true
+    },
+    "cursor-team-kit": {
       "enabled": true
     },
     "posthog": {
       "enabled": true
     },
-    "create-plugin": {
+    "vercel": {
       "enabled": true
     },
-    "firecrawl": {
+    "clerk": {
+      "enabled": true
+    },
+    "linear": {
       "enabled": true
     },
     "context7-plugin": {
       "enabled": true
     },
-    "superpowers": {
+    "parallel": {
       "enabled": true
     },
-    "vercel": {
+    "create-plugin": {
+      "enabled": true
+    },
+    "compound-engineering": {
+      "enabled": true
+    },
+    "firecrawl": {
+      "enabled": true
+    },
+    "continual-learning": {
       "enabled": true
     }
   }

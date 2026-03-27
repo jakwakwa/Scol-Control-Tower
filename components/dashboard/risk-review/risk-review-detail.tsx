@@ -8,6 +8,7 @@ import { PrintableAuditReport } from "@/components/dashboard/risk-review/printab
 import { RiskReviewHeader } from "@/components/dashboard/risk-review/risk-review-header";
 import { RiskReviewTabs } from "@/components/dashboard/risk-review/risk-review-tabs";
 import type { PrimaryRiskTabId } from "@/components/dashboard/risk-review/risk-review-config";
+import { ExternalScreeningPanel } from "@/components/dashboard/risk-review/external-screening-panel";
 import { FicaSection } from "@/components/dashboard/risk-review/sections/fica-section";
 import { ItcSection } from "@/components/dashboard/risk-review/sections/itc-section";
 import { ProcurementSection } from "@/components/dashboard/risk-review/sections/procurement-section";
@@ -55,7 +56,8 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 		return <div className="p-8 text-center text-muted-foreground">Loading risk data...</div>;
 	}
 
-	const { globalData, procurementData, itcData, sanctionsData, ficaData } = data;
+	const { globalData, procurementData, itcData, sanctionsData, ficaData, bankStatementAnalysis } =
+		data;
 
 	const handleAdjudicate = async (outcome: "APPROVED" | "REJECTED") => {
 		setAdjudicationSubmitting(true);
@@ -110,6 +112,7 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
       Overall Score: ${globalData.overallRiskScore}
       Procurement Data: ${JSON.stringify(procurementData)}
       ITC Data: ${JSON.stringify(itcData)}
+      Bank statement AI: ${JSON.stringify(bankStatementAnalysis ?? null)}
       Sanctions Data: ${JSON.stringify(sanctionsData)}
       FICA Data: ${JSON.stringify(ficaData)}
     `;
@@ -167,17 +170,36 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 							/>
 						)}
 						{primaryTab === "itc" && (
-							<ItcSection data={itcData} status={data.sectionStatuses?.itc} />
-						)}
-						{primaryTab === "sanctions" && (
-							<SanctionsSection
-								data={sanctionsData}
-								status={data.sectionStatuses?.sanctions}
-								onAnalyzeMedia={handleAnalyzeMedia}
+							<ItcSection
+								data={itcData}
+								status={data.sectionStatuses?.itc}
+								bankStatementAnalysis={bankStatementAnalysis}
 							/>
 						)}
+						{primaryTab === "sanctions" && (
+							<div className="space-y-8">
+								<SanctionsSection
+									data={sanctionsData}
+									status={data.sectionStatuses?.sanctions}
+									onAnalyzeMedia={handleAnalyzeMedia}
+								/>
+								{(data.externalScreeningUi.industryRegulator ||
+									data.externalScreeningUi.socialReputation) && (
+									<ExternalScreeningPanel
+										applicantId={data.applicantId}
+										industryInitial={data.industryRegulatorCheck}
+										socialInitial={data.socialReputationCheck}
+										ui={data.externalScreeningUi}
+									/>
+								)}
+							</div>
+						)}
 						{primaryTab === "fica" && (
-							<FicaSection data={ficaData} status={data.sectionStatuses?.fica} />
+							<FicaSection
+								data={ficaData}
+								status={data.sectionStatuses?.fica}
+								applicantId={data.applicantId}
+							/>
 						)}
 					</div>
 				</div>

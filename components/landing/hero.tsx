@@ -16,11 +16,11 @@ export function Hero() {
 						transition={{ duration: 0.5 }}>
 						<div className="flex justify-center mb-8">
 							<Image
-								src="/assets/control_tower_logo_.svg"
+								src="/control_tower_logo.png"
 								alt="Control Tower Logo"
-								width={200}
-								height={64}
-								className="h-16 w-auto"
+								width={400}
+								height={135}
+								className="h-26 w-auto"
 								priority
 							/>
 						</div>
@@ -53,9 +53,12 @@ export function Hero() {
 					<div className="relative rounded-xl border-none bg-card/50 backdrop-blur-sm shadow-2xl overflow-hidden group">
 						<div className="absolute inset-0 bg-linear-to-b from-transparent to-background/20 z-20 pointer-events-none" />
 					</div>
-					<div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+					<div className="flex flex-col sm:flex-row items-center justify-center gap-8">
 						<a href="/dashboard">
-							<Button variant="secondary" size="lg">
+							<Button
+								variant="secondary"
+								size="lg"
+								className="bg-[var(--gold-500)] shadow-xl shadow-gold-500/50">
 								Launch Control Tower
 								<ArrowRight className="mx-2 h-4 w-4" />
 							</Button>
@@ -64,14 +67,14 @@ export function Hero() {
 							href="https://stratcolltd.mintlify.app/user-guides/overview"
 							target="_blank"
 							rel="noopener noreferrer">
-							<Button variant="secondary" size="lg" className="bg-cyan-500">
+							<Button variant="secondary" size="lg" className="bg-[var(--gold-900)]">
 								<FileText className="mr-2 h-4 w-4" />
 								View Documentation
 							</Button>
 						</a>
 					</div>
 					{/* Glow Effect */}
-					<div className="absolute w-1/2 mx-auto -inset-2 animate-pulse bg-primary/20 blur-2xl -z-1 shadow-sm shadow-cyan-400/90 rounded opacity-90"></div>
+					<div className="absolute w-1/2 mx-auto h-12 -inset-2   animate-[ping_4s_ease-out_infinite] bg-cyan-400/40 blur-2xl -z-1 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 shadow-sm shadow-[0_0_10px_0_var(--gold-500)] rounded opacity-90"></div>
 				</motion.div>
 			</div>
 

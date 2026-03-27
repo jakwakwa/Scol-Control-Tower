@@ -1,0 +1,100 @@
+---
+title: "Refactor: Internal Forms Hub Consolidation & Workflow Gates Relocation"
+description: "Repurposed the orphaned Forms Hub for internal-only forms, replaced duplicated ABSA logic with the existing AbsaPacketSection component, and relocated workflow gate actions to the Applicant Detail page sidebar."
+type: refactor
+status: resolved
+date: 2026-03-22
+---
+
+# Refactor: Internal Forms Hub & Workflow Gates
+
+## Overview
+
+The internal forms management was scattered across multiple pages with overlapping implementations. This refactor consolidates form access into a properly filtered Forms Hub, eliminates duplicated ABSA code, and moves workflow gate actions to the Applicant Detail page where internal users spend most of their time.
+
+<Warning>
+The `/dashboard/applicants/[id]/contract` route is now **deprecated**. Workflow gates have moved to the Applicant Detail sidebar. The ABSA 6995 form is accessible via the Internal Forms hub.
+</Warning>
+
+---
+
+## What Changed
+
+### 1. Forms Hub Filtered to Internal-Only Forms
+
+The existing Forms Hub (`/dashboard/applications/[id]/forms`) listed all 4 form types, but `facility_application` and `fica_documents` are external-only (used by magic-link forms). Extracted form configuration into a shared `lib/config/internal-forms.ts` and filtered to only:
+
+- **StratCol Agreement** (MPCAS) — Stage 2
+- **ABSA 6995 Pre-screening** — Stage 3
+
+The hub's visual design (cards, badges, progress bar) is preserved exactly as-is.
+
+### 2. ABSA Form Deduplicated
+
+The individual form page (`[formType]/page.tsx`) had ~70 lines of inline ABSA PDF upload and send logic that duplicated the `AbsaPacketSection` component. Replaced inline code with a single component call:
+
+```typescript
+case "absa_6995":
+    return (
+        <AbsaPacketSection
+            workflowId={parseInt(workflowId, 10)}
+            applicantId={formData?.applicantId ?? null}
+            initialFormData={initialData}
+            absaDocuments={absaDocuments}
+            disabled={isReadOnly}
+            onRefresh={async () => {
+                await fetchAbsaDocuments();
+            }}
+        />
+    );
+```
+
+### 3. Workflow Gates Moved to Applicant Detail Sidebar
+
+Two gates from the contract review page now live in a dedicated `WorkflowGatesCard` on the Applicant Detail page sidebar:
+
+| Gate | Trigger | Condition |
+|------|---------|-----------|
+| **Contract Draft Review** | Sends review signal to Inngest workflow | Stage 5, non-terminated status |
+| **Confirm ABSA Approved** | Sends ABSA confirmation signal to Inngest workflow | Stage 5, non-terminated status, ABSA packet has been sent |
+
+Gate logic is extracted into testable pure functions in `lib/config/workflow-gates.ts`.
+
+### 4. New "Internal Forms" Link
+
+A link button now appears in the Applicant Detail page header actions, routing to the Forms Hub filtered for internal forms. Only visible when a workflow exists for the applicant.
+
+### 5. Contract Route Deprecated
+
+The old contract review page (`/dashboard/applicants/[id]/contract`) now shows a deprecation banner directing users to the new locations.
+
+---
+
+## Files Changed
+
+| File | Change |
+|------|--------|
+| `lib/config/internal-forms.ts` | **New** — shared config for internal form types |
+| `lib/config/workflow-gates.ts` | **New** — gate API endpoints and conditional logic |
+| `components/dashboard/applicants/workflow-gates-card.tsx` | **New** — self-contained gate actions card |
+| `tests/internal-forms-config.test.ts` | **New** — 3 assertions validating form config |
+| `tests/workflow-gates-contract.test.ts` | **New** — 6 assertions validating gate contracts |
+| `app/.../forms/page.tsx` | Modified — uses shared config, filtered forms |
+| `app/.../forms/[formType]/page.tsx` | Modified — uses `AbsaPacketSection`, removed dead cases |
+| `app/.../applicants/[id]/page.tsx` | Modified — added Forms link, gates card, removed duplicates |
+| `app/.../contract/contract-review-client.tsx` | Modified — added deprecation banner |
+
+## Testing Approach
+
+TDD was applied to non-UI logic:
+
+- **Form config tests**: Validate only `stratcol_agreement` and `absa_6995` are exposed, types match DB schema enum, external-only types excluded
+- **Gate contract tests**: Validate API endpoint construction, request body shapes, conditional activation logic (stage, status, absaPacketSent)
+
+All 9 assertions pass. UI was manually verified through the existing application.
+
+## Related Documentation
+
+- [Compound-docs solution file](../solutions/refactoring/forms-hub-consolidation-workflow-gates-20260322.md)
+- [Onboarding Forms Guide](/user-guides/onboarding-forms) — user-facing forms documentation
+- [Workflows Guide](/user-guides/workflows) — workflow stages reference

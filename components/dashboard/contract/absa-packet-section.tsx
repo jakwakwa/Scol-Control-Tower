@@ -3,9 +3,8 @@
 import { RiFileUploadLine } from "@remixicon/react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { contractReviewContent } from "@/app/(authenticated)/dashboard/applicants/[id]/contract/content";
 import { GlassCard } from "@/components/dashboard";
-import { Absa6995Form } from "@/components/onboarding-forms";
+import { Absa6995Form } from "@/components/forms/external/onboarding-forms";
 import AsyncActionButton from "@/components/shared/async-action-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +24,13 @@ interface AbsaPacketSectionProps {
 	disabled: boolean;
 	onRefresh: () => Promise<unknown>;
 }
+
+const absaPacketContent = {
+	label: "Step 1 - ABSA 6995 Packet",
+	description:
+		"Fill in the ABSA 6995 form for recordkeeping, then upload the prefilled PDF and send it to the test address. Once ABSA has approved, confirm the approval in the sidebar.",
+	lockedHint: "Complete the contract review step first.",
+};
 
 export function AbsaPacketSection({
 	workflowId,
@@ -145,15 +151,11 @@ export function AbsaPacketSection({
 		<GlassCard className="space-y-6">
 			<div>
 				<p className="text-base uppercase text-secondary-foreground font-medium">
-					{contractReviewContent.absaPacketSection.label}
+					{absaPacketContent.label}
 				</p>
-				<p className="text-stone-300/70 mt-1">
-					{contractReviewContent.absaPacketSection.description}
-				</p>
+				<p className="text-stone-300/70 mt-1">{absaPacketContent.description}</p>
 				{disabled && (
-					<p className="text-sm text-amber-300/80 mt-2">
-						{contractReviewContent.absaPacketSection.lockedHint}
-					</p>
+					<p className="text-sm text-amber-300/80 mt-2">{absaPacketContent.lockedHint}</p>
 				)}
 			</div>
 

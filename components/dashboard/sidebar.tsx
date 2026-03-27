@@ -2,6 +2,7 @@
 
 import {
 	RiAlarmWarningLine,
+	RiBarChart2Line,
 	RiBarChartBoxAiFill,
 	RiDashboardLine,
 	RiMenuFoldLine,
@@ -18,6 +19,7 @@ import { Button } from "../ui/button";
 const navigation = [
 	{ name: "Overview", href: "/dashboard", icon: RiDashboardLine },
 	{ name: "Applicants", href: "/dashboard/applicants", icon: RiUserAddLine },
+	{ name: "Analytics", href: "/dashboard/analytics", icon: RiBarChart2Line },
 	{ name: "Workflows", href: "/dashboard/workflows", icon: RiBarChartBoxAiFill },
 	{
 		name: "Risk Review",
@@ -52,12 +54,8 @@ export function Sidebar({
 			{/* Header */}
 			<div className="flex h-24 items-center justify-between px-6 border-b border-secondary/5">
 				<div className={cn("flex items-center gap-1 ", isCollapsed && "hidden")}>
-					<div className="flex flex-col w-full h-fit items-start px-4 py-2 justify-center rounded-2xl  border-stone-500/20">
-						<img
-							src="/assets/control_tower_logo_.svg"
-							alt="StratCol"
-							className="h-8 w-auto"
-						/>
+					<div className="flex flex-col w-45 h-auto items-start px-4 py-2 justify-center rounded-2xl  border-stone-500/20">
+						<img src="/control_tower_logo.png" alt="StratCol" className="w-fit h-auto" />
 						<span className="text-secondary text-xs uppercase hidden leading-[14px]">
 							Control Tower
 						</span>

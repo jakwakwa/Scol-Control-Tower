@@ -1,1 +1,21 @@
-# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
+.gemini/**/*.md
+.agents/**/*.md
+.agent/**/*.md 
+
+migrations/**/*.sql
+tests/browser-flow/screenshots/
+implementation_*.md
+*.pdf
+.agents/
+.agent/
+.gemini/
+GEMINI.md
+skills-lock.json
+*-lock.json
+*.lock
+CLAUDE.md
+compound-engineering.local.md
+doc-1.md
+posthog-setup-report.md
+node-modules/
+.next/

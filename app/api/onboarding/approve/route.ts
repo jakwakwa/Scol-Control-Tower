@@ -19,10 +19,7 @@ import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
 import { recordFinalApprovalDecision } from "@/lib/services/workflow-command.service";
 import { captureServerEvent } from "@/lib/posthog-server";
-
-// ============================================
-// Request Schema
-// ============================================
+import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 
 const TwoFactorApprovalSchema = z.object({
 	workflowId: z.number().int().positive("Workflow ID is required"),
@@ -31,10 +28,6 @@ const TwoFactorApprovalSchema = z.object({
 	decision: z.enum(["APPROVED", "REJECTED"]),
 	reason: z.string().optional(),
 });
-
-// ============================================
-// POST Handler
-// ============================================
 
 export async function POST(request: NextRequest) {
 	try {
@@ -91,7 +84,6 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
 		}
 
-		// Verify workflow exists
 		const workflowResult = await db
 			.select()
 			.from(workflows)
@@ -105,7 +97,6 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Verify applicant exists
 		const applicantResult = await db
 			.select()
 			.from(applicants)
@@ -118,7 +109,6 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Acquire state lock to prevent ghost processes from overwriting finalized approval
 		await acquireStateLock(workflowId, userId);
 
 		const timestamp = new Date().toISOString();
@@ -132,7 +122,6 @@ export async function POST(request: NextRequest) {
 		});
 
 		if (!approvalState.alreadyRecorded) {
-			// Log the approval event
 			await db.insert(workflowEvents).values({
 				workflowId,
 				eventType: `two_factor_approval_${role}`,
@@ -145,23 +134,27 @@ export async function POST(request: NextRequest) {
 				actorId: userId,
 				actorType: "user",
 			});
+		}
 
-			// Send the appropriate Inngest event
-			const eventName = role === "risk_manager"
-				? "approval/risk-manager.received" as const
-				: "approval/account-manager.received" as const;
+		// Re-send is idempotent for waitForEvent and can unblock if the first send missed an active wait.
+		const eventName = role === "risk_manager"
+			? "approval/risk-manager.received" as const
+			: "approval/account-manager.received" as const;
 
-			await inngest.send({
-				name: eventName,
-				data: {
-					workflowId,
-					applicantId,
-					approvedBy: userId,
-					decision,
-					reason,
-					timestamp,
-				},
-			});
+		await inngest.send({
+			name: eventName,
+			data: {
+				workflowId,
+				applicantId,
+				approvedBy: userId,
+				decision,
+				reason,
+				timestamp,
+			},
+		});
+
+		if (approvalState.bothApproved && workflow.status !== "completed") {
+			await updateWorkflowStatus(workflowId, "completed", 6);
 		}
 
 		if (!approvalState.alreadyRecorded) {
@@ -202,10 +195,6 @@ export async function POST(request: NextRequest) {
 		);
 	}
 }
-
-// ============================================
-// GET Handler - Get approval status
-// ============================================
 
 export async function GET(request: NextRequest) {
 	try {

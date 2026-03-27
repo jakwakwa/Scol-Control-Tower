@@ -20,8 +20,8 @@ import {
 	type FacilityApplicationForm,
 	facilityApplicationSchema,
 	signedQuotationSchema,
-	stratcolAgreementSchema,
 } from "@/lib/validations/forms";
+import { stratcolAgreementSchema } from "@/lib/validations/onboarding";
 
 const formSubmissionSchema = z.object({
 	token: z.string().min(10),
@@ -43,8 +43,18 @@ const formSchemaMap: Record<FormType, z.ZodSchema> = {
 };
 
 const extractSubmittedBy = (formType: FormType, data: Record<string, unknown>) => {
-	if (formType === "SIGNED_QUOTATION" || formType === "AGREEMENT_CONTRACT") {
+	if (formType === "SIGNED_QUOTATION") {
 		return typeof data.signatureName === "string" ? data.signatureName : undefined;
+	}
+	if (formType === "AGREEMENT_CONTRACT") {
+		const nested = data as {
+			signature?: { name?: unknown };
+			signatoryAndOwners?: { authorisedRepresentative?: { name?: unknown } };
+		};
+		if (typeof nested.signature?.name === "string") return nested.signature.name;
+		if (typeof nested.signatoryAndOwners?.authorisedRepresentative?.name === "string") {
+			return nested.signatoryAndOwners.authorisedRepresentative.name;
+		}
 	}
 	return undefined;
 };
@@ -186,9 +196,7 @@ export async function POST(request: NextRequest) {
 			});
 		}
 
-		// Signed quotation: submitting with validated schema implies acceptance — record decision
-		// and emit quote/responded + quote/signed here so Inngest advances even if the follow-up
-		// POST /decision call fails in the browser (network, tab close, etc.).
+		// Signed quotation: sync quote + Inngest on submit so a failed /decision request cannot strand the workflow.
 		if (formType === "SIGNED_QUOTATION" && formInstance.workflowId) {
 			const db = getDatabaseClient();
 			if (!db) {

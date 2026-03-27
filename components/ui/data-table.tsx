@@ -1,7 +1,7 @@
 "use client";
 
 import { RiArrowLeftSLine, RiArrowRightSLine } from "@remixicon/react";
-import type { ColumnDef, SortingState } from "@tanstack/react-table";
+import type { ColumnDef, SortingState, TableMeta } from "@tanstack/react-table";
 import {
 	flexRender,
 	getCoreRowModel,
@@ -24,7 +24,7 @@ import {
 interface DataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
 	data: TData[];
-	meta?: Record<string, any>;
+	meta?: TableMeta<TData>;
 	/** Server-driven pagination — total number of pages */
 	pageCount?: number;
 	/** Current page index (0-based) */
@@ -109,7 +109,7 @@ export function DataTable<TData, TValue>({
 						{table.getHeaderGroups().map(headerGroup => (
 							<TableRow
 								key={headerGroup.id}
-								className="hover:bg-transparent border-secondary/5">
+								className="hover:bg-black/20 border-secondary/5">
 								{headerGroup.headers.map(header => {
 									return (
 										<TableHead
@@ -130,7 +130,7 @@ export function DataTable<TData, TValue>({
 								<TableRow
 									key={row.id}
 									data-state={row.getIsSelected() && "selected"}
-									className="group pl-4 border-sidebar-border hover:bg-secondary/4 transition-all duration-200">
+									className="group pl-4 border-sidebar-border hover:bg-black/20 transition-all duration-200">
 									{row.getVisibleCells().map(cell => (
 										<TableCell key={cell.id} className="px-8 py-4">
 											{flexRender(cell.column.columnDef.cell, cell.getContext())}

@@ -73,7 +73,7 @@ export default function DecisionActions({
 			</div>
 			{showDeclineInput ? (
 				<div className={styles.externalCard}>
-					<div className={styles.externalSectionBody}>
+					<div>
 						<textarea
 							placeholder="Optional reason for decline"
 							value={reason}

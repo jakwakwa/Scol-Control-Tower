@@ -2,20 +2,29 @@
 
 import {
 	RiAlertLine,
+	RiCertificate2Line,
 	RiCheckDoubleLine,
-	RiCheckLine,
 	RiCloseLine,
 	RiNotification3Line,
 	RiPauseCircleLine,
+	RiProhibitedLine,
+	RiSendInsLine,
 	RiTimeLine,
 	RiUserLine,
 } from "@remixicon/react";
+import { FileWarningIcon, StampIcon } from "lucide-react";
 import Link from "next/link";
-import { type MouseEvent, useEffect, useState } from "react";
+import { type ElementType, type MouseEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+	formatNotificationMessage,
+	isManualFallbackNotification,
+	isVatNotification,
+} from "@/lib/notifications/semantics";
+import type { NotificationType } from "@/lib/notifications/types";
 import { cn } from "@/lib/utils";
 
 export interface WorkflowNotification {
@@ -23,16 +32,7 @@ export interface WorkflowNotification {
 	workflowId: number;
 	applicantId: number;
 	clientName: string;
-	type:
-		| "awaiting"
-		| "completed"
-		| "failed"
-		| "timeout"
-		| "paused"
-		| "error"
-		| "warning"
-		| "info"
-		| "success";
+	type: NotificationType;
 	message: string;
 	timestamp: Date;
 	read: boolean;
@@ -41,16 +41,19 @@ export interface WorkflowNotification {
 	groupKey?: string;
 }
 
-const notificationConfig = {
+const notificationConfig: Record<
+	NotificationType,
+	{ icon: ElementType; color: string; bgColor: string }
+> = {
 	awaiting: {
 		icon: RiUserLine,
-		color: "text-warning-foreground",
-		bgColor: "bg-warning/50",
+		color: "text-violet-400",
+		bgColor: "bg-violet-500/15",
 	},
 	completed: {
-		icon: RiCheckLine,
-		color: "text-emerald-700",
-		bgColor: "bg-teal-500/40",
+		icon: RiCertificate2Line,
+		color: "text-cyan-400",
+		bgColor: "bg-cyan-600/20",
 	},
 	failed: {
 		icon: RiCloseLine,
@@ -73,55 +76,26 @@ const notificationConfig = {
 		bgColor: "bg-red-500/10",
 	},
 	warning: {
-		icon: RiAlertLine,
-		color: "text-amber-500",
-		bgColor: "bg-amber-500/20",
+		icon: FileWarningIcon,
+		color: "text-yellow-300",
+		bgColor: "bg-yellow-500/20",
 	},
 	info: {
-		icon: RiNotification3Line,
-		color: "text-blue-500",
-		bgColor: "bg-blue-500/10",
+		icon: StampIcon,
+		color: "text-pink-400",
+		bgColor: "bg-pink-500/10",
 	},
 	success: {
-		icon: RiCheckLine,
+		icon: RiSendInsLine,
 		color: "text-emerald-500",
-		bgColor: "bg-emerald-500/10",
+		bgColor: "bg-emerald-700/20",
+	},
+	terminated: {
+		icon: RiProhibitedLine,
+		color: "text-red-700",
+		bgColor: "bg-red-500/20",
 	},
 };
-
-const MANUAL_FALLBACK_ALERT_TERMS = [
-	"manual procurement check required",
-	"procurement_check_failed",
-	"procurecheck failed",
-	"procurement check failed",
-	"manual sanctions check required",
-	"sanctions_check_failed",
-	"automated sanctions checks failed",
-];
-
-function isManualFallbackNotification(message: string): boolean {
-	const normalized = message.toLowerCase();
-	return MANUAL_FALLBACK_ALERT_TERMS.some(term => normalized.includes(term));
-}
-
-function isManualSanctionsNotification(message: string): boolean {
-	const normalized = message.toLowerCase();
-	return (
-		normalized.includes("manual sanctions check required") ||
-		normalized.includes("sanctions_check_failed") ||
-		normalized.includes("automated sanctions checks failed")
-	);
-}
-
-function formatNotificationMessage(message: string): string {
-	if (!isManualFallbackNotification(message)) {
-		return message;
-	}
-	if (isManualSanctionsNotification(message)) {
-		return "Automated sanctions checks failed. Risk Manager must complete a full manual sanctions screening and record the sanctions outcome.";
-	}
-	return "Automated procurement checks failed. Risk Manager must complete a full manual procurement check and record a procurement decision.";
-}
 
 interface NotificationsPanelProps {
 	notifications: WorkflowNotification[];
@@ -209,7 +183,7 @@ export function NotificationsPanel({
 			</PopoverTrigger>
 			<PopoverContent
 				align="end"
-				className="w-[380px] border-secondary/10 bg-black/40 backdrop-blur-sm p-0">
+				className="w-[380px] border-amber-200/10 border-1 -inset-1 bg-zinc-950/20 backdrop-blur-sm mx-auto">
 				{/* Header */}
 				<div className="flex items-center justify-between border-b border-secondary/10 px-4 py-3">
 					<h3 className="text-sm font-semibold">Notifications</h3>
@@ -245,40 +219,47 @@ export function NotificationsPanel({
 							const isManualProcurementAlert = isManualFallbackNotification(
 								notification?.message || ""
 							);
+							const isVatAlert = isVatNotification(notification?.message || "");
 
 							return (
 								<div
 									key={notification?.id}
 									className={cn(
-										"group relative flex gap-0 x-4 py-3 mb-5 border-border items-center justify-between border-secondary transition-colors",
-										!notification?.read && "bg-secondary/2",
+										"group relative flex gap-0 x-4 py-0 mb-0  items-center justify-between  h-[130px] min-h-[130px] transition-colors",
+										!notification?.read && "bg-secondary/0",
 										isHighSeverity && "bg-destructive text-destructive-foreground",
 										isMediumGrouped && "bg-warning/20 border-4 border-l-warning"
 									)}>
 									{/* Main Action Button */}
 									<button
 										type="button"
-										className="absolute -inset-2 z-20 m-1 w-full left-[0px] max-w-[95%] h-[140px]  focus:outline-none"
+										className="absolute bg-black/30 -inset-1 z-20 m-0 w-full border-1 border-amber-300/15 rounded-xl left-[0px] p-0 focus:outline-1"
 										onClick={() => onNotificationClick?.(notification)}>
 										<span className="sr-only mt-4">
 											View notification from {notification?.clientName}
 										</span>
 									</button>
 
+									{!notification?.read && (
+										<span className="absolute  h-2 w-2  top-5 z-30 shrink-0 left-6 rounded-full bg-zinc-800 outline-zinc-600 outline-2" />
+									)}
+
 									{/* Icon */}
 									<div
 										className={cn(
-											"relative z-30 flex h-4 w-12 shrink-0 items-center justify-center rounded-full pointer-events-none mr-2",
+											" z-30 top-1/2 bottom-1/2  left-3 flex h-6 p-0 m-0 w-6 shrink-0 items-center bg-transparent justify-center rounded-full absolute pointer-events-none ",
 											config.bgColor
 										)}>
-										<Icon className={cn("absolute right-2 ml-2 h-4 w-4", config.color)} />
+										<Icon
+											className={cn("  rounded-full w-3 h-3 bg-none", config.color)}
+										/>
 									</div>
 
 									{/* Content */}
-									<div className=" relative z-20 pointer-events-none">
+									<div className="ml-12  mt-0 mr-6 relative z-20 pointer-events-none">
 										<div className="flex items-between justify-between gap-2">
-											<div className="flex items-center gap-4 min-w-0">
-												<p className="text-sm font-medium truncate">
+											<div className="flex items-center gap-4 w-full max-w-7/9">
+												<p className="text-xs font-medium truncate w-fit text-secondary-foreground/70 mb-1">
 													{notification?.clientName}
 												</p>
 												{isManualProcurementAlert && (
@@ -288,28 +269,33 @@ export function NotificationsPanel({
 														Manual Check
 													</Badge>
 												)}
-											</div>
-											<div className="flex items-center gap-2">
-												{!notification?.read && (
-													<span className="h-2 w-2 shrink-0 rounded-full bg-blue-500" />
+												{isVatAlert && (
+													<Badge
+														variant="outline"
+														className="text-[10px] text-teal-300 border-teal-500/30 bg-teal-500/10">
+														VAT Check
+													</Badge>
 												)}
-												<button
-													type="button"
-													onClick={e => {
-														e.stopPropagation();
-														onDelete?.(notification);
-													}}
-													className="text-muted-foreground/40 hover:text-red-400 transition-colors cursor-pointer pointer-events-auto p-1">
-													<RiCloseLine className="h-4 w-4" />
-													<span className="sr-only">Dismiss</span>
-												</button>
 											</div>
 										</div>
-										<p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+
+										<p className="text-[11.5px] text-muted-foreground/90 italic font-extralight mt-1.5 line-clamp-3">
 											{formatNotificationMessage(notification?.message || "")}
 										</p>
-										<div className="flex items-center justify-between mt-2">
-											<span className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
+										<div className="flex items-center  absolute z-40 -top-2 gap-2 right-0">
+											<button
+												type="button"
+												onClick={e => {
+													e.stopPropagation();
+													onDelete?.(notification);
+												}}
+												className="text-pink-400/70 bg-transparent hover:text-red-900 transition-colors text-xs border-red-700/50 cursor-pointer  absolute -right-4 pointer-events-auto p-0">
+												<RiCloseLine className="h-2.5 p-0	border-0 outline-0  w-2.5 " />
+												<span className="sr-only">Dismiss</span>
+											</button>
+										</div>
+										<div className="flex items-center justify-between mt-2 relative">
+											<span className="text-[10px] text-amber-200/80 flex items-center gap-1">
 												<RiTimeLine className="h-3 w-3" />
 												{formatRelativeTime(notification?.timestamp)}
 											</span>
@@ -321,7 +307,7 @@ export function NotificationsPanel({
 														<Button
 															variant="ghost"
 															size="sm"
-															className="h-6 px-2 text-xs hover:bg-amber-500/20 hover:text-amber-300"
+															className="absolute h-4 px-2 text-xs hover:bg-amber-500/20 hover:text-amber-300"
 															onClick={e => handleAction(e, notification, "view")}>
 															Open Risk Review
 														</Button>
@@ -333,11 +319,12 @@ export function NotificationsPanel({
 															<Button
 																variant="ghost"
 																size="sm"
-																className="h-6 px-2 text-xs hover:bg-teal-500/90 hover:text-emerald-600/80"
+																className="absolute h-3 px-2 text-xs hover:bg-emerald-500/0 hidden hover:text-emerald-600/80"
 																onClick={e => handleAction(e, notification, "view")}>
 																View
 															</Button>
 														)}
+
 													{/* Error/Timeout Actions */}
 													{!isManualProcurementAlert &&
 														(notification?.type === "error" ||
@@ -375,8 +362,8 @@ export function NotificationsPanel({
 					<div className="border-t border-secondary/10 p-2">
 						<Link href="/dashboard/notifications">
 							<Button
-								variant="ghost"
-								className="w-full h-8 text-xs text-muted-foreground hover:text-foreground">
+								variant="default"
+								className="w-full h-8 text-xs text-muted-foreground bg-primary/50 hover:text-foreground">
 								View all notifications
 							</Button>
 						</Link>
@@ -403,11 +390,21 @@ function formatRelativeTime(date: Date): string {
 // --- Toast Helpers with Actions ---
 
 export function showWorkflowToast(
-	type: "awaiting" | "completed" | "failed" | "timeout" | "paused" | "error",
+	type:
+		| "awaiting"
+		| "completed"
+		| "failed"
+		| "timeout"
+		| "paused"
+		| "error"
+		| "terminated",
 	clientName: string,
 	onAction?: (action: "approve" | "reject" | "view") => void
 ) {
-	const config = {
+	const config: Record<
+		typeof type,
+		{ title: string; description: string; action: boolean }
+	> = {
 		awaiting: {
 			title: "Action Required",
 			description: `${clientName}'s workflow needs your attention`,
@@ -436,6 +433,11 @@ export function showWorkflowToast(
 		error: {
 			title: "Workflow Error",
 			description: `${clientName}'s workflow encountered a critical error`,
+			action: false,
+		},
+		terminated: {
+			title: "Workflow Terminated",
+			description: `${clientName}'s workflow has been terminated`,
 			action: false,
 		},
 	};
