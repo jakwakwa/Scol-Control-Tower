@@ -23,7 +23,6 @@ async function reset() {
 		await db.delete(schema.internalSubmissions);
 		await db.delete(schema.documentUploads);
 		await db.delete(schema.internalForms);
-		await db.delete(schema.agentCallbacks);
 		await db.delete(schema.aiFeedbackLogs);
 		await db.delete(schema.aiAnalysisLogs);
 		await db.delete(schema.sanctionClearance);
@@ -37,7 +36,6 @@ async function reset() {
 		await db.delete(schema.riskAssessments);
 		await db.delete(schema.activityLogs);
 		await db.delete(schema.applicants);
-		await db.delete(schema.agents);
 	} catch (error) {
 		console.error("Error resetting database:", error);
 		process.exit(1);

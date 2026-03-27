@@ -10,7 +10,7 @@ date: 2026-03-27
 
 ## Overview
 
-`bun run db:reset` ran `drizzle-kit migrate` after dropping all tables and failed with **exit code 1** and little console output. Investigation showed **duplicate `ALTER TABLE workflows ADD green_lane_*` statements** across the old **`0002_*`** and **`0003_*`** migration files (since removed in the squash; SQLite error: **duplicate column name**). The team chose a **full migration squash**: delete the old chain, generate a single baseline from [`db/schema.ts`](../../../db/schema.ts), drop the legacy **`todos`** table, and **combine** dev and test database resets so **`bun run db:reset`** migrates **both** Turso databases when [`.env.test`](../../../.env.test.example) provides `TEST_DATABASE_URL`.
+`bun run db:reset` ran `drizzle-kit migrate` after dropping all tables and failed with **exit code 1** and little console output. Investigation showed **duplicate `ALTER TABLE workflows ADD green_lane_*` statements** across the old **`0002_*`** and **`0003_*`** migration files (since removed in the squash; SQLite error: **duplicate column name**). The team chose a **full migration squash**: delete the old chain, generate a single baseline from [`db/schema.ts`](../../../db/schema.ts), drop the legacy **`todos`** table, and **combine** dev and test database resets so **`bun run db:reset`** migrates **both** Turso databases when [`.env.test`](../../../.env.test.example) provides `TEST_DATABASE_URL`. A later schema pass also removed unused legacy tables **`agents`** and **`xt_callbacks`** (Zapier-era; nothing in-app referenced them).
 
 ## Symptoms
 
@@ -74,3 +74,8 @@ date: 2026-03-27
 - [`drizzle.config.ts`](../../../drizzle.config.ts) / [`drizzle.test.config.ts`](../../../drizzle.test.config.ts) — `out: "./migrations"` shared by dev and test migrate.
 - [`.cursor/skills/browser-flow-test-runner/SKILL.md`](../../../.cursor/skills/browser-flow-test-runner/SKILL.md) — test schema / reset notes.
 - [`docs/user-guides/e2e-testing.mdx`](../../user-guides/e2e-testing.mdx) — E2E and test DB usage (if present).
+
+## See also (same day)
+
+- [Remove legacy `agents` / `xt_callbacks` and dead workflow callback plumbing](./2026-03-27-remove-legacy-agents-xt-callbacks-dead-callback-plumbing.mdx) — detailed write-up for dropping those tables, cleaning `POST /api/workflows/[id]/signal`, `inngest/events.ts`, and `lib/validations.ts`, plus migration baseline alignment.
+- [Drizzle schema cleanup, migration squash, dead API/Inngest paths (solution)](../../solutions/database-issues/drizzle-schema-cleanup-migration-squash-dead-api-inngest-paths.md) — compound knowledge doc tying schema, API, and squash steps together.

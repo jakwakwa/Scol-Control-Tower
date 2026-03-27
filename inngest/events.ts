@@ -43,19 +43,6 @@ export type Events = {
 		};
 	};
 
-	/** Agent callback received from external system */
-	"onboarding/agent-callback": {
-		data: {
-			workflowId: number;
-			decision: {
-				agentId: string;
-				outcome: "APPROVED" | "REJECTED";
-				reason?: string;
-				timestamp: string;
-			};
-		};
-	};
-
 	/** Human resolved a timeout situation */
 	"onboarding/timeout-resolved": {
 		data: {

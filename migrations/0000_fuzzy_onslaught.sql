@@ -4,41 +4,10 @@ CREATE TABLE `activity_logs` (
 	`action` text NOT NULL,
 	`description` text NOT NULL,
 	`performed_by` text,
-	`created_at` integer DEFAULT '"2026-03-27T07:51:38.318Z"',
+	`created_at` integer DEFAULT '"2026-03-27T09:38:00.051Z"',
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `xt_callbacks` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`workflow_id` integer NOT NULL,
-	`event_id` text NOT NULL,
-	`agent_id` text NOT NULL,
-	`status` text DEFAULT 'received' NOT NULL,
-	`decision` text,
-	`outcome` text,
-	`raw_payload` text NOT NULL,
-	`validation_errors` text,
-	`human_actor` text,
-	`processed_at` integer,
-	`received_at` integer NOT NULL,
-	FOREIGN KEY (`workflow_id`) REFERENCES `workflows`(`id`) ON UPDATE no action ON DELETE no action
-);
---> statement-breakpoint
-CREATE TABLE `agents` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`agent_id` text NOT NULL,
-	`name` text NOT NULL,
-	`description` text,
-	`webhook_url` text,
-	`task_type` text NOT NULL,
-	`status` text DEFAULT 'active' NOT NULL,
-	`last_callback_at` integer,
-	`callback_count` integer DEFAULT 0 NOT NULL,
-	`error_count` integer DEFAULT 0 NOT NULL,
-	`created_at` integer NOT NULL
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `agents_agent_id_unique` ON `agents` (`agent_id`);--> statement-breakpoint
 CREATE TABLE `ai_analysis_logs` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`applicant_id` integer NOT NULL,
@@ -285,7 +254,7 @@ CREATE TABLE `risk_assessments` (
 	`reviewed_by` text,
 	`reviewed_at` integer,
 	`notes` text,
-	`created_at` integer DEFAULT '"2026-03-27T07:51:38.317Z"',
+	`created_at` integer DEFAULT '"2026-03-27T09:38:00.049Z"',
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
