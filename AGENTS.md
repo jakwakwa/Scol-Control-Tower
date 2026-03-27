@@ -22,3 +22,22 @@
 - PostHog’s in-app toolbar issues `connect-src` requests to hosts like `https://internal-j.posthog.com`; include **`https://*.posthog.com`** in CSP `connect-src` in `next.config.mjs` alongside `https://us.i.posthog.com` and `https://us-assets.i.posthog.com`.
 - `GoogleGenAI` from `@posthog/ai` is typed around `models.generateContent` only; for the Google **Interactions** API (`interactions.create`), use the **`@google/genai`** `GoogleGenAI` client (see `lib/ai/models.ts` for the split).
 - **`performAggregatedAnalysis`** in `lib/services/agents/aggregated-analysis.service.ts` is exported but **not** called by Inngest control-tower workflows (stages import individual agents). In production workflow code, Firecrawl shows up as **VAT** (`runVatVerificationCheck` in Stage 3) and **sanctions** (optional Firecrawl fallback inside `performSanctionsCheck`); industry-regulator, sanctions-enrichment, and social-reputation Firecrawl helpers in the aggregated service are **not** wired into current Inngest stages.
+
+## Cursor Cloud specific instructions
+
+### Services overview
+
+| Service | Command | Port | Notes |
+|---|---|---|---|
+| Next.js dev | `bun run dev` | 3000 | Uses Turbopack; see `package.json` scripts for all commands |
+| Inngest dev | `bunx inngest-cli@latest dev -u http://localhost:3000/api/inngest` | 8288 | Or use `bun run dev:all` to start both Next.js + Inngest together |
+| Biome lint | `bun run lint` | — | Pre-existing lint errors in codebase are normal |
+
+### Gotchas
+
+- **`turbopack.root` in `next.config.mjs`**: This field is hardcoded to the original developer's local path (`/Users/jakwakwa/...`). In Cloud Agent VMs set it to `{}` (empty object) or remove the `root` key so Turbopack infers the project root automatically. Without this fix, both `bun run dev` and `bun run build` will crash with `Invalid distDirRoot` error.
+- **Bun is the required runtime**: The lockfile is `bun.lock`; always use `bun install`, `bun run dev`, `bun run build`, etc. Node/npm/pnpm will not resolve dependencies correctly.
+- **`.env.local` must exist** with at minimum: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `DATABASE_URL`, `TURSO_GROUP_AUTH_TOKEN`, `GOOGLE_GENAI_KEY`. Copy from `.env.example` and populate from environment secrets.
+- **Database is Turso (remote LibSQL)**: No local DB setup needed; the app connects to the cloud Turso instance via `DATABASE_URL`. Migrations run via `bun run db:migrate`.
+- **Clerk auth protects `/dashboard/*` routes**: The landing page at `/` is public; all dashboard routes require Clerk sign-in. Test credentials are needed for E2E tests (`E2E_CLERK_USER_USERNAME`, `E2E_CLERK_USER_PASSWORD`).
+- **Lint has pre-existing errors**: `bun run lint` (biome) reports ~55 errors. These are in the existing codebase; do not attempt to fix them unless the user explicitly asks.
