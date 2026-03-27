@@ -23,12 +23,16 @@ Captures problem solutions while context is fresh, creating structured documenta
 /workflows:compound [brief context]    # Provide additional context hint
 ```
 
-## Execution Strategy: Two-Phase Orchestration
+## Execution Strategy: Multi-Phase Orchestration
 
 <critical_requirement>
 **Only ONE file gets written - the final documentation.**
 
 Phase 1 subagents return TEXT DATA to the orchestrator. They must NOT use Write, Edit, or create any files. Only the orchestrator (Phase 2) writes the final documentation file.
+</critical_requirement>
+
+<critical_requirement>
+**Phase 4 (ClickUp wiki) is mandatory** whenever the **`user-clickup`** MCP is available. Do **not** ask the user whether to sync to ClickUp after the workflow; run the **`clickup-wiki-stratcol`** subagent as part of this command. If the MCP is unavailable, report that the wiki step was skipped and include verbatim errors.
 </critical_requirement>
 
 ### Phase 1: Parallel Research
@@ -98,7 +102,22 @@ Based on problem type, optionally invoke specialized agents to review the docume
 - **inngest_issue** → `inngest-contracts` and `inngest-runtime` subagents
 - Any code-heavy issue → `kieran-rails-reviewer` + `code-simplicity-reviewer`
 
+If any reviewer feedback is **applied to the documentation file**, treat that version as the **final** body for Phase 4.
+
 </parallel_tasks>
+
+### Phase 4: StratCol AI Wiki (mandatory)
+
+**WAIT for Phase 2 to complete before proceeding.** If Phase 3 ran and the orchestrator **edited** the written file, **WAIT for those edits** before this phase.
+
+<sequential_tasks>
+
+1. Read the **final** markdown from the path written in Phase 2 (after any Phase 3 edits).
+2. Invoke the **`clickup-wiki-stratcol`** subagent (Task tool) with: finalized **content** (or path + contents), **page title** derived from the doc, and a **source** line (`Source: docs/issues/...`).
+3. Do **not** prompt “Sync to ClickUp?” — publishing under **Control Tower: Overview → Issues** is part of `/compound-mintlify` when MCP works.
+4. If **`user-clickup`** is unavailable or the subagent errors, report the failure explicitly; do not pretend the wiki step succeeded.
+
+</sequential_tasks>
 
 ## What It Captures
 
@@ -148,6 +167,7 @@ Based on problem type, optionally invoke specialized agents to review the docume
 | Subagents write files like `context-analysis.md`, `solution-draft.md` | Subagents return text data; orchestrator writes one final file |
 | Research and assembly run in parallel | Research completes → then assembly runs |
 | Multiple files created during workflow | Single file: `docs/issues/[category]/[filename].md` |
+| Asking “Sync to ClickUp?” after the run | Phase 4 runs **`clickup-wiki-stratcol`** automatically when MCP is available |
 
 ## Success Output
 
@@ -169,6 +189,9 @@ Specialized Agent Reviews (Auto-Triggered):
 
 File created:
 - docs/issues/performance-issues/n-plus-one-brief-generation.md
+
+StratCol AI Wiki (Control Tower: Overview → Issues):
+  ✓ clickup-wiki-stratcol: page_id … (new child page under Issues)
 
 This documentation will be searchable for future reference when similar
 issues occur in the Email Processing or Brief System modules.
@@ -232,6 +255,9 @@ Based on problem type, these agents can enhance documentation:
 ### When to Invoke
 - **Auto-triggered** (optional): Agents can run post-documentation for enhancement
 - **Manual trigger**: User can invoke agents after /workflows:compound completes for deeper review
+
+### Wiki publish (always with this workflow)
+- **`clickup-wiki-stratcol`**: Invoked in **Phase 4** after the doc file is final — not optional when **`user-clickup`** MCP is available (see Phase 4 above).
 
 ## Related Commands
 

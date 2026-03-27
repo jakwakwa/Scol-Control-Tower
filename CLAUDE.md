@@ -1,126 +1,113 @@
----
-description: 
-alwaysApply: true
----
+# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## Commands
 
-**StratCol Onboard Control Tower** is an event-driven onboarding automation platform. Applicants are captured via Google Forms/Apps Script webhooks, processed through a 6-stage pipeline, and managed through risk assessment, document verification, sanctions checks, and contract workflows — all without middleware.
-
-## Package Manager
-
-Use **`bun` only**. Never use `npm`, `yarn`, `pnpm`, or `npx`. Use `bunx` for global installations.
-
-## Common Commands
+Use **Bun** for all package operations — never npm, pnpm, or yarn.
 
 ```bash
-bun dev                        # Start Next.js dev server (Turbo)
+bun dev                        # Next.js dev server (Turbo)
+bun run dev:all                # Full stack dev (Next + Inngest)
+bun run inngest:dev            # Inngest dev server only
 bun run build                  # Production build
-bun run lint                   # Biome linter
-bun run lint:fix               # Auto-fix lint issues
+bun run lint                   # Biome lint
+bun run lint:fix               # Biome lint with auto-fix
 
 # Database
 bun run db:generate            # Generate Drizzle migrations
-bun run db:migrate             # Run migrations
-bun run db:studio              # Open Drizzle Studio UI
-bun run db:reset               # Drop all tables and re-migrate
+bun run db:migrate             # Apply migrations to dev DB
+bun run db:reset               # Drop dev + test DBs and re-apply migrations
+bun run db:studio              # Drizzle Studio UI
+bun run test:db:reset          # Reset test DB only
 
-# E2E / Browser Tests
-```
-bun run test:browser-flow-full 
+# E2E tests (Playwright)
+bun run test:e2e               # Run all Playwright tests
+bun run test:e2e:ui            # With interactive UI
+bun run test:e2e:debug         # With debugger
+
+# Browser-flow automation (multi-stage)
+bun run dev:browser-flow       # Start browser-flow dev stack (port 3100)
+bun run test:browser:stage1-3  # Stages 1–3
+bun run test:browser:stage4    # Stage 4
+bun run test:browser:stage5-6  # Stages 5–6
+bun run test:browser-flow-full # All stages
 ```
 
 ## Architecture
 
-### Request Flow
+SCOL Control Tower is an **event-driven applicant onboarding platform** with a 6-stage pipeline and no middleware — webhooks hit Next.js directly.
 
-1. **Ingestion**: Google Apps Script POSTs to `/api/webhooks/lead-capture`
-2. **Orchestration**: API sends Inngest events → `inngest/functions/control-tower-workflow.ts` runs the pipeline
-3. **Verification**: Workflow steps call OpenSanctions, ProcureCheck, Firecrawl, and AI agents
-4. **Callbacks**: External events (contract signed, agent decisions) arrive via webhooks and advance the workflow — no polling
+### Data flow
 
-### 6-Stage Pipeline (`inngest/functions/control-tower/`)
+1. **Ingestion** — Google Forms/Apps Script POSTs to `/api/webhooks/lead-capture`; Clerk events arrive at `/app/webhooks/`
+2. **Orchestration** — The API sends Inngest events; `inngest/functions/control-tower-workflow.ts` runs the pipeline via `ControlTowerOrchestrator`
+3. **6 stages** (`inngest/functions/control-tower/stages/`):
+   - Stage 1: Intake & validation
+   - Stage 2: Facility application & quote
+   - Stage 3: Procurement, FICA, VAT verification (Firecrawl when enabled)
+   - Stage 4: Kill-switch guard
+   - Stage 5: Contract wait (ABSA gate)
+   - Stage 6: Final approval & activation
+4. **Verification** — AI agents (`lib/services/agents/`) call OpenSanctions, ProcureCheck, XDS, and Google Gemini; results written to `riskAssessments` table
+5. **Human escalation** — Workflow pauses at `awaiting_human` states; staff act via dashboard API routes; signals resume the workflow
 
-| Stage | Purpose |
-|-------|---------|
-| Stage 1 | Lead intake, basic validation |
-| Stage 2 | Facility application, quote generation |
-| Stage 3 | FICA docs, document verification, sanctions, ProcureCheck |
-| Stage 4 | Risk assessment, kill switch, escalation logic |
-| Stage 5 | Contract signing, ABSA gate |
-| Stage 6 | Final approval, account activation |
+### Key directories
 
-### Key Directories
+| Path | Purpose |
+|------|---------|
+| `inngest/` | Event definitions, Inngest client, workflow functions |
+| `inngest/functions/control-tower/` | Orchestrator, stage handlers, timeout handler |
+| `lib/services/` | Business logic services (risk, sanctions, FICA, quote, email…) |
+| `lib/services/agents/` | AI agents (validation, risk, sanctions, financial-risk, reporter) |
+| `lib/ai/models.ts` | GoogleGenAI wrapper (PostHog-instrumented) |
+| `db/schema.ts` | Drizzle schema — applicants, documents, riskAssessments, activityLogs, workflows |
+| `app/api/` | 21 API endpoint categories |
+| `app/(authenticated)/` | Protected dashboard routes |
+| `app/(unauthenticated)/` | Public forms, sign-in/up |
+| `components/` | UI components (Shadcn/Radix base in `ui/`, features in `dashboard/`) |
+| `e2e/` | Playwright tests with Clerk auth state |
+| `tests/browser-flow/` | Shell-script staged browser automation |
+| `scripts/` | DB reset, seeding, PostHog dashboard utilities |
 
-- `app/` — Next.js App Router; `(authenticated)/` for dashboard, `(unauthenticated)/` for public forms and uploads
-- `app/api/` — 46 API routes: webhooks, onboarding, FICA, risk, sanctions, quotes, contracts, documents, inngest, callbacks
-- `inngest/` — Event orchestration: workflow definitions, functions, event types
-- `lib/services/` — Core business logic: agents, document handling, risk, verification
-- `lib/services/agents/` — AI agents: validation, risk, sanctions, reporter, financial-risk
-- `db/schema.ts` — Single-file Drizzle schema (all tables)
-- `components/` — `dashboard/`, `forms/`, `emails/`, `ui/` (shadcn), `shared/`, `layout/`
-- `actions/` — Next.js server actions
-- `tests/` —  E2E browser flow tests
-- `scripts/` — DB reset/seed scripts, PostHog dashboard creation
+### AI models
 
-### Database Schema (Turso/LibSQL via Drizzle)
+`lib/ai/models.ts` exports two GoogleGenAI clients:
+- `@posthog/ai` `GoogleGenAI` — for `models.generateContent` (PostHog-instrumented)
+- `@google/genai` `GoogleGenAI` — for `interactions.create`
 
-Key tables: `applicants`, `documents`, `workflows`, `risk_flags`, `sanctions_checks`, `quotes`, `contracts`, `notifications`, `form_submissions`, `audit_logs`.
+Model constants: `gemini-2.5-flash` (fast), `gemini-2.5-pro` (high-stakes), `gemini-2.5-flash-lite` (lightweight).
 
-Important `applicants` fields:
-- `businessType`: `NPO | PROPRIETOR | COMPANY | TRUST | BODY_CORPORATE | PARTNERSHIP | CLOSE_CORPORATION`
-- `status`: `new | stage1 | stage2 | ... | stage6 | completed | rejected`
-- `riskLevel`: `green | amber | red`
-- `sanctionStatus`: `clear | flagged | confirmed_hit`
-- `escalationTier`: `1` (normal) | `2` (manager alert) | `3` (salvage)
+### Database
 
-### AI Agents
+- **Turso (LibSQL)** remote database; `getDatabaseClient()` in `app/utils.ts` returns test DB when `E2E_USE_TEST_DB=1`
+- Never hand-edit committed migration files. Use `bun run db:reset` to reset both DBs, or `bun run test:db:reset` for test DB only. `db:push:test` is available for ad-hoc schema sync without a migration file.
+- Legacy tables `agents` and `xt_callbacks` have been removed from the schema.
 
-Multiple Gemini-powered agents in `lib/services/agents/`:
-- **Validation Agent** — validates documents and applicant data
-- **Risk Agent** — assesses risk level
-- **Sanctions Agent** — cross-references sanctions lists
-- **Reporter Agent** — generates compliance reports
-- **Financial-Risk Agent** — analyzes ITC score
+### Testing
 
-### Verification Services
+- **E2E (Playwright)**: Uses test DB via `E2E_USE_TEST_DB=1`; Clerk auth state saved to `playwright/.clerk/`; web server on port 3001 by default
+- **Browser-flow**: `bun run dev:browser-flow` loads `.env.test`, sets `E2E_USE_TEST_DB=1`, runs on port 3100; seed with `bun run test:db:seed:browser-flow`; `BROWSER_FLOW_UI_APPROVALS=1` enables button-driven Stage 5–6 approvals
+- Applicant detail URLs support `?tab=` values: `overview`, `documents`, `forms`, `risk`, `reviews`
+- Risk review (`/dashboard/risk-review/reports/[id]`) has four client-side tabs (Procurement, ITC Credit, Sanctions & AML, FICA/KYC) — no URL params; use full-page screenshots per tab for automation
 
-- **OpenSanctions** — sanctions checks
-- **ProcureCheck** — entity verification
-- **Firecrawl** — web-based industry registration validation (behind `ENABLE_FIRECRAWL_INDUSTRY_REG` flag)
-- **Google Document AI** — ID document verification for FICA
+## Rules
 
-### PostHog Telemetry
+- **No `git commit` or `git push`** unless the user explicitly asks
+- **No `any` in TypeScript** — strict typing enforced by Biome
+- **Server Actions must authenticate internally** — treat them like public API endpoints; call `requireAuth()` inside each action, not only in layouts or middleware
+- **Applicant intake APIs are contractual** — breaking changes to `app/api/applicants`, applicant forms, or mandate-related validations require explicit user approval
+- **Browser-flow verification required** before marking dashboard or dev-server work complete
+- **Inngest steps must be replay-safe** — deterministic logic only; side effects belong inside `step.run()`
+- **PostHog CSP**: `connect-src` in `next.config.mjs` must include `https://*.posthog.com`
+- **`performAggregatedAnalysis`** (`lib/services/agents/aggregated-analysis.service.ts`) is exported but not wired into active Inngest stages — individual agent calls are used in the pipeline instead
 
-The app uses a "Perimeter Validation" framework. Key files:
-- `lib/posthog-server.ts` — server-side PostHog client
-- `instrumentation-client.ts` — client-side instrumentation
-- `lib/config/perimeter-validation.ts` — perimeter config
-- `lib/services/telemetry/` and `perimeter-metrics.ts` — telemetry services
+## Feature flags (env)
 
-The key event is `perimeter_validation_attempt` with properties: `env`, `perimeter_id`, `schema_version`, `result`, `reason_code`, `sampling_weight`.
-
-## Code Style
-
-- **Formatter/Linter**: Biome — tabs, 90-char line width, strict correctness and security rules
-- **TypeScript**: Strict mode, `ESNext` target, path alias `@/*` maps to project root, no any or unkown types
-- **No `console.log`**: Only `console.assert`, `console.warn`, and `console.error` are allowed
-
-## Environment Setup
-
-Copy `.env.example` to `.env.local`. Minimum required:
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SECRET`
-- `TURSO_ORG`, `TURSO_API_TOKEN`, `TURSO_DATABASE_NAME`, `DATABASE_URL`
-- `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`
-- `GOOGLE_GENAI_KEY`
-- `OPENSANCTIONS_KEY`
-- `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
-
-For E2E tests: `E2E_CLERK_*` credentials in `.env.test`. Tests inject a separate test database; always run `db:reset:test` against the test DB
-## Key Reference Files
-
-- `docs/posthog-perimeter-dashboard.md` — PostHog dashboard docs
-- `docs/rollout-plans/inngest-perimeter-validation-rollout.md` — Inngest perimeter rollout
-- `.agents/skills/` — domain-specific skill files (PostHog instrumentation, Inngest middleware, ProcureCheck API, etc.)
+| Flag | Default | Controls |
+|------|---------|---------|
+| `ENABLE_FIRECRAWL_INDUSTRY_REG` | `true` | Industry-reg Firecrawl check |
+| `ENABLE_FIRECRAWL_SOCIAL_REP` | `false` | Social-reputation Firecrawl check |
+| `ENABLE_MANUAL_FIRECRAWL_SCREENING` | `false` | Manual sanctions enrichment |
+| `ENABLE_FIRECRAWL_VAT_VERIFICATION` | `false` | Firecrawl VAT check (Stage 3) |
+| `ENABLE_XDS_ITC` | `false` | XDS ITC credit check |
