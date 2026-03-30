@@ -152,38 +152,48 @@ const columns: ColumnDef<RiskEntityRow>[] = [
 
 const PAGE_SIZE = 10;
 
-export function RiskEntitiesTable({ search = "" }: { search?: string }) {
+export function RiskEntitiesTable({
+	search = "",
+	showHistory = false,
+}: {
+	search?: string;
+	showHistory?: boolean;
+}) {
 	const [data, setData] = useState<RiskEntityRow[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [pageIndex, setPageIndex] = useState(0);
 	const [pageCount, setPageCount] = useState(0);
 
-	const fetchEntities = useCallback(async (page: number, searchTerm: string) => {
-		setIsLoading(true);
-		try {
-			const response = await fetch(
-				`/api/risk-review/entities?page=${page + 1}&pageSize=${PAGE_SIZE}&search=${encodeURIComponent(searchTerm)}`
-			);
-			if (!response.ok) {
-				throw new Error("Failed to fetch risk entities");
+	const fetchEntities = useCallback(
+		async (page: number, searchTerm: string, history: boolean) => {
+			setIsLoading(true);
+			try {
+				const historyParam = history ? "&showHistory=true" : "";
+				const response = await fetch(
+					`/api/risk-review/entities?page=${page + 1}&pageSize=${PAGE_SIZE}&search=${encodeURIComponent(searchTerm)}${historyParam}`
+				);
+				if (!response.ok) {
+					throw new Error("Failed to fetch risk entities");
+				}
+				const json = (await response.json()) as {
+					items: RiskEntityRow[];
+					pageCount: number;
+				};
+				setData(json.items || []);
+				setPageCount(json.pageCount || 0);
+			} catch (error) {
+				console.error("Error fetching risk entities:", error);
+				toast.error("Failed to load applicant entities");
+			} finally {
+				setIsLoading(false);
 			}
-			const json = (await response.json()) as {
-				items: RiskEntityRow[];
-				pageCount: number;
-			};
-			setData(json.items || []);
-			setPageCount(json.pageCount || 0);
-		} catch (error) {
-			console.error("Error fetching risk entities:", error);
-			toast.error("Failed to load applicant entities");
-		} finally {
-			setIsLoading(false);
-		}
-	}, []);
+		},
+		[]
+	);
 
 	useEffect(() => {
-		fetchEntities(pageIndex, search);
-	}, [fetchEntities, pageIndex, search]);
+		fetchEntities(pageIndex, search, showHistory);
+	}, [fetchEntities, pageIndex, search, showHistory]);
 
 	const handlePageChange = (newPage: number) => {
 		setPageIndex(newPage);
@@ -202,9 +212,13 @@ export function RiskEntitiesTable({ search = "" }: { search?: string }) {
 		return (
 			<div className="rounded-2xl border border-sidebar-border bg-card/90 p-12 text-center">
 				<RiSearchLine className="mx-auto h-12 w-12 text-muted-foreground/50" />
-				<h3 className="mt-4 text-lg font-medium">No active workflows</h3>
+				<h3 className="mt-4 text-lg font-medium">
+					{showHistory ? "No matching applicants" : "No active workflows"}
+				</h3>
 				<p className="mt-2 text-sm text-muted-foreground">
-					There are currently no applicants with in-progress workflows.
+					{showHistory
+						? "Try adjusting your search or check back later."
+						: "There are currently no applicants with in-progress workflows. Use Show History to include completed runs."}
 				</p>
 			</div>
 		);
