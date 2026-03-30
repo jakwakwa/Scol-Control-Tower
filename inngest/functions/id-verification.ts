@@ -21,42 +21,33 @@ export const autoVerifyIdentity = inngest.createFunction(
 			return { skipped: true, reason: "Not an identity document type", documentType };
 		}
 
-		const verificationStart = Date.now();
 		const result = await step.run("verify-identity-document", async () => {
 			const verificationStart = Date.now();
 			const verificationResult = await processIdentityVerification(
 				applicantId,
 				documentId
 			);
+			const hasError = "error" in verificationResult && Boolean(verificationResult.error);
 
 			recordVendorCheckAttempt({
 				vendor: "document_ai_identity",
 				stage: "async",
 				workflowId,
 				applicantId,
-				outcome:
-					"error" in verificationResult && verificationResult.error
-						? "transient_failure"
-						: "success",
+				outcome: hasError ? "transient_failure" : "success",
 				durationMs: Date.now() - verificationStart,
+				error: hasError ? verificationResult.error : undefined,
 			});
+
+			if (hasError) {
+				const errorMessage = verificationResult.error
+					? String(verificationResult.error)
+					: "Unknown identity verification error";
+				throw new Error(`Identity verification failed: ${errorMessage}`);
+			}
 
 			return verificationResult;
 		});
-
-		const hasError = "error" in result && Boolean(result.error);
-		recordVendorCheckAttempt({
-			vendor: "document_ai_identity",
-			stage: "async",
-			workflowId,
-			applicantId,
-			outcome: hasError ? "transient_failure" : "success",
-			durationMs: Date.now() - verificationStart,
-		});
-
-		if (hasError) {
-			throw new Error(`Identity verification failed: ${result.error}`);
-		}
 
 		const entitiesFound = "data" in result ? result.data?.entities?.length || 0 : 0;
 
