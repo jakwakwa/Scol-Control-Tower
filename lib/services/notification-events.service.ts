@@ -76,7 +76,8 @@ export interface LogEventParams {
 		| "green_lane_approved"
 		| "green_lane_blocked"
 		| "green_lane_requested"
-		| "vat_verification_completed";
+		| "vat_verification_completed"
+		| "reminder_sent";
 	payload: object;
 	actorType?: "user" | "agent" | "platform";
 	actorId?: string;

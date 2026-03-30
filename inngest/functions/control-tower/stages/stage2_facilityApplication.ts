@@ -31,6 +31,7 @@ import {
 	runSanctionsForWorkflow,
 } from "../helpers";
 import { handleWaitTimeout } from "../timeout-handler";
+import { handleWaitWithReminders } from "../reminder-handler";
 import type { StageDependencies, StageResult } from "../types";
 
 export async function executeStage2({
@@ -85,27 +86,21 @@ export async function executeStage2({
 		updateWorkflowStatus(workflowId, "awaiting_human", 2)
 	);
 
-	// Wait for facility application submission
-	const facilitySubmission = await step.waitForEvent("wait-facility-app", {
-		event: "form/facility.submitted",
-		timeout: WORKFLOW_TIMEOUTS.STAGE,
-		match: "data.workflowId",
+	// Wait for facility application submission (with reminder nudges)
+	const facilitySubmission = await handleWaitWithReminders({
+		step,
+		workflowId,
+		applicantId,
+		stage: 2,
+		waitStepId: "wait-facility-app",
+		eventName: "form/facility.submitted",
+		totalTimeout: WORKFLOW_TIMEOUTS.STAGE,
+		terminationReason: "STAGE2_FACILITY_TIMEOUT",
+		reminderContext: {
+			itemName: "Facility Application",
+			actionTab: "forms",
+		},
 	});
-
-	if (!facilitySubmission) {
-		await handleWaitTimeout({
-			step,
-			workflowId,
-			applicantId,
-			stage: 2,
-			reason: "STAGE2_FACILITY_TIMEOUT",
-			notifyStepId: "notify-am-facility-timeout",
-			terminateStepId: "terminate-facility-timeout",
-			title: "Facility Application",
-			message: "Applicant failed to submit the facility application within the expected timeframe.",
-			timeoutWindow: WORKFLOW_TIMEOUTS.STAGE,
-		});
-	}
 
 	await step.run("notify-am-facility-submitted", async () => {
 		await guardKillSwitch(workflowId, "notify-am-facility-submitted");
@@ -576,27 +571,21 @@ export async function executeStage2({
 		updateWorkflowStatus(workflowId, "awaiting_human", 2)
 	);
 
-	// Wait for applicant decision on quote
-	const quoteResponse = await step.waitForEvent("wait-quote-response", {
-		event: "quote/responded",
-		timeout: WORKFLOW_TIMEOUTS.WORKFLOW,
-		match: "data.workflowId",
+	// Wait for applicant decision on quote (with reminder nudges)
+	const quoteResponse = await handleWaitWithReminders({
+		step,
+		workflowId,
+		applicantId,
+		stage: 2,
+		waitStepId: "wait-quote-response",
+		eventName: "quote/responded",
+		totalTimeout: WORKFLOW_TIMEOUTS.WORKFLOW,
+		terminationReason: "STAGE2_QUOTE_RESPONSE_TIMEOUT",
+		reminderContext: {
+			itemName: "Signed Quotation",
+			actionTab: "forms",
+		},
 	});
-
-	if (!quoteResponse) {
-		await handleWaitTimeout({
-			step,
-			workflowId,
-			applicantId,
-			stage: 2,
-			reason: "STAGE2_QUOTE_RESPONSE_TIMEOUT",
-			notifyStepId: "notify-am-quote-response-timeout",
-			terminateStepId: "terminate-quote-response-timeout",
-			title: "Quote Signature",
-			message: "Applicant failed to sign the quote within the expected timeframe.",
-			timeoutWindow: WORKFLOW_TIMEOUTS.WORKFLOW,
-		});
-	}
 
 	if (quoteResponse.data.decision === "DECLINED") {
 		await step.run("quote-declined-notify", async () => {
