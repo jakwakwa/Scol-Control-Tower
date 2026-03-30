@@ -21,6 +21,7 @@ import {
 	createWorkflowNotification,
 	logWorkflowEvent,
 } from "@/lib/services/notification-events.service";
+import type { Quote } from "@/lib/services/quote.service";
 import { generateQuote } from "@/lib/services/quote.service";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 import type { FormType } from "@/lib/types";
@@ -30,8 +31,8 @@ import {
 	notifyApplicantDecline,
 	runSanctionsForWorkflow,
 } from "../helpers";
-import { handleWaitTimeout } from "../timeout-handler";
 import { handleWaitWithReminders } from "../reminder-handler";
+import { handleWaitTimeout } from "../timeout-handler";
 import type { StageDependencies, StageResult } from "../types";
 
 export async function executeStage2({
@@ -126,10 +127,17 @@ export async function executeStage2({
 	// Step 2.2: Sales evaluation + issues/pre-risk path
 	const salesEvaluation = await step.run("sales-evaluation", async () => {
 		await guardKillSwitch(workflowId, "sales-evaluation");
-		const formData = facilitySubmission.data.formData as {
-			mandateVolume?: number;
-			annualTurnover?: number;
-		};
+		const submittedData = (
+			facilitySubmission as {
+				data?: {
+					formData?: {
+						mandateVolume?: number;
+						annualTurnover?: number;
+					};
+				};
+			}
+		).data;
+		const formData = submittedData?.formData;
 		const mandateVolume = formData?.mandateVolume ?? 0;
 		const annualTurnover = formData?.annualTurnover ?? 0;
 		const issues: string[] = [];
@@ -245,7 +253,19 @@ export async function executeStage2({
 			});
 		}
 
-		if (preRiskApproval.data.decision.outcome === "REJECTED") {
+		const preRiskApprovalDecision = (
+			preRiskApproval as {
+				data: {
+					decision: {
+						outcome: "APPROVED" | "REJECTED";
+						reason?: string;
+						requiresPreRiskEvaluation?: boolean;
+					};
+				};
+			}
+		).data.decision;
+
+		if (preRiskApprovalDecision.outcome === "REJECTED") {
 			await step.run("pre-risk-declined-notify", async () => {
 				await notifyApplicantDecline({
 					applicantId,
@@ -253,7 +273,7 @@ export async function executeStage2({
 					subject: "Facility Application Update",
 					heading: "Application declined after pre-risk review",
 					message:
-						preRiskApproval.data.decision.reason ||
+						preRiskApprovalDecision.reason ||
 						"Your application could not proceed after pre-risk review.",
 				});
 				const db = getDatabaseClient();
@@ -265,7 +285,7 @@ export async function executeStage2({
 							preRiskEvaluatedAt: new Date(),
 							applicantDecisionOutcome: "declined",
 							applicantDeclineReason:
-								preRiskApproval.data.decision.reason || "Declined in pre-risk approval",
+								preRiskApprovalDecision.reason || "Declined in pre-risk approval",
 						})
 						.where(eq(workflows.id, workflowId));
 				}
@@ -277,7 +297,7 @@ export async function executeStage2({
 			};
 		}
 
-		if (preRiskApproval.data.decision.requiresPreRiskEvaluation) {
+		if (preRiskApprovalDecision.requiresPreRiskEvaluation) {
 			const preRiskEvaluation = await step.waitForEvent("wait-pre-risk-evaluation", {
 				event: "risk/pre-evaluation.decided",
 				timeout: WORKFLOW_TIMEOUTS.REVIEW,
@@ -299,7 +319,18 @@ export async function executeStage2({
 				});
 			}
 
-			if (preRiskEvaluation.data.decision.outcome === "REJECTED") {
+			const preRiskEvaluationDecision = (
+				preRiskEvaluation as {
+					data: {
+						decision: {
+							outcome: "APPROVED" | "REJECTED";
+							reason?: string;
+						};
+					};
+				}
+			).data.decision;
+
+			if (preRiskEvaluationDecision.outcome === "REJECTED") {
 				await step.run("pre-risk-evaluation-declined-notify", async () => {
 					await notifyApplicantDecline({
 						applicantId,
@@ -307,7 +338,7 @@ export async function executeStage2({
 						subject: "Facility Application Update",
 						heading: "Application declined after pre-risk evaluation",
 						message:
-							preRiskEvaluation.data.decision.reason ||
+							preRiskEvaluationDecision.reason ||
 							"Your application could not proceed after pre-risk evaluation.",
 					});
 					const db = getDatabaseClient();
@@ -319,7 +350,7 @@ export async function executeStage2({
 								preRiskEvaluatedAt: new Date(),
 								applicantDecisionOutcome: "declined",
 								applicantDeclineReason:
-									preRiskEvaluation.data.decision.reason ||
+									preRiskEvaluationDecision.reason ||
 									"Declined in optional pre-risk evaluation",
 							})
 							.where(eq(workflows.id, workflowId));
@@ -350,7 +381,19 @@ export async function executeStage2({
 	const mandateInfo = await step.run("determine-mandate", async () => {
 		await guardKillSwitch(workflowId, "determine-mandate");
 
-		const formData = facilitySubmission.data.formData;
+		const formData =
+			(
+				facilitySubmission as {
+					data?: {
+						formData?: {
+							facilityApplicationData?: unknown;
+							mandateType?: string;
+							mandateVolume?: number;
+							[key: string]: unknown;
+						};
+					};
+				}
+			).data?.formData ?? {};
 		const facilityApplicationData = (formData as { facilityApplicationData?: unknown })
 			.facilityApplicationData as Record<string, unknown> | undefined;
 		const facilityFormData =
@@ -425,7 +468,7 @@ export async function executeStage2({
 			});
 			return {
 				success: false as const,
-				quote: null as any,
+				quote: null as Quote | null,
 				error: result.error,
 				isOverlimit: false,
 			};
@@ -459,7 +502,7 @@ export async function executeStage2({
 		};
 	}
 
-	const quote = quotationResult.quote as any;
+	const quote = quotationResult.quote;
 	const isOverlimit = quotationResult.isOverlimit;
 
 	// Step 2.4: Manager Quote Review (decision loop)
@@ -587,7 +630,16 @@ export async function executeStage2({
 		},
 	});
 
-	if (quoteResponse.data.decision === "DECLINED") {
+	const quoteDecisionData = (
+		quoteResponse as {
+			data: {
+				decision: "ACCEPTED" | "DECLINED";
+				reason?: string;
+			};
+		}
+	).data;
+
+	if (quoteDecisionData.decision === "DECLINED") {
 		await step.run("quote-declined-notify", async () => {
 			await notifyApplicantDecline({
 				applicantId,
@@ -595,7 +647,7 @@ export async function executeStage2({
 				subject: "Quotation decision received",
 				heading: "Quotation declined",
 				message:
-					quoteResponse.data.reason || "We have recorded your decline on the quotation.",
+					quoteDecisionData.reason || "We have recorded your decline on the quotation.",
 			});
 			const db = getDatabaseClient();
 			if (db) {
@@ -604,7 +656,7 @@ export async function executeStage2({
 					.set({
 						applicantDecisionOutcome: "declined",
 						applicantDeclineReason:
-							quoteResponse.data.reason || "Applicant declined quotation",
+							quoteDecisionData.reason || "Applicant declined quotation",
 					})
 					.where(eq(workflows.id, workflowId));
 			}
