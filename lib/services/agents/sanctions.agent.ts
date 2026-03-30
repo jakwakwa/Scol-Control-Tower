@@ -246,6 +246,9 @@ export async function performSanctionsCheck(
 	if (isFirecrawlSanctionsFallbackConfigured()) {
 		try {
 			const combined = await runFirecrawlSanctionsSearch({
+				workflowId: input.workflowId,
+				applicantId: input.applicantId,
+				stage: 3,
 				entityName: input.entityName,
 				contactName: input.contactName,
 				directors: input.directors?.map(d => ({ name: d.name })),

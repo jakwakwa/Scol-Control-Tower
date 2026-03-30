@@ -31,12 +31,19 @@ export type OFACSanctionsSearchResult = z.infer<typeof OFACSanctionsSearchSchema
 
 const OFAC_SEARCH_URL = "https://sanctionssearch.ofac.treas.gov/";
 
+interface SanctionsTelemetryContext {
+	workflowId: number;
+	applicantId: number;
+	stage?: 2 | 3 | "async";
+}
+
 /**
  * Search the OFAC sanctions list for individuals or entities
  * matching any of the given search terms.
  */
 export async function searchOFACSanctionsList(
-	searchTerms: string[]
+	searchTerms: string[],
+	telemetry?: SanctionsTelemetryContext
 ): Promise<OFACSanctionsSearchResult> {
 	if (searchTerms.length === 0) {
 		return { matchesFound: false, matches: [] };
@@ -51,6 +58,14 @@ export async function searchOFACSanctionsList(
 		urls: [OFAC_SEARCH_URL],
 		model: "spark-1-mini",
 		timeoutMs: 90_000,
+		telemetry: telemetry
+			? {
+					vendor: "firecrawl_sanctions",
+					workflowId: telemetry.workflowId,
+					applicantId: telemetry.applicantId,
+					stage: telemetry.stage ?? 3,
+				}
+			: undefined,
 	});
 
 	if (!result.success || result.runtimeState !== "success" || !result.data) {

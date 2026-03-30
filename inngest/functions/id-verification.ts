@@ -1,4 +1,5 @@
 import { processIdentityVerification } from "@/app/actions/verify-id";
+import { recordVendorCheckAttempt } from "@/lib/services/telemetry/vendor-metrics";
 import { inngest } from "../client";
 
 /**
@@ -11,7 +12,7 @@ export const autoVerifyIdentity = inngest.createFunction(
 	{ id: "auto-verify-identity", name: "Automated Identity Verification" },
 	{ event: "document/uploaded" },
 	async ({ event, step }) => {
-		const { applicantId, documentId, documentType } = event.data;
+		const { workflowId, applicantId, documentId, documentType } = event.data;
 
 		// Filter for identity document types
 		const idTypes = ["ID_DOCUMENT", "PROPRIETOR_ID", "DIRECTOR_ID", "FICA_ID"];
@@ -21,12 +22,32 @@ export const autoVerifyIdentity = inngest.createFunction(
 		}
 
 		const result = await step.run("verify-identity-document", async () => {
-			return await processIdentityVerification(applicantId, documentId);
-		});
+			const verificationStart = Date.now();
+			const verificationResult = await processIdentityVerification(
+				applicantId,
+				documentId
+			);
+			const hasError = "error" in verificationResult && Boolean(verificationResult.error);
 
-		if ("error" in result && result.error) {
-			throw new Error(`Identity verification failed: ${result.error}`);
-		}
+			recordVendorCheckAttempt({
+				vendor: "document_ai_identity",
+				stage: "async",
+				workflowId,
+				applicantId,
+				outcome: hasError ? "transient_failure" : "success",
+				durationMs: Date.now() - verificationStart,
+				error: hasError ? verificationResult.error : undefined,
+			});
+
+			if (hasError) {
+				const errorMessage = verificationResult.error
+					? String(verificationResult.error)
+					: "Unknown identity verification error";
+				throw new Error(`Identity verification failed: ${errorMessage}`);
+			}
+
+			return verificationResult;
+		});
 
 		const entitiesFound = "data" in result ? result.data?.entities?.length || 0 : 0;
 
