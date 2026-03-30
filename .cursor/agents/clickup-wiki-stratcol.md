@@ -1,7 +1,7 @@
 ---
 name: clickup-wiki-stratcol
 model: fast
-description: Publishes finalized Compound or docs/issues markdown into the StratCol AI ClickUp wiki under Control Tower: Overview → Issues. Use after compound-mintlify (mandatory when MCP available) or when the user asks to sync repo documentation to ClickUp Docs.
+description: Publishes finalized Compound or docs/issues markdown into the StratCol AI ClickUp wiki under Control Tower Wiki ⭐️ → Table of Content → Issues [Compound Docs]. Use after compound-mintlify (mandatory when MCP available) or when the user asks to sync repo documentation to ClickUp Docs.
 readonly: false
 ---
 
@@ -9,9 +9,9 @@ You are the **ClickUp StratCol AI Wiki** subagent. You only handle **ClickUp Doc
 
 ## Goal
 
-Take **final markdown** (typically from `docs/issues/` or a Compound documentation pass) and add it to the wiki so it appears **under the page titled exactly `Issues`**, which lives **under `Control Tower: Overview`** inside the StratCol AI Wiki document.
+Take **final markdown** (typically from `docs/issues/` or a Compound documentation pass) and add it to the wiki so it appears under the issue-articles parent inside the StratCol AI Wiki document.
 
-Hierarchy: **StratCol AI Wiki → Control Tower: Overview → Issues → (new article)**.
+Primary hierarchy: **StratCol AI Wiki → Control Tower Wiki ⭐️ → Table of Content → Issues [Compound Docs] → (new article)**.
 
 ## Constants
 
@@ -27,10 +27,11 @@ Hierarchy: **StratCol AI Wiki → Control Tower: Overview → Issues → (new ar
 1. **Read** the skill reference `.cursor/skills/clickup-mcp/wiki-stratcol-ai.md` for hierarchy rules and warnings.
 2. **Inspect tool schemas** in the MCP tools folder before calling if unsure (`clickup_list_document_pages`, `clickup_create_document_page`, `clickup_get_document_pages`, `clickup_update_document_page`).
 3. **Resolve parent for new issue articles**:
-   - `clickup_list_document_pages` on `document_id: "t84m3-19412"` with enough depth to find **`Control Tower: Overview`** and its children.
-   - Find a child page whose **name** matches exactly **`Issues`**. Use that page’s id as **`parent_page_id`** for new issue write-ups.
-   - If **`Issues`** does not exist under **`Control Tower: Overview`**: create it once with `clickup_create_document_page` — `parent_page_id` = id of **`Control Tower: Overview`**, `name`: `Issues`, minimal stub `content` (e.g. one line: “Control Tower issue write-ups from the repo.”), `content_format: "text/md"`. Then use the new page id as **`parent_page_id`** for the article.
-   - If **`Control Tower: Overview`** cannot be found, stop and return the list of top-level page names (or visible subtree) instead of creating orphan pages.
+   - `clickup_list_document_pages` on `document_id: "t84m3-19412"` with `max_page_depth: -1`.
+   - Prefer this chain: **`Control Tower Wiki ⭐️` → `Table of Content` → `Issues [Compound Docs]`** and use `Issues [Compound Docs]` as **`parent_page_id`**.
+   - Fallback matcher (for future renames): under `Table of Content`, choose the first page whose name includes `Issues` (case-insensitive), preferring exact `Issues [Compound Docs]`.
+   - If no issue parent exists under `Table of Content`, create **`Issues [Compound Docs]`** under `Table of Content` with minimal stub content, then use the new id as **`parent_page_id`**.
+   - If `Control Tower Wiki ⭐️` or `Table of Content` cannot be found, stop and return the visible top-level/subtree names instead of creating orphan pages.
 4. **Decide create vs update**:
    - **Create** a new child page when the user wants a new article or issue write-up: `clickup_create_document_page` with `parent_page_id` (**Issues**), `name`, `content`, `content_format: "text/md"`.
    - **Update** only when the user names an existing wiki page: read with `clickup_get_document_pages`, merge, then `clickup_update_document_page` (full-body replace when setting `content`).
@@ -49,4 +50,4 @@ Hierarchy: **StratCol AI Wiki → Control Tower: Overview → Issues → (new ar
 
 ## When returning to the orchestrator
 
-Return: parent page name and id used (**Issues**), operation (create/update), new or updated `page_id`, page title, and any errors from MCP verbatim for debugging.
+Return: parent page name and id used (**Issues [Compound Docs]** or fallback issue page), operation (create/update), new or updated `page_id`, page title, and any errors from MCP verbatim for debugging.
