@@ -95,6 +95,11 @@ const notificationConfig: Record<
 		color: "text-red-700",
 		bgColor: "bg-red-500/20",
 	},
+	reminder: {
+		icon: RiTimeLine,
+		color: "text-amber-300",
+		bgColor: "bg-amber-500/10",
+	},
 };
 
 interface NotificationsPanelProps {
@@ -183,7 +188,7 @@ export function NotificationsPanel({
 			</PopoverTrigger>
 			<PopoverContent
 				align="end"
-				className="w-[380px] border-amber-200/10 border-1 -inset-1 bg-zinc-950/20 backdrop-blur-sm mx-auto">
+				className="w-[380px] border-amber-200/10 border -inset-1 bg-zinc-950/20 backdrop-blur-sm mx-auto">
 				{/* Header */}
 				<div className="flex items-center justify-between border-b border-secondary/10 px-4 py-3">
 					<h3 className="text-sm font-semibold">Notifications</h3>
@@ -233,7 +238,7 @@ export function NotificationsPanel({
 									{/* Main Action Button */}
 									<button
 										type="button"
-										className="absolute bg-black/30 -inset-1 z-20 m-0 w-full border-1 border-amber-300/15 rounded-xl left-[0px] p-0 focus:outline-1"
+										className="absolute bg-black/30 -inset-1 z-20 m-0 w-full border border-amber-300/15 rounded-xl left-0 p-0 focus:outline-1"
 										onClick={() => onNotificationClick?.(notification)}>
 										<span className="sr-only mt-4">
 											View notification from {notification?.clientName}

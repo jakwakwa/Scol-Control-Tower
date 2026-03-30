@@ -52,12 +52,19 @@ export type UNSanctionsSearchResult = z.infer<typeof UNSanctionsSearchSchema>;
 const UN_CONSOLIDATED_XML_URL =
 	"https://scsanctions.un.org/resources/xml/en/consolidated.xml";
 
+interface SanctionsTelemetryContext {
+	workflowId: number;
+	applicantId: number;
+	stage?: 2 | 3 | "async";
+}
+
 /**
  * Search the UN consolidated sanctions list for individuals or entities
  * matching any of the given search terms (company name, contact name, directors).
  */
 export async function searchUNSanctionsList(
-	searchTerms: string[]
+	searchTerms: string[],
+	telemetry?: SanctionsTelemetryContext
 ): Promise<UNSanctionsSearchResult> {
 	if (searchTerms.length === 0) {
 		return { individuals: [], entities: [] };
@@ -72,6 +79,14 @@ export async function searchUNSanctionsList(
 		urls: [UN_CONSOLIDATED_XML_URL],
 		model: "spark-1-mini",
 		timeoutMs: 90_000,
+		telemetry: telemetry
+			? {
+					vendor: "firecrawl_sanctions",
+					workflowId: telemetry.workflowId,
+					applicantId: telemetry.applicantId,
+					stage: telemetry.stage ?? 3,
+				}
+			: undefined,
 	});
 
 	if (!result.success || result.runtimeState !== "success" || !result.data) {
