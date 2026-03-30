@@ -1,0 +1,102 @@
+---
+title: "Inngest ID Verification Telemetry Cleanup"
+description: "Resolved duplicate vendor telemetry and replay-unsafe timing in autoVerifyIdentity by recording a single step-scoped metric and throwing inside step.run on verification errors."
+category: "integration-issues"
+problem_type: "logic-error"
+component: "inngest-orchestrator"
+symptoms:
+  [
+    "duplicate PostHog vendor_check_attempt telemetry for one identity verification run",
+    "duration_ms mismatch caused by timing measured outside step boundary",
+    "failure telemetry lacked error context for failure-type inference",
+  ]
+root_cause: "Telemetry and error handling were split across the Inngest step boundary: metrics emitted both inside and outside step.run, with a second timer declared in the outer function scope."
+date: "2026-03-30"
+---
+
+# Inngest ID Verification Telemetry Cleanup
+
+## Problem
+
+`autoVerifyIdentity` in `inngest/functions/id-verification.ts` emitted vendor telemetry twice for the same verification call:
+
+1. once inside `step.run("verify-identity-document")`, and
+2. once again after the step returned.
+
+The outer telemetry call used a second `verificationStart`, which made `durationMs` inconsistent with the actual verification operation. Error handling was also split across boundaries, with the throw occurring outside the step.
+
+The Inngest trigger contract remained unchanged: event `document/uploaded` with identity filtering by `documentType`.
+
+## Solution
+
+We refactored the function so verification, telemetry, and failure signaling happen in one place: inside `step.run`.
+
+### Changes made
+
+- Removed the outer `verificationStart` and the second `recordVendorCheckAttempt` call.
+- Computed `hasError` once with a safe check:
+  - `"error" in verificationResult && Boolean(verificationResult.error)`.
+- Emitted telemetry exactly once, adjacent to `processIdentityVerification`.
+- Passed the returned error into telemetry (`error: ...`) so failure-type inference has context.
+- Threw inside `step.run` using a fallback message (`Unknown identity verification error`) when needed.
+- Returned only success-shaped result data from the step.
+
+### Final pattern
+
+```ts
+const result = await step.run("verify-identity-document", async () => {
+  const verificationStart = Date.now();
+  const verificationResult = await processIdentityVerification(applicantId, documentId);
+  const hasError = "error" in verificationResult && Boolean(verificationResult.error);
+
+  recordVendorCheckAttempt({
+    vendor: "document_ai_identity",
+    stage: "async",
+    workflowId,
+    applicantId,
+    outcome: hasError ? "transient_failure" : "success",
+    durationMs: Date.now() - verificationStart,
+    error: hasError ? verificationResult.error : undefined,
+  });
+
+  if (hasError) {
+    const errorMessage = verificationResult.error
+      ? String(verificationResult.error)
+      : "Unknown identity verification error";
+    throw new Error(`Identity verification failed: ${errorMessage}`);
+  }
+
+  return verificationResult;
+});
+```
+
+## Why this works
+
+- Keeps wall-clock timing and side effects (`Date.now()`, vendor call, telemetry) inside the Inngest step boundary.
+- Produces one metric per step attempt instead of duplicate events.
+- Ensures retries are driven by step failure semantics, not post-step checks.
+- Improves observability by supplying the failure payload to telemetry inference.
+
+## Prevention & Best Practices
+
+1. Keep I/O, timing, and telemetry in the same `step.run` as the operation they measure.
+2. Emit telemetry exactly once per attempt and derive outcome from the same `hasError` check used for control flow.
+3. Throw inside the step for retriable vendor failures instead of returning error-shaped success payloads.
+4. Keep error messages normalized and string-safe for alerting and dashboards.
+5. Monitor `vendor_check_attempt` by `vendor=document_ai_identity`, outcome, and duration percentiles.
+6. Treat added `documentType` values as contract changes and update identity-type allowlists with tests.
+
+## Verification
+
+- Confirmed the updated function contains one telemetry call in `step.run`.
+- Confirmed no `Date.now()` timing is declared outside the verification step.
+- Ran targeted check: `bunx biome check inngest/functions/id-verification.ts`.
+- Ran full build verification: `bun run build`.
+
+## Related
+
+- [Vendor-Dependent Workflow Inventory & Failure Handling Matrix](./2026-03-30-vendor-handling-matrix.mdx)
+- [Inngest Workflow Audit & Map](./2026-03-30-inngest-workflow-audit.mdx)
+- [Inngest Timeout Reminders and Zod Schema Test Alignment](./2026-03-27-inngest-timeout-reminders-and-test-schema-alignment.mdx)
+- [Fix: Stage 6 Workflow Stuck — Inngest Orchestration](../2026-03-23-fix-stage6-inngest-workflow-stuck.mdx)
+- [Inngest Workflow Stage Transitions & Browser Flow Tests](./2026-03-23-inngest-workflow-stage-transitions-browser-flow-tests.mdx)
