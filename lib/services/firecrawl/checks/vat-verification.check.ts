@@ -52,9 +52,7 @@ export async function runVatVerificationCheck(
 		throw new Error("VAT number must be exactly 10 digits");
 	}
 
-	const entityHint = input.companyName?.trim()
-		? ` for ${input.companyName.trim()}`
-		: "";
+	const entityHint = input.companyName?.trim() ? ` for ${input.companyName.trim()}` : "";
 
 	const prompt = `Extract VAT registration details${entityHint} (VAT number ${vatNumber}) from the provided website. Capture the success message "Search produced folowing results..." and the table data containing VAT Trading Name, VAT Registration Number, and Office. If the search fails, capture the "Invalid Vat Number" message.`;
 
@@ -64,6 +62,12 @@ export async function runVatVerificationCheck(
 		urls: [VAT_SEARCH_URL],
 		model: "spark-1-mini",
 		timeoutMs: 120_000,
+		telemetry: {
+			vendor: "firecrawl_vat",
+			workflowId: input.workflowId,
+			applicantId: input.applicantId,
+			stage: 3,
+		},
 	});
 
 	const data = agentResult.data;

@@ -1,4 +1,5 @@
 import { processIdentityVerification } from "@/app/actions/verify-id";
+import { recordVendorCheckAttempt } from "@/lib/services/telemetry/vendor-metrics";
 import { inngest } from "../client";
 
 /**
@@ -11,7 +12,7 @@ export const autoVerifyIdentity = inngest.createFunction(
 	{ id: "auto-verify-identity", name: "Automated Identity Verification" },
 	{ event: "document/uploaded" },
 	async ({ event, step }) => {
-		const { applicantId, documentId, documentType } = event.data;
+		const { workflowId, applicantId, documentId, documentType } = event.data;
 
 		// Filter for identity document types
 		const idTypes = ["ID_DOCUMENT", "PROPRIETOR_ID", "DIRECTOR_ID", "FICA_ID"];
@@ -20,11 +21,22 @@ export const autoVerifyIdentity = inngest.createFunction(
 			return { skipped: true, reason: "Not an identity document type", documentType };
 		}
 
+		const verificationStart = Date.now();
 		const result = await step.run("verify-identity-document", async () => {
 			return await processIdentityVerification(applicantId, documentId);
 		});
 
-		if ("error" in result && result.error) {
+		const hasError = "error" in result && Boolean(result.error);
+		recordVendorCheckAttempt({
+			vendor: "document_ai_identity",
+			stage: "async",
+			workflowId,
+			applicantId,
+			outcome: hasError ? "transient_failure" : "success",
+			durationMs: Date.now() - verificationStart,
+		});
+
+		if (hasError) {
 			throw new Error(`Identity verification failed: ${result.error}`);
 		}
 

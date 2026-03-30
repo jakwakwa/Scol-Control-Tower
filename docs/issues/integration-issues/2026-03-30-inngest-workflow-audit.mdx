@@ -1,0 +1,115 @@
+---
+title: "Inngest Workflow Audit & Map"
+description: "Comprehensive audit of the Control Tower onboarding flow, function inventory, event flow, and resilient vendor-check failure handling strategies."
+category: "integration-issues"
+problem_type: "architecture-review"
+component: "inngest-orchestrator"
+symptoms: ["audit requirement", "vendor check resiliency documentation"]
+root_cause: "Proactive documentation of complex Inngest workflows and resilient failure handling patterns."
+date: "2026-03-30"
+---
+
+# Inngest Workflow Audit & Map
+
+## Short Summary
+This audit reviewed the core Inngest workflows for `Scol-Control-Tower`, focusing on the Control Tower onboarding flow (6-stage SOP) and auxiliary functions. The architecture relies on parallel evaluation, a state-locked state machine for risk checks, and event-driven waits (`waitForEvent`) combined with a kill-switch pattern for early termination. Vendor-check failure handling favors resilient "manual_required" state mutations over immediate crashes, with explicit blocks reserved for critical findings like sanction hits.
+
+---
+
+## Function Inventory
+
+### 1. Main Orchestrator
+- **`controlTowerWorkflow`** (ID: `stratcol-control-tower`)
+  - **Trigger:** Event `onboarding/lead.created`
+  - **Cancel On:** `workflow/terminated` (matching `data.workflowId`)
+  - **Retries:** 3
+  - **Purpose:** Primary 6-stage lifecycle orchestration. Runs perimeter validation, re-applicant checks, and routes to `ControlTowerOrchestrator` which linearly calls `stage1` through `stage6`. 
+
+### 2. Event Handlers & Sub-Agents
+- **`killSwitchHandler`** (ID: `stratcol-kill-switch-handler`)
+  - **Trigger:** Event `workflow/terminated`
+  - **Purpose:** Logs the termination reason and timestamp.
+  
+- **`documentAggregator`** (ID: `fica-document-aggregator`)
+  - **Trigger:** Event `document/uploaded`
+  - **Purpose:** Polls applicant's uploaded documents. If all required FICA docs are present (based on business type), emits `upload/fica.received`.
+
+- **`autoVerifyIdentity`** (ID: `auto-verify-identity`)
+  - **Trigger:** Event `document/uploaded`
+  - **Purpose:** Filters for identity documents and triggers Document AI identity proofing. Throws an error if validation fails.
+
+### 3. Schedulers
+- **`zombieReconciler`** (ID: `zombie-reconciler`)
+  - **Trigger:** Cron `0 3 * * *` (Daily)
+  - **Purpose:** Scans for Stage 2 workflows older than 14 days and terminates them (kill-switch triggered with reason `STAGE2_FACILITY_TIMEOUT`).
+
+---
+
+## Event Flow Notes
+
+- **Start:** `onboarding/lead.created` starts the `controlTowerWorkflow`.
+- **Termination:** Any sub-process can invoke `executeKillSwitch` which emits `workflow/terminated`. This cancels the main workflow and runs the `killSwitchHandler` to log the result.
+- **Form Links:** Stage 2 emits emails with magic links (`createFormInstance`). Responses fire `form/facility.submitted` and `quote/responded`.
+- **FICA Completion Loop:** 
+  1. `stage3` waits on `upload/fica.received`.
+  2. Applicant uploads trigger `document/uploaded`.
+  3. `documentAggregator` listens to `document/uploaded`, verifies the set, and finally emits `upload/fica.received`.
+- **Sanctions Overrides:** If `runSanctionsForWorkflow` yields a hit, the workflow issues a `wait-sanction-adjudication` on `sanction/adjudicated` allowing a compliance officer to either clear the hit or confirm it (triggering termination).
+
+---
+
+## Vendor-Check Failure Handling
+
+The system integrates closely with third-party vendors in **Stage 3** (Procurement, ITC, Sanctions, VAT) and **FICA Validation**. Failures gracefully degrade to human review rather than causing runaway exceptions.
+
+1. **Procurement (ProcureCheck API)**
+   - *Behavior:* Analyzes applicant context and sets "completed" state machine on success.
+   - *Failure:* If the underlying API throws an error, it is caught. The error is logged and the state machine `PROCUREMENT` is updated to `manual_required` with `errorDetails`. **Does not kill the workflow run.**
+
+2. **ITC Check (XDS API)**
+   - *Behavior:* Calculates credit score and recommendations.
+   - *Failure:* Exceptions are handled in a `try...catch` block. The `ITC` state machine is set to `failed` and the workflow continues.
+
+3. **Sanctions Check (OpenSanctions via Firecrawl)**
+   - *Behavior:* Evaluates PEP and general sanction lists. `runSanctionsForWorkflow` is also used during Stage 2's pre-risk evaluations.
+   - *Failure / Match:* 
+     - **API Exception:** `SANCTIONS` machine upated to `manual_required`. No termination.
+     - **Blocked but not sanctioned:** Triggers `executeKillSwitch` via reason `COMPLIANCE_VIOLATION`.
+     - **Confirmed Sanction Hit:** Updates `sanctionStatus` to `flagged`, pauses workflow, and awaits human clearance via Event (`sanction/adjudicated`). Times out after 30 days.
+
+4. **FICA Validation (Validation Agent)**
+   - *Behavior:* Extracts entities from documents against applicant context.
+   - *Failure:* If the API crashes or `hasCriticalFailures` is detected, `FICA` transitions to `manual_required`. Does not kill the run.
+
+5. **VAT Check (Firecrawl)**
+   - *Behavior:* Non-blocking peer-check. Evaluates SARs status.
+   - *Failure:* Fully wrapped `try...catch`. Any exception logs an event with `status: "error"` and the workflow proceeds normally. Errors do not mutate FICA state and never trigger a kill switch. No termination.
+
+---
+
+## Risks & Recommendations
+
+### Risks Ordered by Severity
+1. **Critical:** Overloaded/Fat workflows. `controlTowerWorkflow` Orchestrator has 6 sequential synchronous stages spanning weeks/months. If Inngest VM restarts during long `executeStage` non-step operations without state checkpoints, data duplication could theoretically occur (though `getStateLockInfo` partially mitigates this).
+2. **High:** State Collision Rejections. The `getStateLockInfo` handles collision but assumes that returning early from `check-procurement` / `fica-request-docs` is safe when colliding. Without pausing/retrying, the stream might silently drop if lock boundaries don't overlap properly.
+3. **Medium:** `documentAggregator` relies on database polling per document. High upload volume could trigger race conditions if `document/uploaded` fires rapidly for multiple files simultaneously without debouncing, leading to redundant `upload/fica.received` emissions.
+4. **Low:** `autoVerifyIdentity` throws a plain JS error if the `processIdentityVerification` fails. Without a `catch`, it triggers native Inngest retries, eventually failing the event-driven function rather than appending a warning into the DB.
+
+### Recommendations
+1. **Idempotence & Checkpointing:** Ensure every step within `executeStage` closures uses atomic transactions. Move Stage boundary transitions (`lastResult`) into explicit `step.sendEvent` chains if maximum durability is needed across multi-month SLA windows.
+2. **Debounce Aggregator:** Consider using Inngest's built-in debouncing or batching for `fica-document-aggregator` to gather all `document/uploaded` events within a 1-minute window before triggering DB requirements checks.
+3. **Catch Document AI Errs:** Implement `try/catch` in `autoVerifyIdentity` that sets document verification status to `failed` locally rather than throwing a raw error leading to repeated retries and dead-letter queue.
+4. **Clarify VAT Return Payload:** The VAT check emits local JSON logs but doesn't mutate FICA state. While safe, explicitly documenting its visualization within the dashboard Risk Tab will prevent operator confusion about why VAT verification errors "disappear" from the machine state.
+
+--- 
+
+## Files Examined
+- `inngest/index.ts`
+- `inngest/functions/control-tower-workflow.ts`
+- `inngest/functions/control-tower/ControlTowerOrchestrator.ts`
+- `inngest/functions/control-tower/stages/stage2_facilityApplication.ts`
+- `inngest/functions/control-tower/stages/stage3_enrichment.ts`
+- `inngest/functions/document-aggregator.ts`
+- `inngest/functions/zombie-reconciler.ts`
+- `inngest/functions/id-verification.ts`
+- `.cursor/skills/inngest/workflow-auditor/SKILL.md`

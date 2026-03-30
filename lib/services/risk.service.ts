@@ -5,8 +5,11 @@
 import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants } from "@/db/schema";
-
 import { createTestVendor, getVendorResults } from "@/lib/procurecheck";
+import {
+	recordVendorCheckFailure,
+	recordVendorCheckSuccess,
+} from "@/lib/services/telemetry/vendor-metrics";
 
 export interface RiskResult {
 	riskScore: number;
@@ -16,10 +19,31 @@ export interface RiskResult {
 	procureCheckData?: Record<string, unknown>;
 }
 
+interface ProcureCheckVendorResults {
+	RiskSummary?: {
+		FailedChecks?: number;
+	};
+	JudgementCheck?: {
+		Failed?: boolean;
+	};
+	[key: string]: unknown;
+}
+
 /**
  * Perform Risk Analysis using ProcureCheck (Sandbox)
  */
-export async function analyzeRisk(applicantId: number): Promise<RiskResult> {
+function extractHttpStatus(error: unknown): number | null {
+	const message = error instanceof Error ? error.message : String(error);
+	const match = message.match(/\b([1-5]\d{2})\b/);
+	if (!match) return null;
+	const status = Number(match[1]);
+	return Number.isFinite(status) ? status : null;
+}
+
+export async function analyzeRisk(
+	applicantId: number,
+	workflowId: number
+): Promise<RiskResult> {
 	// Fetch applicant data
 	const db = getDatabaseClient();
 	let applicantData = null;
@@ -44,6 +68,7 @@ export async function analyzeRisk(applicantId: number): Promise<RiskResult> {
 
 	// 1. Initiate Check
 	let checkResult: Record<string, unknown> | undefined;
+	const createStart = Date.now();
 	try {
 		const isProprietor = applicantData.entityType === "proprietor";
 		checkResult = await createTestVendor({
@@ -53,7 +78,28 @@ export async function analyzeRisk(applicantId: number): Promise<RiskResult> {
 			idNumber: applicantData.idNumber,
 			isProprietor,
 		});
+		recordVendorCheckSuccess({
+			vendor: "procurecheck",
+			stage: 3,
+			workflowId,
+			applicantId,
+			durationMs: Date.now() - createStart,
+		});
 	} catch (error) {
+		const httpStatus = extractHttpStatus(error);
+		recordVendorCheckFailure({
+			vendor: "procurecheck",
+			stage: 3,
+			workflowId,
+			applicantId,
+			durationMs: Date.now() - createStart,
+			outcome:
+				httpStatus === 401 || httpStatus === 403
+					? "persistent_failure"
+					: "transient_failure",
+			httpStatus,
+			error,
+		});
 		console.error("[RiskService] ProcureCheck creation failed:", error);
 		throw error;
 	}
@@ -69,10 +115,32 @@ export async function analyzeRisk(applicantId: number): Promise<RiskResult> {
 		throw new Error("ProcureCheck did not return a Vendor ID");
 	}
 
-	let results: any = null; // Ideally type this fully based on API docs, but explicit any/unknown is better than implicit
+	let results: ProcureCheckVendorResults | null = null;
+	const fetchStart = Date.now();
 	try {
 		results = await getVendorResults(vendorId);
+		recordVendorCheckSuccess({
+			vendor: "procurecheck",
+			stage: 3,
+			workflowId,
+			applicantId,
+			durationMs: Date.now() - fetchStart,
+		});
 	} catch (error) {
+		const httpStatus = extractHttpStatus(error);
+		recordVendorCheckFailure({
+			vendor: "procurecheck",
+			stage: 3,
+			workflowId,
+			applicantId,
+			durationMs: Date.now() - fetchStart,
+			outcome:
+				httpStatus === 401 || httpStatus === 403
+					? "persistent_failure"
+					: "transient_failure",
+			httpStatus,
+			error,
+		});
 		console.error("[RiskService] Failed to fetch results:", error);
 	}
 
