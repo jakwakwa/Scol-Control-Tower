@@ -18,14 +18,27 @@ import type {
 	FailureDetail,
 	RuntimeState,
 } from "@/lib/services/agents/contracts/firecrawl-check.contracts";
+import {
+	recordVendorCheckAttempt,
+	recordVendorCheckFailure,
+	type VendorCheckStage,
+} from "@/lib/services/telemetry/vendor-metrics";
 
 export type { RuntimeState, FailureDetail };
+
+interface FirecrawlTelemetryContext {
+	vendor: "firecrawl_sanctions" | "firecrawl_vat";
+	workflowId: number;
+	applicantId: number;
+	stage?: VendorCheckStage;
+}
 
 export interface ScrapeOptions<T extends z.ZodType> {
 	url: string;
 	schema: T;
 	prompt?: string;
 	timeoutMs?: number;
+	telemetry?: FirecrawlTelemetryContext;
 }
 
 export interface ScrapeResult<T> {
@@ -63,7 +76,7 @@ function getClient(): Firecrawl {
 export async function scrapeWithSchema<T extends z.ZodType>(
 	options: ScrapeOptions<T>
 ): Promise<ScrapeResult<z.infer<T>>> {
-	const { url, schema, prompt, timeoutMs = 30_000 } = options;
+	const { url, schema, prompt, timeoutMs = 30_000, telemetry } = options;
 	const start = Date.now();
 
 	try {
@@ -85,6 +98,17 @@ export async function scrapeWithSchema<T extends z.ZodType>(
 		const json = response.json;
 
 		if (json == null) {
+			if (telemetry) {
+				recordVendorCheckFailure({
+					vendor: telemetry.vendor,
+					stage: telemetry.stage ?? "async",
+					workflowId: telemetry.workflowId,
+					applicantId: telemetry.applicantId,
+					durationMs: latencyMs,
+					outcome: "transient_failure",
+					error: "Firecrawl returned no JSON extraction data",
+				});
+			}
 			return {
 				success: false,
 				data: null,
@@ -101,6 +125,18 @@ export async function scrapeWithSchema<T extends z.ZodType>(
 
 		const parsed = schema.safeParse(json);
 		if (!parsed.success) {
+			if (telemetry) {
+				recordVendorCheckFailure({
+					vendor: telemetry.vendor,
+					stage: telemetry.stage ?? "async",
+					workflowId: telemetry.workflowId,
+					applicantId: telemetry.applicantId,
+					durationMs: latencyMs,
+					outcome: "transient_failure",
+					failureType: "schema_error",
+					error: parsed.error,
+				});
+			}
 			return {
 				success: true,
 				data: json as z.infer<T>,
@@ -113,6 +149,17 @@ export async function scrapeWithSchema<T extends z.ZodType>(
 				latencyMs,
 				sourceUrl: url,
 			};
+		}
+
+		if (telemetry) {
+			recordVendorCheckAttempt({
+				vendor: telemetry.vendor,
+				stage: telemetry.stage ?? "async",
+				workflowId: telemetry.workflowId,
+				applicantId: telemetry.applicantId,
+				outcome: "success",
+				durationMs: latencyMs,
+			});
 		}
 
 		return {
@@ -133,6 +180,17 @@ export async function scrapeWithSchema<T extends z.ZodType>(
 			message.includes("captcha");
 
 		const runtimeState: RuntimeState = isBlocked ? "blocked" : "error";
+		if (telemetry) {
+			recordVendorCheckFailure({
+				vendor: telemetry.vendor,
+				stage: telemetry.stage ?? "async",
+				workflowId: telemetry.workflowId,
+				applicantId: telemetry.applicantId,
+				durationMs: latencyMs,
+				outcome: isBlocked ? "persistent_failure" : "transient_failure",
+				error,
+			});
+		}
 
 		return {
 			success: false,
@@ -161,12 +219,20 @@ export interface AgentOptions<T extends z.ZodType> {
 	urls?: string[];
 	model?: "spark-1-mini" | "spark-1-pro";
 	timeoutMs?: number;
+	telemetry?: FirecrawlTelemetryContext;
 }
 
 export async function agentWithSchema<T extends z.ZodType>(
 	options: AgentOptions<T>
 ): Promise<ScrapeResult<z.infer<T>>> {
-	const { prompt, schema, urls, model = "spark-1-mini", timeoutMs = 120_000 } = options;
+	const {
+		prompt,
+		schema,
+		urls,
+		model = "spark-1-mini",
+		timeoutMs = 120_000,
+		telemetry,
+	} = options;
 	const start = Date.now();
 	const sourceUrl = urls?.[0] ?? "agent";
 
@@ -186,6 +252,17 @@ export async function agentWithSchema<T extends z.ZodType>(
 		const latencyMs = Date.now() - start;
 
 		if (!result.success || result.status === "failed") {
+			if (telemetry) {
+				recordVendorCheckFailure({
+					vendor: telemetry.vendor,
+					stage: telemetry.stage ?? "async",
+					workflowId: telemetry.workflowId,
+					applicantId: telemetry.applicantId,
+					durationMs: latencyMs,
+					outcome: "transient_failure",
+					error: result.error ?? "Firecrawl agent failed",
+				});
+			}
 			return {
 				success: false,
 				data: null,
@@ -201,6 +278,17 @@ export async function agentWithSchema<T extends z.ZodType>(
 		}
 
 		if (result.status !== "completed") {
+			if (telemetry) {
+				recordVendorCheckFailure({
+					vendor: telemetry.vendor,
+					stage: telemetry.stage ?? "async",
+					workflowId: telemetry.workflowId,
+					applicantId: telemetry.applicantId,
+					durationMs: latencyMs,
+					outcome: "transient_failure",
+					error: `Agent status: ${result.status}`,
+				});
+			}
 			return {
 				success: false,
 				data: null,
@@ -218,6 +306,17 @@ export async function agentWithSchema<T extends z.ZodType>(
 		const json = result.data;
 
 		if (json == null) {
+			if (telemetry) {
+				recordVendorCheckFailure({
+					vendor: telemetry.vendor,
+					stage: telemetry.stage ?? "async",
+					workflowId: telemetry.workflowId,
+					applicantId: telemetry.applicantId,
+					durationMs: latencyMs,
+					outcome: "transient_failure",
+					error: "Firecrawl agent returned no data",
+				});
+			}
 			return {
 				success: false,
 				data: null,
@@ -234,6 +333,18 @@ export async function agentWithSchema<T extends z.ZodType>(
 
 		const parsed = schema.safeParse(json);
 		if (!parsed.success) {
+			if (telemetry) {
+				recordVendorCheckFailure({
+					vendor: telemetry.vendor,
+					stage: telemetry.stage ?? "async",
+					workflowId: telemetry.workflowId,
+					applicantId: telemetry.applicantId,
+					durationMs: latencyMs,
+					outcome: "transient_failure",
+					failureType: "schema_error",
+					error: parsed.error,
+				});
+			}
 			return {
 				success: true,
 				data: json as z.infer<T>,
@@ -246,6 +357,17 @@ export async function agentWithSchema<T extends z.ZodType>(
 				latencyMs,
 				sourceUrl,
 			};
+		}
+
+		if (telemetry) {
+			recordVendorCheckAttempt({
+				vendor: telemetry.vendor,
+				stage: telemetry.stage ?? "async",
+				workflowId: telemetry.workflowId,
+				applicantId: telemetry.applicantId,
+				outcome: "success",
+				durationMs: latencyMs,
+			});
 		}
 
 		return {
@@ -266,6 +388,17 @@ export async function agentWithSchema<T extends z.ZodType>(
 			message.includes("captcha");
 
 		const runtimeState: RuntimeState = isBlocked ? "blocked" : "error";
+		if (telemetry) {
+			recordVendorCheckFailure({
+				vendor: telemetry.vendor,
+				stage: telemetry.stage ?? "async",
+				workflowId: telemetry.workflowId,
+				applicantId: telemetry.applicantId,
+				durationMs: latencyMs,
+				outcome: isBlocked ? "persistent_failure" : "transient_failure",
+				error,
+			});
+		}
 
 		return {
 			success: false,

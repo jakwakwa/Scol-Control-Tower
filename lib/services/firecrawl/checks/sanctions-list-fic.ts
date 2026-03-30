@@ -28,12 +28,19 @@ export type FICTFSSanctionsSearchResult = z.infer<typeof FICTFSSanctionsSearchSc
 
 const FIC_TFS_URL = "https://www.fic.gov.za/targeted-financial-sanctions/";
 
+interface SanctionsTelemetryContext {
+	workflowId: number;
+	applicantId: number;
+	stage?: 2 | 3 | "async";
+}
+
 /**
  * Search the FIC Targeted Financial Sanctions list for individuals or entities
  * matching any of the given search terms.
  */
 export async function searchFICTFSSanctionsList(
-	searchTerms: string[]
+	searchTerms: string[],
+	telemetry?: SanctionsTelemetryContext
 ): Promise<FICTFSSanctionsSearchResult> {
 	if (searchTerms.length === 0) {
 		return { matchesFound: false, matches: [] };
@@ -48,6 +55,14 @@ export async function searchFICTFSSanctionsList(
 		urls: [FIC_TFS_URL],
 		model: "spark-1-mini",
 		timeoutMs: 90_000,
+		telemetry: telemetry
+			? {
+					vendor: "firecrawl_sanctions",
+					workflowId: telemetry.workflowId,
+					applicantId: telemetry.applicantId,
+					stage: telemetry.stage ?? 3,
+				}
+			: undefined,
 	});
 
 	if (!result.success || result.runtimeState !== "success" || !result.data) {
