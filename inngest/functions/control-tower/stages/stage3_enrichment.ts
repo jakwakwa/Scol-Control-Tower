@@ -30,6 +30,7 @@ import { runVatVerificationCheck } from "@/lib/services/firecrawl";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 import { inngest } from "../../../client";
 import { guardKillSwitch, runSanctionsForWorkflow } from "../helpers";
+import { handleWaitWithReminders } from "../reminder-handler";
 import type { Stage2Output, StageDependencies, StageResult } from "../types";
 
 export async function executeStage3({
@@ -353,49 +354,20 @@ export async function executeStage3({
 
 	const ficaDocsReceived = mandateVerified.documentsComplete
 		? { data: { workflowId, applicantId, source: "stage2_documents_already_complete" } }
-		: await step.waitForEvent("wait-fica-docs", {
-				event: "upload/fica.received",
-				timeout: WORKFLOW_TIMEOUTS.STAGE,
-				match: "data.workflowId",
-			});
-
-	if (!ficaDocsReceived) {
-		await step.run("notify-am-fica-timeout", async () => {
-			await guardKillSwitch(workflowId, "notify-am-fica-timeout");
-			await createWorkflowNotification({
-				workflowId,
-				applicantId,
-				type: "warning",
-				title: "Delay: FICA Documents",
-				message:
-					"Applicant failed to upload FICA documents within the expected timeframe.",
-				actionable: true,
-			});
-			await sendInternalAlertEmail({
-				title: "Delay: FICA Documents",
-				message: `Applicant has not uploaded FICA documents within the ${WORKFLOW_TIMEOUTS.STAGE} timeout window. Please follow up.`,
-				workflowId,
-				applicantId,
-				type: "warning",
-				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
-			});
-		});
-
-		await step.run("fica-timeout-update-row", () =>
-			updateRiskCheckMachineState(workflowId, "FICA", "failed", {
-				errorDetails: "FICA document upload timed out",
-			})
-		);
-
-		await step.run("terminate-fica-timeout", () =>
-			terminateRun({
+		: await handleWaitWithReminders({
+				step,
 				workflowId,
 				applicantId,
 				stage: 3,
-				reason: "STAGE3_FICA_UPLOAD_TIMEOUT",
-			})
-		);
-	}
+				waitStepId: "wait-fica-docs",
+				eventName: "upload/fica.received",
+				totalTimeout: WORKFLOW_TIMEOUTS.STAGE,
+				terminationReason: "STAGE3_FICA_UPLOAD_TIMEOUT",
+				reminderContext: {
+					itemName: "FICA Documents",
+					actionTab: "documents",
+				},
+			});
 
 	if (
 		"source" in ficaDocsReceived.data &&

@@ -5,6 +5,7 @@ import { createWorkflowNotification } from "@/lib/services/notification-events.s
 import { terminateRun } from "@/lib/services/terminate-run.service";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 import { guardKillSwitch } from "../helpers";
+import { handleWaitWithReminders } from "../reminder-handler";
 import type { StageDependencies, StageResult } from "../types";
 
 export async function executeStage5({
@@ -47,42 +48,22 @@ export async function executeStage5({
 		updateWorkflowStatus(workflowId, "awaiting_human", 5)
 	);
 
-	// Wait for Account Manager to review/edit the contract draft
-	const contractReviewed = await step.waitForEvent("wait-contract-reviewed", {
-		event: "contract/draft.reviewed",
-		timeout: WORKFLOW_TIMEOUTS.REVIEW,
-		match: "data.workflowId",
+	// Wait for Account Manager to review/edit the contract draft (AM-only reminders)
+	const contractReviewed = await handleWaitWithReminders({
+		step,
+		workflowId,
+		applicantId,
+		stage: 5,
+		waitStepId: "wait-contract-reviewed",
+		eventName: "contract/draft.reviewed",
+		totalTimeout: WORKFLOW_TIMEOUTS.REVIEW,
+		terminationReason: "STAGE5_CONTRACT_REVIEW_TIMEOUT",
+		reminderContext: {
+			itemName: "Contract Draft Review",
+			actionTab: "overview",
+		},
+		internalOnly: true,
 	});
-
-	if (!contractReviewed) {
-		await step.run("notify-am-contract-review-timeout", async () => {
-			await guardKillSwitch(workflowId, "notify-am-contract-review-timeout");
-			await createWorkflowNotification({
-				workflowId,
-				applicantId,
-				type: "warning",
-				title: "Delay: Contract Review",
-				message: "The AI-generated contract is stalled awaiting Account Manager review.",
-				actionable: true,
-			});
-			await sendInternalAlertEmail({
-				title: "Delay: Contract Review Stalled",
-				message: `The contract draft has not been reviewed within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window. Please review.`,
-				workflowId,
-				applicantId,
-				type: "warning",
-				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}?tab=overview`,
-			});
-		});
-		await step.run("terminate-contract-review-timeout", () =>
-			terminateRun({
-				workflowId,
-				applicantId,
-				stage: 5,
-				reason: "STAGE5_CONTRACT_REVIEW_TIMEOUT",
-			})
-		);
-	}
 
 	// Step 5.2: Record that final contract delivery happens only after approvals
 	await step.run("notify-stage-5-gates", async () => {
@@ -102,43 +83,21 @@ export async function executeStage5({
 		updateWorkflowStatus(workflowId, "awaiting_human", 5)
 	);
 
-	// Wait for ABSA 6995 form completion
-	const absaCompleted = await step.waitForEvent("wait-absa-completed", {
-		event: "form/absa-6995.completed",
-		timeout: WORKFLOW_TIMEOUTS.REVIEW,
-		match: "data.workflowId",
+	// Wait for ABSA 6995 form completion (AM-only reminders)
+	const absaCompleted = await handleWaitWithReminders({
+		step,
+		workflowId,
+		applicantId,
+		stage: 5,
+		waitStepId: "wait-absa-completed",
+		eventName: "form/absa-6995.completed",
+		totalTimeout: WORKFLOW_TIMEOUTS.REVIEW,
+		terminationReason: "STAGE5_ABSA_FORM_TIMEOUT",
+		reminderContext: {
+			itemName: "ABSA 6995 Form",
+		},
+		internalOnly: true,
 	});
-
-	if (!absaCompleted) {
-		await step.run("notify-am-absa-timeout", async () => {
-			await guardKillSwitch(workflowId, "notify-am-absa-timeout");
-			await createWorkflowNotification({
-				workflowId,
-				applicantId,
-				type: "warning",
-				title: "Delay: ABSA Approval Confirmation",
-				message:
-					"ABSA approval has not been confirmed within the expected timeframe.",
-				actionable: true,
-			});
-			await sendInternalAlertEmail({
-				title: "Delay: ABSA Approval Confirmation",
-				message: `ABSA approval has not been confirmed within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window. Send the packet from the ABSA form page, then confirm approval once ABSA has approved.`,
-				workflowId,
-				applicantId,
-				type: "warning",
-				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
-			});
-		});
-		await step.run("terminate-absa-timeout", () =>
-			terminateRun({
-				workflowId,
-				applicantId,
-				stage: 5,
-				reason: "STAGE5_ABSA_FORM_TIMEOUT",
-			})
-		);
-	}
 
 	// ================================================================
 	return { status: "completed", stage: 5 };

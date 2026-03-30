@@ -1,9 +1,10 @@
 import { eq } from "drizzle-orm";
 import { getBaseUrl, getDatabaseClient } from "@/app/utils";
 import { applicants, workflows } from "@/db/schema";
-import { WORKFLOW_TIMEOUTS } from "@/lib/constants/workflow-timeouts";
+import { WORKFLOW_TIMEOUTS, REMINDER_INTERVALS } from "@/lib/constants/workflow-timeouts";
 import {
 	sendApplicantFormLinksEmail,
+	sendApplicantReminderEmail,
 	sendInternalAlertEmail,
 } from "@/lib/services/email.service";
 import { createFormInstance } from "@/lib/services/form.service";
@@ -290,38 +291,102 @@ export async function executeStage6({
 	});
 
 	// ================================================================
-	// CONTRACT SIGNATURE FOLLOW-UP (NON-BLOCKING)
+	// CONTRACT SIGNATURE FOLLOW-UP (NON-BLOCKING WITH REMINDERS)
 	// ================================================================
 	// Two-factor approvals are the completion gate for Stage 6.
 	// We still observe applicant contract decisions for ops visibility,
-	// but we no longer terminate/revert the workflow when signatures are delayed.
-	const contractDecision = await step.waitForEvent("wait-contract-decision", {
-		event: "form/decision.responded",
-		timeout: WORKFLOW_TIMEOUTS.REVIEW,
-		if: "event.data.workflowId == async.data.workflowId && event.data.formType == 'AGREEMENT_CONTRACT'",
-	});
+	// and send reminder nudges if they don't respond.
 
-	if (!contractDecision) {
-		await step.run("notify-contract-signature-delay", async () => {
+	const maxReminders = REMINDER_INTERVALS.MAX_REMINDERS;
+	const waitDurations = [
+		REMINDER_INTERVALS.FIRST_NUDGE,
+		...(maxReminders >= 2 ? [REMINDER_INTERVALS.SECOND_NUDGE] : []),
+		WORKFLOW_TIMEOUTS.REVIEW,
+	];
+
+	let contractDecision = null;
+
+	for (let i = 0; i < waitDurations.length; i++) {
+		const stepSuffix = i === 0 ? "" : `-reminder-${i}`;
+
+		contractDecision = await step.waitForEvent(`wait-contract-decision${stepSuffix}`, {
+			event: "form/decision.responded",
+			timeout: waitDurations[i],
+			if: "event.data.workflowId == async.data.workflowId && event.data.formType == 'AGREEMENT_CONTRACT'",
+		});
+
+		if (contractDecision) break;
+
+		// Last wait — just warn, don't terminate (non-blocking)
+		if (i === waitDurations.length - 1) {
+			await step.run("notify-contract-signature-delay", async () => {
+				await createWorkflowNotification({
+					workflowId,
+					applicantId,
+					type: "warning",
+					title: "Delay: Contract Signature",
+					message:
+						"Applicant has not signed the final contract within the expected timeframe.",
+					actionable: true,
+				});
+				await sendInternalAlertEmail({
+					title: "Delay: Contract Signature",
+					message: `Applicant has not signed the final contract within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window. Please follow up.`,
+					workflowId,
+					applicantId,
+					type: "warning",
+					actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
+				});
+			});
+			break;
+		}
+
+		// Intermediate: send applicant reminder
+		const reminderNumber = i + 1;
+		await step.run(`send-contract-signature-reminder-${reminderNumber}`, async () => {
+			await guardKillSwitch(workflowId, `send-contract-signature-reminder-${reminderNumber}`);
+
+			const db = getDatabaseClient();
+			if (db) {
+				const [applicant] = await db
+					.select()
+					.from(applicants)
+					.where(eq(applicants.id, applicantId));
+
+				if (applicant) {
+					await sendApplicantReminderEmail({
+						email: applicant.email,
+						contactName: applicant.contactName,
+						itemName: "Agreement Contract",
+						reminderNumber,
+						maxReminders,
+					});
+				}
+			}
+
 			await createWorkflowNotification({
 				workflowId,
 				applicantId,
-				type: "warning",
-				title: "Delay: Contract Signature",
-				message:
-					"Applicant has not signed the final contract within the expected timeframe.",
+				type: "reminder",
+				title: `Reminder: Agreement Contract Signature`,
+				message: `Agreement contract is still awaiting applicant signature (reminder ${reminderNumber}/${maxReminders}).`,
 				actionable: true,
 			});
-			await sendInternalAlertEmail({
-				title: "Delay: Contract Signature",
-				message: `Applicant has not signed the final contract within the ${WORKFLOW_TIMEOUTS.REVIEW} timeout window. Please follow up.`,
+
+			await logWorkflowEvent({
 				workflowId,
-				applicantId,
-				type: "warning",
-				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
+				eventType: "reminder_sent",
+				payload: {
+					stage: 6,
+					itemName: "Agreement Contract",
+					reminderNumber,
+					maxReminders,
+				},
 			});
 		});
-	} else if (contractDecision.data.decision === "DECLINED") {
+	}
+
+	if (contractDecision && contractDecision.data.decision === "DECLINED") {
 		await step.run("contract-declined-notify", async () => {
 			await createWorkflowNotification({
 				workflowId,

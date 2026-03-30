@@ -4,6 +4,7 @@ import ApplicantFormLinks, {
 	type FormLink,
 	type RequiredDocumentSummary,
 } from "@/components/emails/ApplicantFormLinks";
+import ApplicantReminder from "@/components/emails/ApplicantReminder";
 import InternalAlert from "@/components/emails/InternalAlert";
 import type { ScreeningValueType } from "@/db/schema";
 
@@ -297,3 +298,53 @@ export async function sendApplicantStatusEmail(params: {
 		return { success: false, error: String(error) };
 	}
 }
+
+/**
+ * Send a follow-up reminder email to an applicant when a wait point stalls.
+ */
+export async function sendApplicantReminderEmail(params: {
+	email: string;
+	contactName?: string;
+	itemName: string;
+	actionUrl?: string;
+	reminderNumber: number;
+	maxReminders: number;
+}): Promise<EmailResult> {
+	if (!resend) {
+		console.warn("[EmailService] Resend not configured. Reminder email not sent.");
+		return { success: false, error: "Resend not configured" };
+	}
+
+	try {
+		const emailHtml = await render(
+			<ApplicantReminder
+				contactName={params.contactName}
+				itemName={params.itemName}
+				actionUrl={params.actionUrl}
+				reminderNumber={params.reminderNumber}
+				maxReminders={params.maxReminders}
+			/>
+		);
+
+		const isLast = params.reminderNumber >= params.maxReminders;
+		const { data, error } = await resend.emails.send({
+			from: fromEmail,
+			to: params.email,
+			subject: isLast
+				? `Final Reminder: Complete your ${params.itemName}`
+				: `Reminder: Your ${params.itemName} is awaiting completion`,
+			html: emailHtml,
+		});
+
+		if (error) {
+			console.error("[EmailService] Failed to send reminder:", error);
+			return { success: false, error: error.message };
+		}
+
+		return { success: true, messageId: data?.id || "unknown" };
+	} catch (error) {
+		console.error("[EmailService] Exception sending reminder email:", error);
+		return { success: false, error: String(error) };
+	}
+}
+

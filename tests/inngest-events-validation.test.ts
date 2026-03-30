@@ -20,7 +20,13 @@ import {
 describe("Inngest Event Validation Schemas", () => {
 	describe("OnboardingLeadCreatedSchema", () => {
 		it("should validate correct data", () => {
-			const data = { applicantId: 1, workflowId: 2 };
+			const data = {
+				applicantId: 1,
+				workflowId: 2,
+				companyName: "Test Corp",
+				contactName: "Jane Doe",
+				email: "jane@test.com",
+			};
 			expect(() => OnboardingLeadCreatedSchema.parse(data)).not.toThrow();
 		});
 
@@ -430,6 +436,7 @@ describe("Inngest Event Validation Schemas", () => {
 				externalCheckId: "manual-check-1",
 				checkedAt: "2026-03-10T10:00:00Z",
 				passed: true,
+				riskLevel: "CLEAR" as const,
 			};
 			const result = ExternalSanctionsIngressSchema.parse(data);
 			expect(result.isBlocked).toBe(false);
