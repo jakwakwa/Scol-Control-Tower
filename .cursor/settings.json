@@ -34,7 +34,7 @@
       "enabled": true
     },
     "continual-learning": {
-      "enabled": true
+      "enabled": false
     }
   }
 }
