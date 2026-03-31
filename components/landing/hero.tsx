@@ -74,13 +74,11 @@ export function Hero() {
 							</Link>
 						</Button>
 					</div>
-					{/* Glow Effect */}
-					<div className="absolute w-1/2 mx-auto h-[26px] -inset-2   animate-[ping_4s_ease-out_infinite] bg-blue-500/15 blur-lg -z-1 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 shadow-[0_0_10px_0_var(--secondary)] rounded opacity-90"></div>
 				</motion.div>
 			</div>
 
 			{/* Background Grid */}
-			<div className="absolute inset-0 bg-[linear-gradient(to_right,var(--border)_2px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-[size:24px_24px] radial-gradient(circle, rgba(255,255,255,0.5) 1px, transparent 1px) pointer-events-none opacity-20" />
+			<div className="absolute inset-0 bg-[linear-gradient(to_right,var(--chart-1)_2px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-[size:24px_24px] radial-gradient(circle, rgba(255,255,255,0.5) 1px, transparent 1px) pointer-events-none opacity-20" />
 		</section>
 	);
 }
