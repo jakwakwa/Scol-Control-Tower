@@ -3,7 +3,7 @@ import {
 	RiFileTextLine,
 	RiShieldCheckLine,
 	RiTimeLine,
-	RiUserAddLine,
+	RiUser2Fill,
 } from "@remixicon/react";
 import { count, desc, eq } from "drizzle-orm";
 import Link from "next/link";
@@ -126,12 +126,17 @@ export default async function DashboardPage() {
 			title="Onboarding Pipeline"
 			description="Track and manage client applications through the onboarding process"
 			actions={
-				<Link href="/dashboard/applicants/new">
-					<Button variant="secondary">
-						<RiUserAddLine color="var(--color-amber-200)" />
-						New Applicant
+				<div className="flex items-center mr-4">
+					<Button
+						variant="secondary"
+						asChild
+						className="gap-2 mx-0 focus-visible:mx-0  focus-visible:h-fit max-w-fit">
+						<Link href="/dashboard/applicants/new">
+							<RiUser2Fill className="h-4 w-4" />
+							New Applicant
+						</Link>
 					</Button>
-				</Link>
+				</div>
 			}
 			notifications={workflowNotifications}>
 			{/* Stats Grid - StratCol Style */}
@@ -148,9 +153,8 @@ export default async function DashboardPage() {
 						activeWorkflows.filter(w => !["won", "lost", "completed"].includes(w.stage))
 							.length
 					}
-				
 					icon={RiTimeLine}
-					iconColor="amber" 
+					iconColor="amber"
 				/>
 				<StatsCard
 					title="Completed"

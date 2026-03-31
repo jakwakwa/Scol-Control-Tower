@@ -54,7 +54,7 @@ async function jsonFetch<T>(url: string): Promise<T> {
 	return (await res.json()) as T;
 }
 
-const LINE_COLORS = ["#266d7b", "#38bdf8", "#4ade80", "#fbbf24", "#a78bfa", "#fb7185"];
+const LINE_COLORS = ["#CD4FD3", "#9E38F8", "#DED74A", "#24C9FB", "#4070F4", "#FB564A"];
 
 function mergeSeriesForRecharts(
 	series: TrendSeriesDto[]

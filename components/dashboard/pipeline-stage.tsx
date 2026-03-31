@@ -16,7 +16,7 @@ const PipelineStage = ({ stage, columns }: PipelineStageProps): React.ReactEleme
 	return (
 		<div
 			className={cn(
-				"flex items-center bg-card after:rounded-2xl before:rounded-2xl w-full h-fit backdrop-blur-sm justify-center py-4 px-4 gap-2 rounded-xl shadow-md shadow-black border-t-[1.5px] mb-4",
+				"flex items-center bg-card after:rounded-2xl before:rounded-2xl w-full h-auto backdrop-blur-sm justify-center py-3	 px-4 gap-2 rounded-xl shadow-md shadow-black border-t-[1.5px] mb-4",
 				stage.color
 			)}>
 			<div className="flex flex-col items-start	justify-center gap-2 w-full">
