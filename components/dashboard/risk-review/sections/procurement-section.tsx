@@ -55,29 +55,29 @@ export function ProcurementSection({
 			)}
 
 			<div className="border-b-0 border-border">
-				<nav className="flex space-x-1 border-b-0">
+				<nav className="flex items-center justify-start border-b-0 w-full h-1 leading-none gap-0 mb-0 pb-0">
 					{(["overview", "directors", "compliance"] as const).map(tab => (
 						<Button
 							key={tab}
 							onClick={() => setActiveSubTab(tab)}
-							className={`pb-4 text-sm font-medium capitalize transition-colors relative rounded-b-none ${
+							className={`pb-0 mb-0 text-sm font-medium capitalize transition-colors relative rounded-b-none ${
 								activeSubTab === tab
-									? "text-primary bg-secondary"
-									: "text-muted-foreground bg-black/20     hover:text-foreground"
+									? "text-primary bg-secondary h-8 leading-normal py-4   h-8    hover:text-foreground"
+									: "text-muted-foreground bg-black/20 py-4  leading-normal h-full h-8    hover:text-foreground"
 							}`}>
 							{tab}
 							{activeSubTab === tab && (
-								<span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-b-0 rounded-t-sm" />
+								<span className="absolute  bottom-0 left-0 w-full h-0.5 bg-primary rounded-b-0 rounded-t-sm" />
 							)}
 						</Button>
 					))}
 				</nav>
 			</div>
 
-			<div className="pt-2">
+			<div className="pt-0 mt-0">
 				{activeSubTab === "overview" && (
 					<Card>
-						<table className="w-full text-left border-collapse">
+						<table className="w-full text-left border-collapse mt-0 pt-0 bg-card">
 							<thead>
 								<tr className="border-b border-border bg-muted/50 text-xs text-muted-foreground uppercase tracking-wider">
 									<th className="p-4 font-medium">Verification Check</th>
