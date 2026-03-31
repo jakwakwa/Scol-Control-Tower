@@ -11,12 +11,12 @@ import { WorkflowSteps } from "@/components/landing/workflow-steps";
 
 export default function Page() {
 	return (
-		<div className="relative my-0 py-0 overflow-hidden selection:text-cyan-600 w-screen flex flex-col bg-blend-color bg-cyan-600">
-			<div className="absolute bg-blend-multiply mix-blend-multiply h-full">
+		<div className="relative my-0 py-0 overflow-hidden selection:text-cyan-600 w-screen flex flex-col bg-transparent">
+			<div className="absolute h-full backdrop-blur-sm">
 				<Grainient
-					color1="#1a2d3a"
-					color2="#091c23"
-					color3="#123135"
+					color1="#3A2E1A"
+					color2="#382603"
+					color3="#1E1103"
 					timeSpeed={0.3}
 					colorBalance={-0.17}
 					warpStrength={0.7}
