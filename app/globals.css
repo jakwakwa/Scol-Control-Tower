@@ -123,15 +123,15 @@
   --charcoal-700: #222226;
   --charcoal-800: #121215a5;
   --charcoal-900: #131317;
-  --background: oklch(0.17 0.01 229.83 / 0.97);
+  --background: oklch(0.21 0.02 238.61 / 0.97);
   --foreground: #D9B582;
   --card: oklch(0.17 0.01 264.3 / 0.45);
   --card-foreground: var(--gold-100);
   --popover: #18121278;
   --popover-foreground: var(--gold-200);
   --primary: #AF7E3A;
-  --primary-foreground: hsla(205 11.54% 59.22% / 0.8);
-  --secondary: #0128416B;
+  --primary-foreground: hsla(25.12 30.94% 27.25% / 0.8);
+  --secondary: #01335A5B;
   --secondary-foreground: var(--gold-100);
   --muted: var(--charcoal-700);
   --muted-foreground: #CCB69FB4;
@@ -147,9 +147,9 @@
   /* gold-500                        */
   --chart-2: rgb(41 149 166);
   /* bright maroon (chart accent)     */
-  --chart-3: #6276F8;
+  --chart-3: #7C8DFE;
   /* warm red                        */
-  --chart-4: #DB64E2;
+  --chart-4: #D182FF;
   /* green (success)                 */
   --chart-5: #73DEE8;
   /* gold-400                        */
@@ -296,9 +296,13 @@
 
   .surface-card > :first-child {
     background: transparent !important;
-    background: #080C0D1D !important;
+    background: #080C0D00 !important;
     border-radius: 0.8rem !important;
     color: rgb(123, 99, 57) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-direction: column !important;
     padding: 5px 15px !important;
     font-size: 11.5px !important;
     backdrop-filter: blur(10px);
@@ -656,6 +660,8 @@
 
   body {
     @apply bg-background text-foreground;
+    background-color: #161614 !important;
+    background-image: radial-gradient(circle, rgba(58, 46, 26, 0.82) 1px, transparent 1px) !important;
 
   }
 
