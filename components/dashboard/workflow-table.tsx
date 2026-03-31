@@ -17,6 +17,7 @@ import {
 	RiUserLine,
 } from "@remixicon/react";
 import type { ColumnDef } from "@tanstack/react-table";
+import { CheckIcon } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { toast } from "sonner";
@@ -152,22 +153,29 @@ export function WorkflowStageIndicator({
 	const stages = [1, 2, 3, 4, 5, 6] as const;
 
 	return (
-		<div className="flex flex-col gap-1">
-			<div className="flex items-center gap-0.5">
+		<div className="flex flex-col gap-0 mx-2 h-10 w-full items-center justify-center">
+			<div className="flex items-center w-full gap-0 h-9">
 				{stages.map(stage => (
 					<div key={`stage-w-${stage}`} className="flex items-center">
 						<div
 							className={cn(
 								"flex items-center justify-center rounded-full font-medium transition-all",
-								compact ? "h-5 w-5 text-[9px]" : "h-7 w-7 text-xs",
+								compact ? "h-5 w-5 text-[9px]" : "h-4 w-4",
 								stage < currentStage && "bg-emerald-500/70 text-emerald-600/80",
 								stage === currentStage &&
-									"bg-stone-500/20 text-stone-400 ring-2 ring-stone-500/30",
-								stage > currentStage && "bg-secondary/5 text-muted-foreground"
+									"bg-stone-500/20 text-stone-400 ring-3 ring-indigo-400/70",
+								stage > currentStage && "bg-zinc-500/20 text-muted-foreground"
 							)}
 							title={STAGE_NAMES[stage]}>
 							{stage < currentStage ? (
-								<RiCheckLine className={compact ? "h-2.5 w-2.5" : "h-3.5 w-3.5"} />
+								<CheckIcon
+									color="var(--color-emerald-200)"
+									className={
+										compact
+											? "h-5 w-5 p-1 text-foreground"
+											: "h-5 w-5 p-2.5 text-foreground"
+									}
+								/>
 							) : (
 								stage
 							)}
@@ -177,7 +185,7 @@ export function WorkflowStageIndicator({
 								className={cn(
 									"h-0.5 transition-colors",
 									compact ? "w-1.5" : "w-2.5",
-									stage < currentStage ? "bg-emerald-500/70" : "bg-background/50"
+									stage < currentStage ? "bg-emerald-500/0" : "bg-zinc-500/20"
 								)}
 							/>
 						)}
@@ -339,7 +347,9 @@ export const columns: ColumnDef<WorkflowRow>[] = [
 	},
 	{
 		id: "actions",
-		header: () => <span className="-ml-4 hidden font-light text-xs uppercase">Actions</span>,
+		header: () => (
+			<span className="-ml-4 hidden font-light text-xs uppercase">Actions</span>
+		),
 		cell: ({ row, table }) => {
 			const meta = table.options.meta as {
 				onManualOverride: (data: WorkflowRow) => void;

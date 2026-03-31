@@ -27,7 +27,7 @@ export function EntitySummaryCards({
 				<div className="flex gap-2 flex-wrap">
 					<RiskReviewBadge variant="gold">B-BBEE Lvl 2</RiskReviewBadge>
 					<RiskReviewBadge variant="danger">1 Conflict Found</RiskReviewBadge>
-					<RiskReviewBadge variant="warning">Adverse Media Found</RiskReviewBadge>
+					<RiskReviewBadge variant="default">Adverse Media Found</RiskReviewBadge>
 					<RiskReviewBadge variant="success">FICA Compliant</RiskReviewBadge>
 				</div>
 			</Card>

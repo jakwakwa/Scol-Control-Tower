@@ -25,13 +25,9 @@ interface DataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
 	data: TData[];
 	meta?: TableMeta<TData>;
-	/** Server-driven pagination — total number of pages */
 	pageCount?: number;
-	/** Current page index (0-based) */
 	pageIndex?: number;
-	/** Callback when page changes */
 	onPageChange?: (pageIndex: number) => void;
-	/** Rows per page (default: 10) */
 	pageSize?: number;
 }
 
@@ -103,13 +99,13 @@ export function DataTable<TData, TValue>({
 
 	return (
 		<div className="w-full space-y-4">
-			<div className="rounded-2xl border border-sidebar-border bg-card/90 shadow-[0_15px_20px_rgba(0,0,0,0.1)] overflow-hidden backdrop-blur-sm">
+			<div className="rounded-2xl border border-sidebar-border bg-card shadow-[0_15px_20px_rgba(0,0,0,0.1)] overflow-hidden backdrop-blur-sm">
 				<Table>
 					<TableHeader className="bg-sidebar/50">
 						{table.getHeaderGroups().map(headerGroup => (
 							<TableRow
 								key={headerGroup.id}
-								className="hover:bg-black/20 border-secondary/5">
+								className="hover:bg-black/20 border-zinc-500/10">
 								{headerGroup.headers.map(header => {
 									return (
 										<TableHead
@@ -132,7 +128,7 @@ export function DataTable<TData, TValue>({
 									data-state={row.getIsSelected() && "selected"}
 									className="group pl-4 border-sidebar-border hover:bg-black/20 transition-all duration-200">
 									{row.getVisibleCells().map(cell => (
-										<TableCell key={cell.id} className="px-8 py-4">
+										<TableCell key={cell.id} className="px-8 py-0 h-22">
 											{flexRender(cell.column.columnDef.cell, cell.getContext())}
 										</TableCell>
 									))}
@@ -152,13 +148,13 @@ export function DataTable<TData, TValue>({
 
 				{/* Pagination Footer */}
 				{showPagination && (
-					<div className="flex items-center justify-between px-4 py-3 border-t border-sidebar-border bg-accent shadow-lg shadow-black/30">
+					<div className="flex items-center justify-between px-4 py-0 border-t border-sidebar-border bg-accent shadow-lg shadow-black/30">
 						<span className="text-xs text-muted-foreground">
 							Page {currentPage + 1} of {totalPages}
 						</span>
 						<div className="flex items-center gap-1">
 							<Button
-								variant="default"
+								variant="ghost"
 								size="icon"
 								className="h-8 w-8"
 								onClick={handlePrevious}
@@ -166,7 +162,7 @@ export function DataTable<TData, TValue>({
 								<RiArrowLeftSLine className="h-4 w-4" />
 							</Button>
 							<Button
-								variant="default"
+								variant="ghost"
 								size="icon"
 								className="h-8 w-8"
 								onClick={handleNext}

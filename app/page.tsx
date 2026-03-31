@@ -11,8 +11,8 @@ import { WorkflowSteps } from "@/components/landing/workflow-steps";
 
 export default function Page() {
 	return (
-		<main className="min-h-screen overflow-x-hidden selection:text-primary">
-			<div className="absolute w-screen h-full">
+		<div className="relative my-0 py-0 overflow-hidden selection:text-cyan-600 w-screen flex flex-col bg-blend-color bg-cyan-600">
+			<div className="absolute bg-blend-multiply mix-blend-multiply h-full">
 				<Grainient
 					color1="#1a2d3a"
 					color2="#091c23"
@@ -38,13 +38,15 @@ export default function Page() {
 					zoom={0.9}
 				/>
 			</div>
-			<Hero />
-			<TrustedBy />
-			<OldVsNew />
-			<WorkflowSteps />
-			<RoleTabs />
-			<TechnicalTrust />
-			<Footer />
-		</main>
+			<main className="relative mb-0 py-0 overflow-hidden selection:text-primary h-full">
+				<Hero />
+				<TrustedBy />
+				<OldVsNew />
+				<WorkflowSteps />
+				<RoleTabs />
+				<TechnicalTrust />
+				<Footer />
+			</main>
+		</div>
 	);
 }

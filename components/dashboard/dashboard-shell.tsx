@@ -74,7 +74,7 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 			{/* Main content */}
 			<main className={cn(`pl-64 transition-all duration-300`, isCollapsed && "pl-20")}>
 				{/* Header */}
-				<header className="sticky top-0 z-30 border-b border-sidebar-border bg-transparent">
+				<header className="sticky top-0 z-30 border-b border-sidebar-border bg-chart-1 shadow-lg shadow-black/5 backdrop-blur-sm">
 					<div className="flex h-20 items-center justify-between px-8">
 						<div>
 							{title && (
