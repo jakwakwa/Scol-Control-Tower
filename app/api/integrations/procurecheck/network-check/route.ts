@@ -2,8 +2,10 @@ import { type NextRequest, NextResponse } from "next/server";
 import { requireAuthOrBearer } from "@/lib/auth/api-auth";
 import {
 	authenticate,
+	getProcureCheckProxyOption,
 	getProcureCheckRuntimeConfig,
 	getVendorsList,
+	withProcureCheckProxy,
 } from "@/lib/procurecheck";
 
 type PublicIpResponse = {
@@ -12,10 +14,13 @@ type PublicIpResponse = {
 
 async function getObservedPublicIp(): Promise<string | null> {
 	try {
-		const response = await fetch("https://api.ipify.org?format=json", {
-			method: "GET",
-			cache: "no-store",
-		});
+		const response = await fetch(
+			"https://api.ipify.org?format=json",
+			withProcureCheckProxy({
+				method: "GET",
+				cache: "no-store",
+			})
+		);
 		if (!response.ok) {
 			return null;
 		}
@@ -39,6 +44,7 @@ export async function GET(request: NextRequest) {
 		const token = await authenticate();
 		const vendors = await getVendorsList(token);
 		const observedPublicIp = await observedPublicIpPromise;
+		const proxyConfigured = Boolean(getProcureCheckProxyOption());
 		const listedRecords = Array.isArray(vendors.Data) ? vendors.Data.length : 0;
 
 		return NextResponse.json({
@@ -47,6 +53,7 @@ export async function GET(request: NextRequest) {
 			baseUrl: runtimeConfig.baseUrl,
 			egressOwner: runtimeConfig.egressOwner,
 			observedPublicIp,
+			proxyConfigured,
 			tokenIssued: true,
 			vendorsGetListOk: true,
 			listedRecords,
