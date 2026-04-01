@@ -107,6 +107,38 @@ export type CreateTestVendorParams = {
 	isProprietor?: boolean;
 };
 
+type BunFetchProxyOption =
+	| string
+	| {
+			url: string;
+			headers?: HeadersInit;
+	  };
+
+type BunProxyRequestInit = RequestInit & {
+	proxy?: BunFetchProxyOption;
+};
+
+function getFixieProxyUrl(): string | undefined {
+	const value = process.env.FIXIE_URL?.trim();
+	return value && value.length > 0 ? value : undefined;
+}
+
+export function getProcureCheckProxyOption(): BunFetchProxyOption | undefined {
+	return getFixieProxyUrl();
+}
+
+export function withProcureCheckProxy(init: RequestInit): BunProxyRequestInit {
+	const proxy = getProcureCheckProxyOption();
+	if (!proxy) {
+		return { ...init };
+	}
+
+	return {
+		...init,
+		proxy,
+	};
+}
+
 /**
  * Authenticate with ProcureCheck Web API v5 and get JWT token.
  * Separate from ITC OAuth2 flow in itc.service.ts.
@@ -118,16 +150,19 @@ export async function authenticate(): Promise<string> {
 	});
 	const { baseUrl } = getProcureCheckRuntimeConfig();
 
-	const response = await fetch(`${baseUrl}authenticate`, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify({
-			username: env.PROCURECHECK_USERNAME,
-			password: env.PROCURECHECK_PASSWORD,
-		}),
-	});
+	const response = await fetch(
+		`${baseUrl}authenticate`,
+		withProcureCheckProxy({
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				username: env.PROCURECHECK_USERNAME,
+				password: env.PROCURECHECK_PASSWORD,
+			}),
+		})
+	);
 
 	if (!response.ok) {
 		const errorText = await response.text();
@@ -150,22 +185,25 @@ export async function authenticate(): Promise<string> {
  */
 export async function getVendorsList(token: string): Promise<VendorListResponse> {
 	const { baseUrl } = getProcureCheckRuntimeConfig();
-	const response = await fetch(`${baseUrl}vendors/getlist`, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			Authorization: `Bearer ${token}`,
-		},
-		body: JSON.stringify({
-			QueryParams: {
-				Conditions: [],
-				PageIndex: 0,
-				PageSize: 1,
-				SortColumn: "Created",
-				SortOrder: "Descending",
+	const response = await fetch(
+		`${baseUrl}vendors/getlist`,
+		withProcureCheckProxy({
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${token}`,
 			},
-		}),
-	});
+			body: JSON.stringify({
+				QueryParams: {
+					Conditions: [],
+					PageIndex: 0,
+					PageSize: 1,
+					SortColumn: "Created",
+					SortOrder: "Descending",
+				},
+			}),
+		})
+	);
 
 	if (!response.ok) {
 		const errorText = await response.text();
@@ -212,14 +250,17 @@ export async function createTestVendor(params: {
 			: {}),
 	};
 
-	const response = await fetch(`${baseUrl}vendors?processBeeInfo=false`, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			Authorization: `Bearer ${token}`,
-		},
-		body: JSON.stringify(payload),
-	});
+	const response = await fetch(
+		`${baseUrl}vendors?processBeeInfo=false`,
+		withProcureCheckProxy({
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${token}`,
+			},
+			body: JSON.stringify(payload),
+		})
+	);
 
 	if (!response.ok) {
 		const errorText = await response.text();
@@ -238,12 +279,12 @@ export async function getVendorResults(vendorId: string): Promise<VendorResultsR
 
 	const response = await fetch(
 		`${baseUrl}vendorresults?id=${encodeURIComponent(vendorId)}`,
-		{
+		withProcureCheckProxy({
 			method: "GET",
 			headers: {
 				Authorization: `Bearer ${token}`,
 			},
-		}
+		})
 	);
 
 	if (!response.ok) {
