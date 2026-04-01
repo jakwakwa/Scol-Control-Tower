@@ -26,6 +26,8 @@
     "docs:install": "bun --cwd docs install",
     "docs:dev": "bun --cwd docs run dev",
     "posthog:perimeter-dashboard": "bun run scripts/posthog/create-perimeter-dashboard.ts",
+    "procurecheck:verify": "bun run scripts/procurecheck-verifier.ts",
+    "procurecheck:network-check": "bun run scripts/procurecheck-network-check.ts",
     "test:browser:preflight": "bun run scripts/verify-browser-flow-preflight.ts",
     "test:browser:stage1-3": "bun run test:browser:preflight && bash tests/browser-flow/stage1-3.sh",
     "test:browser:stage4": "bun run test:browser:preflight && bash tests/browser-flow/stage4.sh",
@@ -106,7 +108,9 @@
     "typescript": "^5.9.3",
     "@types/bun": "latest"
   },
-  "trustedDependencies": ["inngest-cli"],
+  "trustedDependencies": [
+    "inngest-cli"
+  ],
   "overrides": {
     "express": "4.20.0",
     "body-parser": "1.20.3",

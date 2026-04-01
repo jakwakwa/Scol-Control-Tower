@@ -35,6 +35,9 @@
     },
     "continual-learning": {
       "enabled": false
+    },
+    "postman": {
+      "enabled": true
     }
   }
 }
