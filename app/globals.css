@@ -547,7 +547,7 @@
     /* background-color: rgba(24 16 3 / 0.95) !important; */
   }
 
-  input:autofill0:focus-visible {
+  input:autofill:focus-visible {
     background-color: rgba(81 76 227 / 0.28) !important;
   }
 

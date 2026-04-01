@@ -67,6 +67,7 @@
           {
             "group": "Issues",
             "pages": [
+              "issues/integration-issues/2026-04-01-procurecheck-v5-jwt-auth-implementation",
               "issues/integration-issues/2026-03-30-inngest-id-verification-telemetry-cleanup",
               "issues/database-issues/2026-03-27-remove-legacy-agents-xt-callbacks-dead-callback-plumbing",
               "issues/database-issues/2026-03-27-drizzle-migration-squash-and-combined-db-reset",
