@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { analyzeMediaRisk, generateRiskBriefing } from "@/actions/ai.actions";
+import { generateRiskBriefing } from "@/actions/ai.actions";
 import { AiBriefingPanel } from "@/components/dashboard/risk-review/ai-briefing-panel";
 import { EntitySummaryCards } from "@/components/dashboard/risk-review/entity-summary-cards";
 import { ExternalScreeningPanel } from "@/components/dashboard/risk-review/external-screening-panel";
@@ -137,14 +137,6 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 		}
 	};
 
-	const handleAnalyzeMedia = async (alert: {
-		title: string;
-		source: string;
-		severity: string;
-	}) => {
-		return analyzeMediaRisk(alert.title, alert.source, alert.severity);
-	};
-
 	return (
 		<>
 			<div className="card-form text-foreground font-sans p-4 md:p-6 selection:bg-primary/30 print:hidden">
@@ -190,7 +182,6 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 								<SanctionsSection
 									data={sanctionsData}
 									status={data.sectionStatuses?.sanctions}
-									onAnalyzeMedia={handleAnalyzeMedia}
 								/>
 								{(data.externalScreeningUi.industryRegulator ||
 									data.externalScreeningUi.socialReputation) && (

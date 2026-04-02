@@ -378,5 +378,3 @@ export function FinalApprovalCard({
 		</Card>
 	);
 }
-
-export default FinalApprovalCard;
