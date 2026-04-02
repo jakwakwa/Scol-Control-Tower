@@ -16,7 +16,7 @@
  * See lib/procurecheck.ts for the implementation.
  */
 
-import { runMeetingDemo } from "../lib/procurecheck";
+import { runMeetingDemo } from "../lib/procurecheck-demo";
 
 function writeStdout(line: string): void {
 	process.stdout.write(`${line}\n`);

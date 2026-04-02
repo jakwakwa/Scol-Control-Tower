@@ -1,6 +1,7 @@
 import { processIdentityVerification } from "@/app/actions/verify-id";
+import { inngest } from "@/inngest";
 import { recordVendorCheckAttempt } from "@/lib/services/telemetry/vendor-metrics";
-import { inngest } from "../client";
+
 
 /**
  * Automated Identity Verification

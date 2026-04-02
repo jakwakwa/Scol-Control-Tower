@@ -6,7 +6,7 @@ import {
 	getProcureCheckRuntimeConfig,
 	getVendorsList,
 	withProcureCheckProxy,
-} from "@/lib/procurecheck";
+} from "@/lib/procurecheck-demo";
 
 type PublicIpResponse = {
 	ip: string;

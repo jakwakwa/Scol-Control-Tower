@@ -3,8 +3,8 @@ import type { KillSwitchReason } from "@/lib/services/kill-switch.service";
 import { sendInternalAlertEmail } from "@/lib/services/email.service";
 import { createWorkflowNotification } from "@/lib/services/notification-events.service";
 import { terminateRun } from "@/lib/services/terminate-run.service";
-import { guardKillSwitch } from "./helpers";
-import type { ControlTowerStepTools } from "./types";
+import type { ControlTowerStepTools } from "../control-tower/types";
+import { guardKillSwitch } from "@/inngest/utils/guards";
 
 interface HandleWaitTimeoutInput {
 	step: ControlTowerStepTools;

@@ -16,8 +16,10 @@ import {
 import { getHybridGateStatus } from "@/lib/services/risk-check.service";
 import { terminateRun } from "@/lib/services/terminate-run.service";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
-import { guardKillSwitch, notifyApplicantDecline } from "../helpers";
+
 import type { StageDependencies, StageResult } from "../types";
+import { guardKillSwitch } from "@/inngest/utils/guards";
+import { notifyApplicantDecline } from "@/inngest/utils/helpers";
 
 export async function executeStage4({
 	step,

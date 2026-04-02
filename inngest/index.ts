@@ -10,18 +10,21 @@
 export { inngest } from "./client";
 export {
 	controlTowerWorkflow,
-	killSwitchHandler,
-} from "./functions/control-tower-workflow";
-export { autoVerifyIdentity } from "./functions/id-verification";
+} from "./functions/workflow-coordinator";
+export { autoVerifyIdentity } from "./functions/services/id-verification";
 
 import {
 	controlTowerWorkflow,
-	killSwitchHandler,
 } from "./functions/control-tower-workflow";
 // Export all functions as array for serve()
 import { autoVerifyIdentity } from "./functions/id-verification";
 import { documentAggregator } from "./functions/document-aggregator";
 import { zombieReconciler } from "./functions/zombie-reconciler";
+import { killSwitchHandler } from "./functions/handlers/kill-switch-handler";
+
+
+
+
 
 export const functions = [
 	controlTowerWorkflow,

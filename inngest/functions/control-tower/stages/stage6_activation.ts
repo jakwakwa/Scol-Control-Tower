@@ -17,8 +17,8 @@ import { terminateRun } from "@/lib/services/terminate-run.service";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 import type { FormType } from "@/lib/types";
 import { inngest } from "../../../client";
-import { guardKillSwitch } from "../helpers";
 import type { StageDependencies, StageResult } from "../types";
+import { guardKillSwitch } from "@/inngest/utils/guards";
 
 export async function executeStage6({
 	step,

@@ -1,92 +1,49 @@
-import { and, desc, eq } from "drizzle-orm";
-import { NonRetriableError } from "inngest";
-import { getBaseUrl, getDatabaseClient } from "@/app/utils";
+import { getDatabaseClient } from "@/app/utils";
 import { applicants, workflowEvents } from "@/db/schema";
 import { SANCTIONS_RECHECK_WINDOW_MS } from "@/lib/constants/workflow-timeouts";
-import {
-	isSanctionsBlocked,
-	performSanctionsCheck,
-	type SanctionsCheckResult,
-} from "@/lib/services/agents";
-import {
-	sendApplicantStatusEmail,
-	sendInternalAlertEmail,
-} from "@/lib/services/email.service";
-import { isWorkflowTerminated } from "@/lib/services/kill-switch.service";
-import {
-	createWorkflowNotification,
-	logWorkflowEvent,
-} from "@/lib/services/notification-events.service";
+import { isSanctionsBlocked, type SanctionsCheckResult, performSanctionsCheck } from "@/lib/services/agents";
+import { sendInternalAlertEmail } from "@/lib/services/email.service";
+import { logWorkflowEvent, createWorkflowNotification } from "@/lib/services/notification-events.service";
+import { getBaseUrl } from "@/lib/utils";
+import { eq, and, desc } from "drizzle-orm";
 import { inngest } from "../../client";
-import type {
-	SanctionsCheckSource,
-	SanctionsExecutionResult,
-	StoredSanctionsPayload,
-} from "./types";
-
-export async function guardKillSwitch(
-	workflowId: number,
-	stepName: string
-): Promise<void> {
-	const terminated = await isWorkflowTerminated(workflowId);
-	if (terminated) {
-		throw new NonRetriableError(
-			`[KillSwitch] Workflow ${workflowId} terminated - stopping ${stepName}`
-		);
-	}
-}
-
-export async function notifyApplicantDecline(options: {
-	applicantId: number;
-	workflowId: number;
-	subject: string;
-	heading: string;
-	message: string;
-}) {
-	const db = getDatabaseClient();
-	if (!db) return;
-	const [applicant] = await db
-		.select()
-		.from(applicants)
-		.where(eq(applicants.id, options.applicantId));
-	if (!applicant) return;
-
-	await sendApplicantStatusEmail({
-		email: applicant.email,
-		subject: options.subject,
-		heading: options.heading,
-		message: options.message,
-	});
-
-	await createWorkflowNotification({
-		workflowId: options.workflowId,
-		applicantId: options.applicantId,
-		type: "error",
-		title: options.heading,
-		message: options.message,
-		actionable: false,
-	});
-}
+import type { SanctionsCheckSource, SanctionsExecutionResult, StoredSanctionsPayload } from "../control-tower/types";
 
 export function resolveSanctionsEntityType(
-	entityType?: string | null
+    entityType?: string | null
 ): "INDIVIDUAL" | "COMPANY" | "TRUST" | "OTHER" {
-	const normalized = entityType?.toLowerCase().trim();
-	if (!normalized) return "COMPANY";
-	if (normalized.includes("trust")) return "TRUST";
-	if (normalized.includes("proprietor") || normalized.includes("individual")) {
-		return "INDIVIDUAL";
-	}
-	if (
-		normalized.includes("company") ||
-		normalized.includes("corporation") ||
-		normalized.includes("close_corporation")
-	) {
-		return "COMPANY";
-	}
-	return "OTHER";
+    const normalized = entityType?.toLowerCase().trim();
+    if (!normalized) return "COMPANY";
+    if (normalized.includes("trust")) return "TRUST";
+    if (normalized.includes("proprietor") || normalized.includes("individual")) {
+        return "INDIVIDUAL";
+    }
+    if (
+        normalized.includes("company") ||
+        normalized.includes("corporation") ||
+        normalized.includes("close_corporation")
+    ) {
+        return "COMPANY";
+    }
+    return "OTHER";
 }
 
+/**
+ * 
+ *  
+ *
+ * @export
+ * @param {number} applicantId
+ * @param {number} workflowId
+ * @param {SanctionsCheckSource} source
+ * @param {{ allowReuse?: boolean }} [options]
+ * @return {*}  {Promise<SanctionsExecutionResult>}
+ * @see https://stratcolltd.mintlify.app/user-guides/workflows#email-notifications-on-decline
+ * 
+ * @author [jakwakwa](https://github.com/jakwakwa)
+ * @see [User Guide](https://stratcolltd.mintlify.app/user-guides/workflows#email-notifications-on-decline)
+ *                   
+ */
 export async function runSanctionsForWorkflow(
 	applicantId: number,
 	workflowId: number,
