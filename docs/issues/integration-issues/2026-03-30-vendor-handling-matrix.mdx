@@ -57,7 +57,7 @@ All four checks in Stage 3 run in a `Promise.all` parallel group: `check-procure
 - **Vendor:** ProcureCheck
 - **Gate Type:** Hard Gating — failure routes to manual evidence collection at Stage 4.
 - **Step:** `check-procurement` in `stage3_enrichment.ts`
-- **Service file:** `lib/services/risk.service.ts` (`analyzeRisk`)
+- **Service file:** `lib/services/procurecheck.service.ts` (`executeProcurementCheck`)
 
 | Failure Type | Current Behaviour | Approved Target Behaviour |
 |---|---|---|

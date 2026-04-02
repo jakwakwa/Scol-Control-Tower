@@ -43,7 +43,7 @@ Procurement outcomes are collected as evidence in Stage 3 but are no longer a se
 
 ### Stream A: Procurement risk assessment
 
-ProcureCheck runs against the applicant. If procurement fails to execute (for example API auth/provider errors), the workflow records a manual-required procurement status and continues with the remaining Stage 3 checks.
+ProcureCheck Web API v5 runs against the applicant via `executeProcurementCheck()` in `lib/services/procurecheck.service.ts`. The service authenticates (JWT), creates a vendor, polls until checks complete, then fetches all 6 category results (CIPC, Property, Restricted List, Legal, SAFPS, Persal) in parallel. Results are persisted as structured `ProcurementData` JSON in the `risk_check_results` table. If procurement fails due to auth errors (401/403), the workflow records a `manual_required` status; transient errors are retried by Inngest.
 
 ### Stream B: Document verification and AI analysis
 

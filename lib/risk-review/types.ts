@@ -52,27 +52,7 @@ export interface RiskReviewData {
 		sanctions: SectionStatus;
 		fica: SectionStatus;
 	};
-	procurementData: {
-		cipcStatus: string;
-		taxStatus: string;
-		taxExpiry: string;
-		beeLevel: string;
-		beeExpiry: string;
-		riskAlerts: Array<{
-			category: string;
-			message: string;
-			id?: string;
-			action?: string;
-		}>;
-		checks: Array<{ name: string; status: string; detail: string }>;
-		directors: Array<{
-			name: string;
-			idNumber: string;
-			otherDirectorships: number;
-			conflicts: number;
-			status?: string;
-		}>;
-	};
+	procurementData: import("@/lib/procurecheck/types").ProcurementData | null;
 
 	itcData: {
 		creditScore: number;

@@ -1,1 +1,129 @@
----\ntitle: \"ProcureCheck Web API v5 JWT Authentication Implementation\"\ndescription: \"Complete JWT-based authentication client for ProcureCheck Web API v5 vendor compliance checks. Includes prebuilt verifier, Postman collection, and production-ready integration.\"\ncategory: \"integration-issues\"\nproblem_type: \"external-api-integration\"\ncomponent: \"procurecheck-client\"\nsymptoms: [\"missing procurecheck api client\", \"no jwt authentication\", \"meeting precheck needed\", \"vendor verification workflow needed\"]\nroot_cause: \"Placeholder implementation in lib/procurecheck.ts with no working JWT auth, vendor endpoints, or meeting demo capability.\"\ndate: \"2026-04-01\"\nstatus: \"completed\"\n---\n\n# ProcureCheck Web API v5 JWT Authentication Implementation\n\n## Overview\n\nThis solution provides a **complete, production-ready ProcureCheck Web API v5 client** with JWT authentication for vendor compliance checking. The implementation includes:\n\n- ✅ **JWT Authentication** — Separate from ITC OAuth2 flow\n- ✅ **Vendor Management** — Create, list, and retrieve vendor compliance results\n- ✅ **Meeting Verifier** — One-command pre-check script\n- ✅ **Postman Collection** — 3 ready-to-run requests for live demo\n- ✅ **Ground Truth Spec** — Aligned with `docs/procurecheck-api-v5.yaml`\n\n## Problem Statement\n\nThe Control Tower needed a **prebuilt, meeting-ready implementation** of ProcureCheck's Web API v5 to:\n\n1. Demonstrate vendor compliance checking to stakeholders\n2. Provide a **local verifier script** to test connectivity before the meeting\n3. Include a **Postman collection** with 3 pre-configured requests\n4. Keep implementation **minimal and focused** (no premature complexity)\n\n## Root Cause\n\nThe codebase had a **placeholder skeleton** in `lib/procurecheck.ts` with no working implementation. The API integration was blocked because:\n\n- No JWT authentication method\n- No vendor endpoints implemented\n- No demo orchestration\n- No meeting pre-check capability\n\n## Solution\n\n### 1. Web API v5 Client: `lib/procurecheck.ts`\n\nImplemented a complete, typed client with all required endpoints:\n\n```typescript\n// JWT Authentication\nexport async function authenticate(): Promise<string>\n\n// Safe read-only vendor list\nexport async function getVendorsList(token: string): Promise<VendorListResponse>\n\n// Minimal CIPC vendor creation\nexport async function createTestVendor(params: {\n  vendorName?: string;\n  registrationNumber?: string;\n  applicantId?: number;\n}): Promise<VendorCreateResponse>\n\n// Fetch vendor results/risk summary\nexport async function getVendorResults(vendorId: string): Promise<VendorResultsResponse>\n\n// Full demo orchestration for meeting\nexport async function runMeetingDemo(includeCreate = false)\n```\n\n**Key features:**\n\n- 🔐 **JWT Bearer tokens** — POST `/authenticate` with username/password → 30-minute TTL\n- 📋 **Safe endpoints** — `/vendors/getlist` uses Bearer token in subsequent calls\n- 🏢 **Vendor creation** — CIPC type with minimal payload (`processBeeInfo=false`)\n- 📊 **Results polling** — `GET /vendorresults?id={vendorId}` for risk summary\n- 🎯 **Demo output** — Clear console logging for meeting walkthrough\n\n**Design decisions:**\n\n| Decision | Rationale |\n|----------|----------|\n| **Separate JWT flow** | Completely distinct from ITC OAuth2 in `itc.service.ts` — different credentials, different endpoints |\n| **Typed responses** | Each endpoint has a Zod-validated response shape |\n| **Environment-driven** | All URLs and credentials from `.env` (`PROCURECHECK_BASE_URL`, `PROCURECHECK_USERNAME`, `PROCURECHECK_PASSWORD`) |\n| **Error handling** | Clear error messages for auth failures and network issues |\n| **Console output** | Intentional logging in `runMeetingDemo` for meeting demo walkthrough |\n\n### 2. Meeting Verifier: `scripts/procurecheck-verifier.ts`\n\nOne-command pre-check script to verify the API connection before the meeting:\n\n```bash\n# Safe version (auth + getlist only)\nbun scripts/procurecheck-verifier.ts\n\n# Full flow (includes vendor creation)\nbun scripts/procurecheck-verifier.ts --create\n```\n\n**Output example:**\n\n```\n=== ProcureCheck v5 Meeting Verifier ===\n\n1. Authenticating...\n✅ Auth successful - JWT token received\n\n2. Fetching vendors list (safe read-only)...\n✅ Vendors list successful\n   Records: 2 Total: 5\n\n✅ Demo completed successfully!\n\n🎉 Verifier PASSED - Ready for the meeting!\n```\n\n### 3. Postman Collection: `procurecheck-postman-collection.json`\n\nMinimal Postman collection with **exactly 3 ready-to-run requests**:\n\n| Request | Method | Purpose |\n|---------|--------|----------|\n| **1. Authenticate** | `POST /authenticate` | Get JWT token (auto-saved to `{{token}}` variable) |\n| **2. Get Vendors List** | `POST /vendors/getlist` | Safe read-only list (uses Bearer token) |\n| **3. Create Test Vendor** | `POST /vendors?processBeeInfo=false` | Full CIPC vendor creation example |\n\n**All URLs use `{{PROCURECHECK_BASE_URL}}`** for consistency with `.env.local`.\n\n**Token auto-save:**\n\nThe Authenticate request includes a test script that:\n- Extracts JWT from response\n- Saves to collection variable `{{token}}`\n- Subsequent requests automatically use the Bearer token\n\n## Ground Truth Specification\n\nAll implementation follows `docs/procurecheck-api-v5.yaml`:\n\n```yaml\napi_base: https://xdev.procurecheck.co.za/api/api/v1\nauth:\n  POST: /authenticate\n  body: [Username, Password]\n  header: \"Bearer <JWT>\"\n  ttl: 30m\nendpoints:\n  vendors_create_update:\n    POST: /vendors?processBeeInfo={bool}\n    PUT: /vendors?processBeeInfo={bool}\n  vendors_list:\n    POST: /vendors/getlist\n    body: {QueryParams: {Conditions, PageIndex, PageSize}}\n  results:\n    GET_summary: /vendorresults?id={VendorID}\n    GET_specific: /vendorresults/{check_type}?id={VendorID}\n```\n\n## Files Changed\n\n| File | Status | Purpose |\n|------|--------|----------|\n| `lib/procurecheck.ts` | ✅ Implemented | Web API v5 client (JWT + all endpoints) |\n| `scripts/procurecheck-verifier.ts` | ✅ Created | Meeting pre-check script |\n| `procurecheck-postman-collection.json` | ✅ Created | 3 ready-to-run Postman requests |\n| `docs/procurecheck-credentials-request.md` | ✅ Updated | Verification steps + implementation reference |\n| `docs/procurecheck-api-v5.yaml` | ✔️ Reference | Ground truth spec (unchanged) |\n\n## Before & After\n\n### Before\n\n```typescript\n// lib/procurecheck.ts - placeholder\nexport const config = {};\n```\n\n### After\n\n```typescript\n// lib/procurecheck.ts - production-ready\nexport async function authenticate(): Promise<string> { /* ... */ }\nexport async function getVendorsList(token: string): Promise<VendorListResponse> { /* ... */ }\nexport async function createTestVendor(params): Promise<VendorCreateResponse> { /* ... */ }\nexport async function getVendorResults(vendorId: string): Promise<VendorResultsResponse> { /* ... */ }\nexport async function runMeetingDemo(includeCreate = false) { /* ... */ }\n```\n\n## Testing & Verification\n\n✅ **Build passes** — `bun run build` with no TypeScript errors  \n✅ **Types validated** — All responses typed with Zod schemas  \n✅ **JWT flow tested** — Verifier successfully authenticates and uses token  \n✅ **Endpoints verified**:\n  - `POST /authenticate` ✅\n  - `POST /vendors/getlist` ✅\n  - `POST /vendors?processBeeInfo=false` ✅\n  - `GET /vendorresults?id={vendorId}` ✅\n✅ **Token auto-save** — Postman script correctly extracts and stores JWT\n\n## How to Use\n\n### Before the Meeting\n\n1. **Set credentials in `.env.local`**:\n   ```bash\n   PROCURECHECK_USERNAME=\"work@jacofrontend.dev\"\n   PROCURECHECK_PASSWORD=\"...\"\n   PROCURECHECK_BASE_URL=\"https://xdev.procurecheck.co.za/api/api/v1/\"\n   ```\n\n2. **Run verifier (1-2 minutes)**:\n   ```bash\n   bun scripts/procurecheck-verifier.ts\n   ```\n\n3. **Optionally import Postman collection**:\n   - Open Postman\n   - Import `procurecheck-postman-collection.json`\n   - Set environment variables\n   - Run requests in order: Authenticate → Get List → Create\n\n### During the Meeting\n\n- **Option A**: Terminal demo — run the verifier and show output\n- **Option B**: Postman demo — run requests live, show responses\n- **Talking points** generated automatically by verifier\n\n### In Production\n\n```typescript\n// Use lib/procurecheck.ts in workflows\nimport { authenticate, createTestVendor, getVendorResults } from \"@/lib/procurecheck\";\n\n// 1. Auth once per batch\nconst token = await authenticate();\n\n// 2. Create vendors\nconst vendor = await createTestVendor({\n  vendorName: \"My Company\",\n  applicantId: 123\n});\n\n// 3. Poll results\nconst results = await getVendorResults(\n  vendor.ProcureCheckVendorID\n);\n```\n\n## Key Design: JWT vs OAuth2\n\nThis implementation is **completely separate** from the existing ITC credit OAuth2 flow:\n\n| Aspect | ProcureCheck v5 (JWT) | ITC Credit (OAuth2) |\n|--------|----------------------|---------------------|\n| **Auth method** | POST `/authenticate` + username/password | OAuth2 client credentials |\n| **Credentials** | `PROCURECHECK_USERNAME`/`PASSWORD` | `ITC_CLIENT_ID`/`SECRET` |\n| **File** | `lib/procurecheck.ts` | `lib/services/itc.service.ts` |\n| **Token TTL** | 30 minutes | Varies |\n| **Use case** | Vendor compliance checks | Credit score lookups |\n\n**No cross-flow interaction** — they are independent systems.\n\n## Meeting Talking Points\n\n✅ **JWT auth works** — `/authenticate` endpoint confirmed  \n✅ **Bearer tokens work** — Subsequent calls use saved token  \n✅ **Safe endpoints exist** — `/vendors/getlist` is read-only for demo  \n✅ **Create + results flow ready** — Vendor creation and status polling working  \n✅ **Separate from ITC** — Distinct API flow with its own credentials  \n\n**Questions to ask:**\n- Is xdev the right environment for the meeting, or prod?\n- What is the entitlement level for this account?\n- Any rate limits or throttling we should know about?\n\n## Prevention & Best Practices\n\n1. **Keep JWT and OAuth2 flows separate** — Never mix authentication methods\n2. **Environment-driven config** — Always use `.env` for credentials and URLs\n3. **Token caching** — Consider caching JWT for 25 minutes (TTL is 30) to reduce auth calls\n4. **Error handling** — Wrap vendor creation in try/catch and log failures clearly\n5. **Async results** — Vendor checks may take time; implement polling or webhooks\n6. **Test early** — Run `procurecheck-verifier.ts` before any meeting or demo\n7. **Separate credentials** — Never share ITC and ProcureCheck credentials\n\n## Related Documentation\n\n- **`docs/procurecheck-credentials-request.md`** — How to request API credentials\n- **`docs/procurecheck-api-v5.yaml`** — Ground truth API specification\n- **`.cursor/skills/procurecheck-api/SKILL.md`** — Development guidance\n- **`docs/solutions/integration-issues/procurecheck-v5-api-jwt-auth-implementation.md`** — Extended integration guide\n\n## Next Steps\n\n1. **Confirm credentials** — Verify with Stratcol/LexisNexis when ready\n2. **Integration** — Plug into the procurement workflow\n3. **Error handling** — Add retry logic and comprehensive logging\n4. **Async polling** — Implement results polling for async vendor checks\n5. **Rate limiting** — Handle API throttling gracefully\n\n---\n\n**Status**: ✅ Ready for meeting (April 1, 2026)  \n**Component**: ProcureCheck Web API v5 Client  \n**Related**: ITC Credit (separate flow in `itc.service.ts`)\n"}}]
+---
+title: "ProcureCheck Web API v5 — Full Production Integration"
+description: "Production-grade ProcureCheck API integration replacing the demo/mock client. Includes TDD-driven API client, mapper, service orchestrator, Inngest Stage 3 wiring, and frontend with error/loading states."
+category: "integration-issues"
+problem_type: "external-api-integration"
+component: "procurecheck-client"
+symptoms: ["mock procurement data in UI", "no real API calls", "PROCURECHECK_MOCK_ENABLED workaround", "flat procurement payload in DB"]
+root_cause: "Demo client in lib/procurecheck-demo.ts and risk.service.ts used hardcoded risk scoring. Frontend used mock data. No structured per-category persistence."
+date: "2026-04-02"
+status: "completed"
+---
+
+# ProcureCheck Web API v5 — Full Production Integration
+
+## Overview
+
+Replaced the demo/mock ProcureCheck integration with a **production-grade service** that calls the real ProcureCheck Web API v5. The implementation:
+
+- **82 new tests** across 4 test files (TDD approach)
+- **Structured per-category results** — CIPC, Property, Restricted List, Legal, SAFPS, Persal
+- **Inngest Stage 3 wiring** — automatic vendor check during onboarding workflow
+- **Clean error handling** — auth errors → manual review, transient errors → Inngest retries
+- **Frontend states** — loading skeleton, error card, real data rendering
+
+## Module Structure
+
+```
+lib/procurecheck/
+├── types.ts      — Zod schemas for API responses + ProcurementData persistence type
+├── client.ts     — JWT auth, vendor CRUD, polling with exponential backoff
+├── mapper.ts     — mapVendorResultsToPayload() transformer
+├── index.ts      — barrel export
+└── __tests__/
+    ├── types.test.ts   (17 tests)
+    ├── client.test.ts  (27 tests)
+    ├── mapper.test.ts  (31 tests)
+    └── fixtures/       (9 JSON fixtures)
+
+lib/services/
+└── procurecheck.service.ts  — executeProcurementCheck() orchestrator (7 tests)
+```
+
+## Data Flow
+
+```
+Inngest Stage 3 check-procurement step
+  → executeProcurementCheck(applicantId, workflowId)
+    → authenticate() [JWT, 50-min cache]
+    → createVendor(params) [entity type mapping]
+    → pollUntilReady(vendorId) [exponential backoff, 60s timeout]
+    → getCategoryResult() × 6 [parallel Promise.all]
+    → mapVendorResultsToPayload()
+      → ProcurementData [Zod-validated]
+        → persisted in risk_check_results.payload
+          → mergeProcurement() [build-report-data.ts]
+            → ProcurementSection [procurement-section.tsx]
+```
+
+## Key Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| Zod schemas for all API responses | Runtime validation prevents silent data corruption |
+| 50-minute token cache (JWT TTL is 60min) | Reduces auth calls without risking expired tokens |
+| Exponential backoff polling (1s → 8s cap) | Balances responsiveness with API rate limiting |
+| Auth errors → `manual_required` | 401/403 won't resolve with retries — human review needed |
+| Transient errors re-thrown | Inngest step retries handle network/5xx naturally |
+| No backward compatibility | Clean break from old `cipcStatus`/`taxStatus`/`beeLevel` shape |
+
+## Files Changed
+
+| File | Change |
+|------|--------|
+| `lib/procurecheck/` | Created — complete API client module |
+| `lib/services/procurecheck.service.ts` | Created — orchestrator replacing `risk.service.ts` |
+| `lib/risk-review/types.ts` | `procurementData` changed to `ProcurementData \| null` |
+| `lib/risk-review/build-report-data.ts` | `mergeProcurement()` rewritten for Zod-parsed `ProcurementData` |
+| `inngest/.../stage3_enrichment.ts` | `check-procurement` step uses new service |
+| `procurement-section.tsx` | Removed ~450 lines of mock/normalization code, added loading/error states |
+| `printable-audit-report.tsx` | Updated to new `ProcurementData` shape |
+| `network-check/route.ts` | Import from `lib/procurecheck` instead of `lib/procurecheck-demo` |
+
+### Deleted
+
+- `lib/procurecheck-demo.ts` → replaced by `lib/procurecheck/client.ts`
+- `lib/services/risk.service.ts` → replaced by `lib/services/procurecheck.service.ts`
+- `scripts/procurecheck-verifier.ts` → referenced deleted demo module
+- `scripts/procurecheck-network-check.ts` → replaced by API route
+
+## How to Use
+
+### Environment Variables
+
+```bash
+PROCURECHECK_USERNAME="..."
+PROCURECHECK_PASSWORD="..."
+PROCURECHECK_ENV="sandbox"
+PROCURECHECK_BASE_URL="https://xdev.procurecheck.co.za/api/api/v1/"
+FIXIE_URL="..."  # optional, for static IP egress
+```
+
+### Network Check
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  http://localhost:3000/api/integrations/procurecheck/network-check
+```
+
+### In Code
+
+```typescript
+import { executeProcurementCheck } from "@/lib/services/procurecheck.service";
+
+const result = await executeProcurementCheck(applicantId, workflowId);
+// result.vendorId, result.payload (ProcurementData), result.rawPayload
+```
+
+## Related Documentation
+
+- `docs/procurecheck-credentials-request.md` — How to request API credentials
+- `docs/procurecheck-api-v5.yaml` — Ground truth API specification
+- `docs/procurecheck-ip-whitelist-runbook.md` — IP allowlist and Fixie proxy setup
+- `docs/api-reference/external_apis/procurecheck/procurecheck_web_api.mdx` — API reference
+
+---
+
+**Status**: ✅ Production-ready
+**Component**: ProcureCheck API Integration
+**Last updated**: 2026-04-02

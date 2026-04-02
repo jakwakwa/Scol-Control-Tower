@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	AlertCircle,
 	Ban,
 	Building2,
 	ClipboardList,
@@ -12,7 +13,7 @@ import {
 	ThumbsUp,
 	Users,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { RiskReviewBadge } from "@/components/dashboard/risk-review/risk-review-badge";
 import { SectionStatusBanner } from "@/components/dashboard/risk-review/section-status-banner";
 import {
@@ -23,646 +24,184 @@ import {
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import type { RiskReviewData, SectionStatus } from "@/lib/risk-review/types";
+import type {
+	ProcurementCategoryId,
+	ProcurementCheckItem,
+	ProcurementData,
+} from "@/lib/procurecheck/types";
+import type { SectionStatus } from "@/lib/risk-review/types";
 
-type ProcurementCategoryTabId =
-	| "cipc"
-	| "propertyInformation"
-	| "restrictedList"
-	| "legalMatter"
-	| "safps"
-	| "persal";
-type ProcurementTabId = "overallSummary" | ProcurementCategoryTabId;
+type ProcurementTabId = "overallSummary" | ProcurementCategoryId;
 
-type CheckResult = "CLEARED" | "FLAGGED" | "UNKNOWN";
-type CheckExecutionStatus = "EXECUTED" | "REVIEW" | "PENDING";
+const ICON_CLASS = "w-3.5 h-3.5";
 
-interface ProcurementCheckItem {
-	name: string;
-	status: CheckExecutionStatus;
-	result: CheckResult;
-}
-
-interface ProcurementCategory {
-	tabId: ProcurementCategoryTabId;
-	label: string;
-	description: string;
-	reviewed: boolean;
-	checks: ProcurementCheckItem[];
-}
-
-interface ProcurementApplicantDetails {
-	name: string;
-	entityNumber: string;
-	entityType: string;
-	entityStatus: string;
-	startDate: string;
-	registrationDate: string;
-	taxNumber: string;
-	withdrawFromPublic: string;
-	postalAddress: string;
-	registeredAddress: string;
-}
-
-interface ProcurementUiData {
-	applicant: ProcurementApplicantDetails;
-	categories: ProcurementCategory[];
-}
-
-type ExtendedProcurementData = RiskReviewData["procurementData"] & {
-	applicant?: ProcurementApplicantDetails;
-	cipc?: {
-		description?: string;
-		reviewed?: boolean | string;
-		checks?: ProcurementCheckItem[];
-	};
-	property?: {
-		description?: string;
-		reviewed?: boolean | string;
-		checks?: ProcurementCheckItem[];
-	};
-	restrictedList?: {
-		description?: string;
-		reviewed?: boolean | string;
-		checks?: ProcurementCheckItem[];
-	};
-	legal?: {
-		description?: string;
-		reviewed?: boolean | string;
-		checks?: ProcurementCheckItem[];
-	};
-	safps?: {
-		description?: string;
-		reviewed?: boolean | string;
-		checks?: ProcurementCheckItem[];
-	};
-	persal?: {
-		description?: string;
-		reviewed?: boolean | string;
-		checks?: ProcurementCheckItem[];
-	};
-};
-
-interface CategoryDefinition {
-	tabId: ProcurementCategoryTabId;
-	label: string;
-	key: string;
-	description: string;
-	fallbackChecks: string[];
-}
-
-const CATEGORY_DEFINITIONS: CategoryDefinition[] = [
-	{
-		tabId: "cipc",
-		label: "CIPC",
-		key: "cipc",
-		description: "Checks company registration and CIPC standing for the vendor.",
-		fallbackChecks: [
-			"Vendor name matches Company Registration at CIPC",
-			"No directors of vendor are listed as active employees",
-			"No directors of vendor have Next Of Kin listed as active employees",
-			"No directors of vendor are active directors of any other companies linked to employees",
-			"No directors of vendor are directors of any other active vendor",
-			"No director of vendor are listed as inactive employees",
-			"Vendor business status matches CIPC",
-		],
-	},
-	{
-		tabId: "propertyInformation",
-		label: "Property Information",
-		key: "property",
-		description:
-			"Checks property transactions between vendor directors and employees for any direct or family co-ownership.",
-		fallbackChecks: [
-			"No vendor director has purchased property from an active employee",
-			"No vendor director has sold property to an active employee",
-			"No vendor director co-owns property with an active employee",
-			"No vendor director has a Next Of Kin who co-owns a property with an active vendor",
-		],
-	},
-	{
-		tabId: "restrictedList",
-		label: "Restricted List",
-		key: "restrictedList",
-		description: "Checks if vendor directors are on the restricted list.",
-		fallbackChecks: [
-			"Vendor was not found on Internal Restricted List",
-			"No vendor directors also direct an internally listed Restricted vendor",
-			"No vendor directors are found on internal Restricted employee list",
-			"Vendor was not found on National Treasury Restricted list",
-			"No vendor directors are directors of other companies found in National Treasury Restricted list",
-			"No vendor directors are found in the National Treasury Restricted list",
-		],
-	},
-	{
-		tabId: "legalMatter",
-		label: "Legal Matter",
-		key: "legal",
-		description: "Checks if vendor directors are cited in legal matter.",
-		fallbackChecks: ["Vendor not cited in legal matter"],
-	},
-	{
-		tabId: "safps",
-		label: "SAFPS",
-		key: "safps",
-		description: "Checks if vendor directors are on the SAFPS list.",
-		fallbackChecks: ["Vendor passed SAFPS checks"],
-	},
-	{
-		tabId: "persal",
-		label: "Persal",
-		key: "persal",
-		description: "Checks if vendor directors are on the Persal list.",
-		fallbackChecks: ["No match was found for the specific information searched"],
-	},
-];
-
-const DEFAULT_APPLICANT: ProcurementApplicantDetails = {
-	name: "—",
-	entityNumber: "—",
-	entityType: "—",
-	entityStatus: "—",
-	startDate: "—",
-	registrationDate: "—",
-	taxNumber: "—",
-	withdrawFromPublic: "—",
-	postalAddress: "—",
-	registeredAddress: "—",
-};
-
-const PROCURECHECK_MOCK_DATA: ExtendedProcurementData = {
-	cipcStatus: "Verified",
-	taxStatus: "Compliant",
-	taxExpiry: "2027-11-30",
-	beeLevel: "Level 2",
-	beeExpiry: "2027-08-14",
-	riskAlerts: [],
-	checks: [],
-	directors: [],
-	applicant: {
-		name: "Acme Procurement Holdings (Pty) Ltd",
-		entityNumber: "2019/123456/07",
-		entityType: "Private Company",
-		entityStatus: "Active",
-		startDate: "2019-05-12",
-		registrationDate: "2019-05-12",
-		taxNumber: "9045123456",
-		withdrawFromPublic: "No",
-		postalAddress: "PO Box 4891, Cape Town, 8000",
-		registeredAddress: "22 Loop Street, Cape Town, 8001",
-	},
+const CATEGORY_UI: Record<
+	ProcurementCategoryId,
+	{ label: string; badgeClass: string; icon: ReactNode }
+> = {
 	cipc: {
-		description: "Checks company registration and CIPC standing for the vendor.",
-		reviewed: true,
-		checks: [
-			{
-				name: "Vendor name matches Company Registration at CIPC",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-			{
-				name: "No directors of vendor are listed as active employees",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-			{
-				name: "No directors of vendor have Next Of Kin listed as active employees",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-			{
-				name: "No directors of vendor are active directors of any other companies linked to employees",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-			{
-				name: "No directors of vendor are directors of any other active vendor",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-			{
-				name: "No director of vendor are listed as inactive employees",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-			{
-				name: "Vendor business status matches CIPC",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-		],
+		label: "CIPC",
+		badgeClass: "bg-pink-500/15 text-pink-300 border-pink-500/35",
+		icon: <Building2 className={ICON_CLASS} aria-hidden="true" />,
 	},
 	property: {
-		description:
-			"Checks property transactions between vendor directors and employees for any direct or family co-ownership.",
-		reviewed: true,
-		checks: [
-			{
-				name: "No vendor director has purchased property from an active employee",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-			{
-				name: "No vendor director has sold property to an active employee",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-			{
-				name: "No vendor director co-owns property with an active employee",
-				status: "REVIEW",
-				result: "UNKNOWN",
-			},
-			{
-				name: "No vendor director has a Next Of Kin who co-owns a property with an active vendor",
-				status: "REVIEW",
-				result: "UNKNOWN",
-			},
-		],
+		label: "Property Information",
+		badgeClass: "bg-sky-500/15 text-sky-300 border-sky-500/35",
+		icon: <House className={ICON_CLASS} aria-hidden="true" />,
 	},
 	restrictedList: {
-		description: "Checks if vendor directors are on the restricted list.",
-		reviewed: true,
-		checks: [
-			{
-				name: "Vendor was not found on Internal Restricted List",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-			{
-				name: "No vendor directors also direct an internally listed Restricted vendor",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-			{
-				name: "No vendor directors are found on internal Restricted employee list",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-			{
-				name: "Vendor was not found on National Treasury Restricted list",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-			{
-				name: "No vendor directors are directors of other companies found in National Treasury Restricted list",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-			{
-				name: "No vendor directors are found in the National Treasury Restricted list",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-		],
+		label: "Restricted List",
+		badgeClass: "bg-amber-500/15 text-amber-300 border-amber-500/35",
+		icon: <Ban className={ICON_CLASS} aria-hidden="true" />,
 	},
 	legal: {
-		description: "Checks if vendor directors are cited in legal matter.",
-		reviewed: true,
-		checks: [
-			{
-				name: "Vendor not cited in legal matter",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-		],
+		label: "Legal Matter",
+		badgeClass: "bg-orange-500/15 text-orange-300 border-orange-500/35",
+		icon: <Scale className={ICON_CLASS} aria-hidden="true" />,
 	},
 	safps: {
-		description: "Checks if vendor directors are on the SAFPS list.",
-		reviewed: true,
-		checks: [
-			{
-				name: "Vendor passed SAFPS checks",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-		],
+		label: "SAFPS",
+		badgeClass: "bg-emerald-500/15 text-emerald-300 border-emerald-500/35",
+		icon: <ShieldCheck className={ICON_CLASS} aria-hidden="true" />,
 	},
 	persal: {
-		description: "Checks if vendor directors are on the Persal list.",
-		reviewed: true,
-		checks: [
-			{
-				name: "No match was found for the specific information searched",
-				status: "EXECUTED",
-				result: "CLEARED",
-			},
-		],
+		label: "Persal",
+		badgeClass: "bg-violet-500/15 text-violet-300 border-violet-500/35",
+		icon: <Users className={ICON_CLASS} aria-hidden="true" />,
 	},
 };
 
-function parseBooleanFlag(value: string | undefined): boolean {
-	if (!value) return false;
-	const normalized = value.trim().toLowerCase();
-	return normalized === "1" || normalized === "true" || normalized === "yes";
-}
-
-function parseReviewedValue(value: unknown): boolean {
-	if (typeof value === "boolean") return value;
-	if (typeof value === "string") return parseBooleanFlag(value);
-	return true;
-}
-
-const PROCURECHECK_MOCK_ENABLED = parseBooleanFlag(
-	process.env.NEXT_PUBLIC_PROCURECHECK_MOCK_ENABLED ??
-		process.env.PROCURECHECK_MOCK_ENABLED
+const LABEL_TO_CATEGORY_ID = new Map<string, ProcurementCategoryId>(
+	Object.entries(CATEGORY_UI).map(([id, { label }]) => [
+		label,
+		id as ProcurementCategoryId,
+	]),
 );
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-	if (!value || typeof value !== "object" || Array.isArray(value)) {
-		return undefined;
-	}
-	return value as Record<string, unknown>;
-}
-
-function asString(value: unknown): string | undefined {
-	return typeof value === "string" && value.trim().length > 0 ? value : undefined;
-}
-
-function asArray(value: unknown): unknown[] {
-	return Array.isArray(value) ? value : [];
-}
-
-function normalizeExecutionStatus(value: unknown): CheckExecutionStatus {
-	const normalized = String(value ?? "")
-		.trim()
-		.toUpperCase();
-
-	if (
-		normalized === "EXECUTED" ||
-		normalized === "PASS" ||
-		normalized === "PASSED" ||
-		normalized === "COMPLETED"
-	) {
-		return "EXECUTED";
-	}
-
-	if (normalized === "REVIEW" || normalized === "MANUAL_REVIEW") {
-		return "REVIEW";
-	}
-
-	return "PENDING";
-}
-
-function normalizeResult(result: unknown, status: unknown): CheckResult {
-	const source = `${String(result ?? "")} ${String(status ?? "")}`.trim().toUpperCase();
-
-	if (
-		source.includes("FLAG") ||
-		source.includes("FAIL") ||
-		source.includes("MATCH") ||
-		source.includes("HIT")
-	) {
-		return "FLAGGED";
-	}
-
-	if (
-		source.includes("CLEAR") ||
-		source.includes("PASS") ||
-		source.includes("NOT FOUND") ||
-		source.includes("NO MATCH") ||
-		source.includes("VERIFIED")
-	) {
-		return "CLEARED";
-	}
-
-	return "UNKNOWN";
-}
-
-function inferFallbackResult(checkName: string): CheckResult {
-	const value = checkName.toLowerCase();
-	if (
-		value.startsWith("no ") ||
-		value.includes("not ") ||
-		value.includes("passed") ||
-		value.includes("active")
-	) {
-		return "CLEARED";
-	}
-	return "UNKNOWN";
-}
-
-function parseCheckItem(value: unknown): ProcurementCheckItem | null {
-	const parsed = asRecord(value);
-	if (!parsed) return null;
-
-	const name =
-		asString(parsed.name) ??
-		asString(parsed.check) ??
-		asString(parsed.checkName) ??
-		asString(parsed.title);
-	if (!name) return null;
-
-	const status = normalizeExecutionStatus(parsed.status);
-	const result = normalizeResult(parsed.result, parsed.status);
-
-	return { name, status, result };
-}
-
-function parseApplicant(
-	data: RiskReviewData["procurementData"]
-): ProcurementApplicantDetails {
-	const source = asRecord(data as unknown);
-	const applicant = asRecord(source?.applicant);
-	if (!applicant) return DEFAULT_APPLICANT;
-
-	return {
-		name: asString(applicant.name) ?? DEFAULT_APPLICANT.name,
-		entityNumber:
-			asString(applicant.entityNumber) ??
-			asString(applicant.registrationNumber) ??
-			DEFAULT_APPLICANT.entityNumber,
-		entityType: asString(applicant.entityType) ?? DEFAULT_APPLICANT.entityType,
-		entityStatus: asString(applicant.entityStatus) ?? DEFAULT_APPLICANT.entityStatus,
-		startDate: asString(applicant.startDate) ?? DEFAULT_APPLICANT.startDate,
-		registrationDate:
-			asString(applicant.registrationDate) ?? DEFAULT_APPLICANT.registrationDate,
-		taxNumber: asString(applicant.taxNumber) ?? DEFAULT_APPLICANT.taxNumber,
-		withdrawFromPublic:
-			asString(applicant.withdrawFromPublic) ?? DEFAULT_APPLICANT.withdrawFromPublic,
-		postalAddress: asString(applicant.postalAddress) ?? DEFAULT_APPLICANT.postalAddress,
-		registeredAddress:
-			asString(applicant.registeredAddress) ?? DEFAULT_APPLICANT.registeredAddress,
-	};
-}
-
-function mapLegacyChecks(
-	data: RiskReviewData["procurementData"]
-): ProcurementCheckItem[] {
-	return data.checks
-		.map(check => {
-			const name = check.name.trim();
-			if (!name) return null;
-			const status = normalizeExecutionStatus(check.status);
-			const result = normalizeResult(undefined, check.status);
-			return { name, status, result };
-		})
-		.filter((check): check is ProcurementCheckItem => check !== null);
-}
-
-function parseCategoryChecks(
-	data: RiskReviewData["procurementData"],
-	definition: CategoryDefinition
-): ProcurementCheckItem[] {
-	const source = asRecord(data as unknown);
-	const category = asRecord(source?.[definition.key]);
-	const parsedChecks = asArray(category?.checks)
-		.map(parseCheckItem)
-		.filter((check): check is ProcurementCheckItem => check !== null);
-
-	if (parsedChecks.length > 0) {
-		return parsedChecks;
-	}
-
-	if (definition.tabId === "cipc") {
-		const legacyChecks = mapLegacyChecks(data);
-		if (legacyChecks.length > 0) {
-			return legacyChecks;
-		}
-	}
-
-	return definition.fallbackChecks.map(checkName => ({
-		name: checkName,
-		status: "PENDING",
-		result: inferFallbackResult(checkName),
-	}));
-}
-
-function normalizeProcurementUiData(
-	data: RiskReviewData["procurementData"]
-): ProcurementUiData {
-	const source = asRecord(data as unknown);
-
-	const categories = CATEGORY_DEFINITIONS.map(definition => {
-		const categorySource = asRecord(source?.[definition.key]);
-		const description = asString(categorySource?.description) ?? definition.description;
-		const reviewed = parseReviewedValue(
-			categorySource?.reviewed ?? categorySource?.isReviewed
-		);
-		const checks = parseCategoryChecks(data, definition);
-
-		return {
-			tabId: definition.tabId,
-			label: definition.label,
-			description,
-			reviewed,
-			checks,
-		};
-	});
-
-	return {
-		applicant: parseApplicant(data),
-		categories,
-	};
-}
 
 function countChecksByStatus(
 	checks: ProcurementCheckItem[],
-	status: CheckExecutionStatus
+	status: ProcurementCheckItem["status"],
 ): number {
-	return checks.filter(check => check.status === status).length;
-}
-
-function getCategoryResult(checks: ProcurementCheckItem[]): CheckResult {
-	if (checks.some(check => check.result === "FLAGGED")) return "FLAGGED";
-	if (checks.length > 0 && checks.every(check => check.result === "CLEARED"))
-		return "CLEARED";
-	return "UNKNOWN";
-}
-
-function getOutstandingChecksCount(checks: ProcurementCheckItem[]): number {
-	return checks.filter(check => check.result !== "CLEARED").length;
+	return checks.filter((c) => c.status === status).length;
 }
 
 function resultVariant(
-	result: CheckResult
+	result: string,
 ): "success" | "warning" | "danger" | "default" {
 	switch (result) {
 		case "CLEARED":
 			return "success";
 		case "FLAGGED":
 			return "danger";
-		case "UNKNOWN":
 		default:
 			return "default";
 	}
 }
 
-function categoryBadgeClass(tabId: ProcurementCategoryTabId): string {
-	switch (tabId) {
-		case "cipc":
-			return "bg-pink-500/15 text-pink-300 border-pink-500/35";
-		case "propertyInformation":
-			return "bg-sky-500/15 text-sky-300 border-sky-500/35";
-		case "restrictedList":
-			return "bg-amber-500/15 text-amber-300 border-amber-500/35";
-		case "legalMatter":
-			return "bg-orange-500/15 text-orange-300 border-orange-500/35";
-		case "safps":
-			return "bg-emerald-500/15 text-emerald-300 border-emerald-500/35";
-		case "persal":
-			return "bg-violet-500/15 text-violet-300 border-violet-500/35";
-		default:
-			return "bg-muted/30 text-foreground border-border";
-	}
+function LoadingSkeleton() {
+	return (
+		<div className="space-y-6 animate-in fade-in duration-500">
+			<div className="h-12 rounded-lg bg-muted/40 animate-pulse" />
+			<div className="flex flex-wrap gap-2">
+				{Array.from({ length: 7 }).map((_, i) => (
+					<div
+						key={`skel-tab-${i}`}
+						className="h-8 w-28 rounded-md bg-muted/30 animate-pulse"
+					/>
+				))}
+			</div>
+			<div className="rounded-lg border border-border bg-card">
+				<div className="p-5 border-b border-border bg-muted/30">
+					<div className="h-5 w-48 bg-muted/40 animate-pulse rounded" />
+					<div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-4">
+						{Array.from({ length: 4 }).map((_, i) => (
+							<div key={`skel-stat-${i}`} className="space-y-2">
+								<div className="h-3 w-20 bg-muted/30 animate-pulse rounded" />
+								<div className="h-6 w-12 bg-muted/40 animate-pulse rounded" />
+							</div>
+						))}
+					</div>
+				</div>
+				{Array.from({ length: 6 }).map((_, i) => (
+					<div
+						key={`skel-row-${i}`}
+						className="flex items-center gap-4 p-4 border-b border-border/50">
+						<div className="h-6 w-32 bg-muted/30 animate-pulse rounded-full" />
+						<div className="h-4 w-8 bg-muted/20 animate-pulse rounded" />
+						<div className="h-4 w-8 bg-muted/20 animate-pulse rounded" />
+						<div className="h-4 w-8 bg-muted/20 animate-pulse rounded" />
+						<div className="h-4 w-8 bg-muted/20 animate-pulse rounded" />
+						<div className="h-6 w-20 bg-muted/30 animate-pulse rounded-full" />
+					</div>
+				))}
+			</div>
+		</div>
+	);
 }
 
-function categoryBadgeIcon(tabId: ProcurementCategoryTabId) {
-	const iconClass = "w-3.5 h-3.5";
-	switch (tabId) {
-		case "cipc":
-			return <Building2 className={iconClass} aria-hidden="true" />;
-		case "propertyInformation":
-			return <House className={iconClass} aria-hidden="true" />;
-		case "restrictedList":
-			return <Ban className={iconClass} aria-hidden="true" />;
-		case "legalMatter":
-			return <Scale className={iconClass} aria-hidden="true" />;
-		case "safps":
-			return <ShieldCheck className={iconClass} aria-hidden="true" />;
-		case "persal":
-			return <Users className={iconClass} aria-hidden="true" />;
-		default:
-			return <FileText className={iconClass} aria-hidden="true" />;
-	}
+function ErrorCard({ status }: { status: SectionStatus }) {
+	return (
+		<div className="space-y-6 animate-in fade-in duration-500">
+			<SectionStatusBanner status={status} label="Procurement" />
+			<Card className="p-6">
+				<div className="flex items-start gap-3">
+					<AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+					<div className="space-y-1">
+						<h3 className="font-medium text-foreground">
+							{status.machineState === "failed"
+								? "Procurement check failed"
+								: "Manual review required"}
+						</h3>
+						<p className="text-sm text-muted-foreground">
+							{status.errorDetails ??
+								"The procurement verification could not be completed automatically. Please contact the system administrator or retry the check."}
+						</p>
+					</div>
+				</div>
+			</Card>
+		</div>
+	);
 }
 
 export function ProcurementSection({
 	data,
 	status,
 }: {
-	data: RiskReviewData["procurementData"];
+	data: ProcurementData | null;
 	status?: SectionStatus;
 }) {
 	const [activeTab, setActiveTab] = useState<ProcurementTabId>("overallSummary");
 
-	const sourceData = PROCURECHECK_MOCK_ENABLED ? PROCURECHECK_MOCK_DATA : data;
-	const uiData = useMemo(() => normalizeProcurementUiData(sourceData), [sourceData]);
-
 	const totals = useMemo(() => {
-		const allChecks = uiData.categories.flatMap(category => category.checks);
+		if (!data)
+			return { tableResults: 0, totalChecks: 0, executedChecks: 0, reviewChecks: 0 };
+		const allChecks = data.categories.flatMap((c) => c.checks);
 		return {
-			tableResults: uiData.categories.length,
+			tableResults: data.categories.length,
 			totalChecks: allChecks.length,
 			executedChecks: countChecksByStatus(allChecks, "EXECUTED"),
 			reviewChecks: countChecksByStatus(allChecks, "REVIEW"),
 		};
-	}, [uiData]);
+	}, [data]);
+
+	if (!data) {
+		if (
+			status?.machineState === "failed" ||
+			status?.machineState === "manual_required"
+		) {
+			return <ErrorCard status={status} />;
+		}
+		return <LoadingSkeleton />;
+	}
 
 	const activeCategory =
 		activeTab === "overallSummary"
 			? undefined
-			: (uiData.categories.find(category => category.tabId === activeTab) ??
-				uiData.categories[0]);
+			: data.categories.find((c) => c.id === activeTab);
 
 	return (
 		<div className="space-y-6 animate-in fade-in duration-500">
 			<SectionStatusBanner status={status} label="Procurement" />
-
-			{PROCURECHECK_MOCK_ENABLED && (
-				<RiskReviewBadge variant="warning">
-					Mock data enabled (PROCURECHECK_MOCK_ENABLED)
-				</RiskReviewBadge>
-			)}
 
 			<Accordion type="single" collapsible className="border-border bg-card">
 				<AccordionItem value="applicant-details" className="data-open:bg-transparent">
@@ -676,50 +215,66 @@ export function ProcurementSection({
 						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 							<div>
 								<p className="text-xs text-muted-foreground">Name</p>
-								<p className="text-sm text-foreground">{uiData.applicant.name}</p>
+								<p className="text-sm text-foreground">{data.vendor.name}</p>
 							</div>
 							<div>
 								<p className="text-xs text-muted-foreground">Entity Number</p>
-								<p className="text-sm text-foreground">{uiData.applicant.entityNumber}</p>
+								<p className="text-sm text-foreground">
+									{data.vendor.entityNumber}
+								</p>
 							</div>
 							<div>
 								<p className="text-xs text-muted-foreground">Entity Type</p>
-								<p className="text-sm text-foreground">{uiData.applicant.entityType}</p>
+								<p className="text-sm text-foreground">
+									{data.vendor.entityType}
+								</p>
 							</div>
 							<div>
 								<p className="text-xs text-muted-foreground">Entity Status</p>
-								<p className="text-sm text-foreground">{uiData.applicant.entityStatus}</p>
+								<p className="text-sm text-foreground">
+									{data.vendor.entityStatus}
+								</p>
 							</div>
 							<div>
 								<p className="text-xs text-muted-foreground">Start Date</p>
-								<p className="text-sm text-foreground">{uiData.applicant.startDate}</p>
+								<p className="text-sm text-foreground">
+									{data.vendor.startDate}
+								</p>
 							</div>
 							<div>
-								<p className="text-xs text-muted-foreground">Registration Date</p>
+								<p className="text-xs text-muted-foreground">
+									Registration Date
+								</p>
 								<p className="text-sm text-foreground">
-									{uiData.applicant.registrationDate}
+									{data.vendor.registrationDate}
 								</p>
 							</div>
 							<div>
 								<p className="text-xs text-muted-foreground">Tax Number</p>
-								<p className="text-sm text-foreground">{uiData.applicant.taxNumber}</p>
+								<p className="text-sm text-foreground">
+									{data.vendor.taxNumber}
+								</p>
 							</div>
 							<div>
-								<p className="text-xs text-muted-foreground">Withdraw From Public</p>
+								<p className="text-xs text-muted-foreground">
+									Withdraw From Public
+								</p>
 								<p className="text-sm text-foreground">
-									{uiData.applicant.withdrawFromPublic}
+									{data.vendor.withdrawFromPublic}
 								</p>
 							</div>
 							<div>
 								<p className="text-xs text-muted-foreground">Postal Address</p>
 								<p className="text-sm text-foreground">
-									{uiData.applicant.postalAddress}
+									{data.vendor.postalAddress}
 								</p>
 							</div>
 							<div className="sm:col-span-2 lg:col-span-3">
-								<p className="text-xs text-muted-foreground">Registered Address</p>
+								<p className="text-xs text-muted-foreground">
+									Registered Address
+								</p>
 								<p className="text-sm text-foreground">
-									{uiData.applicant.registeredAddress}
+									{data.vendor.registeredAddress}
 								</p>
 							</div>
 						</div>
@@ -734,13 +289,13 @@ export function ProcurementSection({
 					className="h-8">
 					Overall Summary
 				</Button>
-				{uiData.categories.map(category => (
+				{data.categories.map((category) => (
 					<Button
-						key={category.tabId}
-						onClick={() => setActiveTab(category.tabId)}
-						variant={activeTab === category.tabId ? "default" : "outline"}
+						key={category.id}
+						onClick={() => setActiveTab(category.id)}
+						variant={activeTab === category.id ? "default" : "outline"}
 						className="h-8">
-						{category.label}
+						{CATEGORY_UI[category.id].label}
 					</Button>
 				))}
 			</div>
@@ -750,7 +305,9 @@ export function ProcurementSection({
 					<div className="p-5 border-b border-border bg-muted/30">
 						<div className="flex items-center gap-2 mb-3">
 							<ClipboardList className="w-4 h-4 text-primary" />
-							<h3 className="font-medium text-foreground">Overall Check Summary</h3>
+							<h3 className="font-medium text-foreground">
+								Overall Check Summary
+							</h3>
 						</div>
 						<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 							<div>
@@ -766,7 +323,9 @@ export function ProcurementSection({
 								</p>
 							</div>
 							<div>
-								<p className="text-xs text-muted-foreground">Executed Checks</p>
+								<p className="text-xs text-muted-foreground">
+									Executed Checks
+								</p>
 								<p className="text-lg font-semibold text-foreground">
 									{totals.executedChecks}
 								</p>
@@ -793,35 +352,41 @@ export function ProcurementSection({
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-border/50 text-sm">
-								{uiData.categories.map(category => {
-									const categoryStatus = getCategoryResult(category.checks);
+								{data.summary.categories.map((row) => {
+									const categoryId = LABEL_TO_CATEGORY_ID.get(row.category);
+									const ui = categoryId
+										? CATEGORY_UI[categoryId]
+										: undefined;
 									return (
 										<tr
-											key={category.tabId}
+											key={row.category}
 											className="hover:bg-muted/20 transition-colors">
 											<td className="p-4">
 												<RiskReviewBadge
 													variant="default"
-													className={categoryBadgeClass(category.tabId)}>
+													className={
+														ui?.badgeClass ??
+														"bg-muted/30 text-foreground border-border"
+													}>
 													<span className="flex items-center gap-1.5">
-														{categoryBadgeIcon(category.tabId)}
-														{category.label}
+														{ui?.icon ?? (
+															<FileText
+																className={ICON_CLASS}
+																aria-hidden="true"
+															/>
+														)}
+														{ui?.label ?? row.category}
 													</span>
 												</RiskReviewBadge>
 											</td>
+											<td className="p-4">{row.outstanding}</td>
+											<td className="p-4">{row.total}</td>
+											<td className="p-4">{row.executed}</td>
+											<td className="p-4">{row.review}</td>
 											<td className="p-4">
-												{getOutstandingChecksCount(category.checks)}
-											</td>
-											<td className="p-4">{category.checks.length}</td>
-											<td className="p-4">
-												{countChecksByStatus(category.checks, "EXECUTED")}
-											</td>
-											<td className="p-4">
-												{countChecksByStatus(category.checks, "REVIEW")}
-											</td>
-											<td className="p-4">
-												<RiskReviewBadge variant={resultVariant(categoryStatus)}>
-													{categoryStatus}
+												<RiskReviewBadge
+													variant={resultVariant(row.status)}>
+													{row.status}
 												</RiskReviewBadge>
 											</td>
 										</tr>
@@ -838,19 +403,29 @@ export function ProcurementSection({
 					<div className="p-5 border-b border-border bg-muted/20">
 						<div className="flex items-center gap-2 mb-2">
 							<FileText className="w-4 h-4 text-primary" />
-							<h3 className="font-medium text-foreground">{activeCategory.label}</h3>
+							<h3 className="font-medium text-foreground">
+								{CATEGORY_UI[activeCategory.id].label}
+							</h3>
 						</div>
-						<p className="text-sm text-muted-foreground">{activeCategory.description}</p>
+						<p className="text-sm text-muted-foreground">
+							{activeCategory.description}
+						</p>
 						<div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
 							<span className="font-medium text-foreground">Reviewed:</span>
 							{activeCategory.reviewed ? (
 								<>
-									<ThumbsUp className="w-4 h-4 text-chart-4" aria-hidden="true" />
+									<ThumbsUp
+										className="w-4 h-4 text-chart-4"
+										aria-hidden="true"
+									/>
 									<span className="sr-only">Reviewed yes</span>
 								</>
 							) : (
 								<>
-									<ThumbsDown className="w-4 h-4 text-destructive" aria-hidden="true" />
+									<ThumbsDown
+										className="w-4 h-4 text-destructive"
+										aria-hidden="true"
+									/>
 									<span className="sr-only">Reviewed no</span>
 								</>
 							)}
@@ -873,11 +448,12 @@ export function ProcurementSection({
 										</td>
 									</tr>
 								) : (
-									activeCategory.checks.map(check => (
-										<tr key={`${activeCategory.tabId}-${check.name}`}>
+									activeCategory.checks.map((check) => (
+										<tr key={`${activeCategory.id}-${check.name}`}>
 											<td className="p-4 text-foreground">{check.name}</td>
 											<td className="p-4">
-												<RiskReviewBadge variant={resultVariant(check.result)}>
+												<RiskReviewBadge
+													variant={resultVariant(check.result)}>
 													{check.result}
 												</RiskReviewBadge>
 											</td>
