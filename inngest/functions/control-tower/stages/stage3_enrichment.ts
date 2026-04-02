@@ -30,7 +30,8 @@ import { recordVendorCheckFailure } from "@/lib/services/telemetry/vendor-metric
 import { terminateRun } from "@/lib/services/terminate-run.service";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 import { inngest } from "../../../client";
-import { guardKillSwitch, runSanctionsForWorkflow } from "../../../utils/helpers";
+import { guardKillSwitch } from "../../../utils/guards";
+import { runSanctionsForWorkflow } from "../../../utils/helpers";
 import { handleWaitWithReminders } from "../../handlers/reminder-handler";
 import type { Stage2Output, StageDependencies, StageResult } from "../types";
 
