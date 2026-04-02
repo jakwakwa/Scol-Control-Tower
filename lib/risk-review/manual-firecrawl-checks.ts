@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
+import type * as schema from "@/db/schema";
 import { applicants, riskAssessments, workflows } from "@/db/schema";
 import type {
 	ApplicantData,
@@ -7,7 +8,6 @@ import type {
 	SocialReputationCheckResult,
 } from "@/lib/services/agents/contracts/firecrawl-check.contracts";
 import { isFirecrawlConfigured } from "@/lib/services/firecrawl";
-import type * as schema from "@/db/schema";
 
 export type ManualFirecrawlCheckKind = "industry" | "social";
 
@@ -21,8 +21,8 @@ function safeJsonRecord(value: unknown): Record<string, unknown> {
 }
 
 /**
- * Industry / social checks may run when Firecrawl is configured and either the
- * per-check pipeline flag is set or ops enables manual-only screening.
+ * Industry / social manual checks may run only when Firecrawl is configured and
+ * ops enables manual screening.
  */
 export function assertManualFirecrawlAllowed(
 	kind: ManualFirecrawlCheckKind
@@ -31,20 +31,20 @@ export function assertManualFirecrawlAllowed(
 		return { ok: false, status: 503, error: "Firecrawl is not configured" };
 	}
 	const manual = process.env.ENABLE_MANUAL_FIRECRAWL_SCREENING === "true";
-	const industryOn = process.env.ENABLE_FIRECRAWL_INDUSTRY_REG === "true";
-	const socialOn = process.env.ENABLE_FIRECRAWL_SOCIAL_REP === "true";
-	if (kind === "industry" && !manual && !industryOn) {
+	if (kind === "industry" && !manual) {
 		return {
 			ok: false,
 			status: 403,
-			error: "Industry regulator checks are disabled (enable ENABLE_FIRECRAWL_INDUSTRY_REG or ENABLE_MANUAL_FIRECRAWL_SCREENING)",
+			error:
+				"Industry regulator checks are disabled (enable ENABLE_MANUAL_FIRECRAWL_SCREENING)",
 		};
 	}
-	if (kind === "social" && !manual && !socialOn) {
+	if (kind === "social" && !manual) {
 		return {
 			ok: false,
 			status: 403,
-			error: "Social reputation checks are disabled (enable ENABLE_FIRECRAWL_SOCIAL_REP or ENABLE_MANUAL_FIRECRAWL_SCREENING)",
+			error:
+				"Social reputation checks are disabled (enable ENABLE_MANUAL_FIRECRAWL_SCREENING)",
 		};
 	}
 	return { ok: true };
@@ -52,7 +52,7 @@ export function assertManualFirecrawlAllowed(
 
 /**
  * Whether each external screening action should appear in the risk review UI.
- * Matches {@link assertManualFirecrawlAllowed} (Firecrawl configured + env flags).
+ * Matches {@link assertManualFirecrawlAllowed} (Firecrawl configured + manual flag).
  */
 export function getExternalScreeningUiAvailability(): {
 	industryRegulator: boolean;
@@ -62,11 +62,9 @@ export function getExternalScreeningUiAvailability(): {
 		return { industryRegulator: false, socialReputation: false };
 	}
 	const manual = process.env.ENABLE_MANUAL_FIRECRAWL_SCREENING === "true";
-	const industryOn = process.env.ENABLE_FIRECRAWL_INDUSTRY_REG === "true";
-	const socialOn = process.env.ENABLE_FIRECRAWL_SOCIAL_REP === "true";
 	return {
-		industryRegulator: manual || industryOn,
-		socialReputation: manual || socialOn,
+		industryRegulator: manual,
+		socialReputation: manual,
 	};
 }
 
@@ -121,7 +119,9 @@ export function mergeExternalCheckIntoAiAnalysisJson(
 ): string {
 	const root = parseAiAnalysisObject(currentJson ?? null);
 	const externalChecks =
-		root.externalChecks && typeof root.externalChecks === "object" && !Array.isArray(root.externalChecks)
+		root.externalChecks &&
+		typeof root.externalChecks === "object" &&
+		!Array.isArray(root.externalChecks)
 			? { ...(root.externalChecks as Record<string, unknown>) }
 			: {};
 	externalChecks[slotKey] = slot;

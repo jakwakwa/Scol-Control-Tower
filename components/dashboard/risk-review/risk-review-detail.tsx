@@ -139,8 +139,8 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 
 	return (
 		<>
-			<div className="card-form text-foreground font-sans p-4 md:p-6 selection:bg-primary/30 print:hidden">
-				<div className="space-y-6">
+			<div className="card-form text-foreground font-sans p-4 md:p-6 selection:bg-primary/90 print:hidden w-full">
+				<div className="space-y-2 w-full">
 					<RiskReviewHeader
 						globalData={globalData}
 						isGeneratingSummary={isGeneratingSummary}

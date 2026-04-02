@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { RiExternalLinkLine, RiLoader4Line, RiTestTubeLine } from "@remixicon/react";
+import { RiLoader4Line, RiTestTubeLine } from "@remixicon/react";
 import { useRouter } from "next/navigation";
 import posthog from "posthog-js";
 import { useState } from "react";
@@ -193,22 +193,6 @@ export function ApplicantForm({
 
 						{entityType !== "proprietor" && (
 							<div className="space-y-2">
-								{/* TODO: Add a link to the CIPC registration number lookup https://www.cipc.co.za/registration-number-lookup */}
-								<div className="flex items-center gap-2">
-									<a
-										href="https://www.cipc.co.za/registration-number-lookup"
-										target="_blank"
-										rel="noopener noreferrer">
-										<RiExternalLinkLine className="h-4 w-4" />
-									</a>
-									<Label htmlFor="registrationNumber">CIPC Registration Number *</Label>
-								</div>
-								<a
-									href="https://www.cipc.co.za/registration-number-lookup"
-									target="_blank"
-									rel="noopener noreferrer">
-									<RiExternalLinkLine className="h-4 w-4" />
-								</a>
 								<Label htmlFor="registrationNumber">CIPC Registration Number *</Label>
 								<Input
 									id="registrationNumber"

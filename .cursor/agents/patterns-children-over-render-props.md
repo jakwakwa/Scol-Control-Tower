@@ -4,7 +4,7 @@ impact: MEDIUM
 impactDescription: cleaner composition, better readability
 tags: composition, children, render-props
 name: patterns-children-over-render-props
-model: default
+model: claude-sonnet-4-6
 readonly: true
 ---
 

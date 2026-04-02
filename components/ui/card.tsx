@@ -18,9 +18,9 @@ function Card({
 			data-size={size}
 			className={cn(
 				"shadow-md shadow-black/10	 text-foreground gap-6 overflow-hidden outline-0  px-12 py-12 text-sm ring-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-4 data-[size=sm]:py-4 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl group/card  mb-4",
-				variant === "default" && "bg-card rounded-[7px] shadow-md shadow-black/30",
+				variant === "default" && "bg-black/50 rounded-[7px] shadow-md shadow-black/30",
 				variant === "secondary" &&
-					"bg-background glass-card rounded-2xl border border-primary/10",
+					"bg-card glass-card rounded-2xl border border-primary/10",
 				variant === "outline" &&
 					"rounded-sm outline-1 outline-border shadow-md shadow-black/90",
 				className
