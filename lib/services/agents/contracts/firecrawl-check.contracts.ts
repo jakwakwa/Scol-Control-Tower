@@ -224,11 +224,6 @@ export type SanctionsEvidenceEnrichmentResult = z.infer<
 // Family Contracts - Social Reputation
 // ============================================
 
-export const SocialReputationCheckRequestSchema = CheckRequestBaseSchema;
-export type SocialReputationCheckRequest = z.infer<
-	typeof SocialReputationCheckRequestSchema
->;
-
 export const SocialReputationCheckResultPayloadSchema = z.object({
 	checked: z.boolean(),
 	passed: z.boolean(),

@@ -17,7 +17,7 @@ interface ApplicantFormLinksProps {
 	requiredDocuments?: RequiredDocumentSummary[];
 }
 
-export const ApplicantFormLinks = ({
+const ApplicantFormLinks = ({
 	contactName = "Valued Client",
 	links = [],
 	requiredDocuments = [],
@@ -79,4 +79,4 @@ function formatFormType(type: string) {
 		.join(" ");
 }
 
-export default ApplicantFormLinks;
+export { ApplicantFormLinks };

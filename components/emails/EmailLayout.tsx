@@ -16,7 +16,7 @@ interface EmailLayoutProps {
 	children: React.ReactNode;
 }
 
-export const EmailLayout = ({ preview, children }: EmailLayoutProps) => {
+const EmailLayout = ({ preview, children }: EmailLayoutProps) => {
 	return (
 		<Html>
 			<Head />
@@ -54,4 +54,4 @@ export const EmailLayout = ({ preview, children }: EmailLayoutProps) => {
 	);
 };
 
-export default EmailLayout;
+export { EmailLayout };
