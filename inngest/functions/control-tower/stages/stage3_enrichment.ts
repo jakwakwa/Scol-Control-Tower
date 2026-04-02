@@ -20,7 +20,7 @@ import {
 	createWorkflowNotification,
 	logWorkflowEvent,
 } from "@/lib/services/notification-events.service";
-import { analyzeRisk as runProcureCheck } from "@/lib/services/risk.service";
+import { executeProcurementCheck } from "@/lib/services/procurecheck.service";
 import { updateRiskCheckMachineState } from "@/lib/services/risk-check.service";
 import {
 	getStateLockInfo,
@@ -112,26 +112,22 @@ export async function executeStage3({
 
 		const procurementStart = Date.now();
 		try {
-			const result = await runProcureCheck(applicantId, workflowId);
+			const result = await executeProcurementCheck(applicantId, workflowId);
 
 			await logWorkflowEvent({
 				workflowId,
 				eventType: "procurement_check_completed",
 				payload: {
-					riskScore: result.riskScore,
-					anomalies: result.anomalies,
-					recommendedAction: result.recommendedAction,
+					vendorId: result.vendorId,
+					provider: result.payload.provider,
+					categoriesCount: result.payload.categories.length,
 				},
 			});
 
 			await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "completed", {
-				payload: {
-					riskScore: result.riskScore,
-					anomalies: result.anomalies,
-					recommendedAction: result.recommendedAction,
-					procureCheckId: result.procureCheckId,
-				},
-				rawPayload: result.procureCheckData,
+				externalCheckId: result.vendorId,
+				payload: result.payload,
+				rawPayload: result.rawPayload,
 			});
 
 			await createWorkflowNotification({
@@ -139,13 +135,15 @@ export async function executeStage3({
 				applicantId,
 				type: "warning",
 				title: "Procurement Result Added To Risk Review",
-				message: `ProcureCheck score: ${result.riskScore}. Action: ${result.recommendedAction}.`,
+				message: `ProcureCheck completed for vendor ${result.vendorId}. ${result.payload.categories.length} categories checked.`,
 				actionable: false,
 			});
 
 			return { killSwitchTriggered: false, isBlocked: false };
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
+			const isAuthError = /\b(401|403)\b/.test(errorMessage);
+
 			console.error("[ControlTower] Procurement check execution failed:", error);
 			recordVendorCheckFailure({
 				vendor: "procurecheck",
@@ -153,7 +151,7 @@ export async function executeStage3({
 				workflowId,
 				applicantId,
 				durationMs: Date.now() - procurementStart,
-				outcome: "persistent_failure",
+				outcome: isAuthError ? "persistent_failure" : "transient_failure",
 				error,
 			});
 
@@ -165,25 +163,29 @@ export async function executeStage3({
 					context: "procurement_check_failed",
 					source: "procurecheck",
 					stage: 3,
-					manualReviewRequired: true,
+					isAuthError,
 				},
 			});
 
-			await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "manual_required", {
-				errorDetails: errorMessage,
-			});
+			if (isAuthError) {
+				await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "manual_required", {
+					errorDetails: `Auth failure: ${errorMessage}`,
+				});
 
-			await createWorkflowNotification({
-				workflowId,
-				applicantId,
-				type: "warning",
-				title: "Procurement Automation Offline",
-				message:
-					"Automated ProcureCheck failed. Manual procurement evidence required at risk review.",
-				actionable: false,
-			});
+				await createWorkflowNotification({
+					workflowId,
+					applicantId,
+					type: "warning",
+					title: "ProcureCheck Authentication Failed",
+					message:
+						"ProcureCheck credentials are invalid. Manual procurement review required.",
+					actionable: false,
+				});
 
-			return { killSwitchTriggered: false, isBlocked: false };
+				return { killSwitchTriggered: false, isBlocked: false };
+			}
+
+			throw error;
 		}
 	});
 

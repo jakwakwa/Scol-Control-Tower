@@ -82,28 +82,34 @@ They might reply with something like:
    ```bash
    PROCURECHECK_USERNAME="the-username-they-gave-you"
    PROCURECHECK_PASSWORD="the-password-they-gave-you"
+   PROCURECHECK_ENV="sandbox"
    PROCURECHECK_BASE_URL="https://xdev.procurecheck.co.za/api/api/v1/"
    ```
 
-2. Run the verification script from the repo root:
+2. Start the dev server and call the network check endpoint:
    ```bash
-   bun scripts/procurecheck-verifier.ts
+   bun run dev
+   # In another terminal:
+   curl -H "Authorization: Bearer $CRON_SECRET" \
+     http://localhost:3000/api/integrations/procurecheck/network-check
    ```
 
-3. If you see output like this, you're ready to integrate:
-   ```
-   ✅ Auth successful - JWT token received
-   ✅ Vendors list successful
-   ✅ Demo completed successfully!
-   🎉 Verifier PASSED - Ready for the meeting!
+3. If the response includes these fields, you're ready:
+   ```json
+   {
+     "ok": true,
+     "tokenIssued": true,
+     "vendorsGetListOk": true
+   }
    ```
 
-### Optional: Test with vendor creation
+### Running tests
 
-If you want to see the full flow (creation + results):
+To verify the integration code itself:
 
 ```bash
-bun scripts/procurecheck-verifier.ts --create
+bun test ./lib/procurecheck/__tests__/
+bun test ./tests/procurecheck-service.test.ts
 ```
 
 ---
@@ -112,10 +118,12 @@ bun scripts/procurecheck-verifier.ts --create
 
 For detailed implementation and usage in production:
 
-- **`lib/procurecheck.ts`** — Complete Web API v5 client with JWT authentication
-- **`scripts/procurecheck-verifier.ts`** — Meeting pre-check script
-- **`scripts/procurecheck-network-check.ts`** — Server-runtime network and allowlist check
+- **`lib/procurecheck/client.ts`** — Production API client with JWT authentication, vendor CRUD, polling
+- **`lib/procurecheck/types.ts`** — Zod schemas for API responses and `ProcurementData` type
+- **`lib/procurecheck/mapper.ts`** — API-to-internal data transformer
+- **`lib/services/procurecheck.service.ts`** — Orchestrator that ties the client, mapper, and DB together
+- **`app/api/integrations/procurecheck/network-check/route.ts`** — Server-runtime network and allowlist check
 - **`procurecheck-postman-collection.json`** — Ready-to-import Postman collection
-- **`docs/procurecheck-api-v7.yaml`** — Latest API specification
+- **`docs/procurecheck-api-v5.yaml`** — API specification (v5)
 - **`docs/procurecheck-ip-whitelist-runbook.md`** — IP allowlist strategy and support email template
 - **`docs/solutions/integration-issues/procurecheck-v5-api-jwt-auth-implementation.md`** — Full integration guide
