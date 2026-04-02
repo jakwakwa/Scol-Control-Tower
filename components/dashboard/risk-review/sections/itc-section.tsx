@@ -291,18 +291,20 @@ export function ItcSection({
 	return (
 		<div className="space-y-6 animate-in fade-in duration-500">
 			<SectionStatusBanner status={status} label="ITC Credit" />
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-				<Card className="col-span-1 p-6 flex flex-col items-center justify-center bg-muted/30">
+			<div className="grid grid-cols-1 md:grid-cols-6 gap-2  overflow-hidden py-2 dotted-grid items-center h-full max-h-full min-h-[30vh]">
+				<Card className="col-span-3 m-0 flex relative flex-col items-center justify-center h-full ">
 					<ScoreGauge
 						score={data.creditScore}
 						label="Commercial Credit Score"
 						max={999}
 						inverse={true}
 					/>
-					<p className="text-sm text-primary font-medium mt-2">{data.scoreBand}</p>
+					<p className="leading-0 hidden text-xs text-primary font-medium">
+						{data.scoreBand}
+					</p>
 				</Card>
-				<div className="col-span-1 md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-					<Card className="p-5 border-l-4 border-l-chart-4">
+				<div className="col-span-1 md:col-span-3 grid grid-cols-1 sm:grid-cols-1 align-center py-0 my-0 min-h-full w-full">
+					<Card className="px-5  border-l- border-l-chart-4">
 						<div className="flex items-center gap-3 mb-2">
 							<Scale className="w-5 h-5 text-chart-4" />
 							<h4 className="font-medium text-foreground">Court Judgements</h4>
@@ -312,8 +314,8 @@ export function ItcSection({
 							No active civil judgements recorded.
 						</p>
 					</Card>
-					<Card className="p-5 border-l-4 border-l-warning">
-						<div className="flex items-center gap-3 mb-2">
+					<Card className="px-5 py-12 h-auto content-start  border-l-4 border-l-warning min-w-68">
+						<div className="w-full flex items-center gap-3 my-2">
 							<AlertOctagon className="w-5 h-5 text-warning-foreground" />
 							<h4 className="font-medium text-foreground">Payment Defaults</h4>
 						</div>
@@ -322,7 +324,7 @@ export function ItcSection({
 							{data.defaultDetails}
 						</p>
 					</Card>
-					<Card className="p-5 sm:col-span-2">
+					<Card className="h-full p-5 sm:col-span-2">
 						<div className="flex items-center gap-3 mb-4">
 							<CreditCard className="w-5 h-5 text-muted-foreground" />
 							<h4 className="font-medium text-foreground">Credit Behaviour</h4>

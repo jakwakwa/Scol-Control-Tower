@@ -4,7 +4,7 @@ impact: MEDIUM
 impactDescription: self-documenting code, no hidden conditionals
 tags: composition, variants, architecture
 name: patterns-explicit-variants
-model: composer-2
+model: claude-opus-4-6
 description: Create Explicit Component Variants self-documenting code, no hidden conditionals
 is_background: true
 ---
