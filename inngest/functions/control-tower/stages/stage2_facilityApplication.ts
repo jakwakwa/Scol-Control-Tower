@@ -30,9 +30,9 @@ import {
 	guardKillSwitch,
 	notifyApplicantDecline,
 	runSanctionsForWorkflow,
-} from "../helpers";
-import { handleWaitWithReminders } from "../reminder-handler";
-import { handleWaitTimeout } from "../timeout-handler";
+} from "../../../utils/helpers";
+import { handleWaitWithReminders } from "../../handlers/reminder-handler";
+import { handleWaitTimeout } from "../../handlers/timeout-handler";
 import type { StageDependencies, StageResult } from "../types";
 
 export async function executeStage2({

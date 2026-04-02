@@ -5,7 +5,7 @@
 import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants } from "@/db/schema";
-import { createTestVendor, getVendorResults } from "@/lib/procurecheck";
+import { createTestVendor, getVendorResults } from "@/lib/procurecheck-demo";
 import {
 	recordVendorCheckFailure,
 	recordVendorCheckSuccess,

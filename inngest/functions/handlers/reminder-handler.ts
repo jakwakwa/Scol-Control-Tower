@@ -11,9 +11,9 @@ import {
 	createWorkflowNotification,
 	logWorkflowEvent,
 } from "@/lib/services/notification-events.service";
-import { guardKillSwitch } from "./helpers";
 import { handleWaitTimeout } from "./timeout-handler";
-import type { ControlTowerStepTools } from "./types";
+import type { ControlTowerStepTools } from "../control-tower/types";
+import { guardKillSwitch } from "@/inngest/utils/guards";
 
 // ============================================
 // Types

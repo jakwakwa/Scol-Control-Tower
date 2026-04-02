@@ -37,6 +37,7 @@ export interface RiskReviewData {
 		generatedAt: string;
 		overallStatus: string;
 		overallRiskScore: number;
+		//  used for calling the procurecheck API (entity name = vendor name, registration number = registration number, entity type = entity type, registered address = registered address)
 		entity: {
 			name: string;
 			tradingAs?: string;
@@ -72,6 +73,7 @@ export interface RiskReviewData {
 			status?: string;
 		}>;
 	};
+
 	itcData: {
 		creditScore: number;
 		scoreBand: string;

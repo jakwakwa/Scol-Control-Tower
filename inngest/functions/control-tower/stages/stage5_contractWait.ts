@@ -4,9 +4,9 @@ import { sendInternalAlertEmail } from "@/lib/services/email.service";
 import { createWorkflowNotification } from "@/lib/services/notification-events.service";
 import { terminateRun } from "@/lib/services/terminate-run.service";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
-import { guardKillSwitch } from "../helpers";
-import { handleWaitWithReminders } from "../reminder-handler";
+import { handleWaitWithReminders } from "../../handlers/reminder-handler";
 import type { StageDependencies, StageResult } from "../types";
+import { guardKillSwitch } from "@/inngest/utils/guards";
 
 export async function executeStage5({
 	step,
