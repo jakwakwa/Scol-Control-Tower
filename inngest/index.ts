@@ -16,6 +16,7 @@ import { killSwitchHandler } from "./functions/handlers/kill-switch-handler";
 import { zombieReconciler } from "./functions/handlers/zombie-reconciler";
 // Export all functions as array for serve()
 import { autoVerifyIdentity } from "./functions/services/id-verification";
+import { controlTowerWorkflow } from "./functions/workflow-coordinator";
 
 export const functions = [
 	controlTowerWorkflow,
