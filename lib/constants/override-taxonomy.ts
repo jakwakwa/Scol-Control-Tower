@@ -25,6 +25,13 @@ export const OVERRIDE_CATEGORIES = [
 	"OTHER",
 ] as const;
 
+/**
+ * Adjudication taxonomy alias for Final Adjudication UX.
+ * NOTE: Keep the `ADJUCATION_*` spelling to match the current product language.
+ */
+export const ADJUCATION_REASON = OVERRIDE_CATEGORIES;
+export const DECISION_REASON = OVERRIDE_CATEGORIES;
+
 /** Union type for override categories */
 export type OverrideCategory = (typeof OVERRIDE_CATEGORIES)[number];
 
@@ -39,6 +46,9 @@ export const OVERRIDE_CATEGORY_LABELS: Record<OverrideCategory, string> = {
 	OTHER: "Other",
 	DATA_QUALITY_ISSUE: "Data Quality Issue",
 };
+
+export const ADJUCATION_REASON_LABELS = OVERRIDE_CATEGORY_LABELS;
+export const DECISION_REASON_LABELS = OVERRIDE_CATEGORY_LABELS;
 
 // ============================================
 // Override Subcategories
@@ -86,6 +96,9 @@ export const OVERRIDE_SUBCATEGORIES: Partial<
 		{ value: "missing_fields", label: "Missing Required Fields" },
 	],
 };
+
+export const ADJUCATION_REASON_DETAIL = OVERRIDE_SUBCATEGORIES;
+export const DECISION_REASON_DETAILS = OVERRIDE_SUBCATEGORIES;
 
 // ============================================
 // Divergence Types

@@ -291,7 +291,7 @@ export function ItcSection({
 	return (
 		<div className="space-y-6 animate-in fade-in duration-500">
 			<SectionStatusBanner status={status} label="ITC Credit" />
-			<div className="grid grid-cols-1 md:grid-cols-6 gap-2  overflow-hidden py-2 dotted-grid items-center h-full max-h-full min-h-[30vh]">
+			<div className="grid grid-cols-1 md:grid-cols-6 gap-2  overflow-hidden py-2 glass-card items-center h-full max-h-full min-h-[30vh]">
 				<Card className="col-span-3 m-0 flex relative flex-col items-center justify-center h-full ">
 					<ScoreGauge
 						score={data.creditScore}

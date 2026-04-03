@@ -64,15 +64,27 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 
 	return (
 		<>
-			<div style={{ width: "100vw", height: "1080px", position: "fixed", zIndex: "-2" }}>
+			<div
+				style={{
+					width: "100vw",
+					backgroundSize: "2000px",
+					minHeight: "1080px",
+					height: "100%",
+					position: "fixed",
+					zIndex: "-2",
+				}}>
 				{/* BACKGROUNDs */}
-				<div className="size-[90%] w-full bg-radial-[at_0%_-80%] from-10% from-[var(--gold-900)]/90 via-65% via-zinc-800/40 to-zinc-950 to-100%" />
+				<div className="w-screen size-[100%] min-w-full bg-radial-[at_0%_-80%] from-10% from-[var(--gold-900)]/90 via-65% via-zinc-800/40 to-zinc-950 to-100%" />
 			</div>
 
 			<Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
 
 			{/* Main content */}
-			<main className={cn(`pl-64 transition-all duration-300`, isCollapsed && "pl-20")}>
+			<main
+				className={cn(
+					`ml-64 transition-all duration-300 w-full`,
+					isCollapsed && "ml-20 pr-20 -mr-20"
+				)}>
 				{/* Header */}
 				<header className="sticky top-0 z-30 border-b border-sidebar-border bg-chart-1 shadow-lg shadow-black/5 backdrop-blur-sm">
 					<div className="flex h-20 items-center justify-between px-8">

@@ -5,6 +5,7 @@ import { generateRiskBriefing } from "@/actions/ai.actions";
 import { AiBriefingPanel } from "@/components/dashboard/risk-review/ai-briefing-panel";
 import { EntitySummaryCards } from "@/components/dashboard/risk-review/entity-summary-cards";
 import { ExternalScreeningPanel } from "@/components/dashboard/risk-review/external-screening-panel";
+import { FinalAdjudicationDialog } from "@/components/dashboard/risk-review/final-adjudication-dialog";
 import { PrintableAuditReport } from "@/components/dashboard/risk-review/printable-audit-report";
 import type { PrimaryRiskTabId } from "@/components/dashboard/risk-review/risk-review-config";
 import { RiskReviewHeader } from "@/components/dashboard/risk-review/risk-review-header";
@@ -13,29 +14,6 @@ import { FicaSection } from "@/components/dashboard/risk-review/sections/fica-se
 import { ItcSection } from "@/components/dashboard/risk-review/sections/itc-section";
 import { ProcurementSection } from "@/components/dashboard/risk-review/sections/procurement-section";
 import { SanctionsSection } from "@/components/dashboard/risk-review/sections/sanctions-section";
-import { Button } from "@/components/ui/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import {
-	OVERRIDE_CATEGORIES,
-	OVERRIDE_CATEGORY_LABELS,
-	type OverrideCategory,
-} from "@/lib/constants/override-taxonomy";
 import type { RiskReviewData } from "@/lib/risk-review/types";
 
 function RiskReviewDetail({ data }: { data: RiskReviewData }) {
@@ -44,14 +22,6 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 	const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
 	const [summaryError, setSummaryError] = useState<string | null>(null);
 	const [adjudicationOpen, setAdjudicationOpen] = useState(false);
-	const [adjudicationReason, setAdjudicationReason] = useState("");
-	const [overrideCategory, setOverrideCategory] =
-		useState<OverrideCategory>("AI_ALIGNED");
-	const [adjudicationSubmitting, setAdjudicationSubmitting] = useState(false);
-	const [adjudicationResult, setAdjudicationResult] = useState<{
-		success: boolean;
-		message: string;
-	} | null>(null);
 
 	if (!data?.globalData) {
 		return (
@@ -67,46 +37,6 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 		ficaData,
 		bankStatementAnalysis,
 	} = data;
-
-	const handleAdjudicate = async (outcome: "APPROVED" | "REJECTED") => {
-		setAdjudicationSubmitting(true);
-		setAdjudicationResult(null);
-		try {
-			const res = await fetch("/api/risk-decision", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					workflowId: data.workflowId,
-					applicantId: data.applicantId,
-					decision: {
-						outcome,
-						reason: adjudicationReason || undefined,
-						overrideCategory,
-					},
-				}),
-			});
-			const json = await res.json();
-			if (!res.ok) {
-				setAdjudicationResult({
-					success: false,
-					message: json.error || "Request failed",
-				});
-				return;
-			}
-			setAdjudicationResult({
-				success: true,
-				message: `Risk decision recorded: ${outcome}`,
-			});
-			setTimeout(() => setAdjudicationOpen(false), 1500);
-		} catch (err) {
-			setAdjudicationResult({
-				success: false,
-				message: err instanceof Error ? err.message : "Network error",
-			});
-		} finally {
-			setAdjudicationSubmitting(false);
-		}
-	};
 
 	const handlePrint = () => {
 		window.print();
@@ -146,11 +76,7 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 						isGeneratingSummary={isGeneratingSummary}
 						onGenerateSummary={handleGenerateSummary}
 						onPrint={handlePrint}
-						onAdjudicate={() => {
-							setAdjudicationReason("");
-							setAdjudicationResult(null);
-							setAdjudicationOpen(true);
-						}}
+						onAdjudicate={() => setAdjudicationOpen(true)}
 					/>
 
 					<AiBriefingPanel
@@ -209,71 +135,13 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 				<PrintableAuditReport aiSummary={aiSummary} data={data} />
 			</div>
 
-			<Dialog open={adjudicationOpen} onOpenChange={setAdjudicationOpen}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Final Adjudication</DialogTitle>
-						<DialogDescription>
-							Submit your risk manager decision for {globalData.entity.name}. This will
-							advance the workflow.
-						</DialogDescription>
-					</DialogHeader>
-
-					<div className="space-y-4">
-						<div className="space-y-2">
-							<Label htmlFor="override-category">Override Category</Label>
-							<Select
-								value={overrideCategory}
-								onValueChange={value => setOverrideCategory(value as OverrideCategory)}
-								disabled={adjudicationSubmitting}>
-								<SelectTrigger id="override-category" className="w-full">
-									<SelectValue placeholder="Select override category" />
-								</SelectTrigger>
-								<SelectContent>
-									{OVERRIDE_CATEGORIES.map(cat => (
-										<SelectItem key={cat} value={cat}>
-											{OVERRIDE_CATEGORY_LABELS[cat]}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="adjudication-reason">Reason / Notes</Label>
-							<Textarea
-								id="adjudication-reason"
-								className="min-h-[100px]"
-								placeholder="Provide your rationale for the decision..."
-								value={adjudicationReason}
-								onChange={e => setAdjudicationReason(e.target.value)}
-								disabled={adjudicationSubmitting}
-							/>
-						</div>
-					</div>
-
-					{adjudicationResult && (
-						<p
-							className={`text-sm font-medium ${adjudicationResult.success ? "text-green-600" : "text-destructive"}`}>
-							{adjudicationResult.message}
-						</p>
-					)}
-
-					<DialogFooter>
-						<Button
-							variant="destructive"
-							disabled={adjudicationSubmitting}
-							onClick={() => handleAdjudicate("REJECTED")}>
-							{adjudicationSubmitting ? "Submitting..." : "Reject"}
-						</Button>
-						<Button
-							variant="default"
-							disabled={adjudicationSubmitting}
-							onClick={() => handleAdjudicate("APPROVED")}>
-							{adjudicationSubmitting ? "Submitting..." : "Approve"}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+			<FinalAdjudicationDialog
+				open={adjudicationOpen}
+				onOpenChange={setAdjudicationOpen}
+				workflowId={data.workflowId}
+				applicantId={data.applicantId}
+				entityName={globalData.entity.name}
+			/>
 		</>
 	);
 }
