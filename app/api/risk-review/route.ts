@@ -186,7 +186,8 @@ export async function GET(_request: NextRequest) {
 				const stageLabel = "Risk Review";
 				const decisionType = workflow.decisionType || "risk_review";
 				const targetResource = workflow.targetResource || "/api/risk-decision";
-				const agentSummary = (aiAnalysis?.agents as Record<string, Record<string, unknown>>) || {};
+				const agentSummary =
+					(aiAnalysis?.agents as Record<string, Record<string, unknown>>) || {};
 				const validationAgentSummary = agentSummary.validation || {};
 				const ficaComparisonSummary = validationAgentSummary.ficaComparisonSummary as
 					| {
@@ -207,10 +208,9 @@ export async function GET(_request: NextRequest) {
 						(agentSummary.risk?.dataSource as string) === "Risk Error - Manual Escalation"
 							? "manual_required"
 							: "available",
-					sanctions:
-						(agentSummary.sanctions?.dataSource as string)?.includes("Manual")
-							? "manual_required"
-							: "available",
+					sanctions: (agentSummary.sanctions?.dataSource as string)?.includes("Manual")
+						? "manual_required"
+						: "available",
 					itc:
 						(workflow.itcStatus || "").toString().toUpperCase() === "MANUAL_REVIEW"
 							? "manual_required"
@@ -257,7 +257,7 @@ export async function GET(_request: NextRequest) {
 								documentsWithMismatches:
 									ficaComparisonSummary.documentsWithMismatches || 0,
 								keyDiscrepancies: ficaComparisonSummary.keyDiscrepancies || [],
-						  }
+							}
 						: undefined,
 					// Assessment fields
 					cashFlowConsistency: assessment?.cashFlowConsistency || undefined,

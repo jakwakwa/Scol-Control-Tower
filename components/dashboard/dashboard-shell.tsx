@@ -104,11 +104,11 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 								onAction={async (notification, action) => {
 									try {
 										if (action === "view") {
+											// Navigate first — push loads fresh server data
 											router.push(getNotificationRoute(notification));
 										}
 
 										if (action === "retry" || action === "cancel") {
-											// Call resolve-error API for workflow actions
 											await fetch(
 												`/api/workflows/${notification.workflowId}/resolve-error`,
 												{
@@ -119,29 +119,30 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 											);
 										}
 
-										// Mark notification as read
-										await fetch(`/api/notifications/${notification.id}`, {
+										// Mark notification as read in background
+										fetch(`/api/notifications/${notification.id}`, {
 											method: "PATCH",
-										});
+										}).catch(e => console.error("Failed to mark notification read", e));
 
-										router.refresh();
+										// Only refresh when not navigating away (retry/cancel stay on same page)
+										if (action !== "view") {
+											router.refresh();
+										}
 									} catch (e) {
 										console.error("Action failed", e);
 									}
 								}}
-								onNotificationClick={async notification => {
-									try {
-										router.push(getNotificationRoute(notification));
-
-										// Mark notification as read
-										await fetch(`/api/notifications/${notification.id}`, {
-											method: "PATCH",
-										});
-
-										router.refresh();
-									} catch (e) {
-										console.error("Click handler failed", e);
-									}
+								onNotificationClick={notification => {
+									const route = getNotificationRoute(notification);
+									// Navigate immediately — router.push loads fresh server data,
+									// no need to call router.refresh() after push.
+									router.push(route);
+									// Fire PATCH in background without blocking navigation
+									fetch(`/api/notifications/${notification.id}`, {
+										method: "PATCH",
+									}).catch(e => {
+										console.error("Failed to mark notification as read", e);
+									});
 								}}
 								onDelete={async notification => {
 									try {

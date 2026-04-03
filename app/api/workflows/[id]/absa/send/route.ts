@@ -1,19 +1,17 @@
 import { auth } from "@clerk/nextjs/server";
-import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { eq } from "drizzle-orm";
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants, documentUploads, workflows } from "@/db/schema";
+import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
+import { captureServerEvent } from "@/lib/posthog-server";
 import { sendAbsaPacketEmail } from "@/lib/services/email.service";
-import {
-	createWorkflowNotification,
-} from "@/lib/services/notification-events.service";
+import { createWorkflowNotification } from "@/lib/services/notification-events.service";
 import {
 	logWorkflowEventOnce,
 	markStage5GateOnce,
 } from "@/lib/services/workflow-command.service";
-import { captureServerEvent } from "@/lib/posthog-server";
 
 const SendAbsaSchema = z.object({
 	applicantId: z.number().int().positive(),
@@ -62,7 +60,7 @@ export async function POST(
 			.from(workflows)
 			.where(eq(workflows.id, workflowId));
 		if (!workflow) {
-			return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
+			return NextResponse.json({ error: "Workflow not found" }, { status: 401 });
 		}
 		if (workflow.applicantId !== applicantId) {
 			return NextResponse.json({ error: "Applicant/workflow mismatch" }, { status: 409 });
@@ -73,17 +71,26 @@ export async function POST(
 			.from(documentUploads)
 			.where(eq(documentUploads.id, documentUploadId));
 		if (!doc || doc.workflowId !== workflowId) {
-			return NextResponse.json({ error: "Document not found or workflow mismatch" }, {
-				status: 404,
-			});
+			return NextResponse.json(
+				{ error: "Document not found or workflow mismatch" },
+				{
+					status: 404,
+				}
+			);
 		}
 		if (doc.documentType !== "ABSA_6995_PDF") {
-			return NextResponse.json({ error: "Document must be ABSA_6995_PDF type" }, {
-				status: 400,
-			});
+			return NextResponse.json(
+				{ error: "Document must be ABSA_6995_PDF type" },
+				{
+					status: 400,
+				}
+			);
 		}
 		if (!doc.fileContent) {
-			return NextResponse.json({ error: "Document has no file content" }, { status: 400 });
+			return NextResponse.json(
+				{ error: "Document has no file content" },
+				{ status: 400 }
+			);
 		}
 
 		const [applicant] = await db
