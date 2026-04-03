@@ -9,7 +9,7 @@
  * directly to how the AI failed, enabling programmatic retraining.
  *
  * POST /api/risk-decision
- * Body: { workflowId, applicantId, decision: { outcome, overrideCategory, ... } }
+ * Body: { workflowId, applicantId, decision: { outcome, adjudicationReason, ... } }
  */
 
 import { auth } from "@clerk/nextjs/server";
@@ -21,9 +21,9 @@ import { aiAnalysisLogs, workflowEvents, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { OVERRIDE_CATEGORIES } from "@/lib/constants/override-taxonomy";
+import { captureServerEvent } from "@/lib/posthog-server";
 import { recordFeedbackLog } from "@/lib/services/divergence.service";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
-import { captureServerEvent } from "@/lib/posthog-server";
 
 // ============================================
 // Request Schema — Structured Override Data
@@ -35,10 +35,9 @@ const RiskDecisionSchema = z.object({
 	relatedFailureEventId: z.number().int().positive().optional(),
 	decision: z.object({
 		outcome: z.enum(["APPROVED", "REJECTED", "REQUEST_MORE_INFO"]),
-		reason: z.string().optional(),
-		overrideCategory: z.enum(OVERRIDE_CATEGORIES),
-		overrideSubcategory: z.string().optional(),
-		overrideDetails: z.string().max(500).optional(),
+		adjudicationReason: z.enum(OVERRIDE_CATEGORIES),
+		adjudicationDetail: z.string().max(500),
+		adjucationNotes: z.string().max(300).optional(),
 		conditions: z.array(z.string()).optional(),
 	}),
 });
@@ -71,12 +70,27 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const { workflowId, applicantId, decision, relatedFailureEventId } = validationResult.data;
+		const { workflowId, applicantId, decision, relatedFailureEventId } =
+			validationResult.data;
+		const overrideCategory = decision.adjudicationReason;
+		const overrideSubcategory =
+			decision.adjudicationReason === "OTHER"
+				? undefined
+				: decision.adjudicationDetail || undefined;
+		const overrideDetails =
+			decision.adjudicationReason === "OTHER"
+				? decision.adjudicationDetail || undefined
+				: decision.adjucationNotes || undefined;
 
 		// Check outcome-specific permission (org:risk_assessment — risk_manager, admin)
 		const canApprove = hasPermissionOrAdmin(has, orgRole, "org:risk_assessment:approve");
-		const canOverrideDenied = hasPermissionOrAdmin(has, orgRole, "org:risk_assessment:override_denied");
-		const needsApprove = decision.outcome === "APPROVED" || decision.outcome === "REQUEST_MORE_INFO";
+		const canOverrideDenied = hasPermissionOrAdmin(
+			has,
+			orgRole,
+			"org:risk_assessment:override_denied"
+		);
+		const needsApprove =
+			decision.outcome === "APPROVED" || decision.outcome === "REQUEST_MORE_INFO";
 		const needsOverride = decision.outcome === "REJECTED";
 		if (needsApprove && !canApprove) {
 			return NextResponse.json(
@@ -127,10 +141,9 @@ export async function POST(request: NextRequest) {
 			eventType: "human_override",
 			payload: JSON.stringify({
 				decision: decision.outcome,
-				reason: decision.reason,
-				overrideCategory: decision.overrideCategory,
-				overrideSubcategory: decision.overrideSubcategory,
-				overrideDetails: decision.overrideDetails,
+				adjudicationReason: decision.adjudicationReason,
+				adjudicationDetail: decision.adjudicationDetail,
+				adjucationNotes: decision.adjucationNotes,
 				conditions: decision.conditions,
 				fromStage: workflow.stage,
 				toStage: workflow.stage,
@@ -145,9 +158,9 @@ export async function POST(request: NextRequest) {
 			workflowId,
 			applicantId,
 			humanOutcome: decision.outcome,
-			overrideCategory: decision.overrideCategory,
-			overrideSubcategory: decision.overrideSubcategory,
-			overrideDetails: decision.overrideDetails,
+			overrideCategory,
+			overrideSubcategory,
+			overrideDetails,
 			decidedBy: userId,
 			relatedFailureEventId,
 		});
@@ -156,7 +169,10 @@ export async function POST(request: NextRequest) {
 			console.warn("[RiskDecision] Failed to record feedback log:", feedbackResult.error);
 		}
 
-		if (decision.reason && decision.reason.trim().length > 0) {
+		if (
+			decision.adjudicationDetail.trim().length > 0 ||
+			(decision.adjucationNotes && decision.adjucationNotes.trim().length > 0)
+		) {
 			const latestAnalysis = await db
 				.select()
 				.from(aiAnalysisLogs)
@@ -171,7 +187,7 @@ export async function POST(request: NextRequest) {
 
 			if (latestAnalysis.length > 0) {
 				const logId = latestAnalysis[0].id;
-				const category = decision.overrideCategory || "CONTEXT";
+				const category = overrideCategory;
 
 				await db
 					.update(aiAnalysisLogs)
@@ -189,9 +205,9 @@ export async function POST(request: NextRequest) {
 				decision: {
 					outcome: decision.outcome,
 					decidedBy: userId,
-					overrideCategory: decision.overrideCategory,
-					overrideSubcategory: decision.overrideSubcategory,
-					overrideDetails: decision.overrideDetails,
+					overrideCategory,
+					overrideSubcategory,
+					overrideDetails,
 					conditions: decision.conditions,
 					timestamp: new Date().toISOString(),
 				},
@@ -205,8 +221,8 @@ export async function POST(request: NextRequest) {
 				workflow_id: workflowId,
 				applicant_id: applicantId,
 				outcome: decision.outcome,
-				override_category: decision.overrideCategory,
-				override_subcategory: decision.overrideSubcategory,
+				override_category: overrideCategory,
+				override_subcategory: overrideSubcategory,
 				is_divergent: feedbackResult.isDivergent,
 			},
 		});
@@ -219,7 +235,9 @@ export async function POST(request: NextRequest) {
 			applicantId,
 			decision: {
 				outcome: decision.outcome,
-				overrideCategory: decision.overrideCategory,
+				adjudicationReason: decision.adjudicationReason,
+				adjudicationDetail: decision.adjudicationDetail,
+				adjucationNotes: decision.adjucationNotes ?? "",
 				decidedBy: userId,
 				timestamp: new Date().toISOString(),
 			},

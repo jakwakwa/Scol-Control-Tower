@@ -1,9 +1,8 @@
 "use client";
 
-import { RiCloseLine } from "@remixicon/react";
+import { RiCloseFill } from "@remixicon/react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import type * as React from "react";
-
 import { cn } from "@/lib/utils";
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
@@ -28,7 +27,7 @@ function DialogOverlay({
 		<DialogPrimitive.Overlay
 			data-slot="dialog-overlay"
 			className={cn(
-				"data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 bg-black/80 duration-100 supports-backdrop-filter:backdrop-blur-xs fixed inset-0 z-50",
+				"data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 bg-[rgba(19,19,19,0.59)] duration-100 supports-backdrop-filter:backdrop-blur-sm fixed inset-0 z-50",
 				className
 			)}
 			{...props}
@@ -47,14 +46,17 @@ function DialogContent({
 			<DialogPrimitive.Content
 				data-slot="dialog-content"
 				className={cn(
-					"data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 bg-background ring-foreground/5 fixed top-1/2 left-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-6 rounded-4xl p-6 ring-1 duration-100 outline-none",
+					"data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 glass-card py-8 fixed top-1/2 left-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-6 rounded-4xl px-8 ring-1 ring-zinc-600/40 shadow-[0_4px_18px_2px_rgba(0,0,0,0.4)] duration-100 outline-none rela h-full max-h-[90vh]",
 					className
 				)}
 				{...props}>
 				{children}
-				<DialogPrimitive.Close className="absolute right-4 top-4 rounded-full opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-					<RiCloseLine className="size-5" />
-					<span className="sr-only">Close</span>
+				<DialogPrimitive.Close className=" fixed right-4 top-2 rounded-full max-w-[12px] w-full mx-auto max-h-[12px] ring-offset-background flex  border-red-950 border-2 transition-opacity hover:opacity-100 focus:outline-none focus:red-400-2 focus:ring-ring focus:ring-offset-2 p-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground flex-row justify-center bg-red-900/80">
+					<span className=" flex items-center justify-center w-[12px]">
+						<span className=" ">
+							<RiCloseFill className=" 	size-4  text-red-200/80 max-w-[12px] w-fiit" />
+						</span>
+					</span>
 				</DialogPrimitive.Close>
 			</DialogPrimitive.Content>
 		</DialogPortal>
@@ -88,7 +90,7 @@ function DialogTitle({
 	return (
 		<DialogPrimitive.Title
 			data-slot="dialog-title"
-			className={cn("text-lg font-medium tracking-tight", className)}
+			className={cn("text-lg font-semibold tracking-tight", className)}
 			{...props}
 		/>
 	);
