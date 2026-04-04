@@ -1,11 +1,11 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "linden",
+  "theme": "sequoia",
   "name": "StratCol Control Tower Docs",
   "colors": {
-    "primary": "#231b0d",
-    "light": "#e0af46",
-    "dark": "#936f01"
+    "primary": "#9f6a0f",
+    "light": "#edbf4c",
+    "dark": "#17536c"
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -19,7 +19,12 @@
               "user-guides/overview",
               "user-guides/applicants",
               "user-guides/workflows",
-              "user-guides/risk-review",
+              {
+                "group": "Risk Review",
+                "pages": [
+                  "user-guides/risk-review"
+                ]
+              },
               "user-guides/ai-feedback-pipeline",
               "user-guides/onboarding-forms",
               "user-guides/quotations",
@@ -31,7 +36,8 @@
           {
             "group": "Development",
             "pages": [
-              "user-guides/e2e-testing"
+              "user-guides/e2e-testing",
+              "issues/integration-issues/2026-04-01-procurecheck-v5-jwt-auth-implementation"
             ]
           },
           {
@@ -41,20 +47,16 @@
             ]
           },
           {
-            "group": "Customization",
+            "group": "Skills",
+            "icon": "robot-face",
+            "tag": "agent skills",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "compound-engineering"
             ]
           },
           {
             "group": "Writing content",
-            "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
+            "pages": []
           },
           {
             "group": "Project",
@@ -67,13 +69,12 @@
           {
             "group": "Issues",
             "pages": [
-              "issues/integration-issues/2026-04-01-procurecheck-v5-jwt-auth-implementation",
               "issues/integration-issues/2026-03-30-inngest-id-verification-telemetry-cleanup",
               "issues/database-issues/2026-03-27-remove-legacy-agents-xt-callbacks-dead-callback-plumbing",
               "issues/database-issues/2026-03-27-drizzle-migration-squash-and-combined-db-reset",
               "issues/2026-03-23-fix-stage6-inngest-workflow-stuck",
               "issues/2026-03-22-refactor-forms-hub-workflow-gates",
-              "issues/2026-03-01-feat-harden-procurement-fallback-plan"
+              "issues/untitled-page"
             ]
           },
           {
@@ -83,6 +84,10 @@
               "ai-tools/claude-code",
               "ai-tools/windsurf"
             ]
+          },
+          {
+            "group": "Untitled Group",
+            "pages": []
           }
         ]
       },
@@ -121,7 +126,7 @@
       }
     ]
   },
-  "logo": "/images/logo-liquidstratcolMedium.png",
+  "logo": "/images/control_tower_logo.png",
   "navbar": {
     "links": [
       {
@@ -157,9 +162,9 @@
   "background": {
     "color": {
       "light": "#ededf5",
-      "dark": "#0f202e"
+      "dark": "#180f07"
     },
-    "decoration": "grid"
+    "decoration": "windows"
   },
   "appearance": {
     "default": "dark"
