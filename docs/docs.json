@@ -62,6 +62,7 @@
             "group": "Project",
             "pages": [
               "project/exec-summary",
+              "project/vendor-check-failure-handling-reference",
               "project/changelog-2026-03-02",
               "project/changelog-2026-03-03"
             ]
@@ -73,8 +74,7 @@
               "issues/database-issues/2026-03-27-remove-legacy-agents-xt-callbacks-dead-callback-plumbing",
               "issues/database-issues/2026-03-27-drizzle-migration-squash-and-combined-db-reset",
               "issues/2026-03-23-fix-stage6-inngest-workflow-stuck",
-              "issues/2026-03-22-refactor-forms-hub-workflow-gates",
-              "issues/untitled-page"
+              "issues/2026-03-22-refactor-forms-hub-workflow-gates"
             ]
           },
           {
