@@ -60,6 +60,7 @@ mock.module("@/lib/constants/workflow-timeouts", () => ({
 
 mock.module("@/lib/services/email.service", () => ({
 	sendInternalAlertEmail: sendInternalAlertEmailMock,
+	sendApplicantStatusEmail: mock(async () => undefined),
 }));
 
 mock.module("@/lib/services/green-lane.service", () => ({
@@ -70,8 +71,11 @@ mock.module("@/lib/services/green-lane.service", () => ({
 	isGreenLaneEligible: isGreenLaneEligibleMock,
 }));
 
+const isWorkflowTerminatedMock = mock(async () => false);
+
 mock.module("@/lib/services/kill-switch.service", () => ({
 	executeKillSwitch: executeKillSwitchMock,
+	isWorkflowTerminated: isWorkflowTerminatedMock,
 }));
 
 mock.module("@/lib/services/notification-events.service", () => ({
@@ -93,9 +97,18 @@ mock.module("@/lib/services/workflow.service", () => ({
 	updateWorkflowStatus: updateWorkflowStatusMock,
 }));
 
-mock.module("../inngest/functions/control-tower/helpers", () => ({
+mock.module("@/lib/services/agents/financial-risk.agent", () => ({
+	runFinancialRiskAgent: mock(async () => undefined),
+	FINANCIAL_RISK_AGENT_NAME: "financial-risk-agent",
+}));
+
+mock.module("../inngest/utils/guards", () => ({
 	guardKillSwitch: guardKillSwitchMock,
+}));
+
+mock.module("../inngest/utils/helpers", () => ({
 	notifyApplicantDecline: notifyApplicantDeclineMock,
+	runSanctionsForWorkflow: mock(async () => ({})),
 }));
 
 const { executeStage4 } = await import(

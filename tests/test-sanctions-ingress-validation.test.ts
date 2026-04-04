@@ -1,9 +1,9 @@
-import { describe, expect, it, beforeEach } from "bun:test";
-import { validatePerimeter } from "../lib/validations/control-tower/perimeter-validation";
-import { 
-	ExternalSanctionsIngressSchema, 
-	ExternalSanctionsIngressCompatSchema 
+import { beforeEach, describe, expect, it } from "bun:test";
+import {
+	ExternalSanctionsIngressCompatSchema,
+	ExternalSanctionsIngressSchema,
 } from "../lib/validations/control-tower/onboarding-schemas";
+import { validatePerimeter } from "../lib/validations/control-tower/perimeter-validation";
 
 describe("Sanctions Ingress Validation Rollout", () => {
 	const validV2Payload = {
@@ -160,12 +160,12 @@ describe("Sanctions Ingress Validation Rollout", () => {
 		});
 
 		it("should validate known providers", () => {
-			const providers = ["opensanctions", "firecrawl_un", "firecrawl_ofac", "firecrawl_fic", "manual"];
-			
+			const providers = ["opensanctions", "firecrawl_un", "manual"];
+
 			for (const provider of providers) {
 				const payload = {
 					...validV2Payload,
-					provider: provider as "opensanctions" | "firecrawl_un" | "firecrawl_ofac" | "firecrawl_fic" | "manual",
+					provider: provider as "opensanctions" | "firecrawl_un" | "manual",
 				};
 
 				const result = validatePerimeter({
@@ -178,6 +178,31 @@ describe("Sanctions Ingress Validation Rollout", () => {
 				});
 
 				expect(result.ok).toBe(true);
+			}
+		});
+
+		it("should reject removed firecrawl providers", () => {
+			const providers = ["firecrawl_ofac", "firecrawl_fic"];
+
+			for (const provider of providers) {
+				const payload = {
+					...validV2Payload,
+					provider,
+				};
+
+				const result = validatePerimeter({
+					schema: ExternalSanctionsIngressSchema,
+					data: payload,
+					eventName: "sanctions/external.received",
+					sourceSystem: "sanctions-ingress",
+					terminationReason: "VALIDATION_ERROR_SANCTIONS",
+					compatibilitySchema: ExternalSanctionsIngressCompatSchema,
+				});
+
+				expect(result.ok).toBe(false);
+				if (!result.ok) {
+					expect(result.failure.failedPaths).toContain("provider");
+				}
 			}
 		});
 

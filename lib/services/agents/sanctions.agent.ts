@@ -8,7 +8,7 @@
  * - Regulatory watch list verification
  *
  * Primary: OpenSanctions hosted matching API
- * Fallback: Firecrawl sanctions-list crawling (UN, OFAC, FIC TFS)
+ * Fallback: Firecrawl sanctions-list crawling (UN only)
  */
 
 import { z } from "zod";

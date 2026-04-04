@@ -1,5 +1,4 @@
 import { type ProcurementData, ProcurementDataSchema } from "@/lib/procurecheck/types";
-import { getExternalScreeningUiAvailability } from "@/lib/risk-review/manual-firecrawl-checks";
 import {
 	parseAiAnalysisSnapshot,
 	parseMachineState,
@@ -201,90 +200,6 @@ function extractVatVerificationFromAiAnalysis(
 	};
 }
 
-function asRecord(v: unknown): Record<string, unknown> | undefined {
-	if (v && typeof v === "object" && !Array.isArray(v)) {
-		return v as Record<string, unknown>;
-	}
-	return undefined;
-}
-
-function extractIndustryRegulatorFromAiAnalysis(
-	aiAnalysisRaw?: string | null
-): RiskReviewData["industryRegulatorCheck"] | undefined {
-	const parsed = parseAiAnalysisSnapshot(aiAnalysisRaw ?? null);
-	if (!parsed.ok) {
-		return undefined;
-	}
-	const slot = parsed.value.externalChecks?.industryRegulator;
-	if (!slot) {
-		return undefined;
-	}
-	const r = asRecord(slot.result);
-	const status =
-		slot.status === "live" ? "live" : slot.status === "offline" ? "offline" : "unknown";
-	if (!r) {
-		return { status };
-	}
-	const evidence = r.evidence;
-	const first =
-		Array.isArray(evidence) && evidence.length > 0 ? asRecord(evidence[0]) : undefined;
-	const meta = asRecord(r.metadata);
-	return {
-		status,
-		runtimeState: typeof r.runtimeState === "string" ? r.runtimeState : undefined,
-		checked: typeof r.checked === "boolean" ? r.checked : undefined,
-		passed: typeof r.passed === "boolean" ? r.passed : undefined,
-		checkedAt: typeof r.checkedAt === "string" ? r.checkedAt : undefined,
-		provider: typeof meta?.provider === "string" ? meta.provider : undefined,
-		registrationStatus:
-			typeof first?.registrationStatus === "string"
-				? first.registrationStatus
-				: undefined,
-		evidenceMatchName:
-			typeof first?.matchedName === "string" ? first.matchedName : undefined,
-	};
-}
-
-function extractSocialReputationFromAiAnalysis(
-	aiAnalysisRaw?: string | null
-): RiskReviewData["socialReputationCheck"] | undefined {
-	const parsed = parseAiAnalysisSnapshot(aiAnalysisRaw ?? null);
-	if (!parsed.ok) {
-		return undefined;
-	}
-	const slot = parsed.value.externalChecks?.socialReputation;
-	if (!slot) {
-		return undefined;
-	}
-	const r = asRecord(slot.result);
-	const status =
-		slot.status === "live" ? "live" : slot.status === "offline" ? "offline" : "unknown";
-	if (!r) {
-		return { status };
-	}
-	const evidence = r.evidence;
-	const first =
-		Array.isArray(evidence) && evidence.length > 0 ? asRecord(evidence[0]) : undefined;
-	const details = first ? asRecord(first.details) : undefined;
-	return {
-		status,
-		runtimeState: typeof r.runtimeState === "string" ? r.runtimeState : undefined,
-		checked: typeof r.checked === "boolean" ? r.checked : undefined,
-		passed: typeof r.passed === "boolean" ? r.passed : undefined,
-		checkedAt: typeof r.checkedAt === "string" ? r.checkedAt : undefined,
-		summaryRating: typeof r.summaryRating === "number" ? r.summaryRating : undefined,
-		complaintCount: typeof r.complaintCount === "number" ? r.complaintCount : undefined,
-		complimentCount:
-			typeof r.complimentCount === "number" ? r.complimentCount : undefined,
-		businessName:
-			typeof first?.matchedName === "string"
-				? first.matchedName
-				: typeof details?.businessName === "string"
-					? details.businessName
-					: undefined,
-	};
-}
-
 function buildSectionStatus(check: RiskCheckRow | undefined): SectionStatus {
 	if (!check) return DEFAULT_SECTION_STATUS;
 	return {
@@ -373,8 +288,6 @@ export function buildReportData(
 			vatVerification,
 		},
 		bankStatementAnalysis: parseFinancialRiskRawOutput(financialRiskRawOutput),
-		industryRegulatorCheck: extractIndustryRegulatorFromAiAnalysis(aiAnalysisRaw),
-		socialReputationCheck: extractSocialReputationFromAiAnalysis(aiAnalysisRaw),
-		externalScreeningUi: getExternalScreeningUiAvailability(),
+		externalScreeningUi: { industryRegulator: false, socialReputation: false },
 	};
 }

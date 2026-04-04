@@ -2,13 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import { aiAnalysisLogs, riskAssessments, workflowEvents } from "@/db/schema";
 import { parseVatStatus } from "@/lib/risk-review/parsers/vat.parser";
-import {
-	isFirecrawlConfigured,
-	runIndustryRegulatorCheck,
-	runSanctionsEnrichmentCheck,
-	runSocialReputationCheck,
-	runVatVerificationCheck,
-} from "@/lib/services/firecrawl";
+import { isFirecrawlConfigured, runVatVerificationCheck } from "@/lib/services/firecrawl";
 import {
 	createWorkflowNotification,
 	logWorkflowEvent,
@@ -122,12 +116,6 @@ export interface AggregatedAnalysisResult {
 		};
 		efs24IdAvsr: { status: "offline" | "live"; result?: Record<string, unknown> };
 		sarsVatSearch: { status: "offline" | "live"; result?: Record<string, unknown> };
-		industryRegulator: { status: "offline" | "live"; result?: Record<string, unknown> };
-		sanctionsEvidenceEnrichment?: {
-			status: "offline" | "live";
-			result?: Record<string, unknown>;
-		};
-		socialReputation?: { status: "offline" | "live"; result?: Record<string, unknown> };
 	};
 
 	// Metadata
@@ -813,120 +801,14 @@ async function storeAnalysisResult(
  * Runs feature-flagged external checks per SOP requirements.
  *
  * Feature flags (env):
- *   ENABLE_PROCURECHECK_LIVE        – BizPortal via ProcureCheck
- *   ENABLE_FIRECRAWL_INDUSTRY_REG   – Industry regulator via Firecrawl
- *   ENABLE_FIRECRAWL_SANCTIONS_ENRICH – Sanctions evidence enrichment via Firecrawl
- *   ENABLE_FIRECRAWL_SOCIAL_REP     – Social reputation (HelloPeter) via Firecrawl
  *   ENABLE_FIRECRAWL_VAT_VERIFICATION – VAT verification via vatsearch.co.za
  *
- * All flags default to false; mock fallback is returned on failure.
+ * Industry regulator, sanctions enrichment, and social reputation
+ * Firecrawl checks have been deprecated and removed.
  */
 async function runExternalCheckStubs(
 	input: AggregatedAnalysisInput
 ): Promise<AggregatedAnalysisResult["externalChecks"]> {
-	// --- Industry Regulator (Firecrawl) ---
-	let industryRegulatorResult: {
-		status: "live" | "offline";
-		result: Record<string, unknown> | undefined;
-	} = { status: "offline", result: undefined };
-	if (process.env.ENABLE_FIRECRAWL_INDUSTRY_REG === "true" && isFirecrawlConfigured()) {
-		try {
-			const fcResult = await runIndustryRegulatorCheck({
-				applicantId: input.applicantId,
-				workflowId: input.workflowId,
-				applicantData: {
-					companyName: input.applicantData.companyName,
-					contactName: input.applicantData.contactName,
-					registrationNumber: input.applicantData.registrationNumber,
-					industry: input.applicantData.industry,
-					countryCode: input.applicantData.countryCode,
-					address: input.applicantData.address,
-				},
-				industry: input.applicantData.industry,
-			});
-			industryRegulatorResult = {
-				status: fcResult.status === "live" ? "live" : "offline",
-				result: (fcResult.result as unknown as Record<string, unknown>) || undefined,
-			};
-		} catch (err) {
-			console.error(
-				"[AggregatedAnalysis] Firecrawl industry regulator failed, using mock fallback:",
-				err
-			);
-		}
-	}
-
-	// --- Sanctions Evidence Enrichment (Firecrawl) ---
-	let sanctionsEnrichmentResult:
-		| AggregatedAnalysisResult["externalChecks"]["sanctionsEvidenceEnrichment"]
-		| undefined;
-
-	if (
-		process.env.ENABLE_FIRECRAWL_SANCTIONS_ENRICH === "true" &&
-		isFirecrawlConfigured()
-	) {
-		try {
-			const fcResult = await runSanctionsEnrichmentCheck({
-				applicantId: input.applicantId,
-				workflowId: input.workflowId,
-				applicantData: {
-					companyName: input.applicantData.companyName,
-					contactName: input.applicantData.contactName,
-					registrationNumber: input.applicantData.registrationNumber,
-					industry: input.applicantData.industry,
-					countryCode: input.applicantData.countryCode,
-					address: input.applicantData.address,
-				},
-				entityName: input.applicantData.companyName,
-				entityType: "COMPANY",
-				countryCode: input.applicantData.countryCode ?? "ZA",
-				registrationNumber: input.applicantData.registrationNumber,
-			});
-			sanctionsEnrichmentResult = {
-				status: fcResult?.status ? "live" : "offline",
-				result: fcResult.result as unknown as Record<string, unknown>,
-			};
-		} catch (err) {
-			console.error(
-				"[AggregatedAnalysis] Firecrawl sanctions enrichment failed, recommend manual checks:",
-				err
-			);
-		}
-	}
-
-	// --- Public Reputation (Scraper) ---
-	let socialReputationResult: {
-		status: "live" | "offline";
-		result: Record<string, unknown> | undefined;
-	} = { status: "offline", result: undefined };
-
-	if (process.env.ENABLE_FIRECRAWL_SOCIAL_REP === "true" && isFirecrawlConfigured()) {
-		try {
-			const fcResult = await runSocialReputationCheck({
-				applicantId: input.applicantId,
-				workflowId: input.workflowId,
-				applicantData: {
-					companyName: input.applicantData.companyName,
-					contactName: input.applicantData.contactName,
-					registrationNumber: input.applicantData.registrationNumber,
-					industry: input.applicantData.industry,
-					countryCode: input.applicantData.countryCode,
-					address: input.applicantData.address,
-				},
-			});
-			socialReputationResult = {
-				status: fcResult.status === "live" ? "live" : "offline",
-				result: (fcResult.result as unknown as Record<string, unknown>) || undefined,
-			};
-		} catch (err) {
-			console.error(
-				"[AggregatedAnalysis] Firecrawl social reputation failed, using mock fallback and recommend manual checks:",
-				err
-			);
-		}
-	}
-
-	// --- VAT Verification (Firecrawl Agent) ---
 	let sarsVatSearchResult: {
 		status: "live" | "offline";
 		result: Record<string, unknown> | undefined;
@@ -962,9 +844,6 @@ async function runExternalCheckStubs(
 		bizPortalRegistration: { status: "offline", result: undefined },
 		efs24IdAvsr: { status: "offline", result: undefined },
 		sarsVatSearch: sarsVatSearchResult,
-		industryRegulator: industryRegulatorResult,
-		sanctionsEvidenceEnrichment: sanctionsEnrichmentResult,
-		socialReputation: socialReputationResult,
 	};
 }
 

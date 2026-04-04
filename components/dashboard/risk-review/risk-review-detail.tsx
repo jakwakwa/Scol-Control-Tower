@@ -4,7 +4,7 @@ import { useState } from "react";
 import { generateRiskBriefing } from "@/actions/ai.actions";
 import { AiBriefingPanel } from "@/components/dashboard/risk-review/ai-briefing-panel";
 import { EntitySummaryCards } from "@/components/dashboard/risk-review/entity-summary-cards";
-import { ExternalScreeningPanel } from "@/components/dashboard/risk-review/external-screening-panel";
+
 import { FinalAdjudicationDialog } from "@/components/dashboard/risk-review/final-adjudication-dialog";
 import { PrintableAuditReport } from "@/components/dashboard/risk-review/printable-audit-report";
 import type { PrimaryRiskTabId } from "@/components/dashboard/risk-review/risk-review-config";
@@ -104,21 +104,10 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 							/>
 						)}
 						{primaryTab === "sanctions" && (
-							<div className="space-y-8">
-								<SanctionsSection
-									data={sanctionsData}
-									status={data.sectionStatuses?.sanctions}
-								/>
-								{(data.externalScreeningUi.industryRegulator ||
-									data.externalScreeningUi.socialReputation) && (
-									<ExternalScreeningPanel
-										applicantId={data.applicantId}
-										industryInitial={data.industryRegulatorCheck}
-										socialInitial={data.socialReputationCheck}
-										ui={data.externalScreeningUi}
-									/>
-								)}
-							</div>
+							<SanctionsSection
+								data={sanctionsData}
+								status={data.sectionStatuses?.sanctions}
+							/>
 						)}
 						{primaryTab === "fica" && (
 							<FicaSection

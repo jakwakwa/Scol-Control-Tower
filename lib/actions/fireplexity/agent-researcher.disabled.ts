@@ -15,7 +15,15 @@ import {
 	getGenAIClient,
 	isAIConfigured,
 } from "@/lib/ai/models";
-import type { ApplicantData } from "@/lib/services/agents/contracts/firecrawl-check.contracts";
+
+interface ApplicantData {
+	companyName: string;
+	contactName?: string;
+	registrationNumber?: string;
+	industry?: string;
+	countryCode?: string;
+	address?: string;
+}
 
 // Lazy initialization for Vercel deployment (v2 client: scrape + search)
 let firecrawl: Firecrawl | null = null;

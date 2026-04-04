@@ -110,45 +110,14 @@ export interface RiskReviewData {
 		aiVatInference?: { available: false } | VatVerificationSummary;
 	};
 
-	/** Firecrawl industry register check (from aiAnalysis.externalChecks.industryRegulator) */
-	industryRegulatorCheck?: IndustryRegulatorReviewData;
-	/** HelloPeter / social reputation check (from aiAnalysis.externalChecks.socialReputation) */
-	socialReputationCheck?: SocialReputationReviewData;
-
 	/**
-	 * Server-derived feature flags: show Firecrawl screening actions only when configured
-	 * and ENABLE_FIRECRAWL_* or ENABLE_MANUAL_FIRECRAWL_SCREENING is set.
+	 * Deprecated Firecrawl screening flags — always false.
+	 * Kept temporarily for type compatibility with existing UI components.
 	 */
 	externalScreeningUi: {
-		industryRegulator: boolean;
-		socialReputation: boolean;
+		industryRegulator: false;
+		socialReputation: false;
 	};
-}
-
-/** Industry regulator external check slice for risk review UI */
-export interface IndustryRegulatorReviewData {
-	status: "live" | "offline" | "unknown";
-	runtimeState?: string;
-	checked?: boolean;
-	passed?: boolean;
-	checkedAt?: string;
-	provider?: string;
-	registrationStatus?: string;
-	evidenceMatchName?: string;
-}
-
-/** Social reputation (HelloPeter) external check slice for risk review UI */
-export interface SocialReputationReviewData {
-	status: "live" | "offline" | "unknown";
-	runtimeState?: string;
-	checked?: boolean;
-	passed?: boolean;
-	checkedAt?: string;
-	summaryRating?: number;
-	complaintCount?: number;
-	complimentCount?: number;
-	/** Business display name from HelloPeter when found */
-	businessName?: string;
 }
 
 /** Structured VAT verification summary produced by the AI pipeline. */

@@ -4,13 +4,14 @@
  * Export all agent services for the onboarding workflow
  */
 
-// Aggregated Analysis Service
+// Financial Risk Agent — bank statement analysis (Gemini), multi-stage, logs to ai_analysis_logs
 export {
-	type AggregatedAnalysisInput,
-	type AggregatedAnalysisResult,
-	performAggregatedAnalysis,
-} from "./aggregated-analysis.service";
-
+	FINANCIAL_RISK_AGENT_NAME,
+	type FinancialRiskAgentInput,
+	type FinancialRiskAgentResult,
+	type FinancialRiskAnalysisResult,
+	runFinancialRiskAgent,
+} from "./financial-risk.agent";
 // Risk Agent (Mock Implementation - Phase 1)
 export {
 	analyzeFinancialRisk,
@@ -20,15 +21,6 @@ export {
 	type RiskAnalysisResult,
 	requiresManualReview as requiresManualRiskReview,
 } from "./risk.agent";
-
-// Financial Risk Agent — bank statement analysis (Gemini), multi-stage, logs to ai_analysis_logs
-export {
-	FINANCIAL_RISK_AGENT_NAME,
-	runFinancialRiskAgent,
-	type FinancialRiskAgentInput,
-	type FinancialRiskAgentResult,
-	type FinancialRiskAnalysisResult,
-} from "./financial-risk.agent";
 
 // Sanctions Agent (Mock Implementation - Phase 1)
 export {
@@ -41,6 +33,7 @@ export {
 	type SanctionsCheckInput,
 	type SanctionsCheckResult,
 } from "./sanctions.agent";
+
 // Validation Agent (Real Implementation)
 export {
 	type BatchValidationInput,
