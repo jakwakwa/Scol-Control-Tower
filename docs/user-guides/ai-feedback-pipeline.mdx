@@ -11,7 +11,7 @@ The pipeline follows a simple principle: **every override becomes a retrainable 
 
 ## How it works
 
-```
+```text
 AI recommends → Human decides → System compares → Feedback log created → Retraining queue
 ```
 
@@ -28,7 +28,7 @@ The override taxonomy is a structured classification system that maps human over
 ### Categories
 
 | Category | Description |
-| :--- | :--- |
+| :-- | :-- |
 | `AI_ALIGNED` | Human agrees with the AI recommendation |
 | `MISSING_CONTEXT` | AI lacked information the human had |
 | `INCORRECT_RISK_SCORING` | AI scored the risk too high or too low |
@@ -56,7 +56,7 @@ The system automatically detects when a human decision diverges from the AI reco
 ### Divergence types
 
 | Type | Meaning |
-| :--- | :--- |
+| :-- | :-- |
 | `false_positive` | AI flagged a risk that the human determined was not real |
 | `false_negative` | AI cleared a risk that the human determined was real |
 | `severity_mismatch` | Both agree something is an issue but disagree on severity |
@@ -70,11 +70,11 @@ Each divergent feedback log is assigned a weight from 1–10, representing prior
 Each log entry captures the full picture:
 
 | Field | Description |
-| :--- | :--- |
-| `aiOutcome` | What the AI recommended (APPROVE, MANUAL_REVIEW, DECLINE) |
+| :-- | :-- |
+| `aiOutcome` | What the AI recommended (APPROVE, MANUAL\_REVIEW, DECLINE) |
 | `aiConfidence` | AI confidence score (0–100) |
-| `aiCheckType` | Type of AI check (identity_verification, document_analysis, risk_screening, aggregated) |
-| `humanOutcome` | What the human decided (APPROVED, REJECTED, REQUEST_MORE_INFO) |
+| `aiCheckType` | Type of AI check (identity\_verification, document\_analysis, risk\_screening, aggregated) |
+| `humanOutcome` | What the human decided (APPROVED, REJECTED, REQUEST\_MORE\_INFO) |
 | `overrideCategory` | Selected category from the taxonomy |
 | `overrideSubcategory` | Optional subcategory |
 | `overrideDetails` | Optional free text (max 500 characters) |
@@ -113,7 +113,11 @@ Each endpoint records:
 
 ### Response format
 
-Risk decision API responses now include feedback data:
+> `Decision routing decoupled from stages — New getDecisionEndpoint helper resolves API endpoints from metadata instead of hardcoded stage numbers. Front-end and back-end no longer assume "stage 3 = procurement." (43437cc, Jaco Kotzee)`
+
+**Risk decision API responses now include feedback data:**
+
+<Badge color="yellow" size="lg" shape="pill" stroke icon="alert-triangle">outdated snippet</Badge>
 
 ```json
 {
