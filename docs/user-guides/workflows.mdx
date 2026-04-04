@@ -43,17 +43,26 @@ Procurement outcomes are collected as evidence in Stage 3 but are no longer a se
 
 ### Stream A: Procurement risk assessment
 
-ProcureCheck Web API v5 runs against the applicant via `executeProcurementCheck()` in `lib/services/procurecheck.service.ts`. The service authenticates (JWT), creates a vendor, polls until checks complete, then fetches all 6 category results (CIPC, Property, Restricted List, Legal, SAFPS, Persal) in parallel. Results are persisted as structured `ProcurementData` JSON in the `risk_check_results` table. If procurement fails due to auth errors (401/403), the workflow records a `manual_required` status; transient errors are retried by Inngest.
+ProcureCheck Web API v5 runs against the applicant via `executeProcurementCheck()` in `lib/services/procurecheck.service.ts`. The service authenticates (JWT), creates a vendor, polls until checks complete, then fetches all 6 category results (CIPC, Property, Restricted List, Legal, SAFPS, Persal) in parallel. Results are persisted as structured `ProcurementData` JSON in the `risk_check_results` table. If procurement fails due to auth errors (401/403), the workflow records a `manual_required` status; transient errors are retried by Inngest before the run is treated as failed.
 
 ### Stream B: Document verification and AI analysis
 
 After documents are ready, two independent paths run **in parallel**:
 
-- **ITC + sanctions check**: ITC provider check plus sanctions screening. If ITC provider is unavailable, the workflow records manual-required ITC and continues.
+- **ITC + sanctions check**: ITC provider check plus sanctions screening. If the providers cannot complete safely, Risk Review receives degraded check context plus any required manual-review follow-up.
 - **AI validation/risk/sanctions analysis**: Gemini-powered analysis of uploaded documents, with fallback/manual-required envelopes when an agent call fails.
 - **PDF-native bank statement analysis**: When a bank statement PDF is present, Stage 3 forwards it directly as `application/pdf` document input so Gemini can use document understanding (layout/tables/context), not just extracted text.
 
 Both paths are joined before Reporter synthesis. Partial failures are retained and surfaced to Risk Review instead of terminating immediately.
+
+### Vendor failure handling in practice
+
+Vendor-related failures are expected to surface as explicit workflow or check states, not silent stalls:
+
+- **Procurement**: auth/configuration failures move procurement to `manual_required`; transient errors are retried before the workflow gives up.
+- **ITC / sanctions / FICA**: when automation cannot complete safely, the workflow should continue with degraded context that tells Risk Review which manual checks are still required.
+- **Sanctions hits**: confirmed sanction hits pause the workflow for compliance adjudication; definitive non-sanctions compliance blocks terminate the workflow.
+- **VAT**: VAT is advisory evidence only. Inconclusive or unavailable VAT checks should not block progression, but they should still leave visible evidence for review.
 
 ### Reporter Agent synthesis
 
@@ -92,9 +101,9 @@ Status badges appear in the list and on each workflow:
 - **In progress**: actively processing
 - **Awaiting human**: waiting for an approval or manual decision
 - **Completed**: all stages finished successfully
-- **Failed**: processing ended with an error
+- **Failed**: processing ended with an unhandled error after retries; vendor issues should usually appear as degraded/manual-review context before they appear here
 - **Timeout**: waiting for input exceeded the time limit
-- **Paused**: stopped pending intervention
+- **Paused**: intentionally stopped pending intervention, such as sanction adjudication or another structured operator decision
 
 ## Human-in-the-loop actions
 
