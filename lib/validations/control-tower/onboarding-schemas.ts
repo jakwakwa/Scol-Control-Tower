@@ -42,13 +42,7 @@ export type LeadCreatedCompatPayload = z.infer<typeof LeadCreatedCompatSchema>;
 // Sanctions Providers
 // ============================================
 
-export const SANCTIONS_PROVIDERS = [
-	"opensanctions",
-	"firecrawl_un",
-	"firecrawl_ofac",
-	"firecrawl_fic",
-	"manual",
-] as const;
+export const SANCTIONS_PROVIDERS = ["opensanctions", "firecrawl_un", "manual"] as const;
 
 export type SanctionsProvider = (typeof SANCTIONS_PROVIDERS)[number];
 
@@ -105,7 +99,9 @@ export const ExternalSanctionsIngressCompatSchema = z.object({
 });
 
 export type ExternalSanctionsIngress = z.infer<typeof ExternalSanctionsIngressSchema>;
-export type ExternalSanctionsIngressCompat = z.infer<typeof ExternalSanctionsIngressCompatSchema>;
+export type ExternalSanctionsIngressCompat = z.infer<
+	typeof ExternalSanctionsIngressCompatSchema
+>;
 
 // ============================================
 // Legacy Sanctions Event (kept for backward compat)

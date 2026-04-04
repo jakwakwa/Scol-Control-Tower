@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import {
-	addController,
-	removeController,
-} from "../lib/notification-broadcaster";
+import { addController, removeController } from "../lib/notification-broadcaster";
 
 const insertReturningMock = mock(async () => [{ id: 123 }]);
 
@@ -16,6 +13,7 @@ const fakeDatabaseClient = {
 
 mock.module("@/app/utils", () => ({
 	getDatabaseClient: () => fakeDatabaseClient,
+	getBaseUrl: () => "http://localhost:3000",
 }));
 
 const { createWorkflowNotification } = await import(
@@ -25,9 +23,7 @@ const { createWorkflowNotification } = await import(
 type TestController = ReadableStreamDefaultController<Uint8Array>;
 const registeredControllers: TestController[] = [];
 
-function registerController(
-	enqueue: (chunk: Uint8Array) => void
-): TestController {
+function registerController(enqueue: (chunk: Uint8Array) => void): TestController {
 	const controller = { enqueue } as TestController;
 	addController(controller);
 	registeredControllers.push(controller);
@@ -75,7 +71,7 @@ describe("createWorkflowNotification", () => {
 
 	it("delivers notification payload to connected SSE controllers", async () => {
 		let payload: Uint8Array | undefined;
-		registerController((chunk) => {
+		registerController(chunk => {
 			payload = chunk;
 		});
 
@@ -89,9 +85,7 @@ describe("createWorkflowNotification", () => {
 		});
 
 		const decodedPayload = new TextDecoder().decode(payload);
-		expect(decodedPayload).toBe(
-			'data: {"type":"notification","notificationId":123}\n\n'
-		);
+		expect(decodedPayload).toBe('data: {"type":"notification","notificationId":123}\n\n');
 	});
 
 	it("handles many clients without failing notification creation", async () => {

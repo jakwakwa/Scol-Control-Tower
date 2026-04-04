@@ -1,16 +1,13 @@
 /**
  * Combined Sanctions List Search (Firecrawl Agent)
  *
- * Runs UN, OFAC, and FIC TFS sanctions searches in parallel,
- * merges results, and maps to SanctionsCheckResult.
+ * Runs UN sanctions search and maps the result to SanctionsCheckResult.
  */
 
 import type {
 	SanctionsCheckInput,
 	SanctionsCheckResult,
 } from "@/lib/services/agents/sanctions.agent";
-import { searchFICTFSSanctionsList } from "./sanctions-list-fic";
-import { searchOFACSanctionsList } from "./sanctions-list-ofac";
 import { searchUNSanctionsList } from "./sanctions-list-un";
 
 export interface FirecrawlSanctionsSearchInput {
@@ -24,8 +21,6 @@ export interface FirecrawlSanctionsSearchInput {
 
 export interface CombinedSanctionsResult {
 	un: { individuals: unknown[]; entities: unknown[] };
-	ofac: { matchesFound: boolean; matches: unknown[] };
-	fic: { matchesFound: boolean; matches: unknown[] };
 	hasBlockingMatch: boolean;
 }
 
@@ -43,7 +38,7 @@ function buildSearchTerms(input: FirecrawlSanctionsSearchInput): string[] {
 }
 
 /**
- * Run Firecrawl agent searches across UN, OFAC, and FIC TFS lists.
+ * Run Firecrawl agent search across the UN list.
  * Partial failures are non-blocking; returns what we have.
  */
 export async function runFirecrawlSanctionsSearch(
@@ -54,85 +49,32 @@ export async function runFirecrawlSanctionsSearch(
 	if (searchTerms.length === 0) {
 		return {
 			un: { individuals: [], entities: [] },
-			ofac: { matchesFound: false, matches: [] },
-			fic: { matchesFound: false, matches: [] },
 			hasBlockingMatch: false,
 		};
 	}
 
-	const [unResult, ofacResult, ficResult] = await Promise.allSettled([
-		searchUNSanctionsList(
-			searchTerms,
-			input.workflowId && input.applicantId
-				? {
-						workflowId: input.workflowId,
-						applicantId: input.applicantId,
-						stage: input.stage ?? 3,
-					}
-				: undefined
-		),
-		searchOFACSanctionsList(
-			searchTerms,
-			input.workflowId && input.applicantId
-				? {
-						workflowId: input.workflowId,
-						applicantId: input.applicantId,
-						stage: input.stage ?? 3,
-					}
-				: undefined
-		),
-		searchFICTFSSanctionsList(
-			searchTerms,
-			input.workflowId && input.applicantId
-				? {
-						workflowId: input.workflowId,
-						applicantId: input.applicantId,
-						stage: input.stage ?? 3,
-					}
-				: undefined
-		),
-	]);
+	const unResult = await searchUNSanctionsList(
+		searchTerms,
+		input.workflowId && input.applicantId
+			? {
+					workflowId: input.workflowId,
+					applicantId: input.applicantId,
+					stage: input.stage ?? 3,
+				}
+			: undefined
+	).catch(error => {
+		console.warn("[SanctionsListSearch] UN search failed:", error);
+		return { individuals: [] as unknown[], entities: [] as unknown[] };
+	});
 
-	const un =
-		unResult.status === "fulfilled"
-			? unResult.value
-			: { individuals: [] as unknown[], entities: [] as unknown[] };
-	const ofac =
-		ofacResult.status === "fulfilled"
-			? ofacResult.value
-			: { matchesFound: false, matches: [] as unknown[] };
-	const fic =
-		ficResult.status === "fulfilled"
-			? ficResult.value
-			: { matchesFound: false, matches: [] as unknown[] };
-
-	if (unResult.status === "rejected") {
-		console.warn("[SanctionsListSearch] UN search failed:", unResult.reason);
-	}
-	if (ofacResult.status === "rejected") {
-		console.warn("[SanctionsListSearch] OFAC search failed:", ofacResult.reason);
-	}
-	if (ficResult.status === "rejected") {
-		console.warn("[SanctionsListSearch] FIC search failed:", ficResult.reason);
-	}
-
-	const hasUnMatch = (un.individuals?.length ?? 0) > 0 || (un.entities?.length ?? 0) > 0;
-	const hasBlockingMatch = hasUnMatch;
-
+	const hasUnMatch =
+		(unResult.individuals?.length ?? 0) > 0 || (unResult.entities?.length ?? 0) > 0;
 	return {
 		un: {
-			individuals: un.individuals ?? [],
-			entities: un.entities ?? [],
+			individuals: unResult.individuals ?? [],
+			entities: unResult.entities ?? [],
 		},
-		ofac: {
-			matchesFound: ofac.matchesFound ?? false,
-			matches: ofac.matches ?? [],
-		},
-		fic: {
-			matchesFound: fic.matchesFound ?? false,
-			matches: fic.matches ?? [],
-		},
-		hasBlockingMatch,
+		hasBlockingMatch: hasUnMatch,
 	};
 }
 
@@ -181,84 +123,19 @@ export function mapCombinedToSanctionsCheckResult(
 		})),
 	];
 
-	const ofacMatches = (combined.ofac.matches ?? []) as Array<{
-		name?: string;
-		firstId?: string;
-		program?: string;
-		score?: number;
-	}>;
-	const ficMatches = (combined.fic.matches ?? []) as Array<{
-		name?: string;
-		noticeId?: string;
-		noticeNumber?: string;
-	}>;
-
-	const watchListMatches = [
-		...ofacMatches.map(m => ({
-			listName: "OFAC SDN List",
-			matchedEntity: m.name ?? "Unknown",
-			matchConfidence: Math.round((m.score ?? 0.8) * 100),
-			reason: "Firecrawl agent match",
-		})),
-		...ficMatches.map(m => ({
-			listName: "FIC Targeted Financial Sanctions",
-			matchedEntity: m.name ?? "Unknown",
-			matchConfidence: 85,
-			reason: "Firecrawl agent match",
-		})),
-	];
-
 	const unSanctionsMatchFound = combined.hasBlockingMatch;
-	const hasWatchListMatch = watchListMatches.length > 0;
-	const HIGH_RISK_COUNTRIES = ["KP", "IR", "SY", "CU", "RU"];
-	const isHighRiskCountry = HIGH_RISK_COUNTRIES.includes(input.countryCode);
-
-	let riskLevel: "CLEAR" | "LOW" | "MEDIUM" | "HIGH" | "BLOCKED";
-	let passed: boolean;
-	let requiresEDD: boolean;
-	let recommendation:
-		| "PROCEED"
-		| "PROCEED_WITH_MONITORING"
-		| "EDD_REQUIRED"
-		| "BLOCK"
-		| "MANUAL_REVIEW";
-
-	if (unSanctionsMatchFound) {
-		riskLevel = "BLOCKED";
-		passed = false;
-		requiresEDD = false;
-		recommendation = "BLOCK";
-	} else if (isHighRiskCountry && hasWatchListMatch) {
-		riskLevel = "HIGH";
-		passed = true;
-		requiresEDD = true;
-		recommendation = "EDD_REQUIRED";
-	} else if (hasWatchListMatch) {
-		riskLevel = "LOW";
-		passed = true;
-		requiresEDD = false;
-		recommendation = "MANUAL_REVIEW";
-	} else {
-		riskLevel = "CLEAR";
-		passed = true;
-		requiresEDD = false;
-		recommendation = "PROCEED";
-	}
+	const riskLevel: "CLEAR" | "LOW" | "MEDIUM" | "HIGH" | "BLOCKED" = unSanctionsMatchFound
+		? "BLOCKED"
+		: "CLEAR";
+	const passed = !unSanctionsMatchFound;
+	const recommendation: "PROCEED" | "BLOCK" = unSanctionsMatchFound ? "BLOCK" : "PROCEED";
 
 	const reasoning = [
 		`Sanctions screening completed with ${riskLevel} risk level.`,
 		unSanctionsMatchFound
 			? "CRITICAL: Match found on UN Sanctions list. Immediate review required."
-			: null,
-		hasWatchListMatch
-			? "Match found on OFAC or FIC TFS list. Verification recommended."
-			: null,
-		riskLevel === "CLEAR"
-			? "No significant sanctions concerns identified. Standard onboarding may proceed."
-			: null,
-	]
-		.filter(Boolean)
-		.join(" ");
+			: "No significant sanctions concerns identified. Standard onboarding may proceed.",
+	].join(" ");
 
 	return {
 		unSanctions: {
@@ -279,23 +156,23 @@ export function mapCombinedToSanctionsCheckResult(
 		},
 		watchLists: {
 			checked: true,
-			listsChecked: ["UN Consolidated", "OFAC SDN", "FIC TFS"],
-			matchesFound: watchListMatches.length,
-			matches: watchListMatches,
+			listsChecked: ["UN Consolidated"],
+			matchesFound: 0,
+			matches: [],
 		},
 		overall: {
 			riskLevel,
 			passed,
-			requiresEDD,
+			requiresEDD: false,
 			recommendation,
 			reasoning,
-			reviewRequired: unSanctionsMatchFound || hasWatchListMatch,
+			reviewRequired: unSanctionsMatchFound,
 		},
 		metadata: {
 			checkId,
 			checkedAt: now.toISOString(),
 			expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-			dataSource: "Firecrawl (UN, OFAC, FIC TFS)",
+			dataSource: "Firecrawl (UN)",
 		},
 	};
 }

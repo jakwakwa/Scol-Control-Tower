@@ -41,12 +41,6 @@
             ]
           },
           {
-            "group": "Agent Contracts",
-            "pages": [
-              "agent-contracts/firecrawl-check-contracts"
-            ]
-          },
-          {
             "group": "Skills",
             "icon": "robot-face",
             "tag": "agent skills",
