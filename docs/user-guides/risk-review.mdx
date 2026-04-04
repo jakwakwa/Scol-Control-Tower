@@ -17,6 +17,7 @@ Each card in the queue shows:
 - **AI recommendation** (e.g. Approve, Manual Review, Decline)
 - **Risk level** badge (Low, Medium, High, Critical)
 - **Check-level status context** (e.g. ITC manual-required, validation fallback) when checks completed in degraded or partial-failure mode
+- **Vendor-failure context** showing whether a check is in `manual_required`, `failed`, `paused`, or advisory/unavailable mode
 - **Document-processing context** indicating when Stage 3 bank-statement risk analysis used native PDF document understanding versus degraded/manual-required fallback
 - **Time waiting** since the item entered the queue
 
@@ -89,6 +90,15 @@ Risk Review now uses a **single human decision gate** for this cycle:
 - A single Risk Manager decision is captured in Stage 4
 
 The procurement section on the detail view shows real ProcureCheck results: vendor details, overall category summary, and per-category check tables (CIPC, Property, Restricted List, Legal, SAFPS, Persal). Loading skeletons display while checks are running; an error card appears if the check failed or requires manual review. Procurement is not a separate blocking decision queue. While items are awaiting your decision, the system sends **reminders** and **does not auto-terminate** the workflow on review timeout.
+
+### Interpreting degraded vendor states
+
+When automation cannot complete safely, Risk Review should treat the check-level state as the source of truth:
+
+- **`manual_required`** means the workflow kept moving, but a human still needs to complete or confirm that check before approval.
+- **`failed`** means the automation ended unsuccessfully without a full manual-review envelope. Treat these items as needing extra attention, especially if no matching workflow notification exists.
+- **`paused`** means the workflow is intentionally stopped and cannot progress until the required decision is recorded. The sanctions adjudication path is the main example.
+- **Advisory unavailable / inconclusive** states, such as VAT evidence issues, should inform your decision but should not be treated as hard blockers on their own.
 
 ## What happens after a decision
 
