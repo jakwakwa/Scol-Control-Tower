@@ -1,13 +1,12 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "sequoia",
+  "theme": "mint",
   "name": "StratCol Control Tower Docs",
   "colors": {
-    "primary": "#9f6a0f",
-    "light": "#edbf4c",
-    "dark": "#17536c"
+    "primary": "#af8300",
+    "light": "#dfa714",
+    "dark": "#012f3a"
   },
-  "favicon": "/favicon.svg",
   "navigation": {
     "dropdowns": [
       {
@@ -73,14 +72,6 @@
           },
           {
             "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
-            ]
-          },
-          {
-            "group": "Untitled Group",
             "pages": []
           }
         ]
@@ -146,28 +137,21 @@
       "vscode"
     ]
   },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
-  },
   "background": {
     "color": {
-      "light": "#ededf5",
-      "dark": "#180f07"
+      "light": "#e4dddb",
+      "dark": "#171012"
     },
-    "decoration": "windows"
+    "decoration": "grid"
   },
   "appearance": {
     "default": "dark"
   },
   "fonts": {
-    "family": "Poppins",
-    "weight": 500,
+    "family": "Inter",
+    "weight": 400,
     "heading": {
-      "family": "Lato",
+      "family": "Merriweather",
       "weight": 600
     },
     "body": {
@@ -181,13 +165,34 @@
   },
   "api": {
     "playground": {
-      "display": "auth"
+      "display": "none",
+      "proxy": false
     }
   },
   "interaction": {
     "drilldown": true
   },
   "icons": {
-    "library": "tabler"
+    "library": "lucide"
+  },
+  "thumbnails": {
+    "appearance": "dark"
+  },
+  "styling": {
+    "eyebrows": "section",
+    "codeblocks": "dark",
+    "latex": true
+  },
+  "search": {
+    "prompt": "Ask what you need..."
+  },
+  "integrations": {
+    "telemetry": {
+      "enabled": true
+    }
+  },
+  "favicon": {
+    "light": "/images/StratCol-Logo-Normal-on-WhiteBackgroundcopy.png",
+    "dark": "/images/StratCol-Logo-Normal-on-WhiteBackgroundcopy.png"
   }
 }
