@@ -6,6 +6,16 @@
       "sourceType": "github",
       "computedHash": "71b400864b7c93453b5e62430392a98532d73b7da0236402b4807520687687bd"
     },
+    "aif-fix": {
+      "source": "lee-to/ai-factory",
+      "sourceType": "github",
+      "computedHash": "f866cc5f748fa5fdea7dc7198ddcb7b0aeefd1c15ae05811632be227141a951c"
+    },
+    "ce:compound": {
+      "source": "everyinc/compound-engineering-plugin",
+      "sourceType": "github",
+      "computedHash": "d9e90b18852706e15d0183f28aebbf3759c08476345171146d8f2f6ac9be66a2"
+    },
     "clerk-testing": {
       "source": "clerk/skills",
       "sourceType": "github",
@@ -50,6 +60,11 @@
       "source": "vercel-labs/vercel-plugin",
       "sourceType": "github",
       "computedHash": "f5369c5efd09055273f89c9ab390dd83f752474ae6a282b0de8dd02e310f51a7"
+    },
+    "zod-validation-expert": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "computedHash": "8fd8eb38d99ba483ff3a17389e4db8ade789599cd6d90fdb1a25e9b6d23e2ed3"
     }
   }
 }

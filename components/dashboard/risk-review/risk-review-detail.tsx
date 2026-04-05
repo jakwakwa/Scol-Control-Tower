@@ -14,6 +14,7 @@ import { FicaSection } from "@/components/dashboard/risk-review/sections/fica-se
 import { ItcSection } from "@/components/dashboard/risk-review/sections/itc-section";
 import { ProcurementSection } from "@/components/dashboard/risk-review/sections/procurement-section";
 import { SanctionsSection } from "@/components/dashboard/risk-review/sections/sanctions-section";
+import { getReportExportState } from "@/lib/risk-review/export-readiness";
 import type { RiskReviewData } from "@/lib/risk-review/types";
 
 function RiskReviewDetail({ data }: { data: RiskReviewData }) {
@@ -37,8 +38,15 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 		ficaData,
 		bankStatementAnalysis,
 	} = data;
+	const exportState = getReportExportState(data.sectionStatuses);
+	const exportHint = exportState.hasPendingSections
+		? `Export becomes available once ${exportState.pendingSections.join(", ")} reach a final status.`
+		: exportState.hasDegradedSections
+			? `This export includes degraded sections. ${exportState.degradedSections.join(", ")} will be clearly marked in the report.`
+			: "Exports the current master compliance report as a print-ready PDF.";
 
 	const handlePrint = () => {
+		if (!exportState.canExport) return;
 		window.print();
 	};
 
@@ -74,6 +82,8 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 					<RiskReviewHeader
 						globalData={globalData}
 						isGeneratingSummary={isGeneratingSummary}
+						canExport={exportState.canExport}
+						exportHint={exportHint}
 						onGenerateSummary={handleGenerateSummary}
 						onPrint={handlePrint}
 						onAdjudicate={() => setAdjudicationOpen(true)}
@@ -120,9 +130,7 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 				</div>
 			</div>
 
-			<div className="hidden">
-				<PrintableAuditReport aiSummary={aiSummary} data={data} />
-			</div>
+			<PrintableAuditReport aiSummary={aiSummary} data={data} />
 
 			<FinalAdjudicationDialog
 				open={adjudicationOpen}

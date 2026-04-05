@@ -1,13 +1,17 @@
+export type { InitiateVerificationOptions, PollOptions } from "./client";
 export {
 	authenticate,
 	clearTokenCache,
 	createVendor,
+	findVendorByExternalId,
 	getCategoryResult,
 	getProcureCheckProxyOption,
 	getProcureCheckRuntimeConfig,
 	getVendorSummary,
 	getVendorsList,
+	initiateVerification,
 	pollUntilReady,
+	VendorAlreadyExistsError,
 	withProcureCheckProxy,
 } from "./client";
 

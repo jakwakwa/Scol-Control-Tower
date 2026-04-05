@@ -143,7 +143,14 @@ export async function executeStage3({
 			return { killSwitchTriggered: false, isBlocked: false };
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
-			const isAuthError = /\b(401|403)\b/.test(errorMessage);
+			const httpStatus = (() => {
+				const match = errorMessage.match(/\b([45]\d{2})\b/);
+				return match ? Number.parseInt(match[1], 10) : null;
+			})();
+			const isAuthError = httpStatus === 401 || httpStatus === 403;
+			const isClientError = httpStatus !== null && httpStatus >= 400 && httpStatus < 500;
+			const isRegistrationValidationError =
+				/Registration number does not exist in CIPC database/i.test(errorMessage);
 
 			console.error("[ControlTower] Procurement check execution failed:", error);
 			recordVendorCheckFailure({
@@ -152,7 +159,8 @@ export async function executeStage3({
 				workflowId,
 				applicantId,
 				durationMs: Date.now() - procurementStart,
-				outcome: isAuthError ? "persistent_failure" : "transient_failure",
+				outcome:
+					isAuthError || isClientError ? "persistent_failure" : "transient_failure",
 				error,
 			});
 
@@ -165,28 +173,38 @@ export async function executeStage3({
 					source: "procurecheck",
 					stage: 3,
 					isAuthError,
+					httpStatus,
 				},
 			});
 
-			if (isAuthError) {
-				await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "manual_required", {
-					errorDetails: `Auth failure: ${errorMessage}`,
-				});
+			const manualReviewReason = isAuthError
+				? `Auth failure: ${errorMessage}`
+				: errorMessage;
 
-				await createWorkflowNotification({
-					workflowId,
-					applicantId,
-					type: "warning",
-					title: "ProcureCheck Authentication Failed",
-					message:
-						"ProcureCheck credentials are invalid. Manual procurement review required.",
-					actionable: false,
-				});
+			await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "manual_required", {
+				errorDetails: manualReviewReason,
+			});
 
-				return { killSwitchTriggered: false, isBlocked: false };
-			}
+			const notificationTitle = isAuthError
+				? "ProcureCheck Authentication Failed"
+				: "Procurement Check Needs Manual Review";
+			const notificationMessage = isAuthError
+				? "ProcureCheck credentials are invalid. Manual procurement review required."
+				: isRegistrationValidationError
+					? "ProcureCheck rejected the registration number (CIPC validation). Workflow continues with manual procurement review."
+					: "ProcureCheck could not complete. Workflow continues and procurement moves to manual review.";
 
-			throw error;
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: "warning",
+				title: notificationTitle,
+				message: notificationMessage,
+				actionable: false,
+			});
+
+			// Non-blocking by design: procurement failures should not terminate Stage 3.
+			return { killSwitchTriggered: false, isBlocked: false };
 		}
 	});
 

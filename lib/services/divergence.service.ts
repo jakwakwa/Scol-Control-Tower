@@ -16,10 +16,10 @@ import { getDatabaseClient } from "@/app/utils";
 import { aiFeedbackLogs, riskAssessments } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import type {
+	AdjudicationCategory,
 	AiCheckType,
 	DivergenceType,
-	OverrideCategory,
-} from "@/lib/constants/override-taxonomy";
+} from "@/lib/constants/adjudication-taxonomy";
 
 // ============================================
 // Types
@@ -35,9 +35,9 @@ interface RecordFeedbackInput {
 	workflowId: number;
 	applicantId: number;
 	humanOutcome: "APPROVED" | "REJECTED" | "REQUEST_MORE_INFO";
-	overrideCategory: OverrideCategory;
-	overrideSubcategory?: string;
-	overrideDetails?: string;
+	adjudicationReason: AdjudicationCategory;
+	adjudicationDetail?: string;
+	adjudicationNotes?: string;
 	decidedBy: string;
 	relatedFailureEventId?: number;
 }
@@ -151,9 +151,9 @@ export async function recordFeedbackLog(input: RecordFeedbackInput): Promise<{
 				aiConfidence: aiSnapshot.aiConfidence,
 				aiCheckType: aiSnapshot.aiCheckType,
 				humanOutcome: input.humanOutcome,
-				overrideCategory: input.overrideCategory,
-				overrideSubcategory: input.overrideSubcategory,
-				overrideDetails: input.overrideDetails,
+				adjudicationReason: input.adjudicationReason,
+				adjudicationDetail: input.adjudicationDetail,
+				adjudicationNotes: input.adjudicationNotes,
 				isDivergent: divergence.isDivergent,
 				divergenceWeight: divergence.divergenceWeight,
 				divergenceType: divergence.divergenceType,
@@ -174,8 +174,8 @@ export async function recordFeedbackLog(input: RecordFeedbackInput): Promise<{
 					feedbackLogId,
 					divergenceType: divergence.divergenceType!,
 					divergenceWeight: divergence.divergenceWeight,
-					overrideCategory: input.overrideCategory,
-					overrideSubcategory: input.overrideSubcategory,
+					adjudicationReason: input.adjudicationReason,
+					adjudicationDetail: input.adjudicationDetail,
 					aiOutcome: aiSnapshot.aiOutcome,
 					humanOutcome: input.humanOutcome,
 				},

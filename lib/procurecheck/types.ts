@@ -4,15 +4,18 @@ import { z } from "zod";
 // ProcureCheck API Response Schemas
 // ============================================
 
-export const AuthResponseSchema = z
-	.object({
-		token: z.string().optional(),
-		access_token: z.string().optional(),
-		message: z.string().optional(),
-	})
-	.refine(d => Boolean(d.token || d.access_token), {
-		message: "Response must contain either 'token' or 'access_token'",
-	});
+export const AuthResponseSchema = z.union([
+	z.string(),
+	z
+		.object({
+			token: z.string().optional(),
+			access_token: z.string().optional(),
+			message: z.string().optional(),
+		})
+		.refine(d => Boolean(d.token || d.access_token), {
+			message: "Response must contain either 'token' or 'access_token'",
+		}),
+]);
 
 export type AuthResponse = z.infer<typeof AuthResponseSchema>;
 

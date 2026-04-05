@@ -11,7 +11,7 @@ The system uses a direct event-driven model. This  centralises state management 
 
 - **Event-Driven Workflows**: Complex business logic (onboarding, verification, signing, risk review) is orchestrated via Inngest, with clear domain events like `onboarding/lead.created`, `quote/responded`, and `form/decision.responded`.
 - **Deterministic Verification**: Replaces probabilistic AI voting with a strict, hierarchical veto system using a local blocklist (`mock_blacklist.json`).
-- **HITL \+ AI Feedback Pipeline**: Every human override creates a structured feedback log (category, subcategory, divergence type) that feeds the AI retraining pipeline.
+- **HITL \+ AI Feedback Pipeline**: Every human adjudication creates a structured feedback log (category, detail, divergence type) that feeds the AI retraining pipeline.
 - **Real-time Dashboard**: A comprehensive UI built with Shadcn/UI for monitoring agents, applicants, and workflow statuses.
 - **Document quality**: Upload-time checks (legibility, dimensions, low-detail detection) and recency validation for proof-of-residence; high-stakes risk and document analysis use Gemini 3 / Firecrawl
 

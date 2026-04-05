@@ -1,6 +1,6 @@
 ---
 title: "Risk review"
-description: "Review AI risk assessments, make structured override decisions, and feed the AI retraining pipeline."
+description: "Review AI risk assessments, make structured adjudication decisions, and feed the AI retraining pipeline."
 ---
 
 ## Risk review queue
@@ -30,11 +30,11 @@ From every card you can:
 
 ## Structured decision dialog
 
-When you approve or reject a workflow, the system captures structured override data instead of free-text reasons. This data feeds the AI retraining pipeline automatically.
+When you approve or reject a workflow, the system captures structured adjudication data instead of free-text reasons. This data feeds the AI retraining pipeline automatically.
 
 ### Required fields
 
-1. **Override Category** — select the category that best describes your assessment. Options include:
+1. **Adjudication Category** — select the category that best describes your assessment. Options include:
 
 | Category | When to use |
 | :--- | :--- |
@@ -43,7 +43,7 @@ When you approve or reject a workflow, the system captures structured override d
 | Incorrect Risk Scoring | The AI scored too high or too low |
 | False Positive Flag | The AI flagged something that is not a real issue |
 | False Negative Miss | The AI missed a real risk factor |
-| Policy Exception | You are overriding based on a policy or management decision |
+| Policy Exception | You are adjudicating based on a policy or management decision |
 | Data Quality Issue | The AI used stale, incorrect, or incomplete data |
 | Other | None of the above — additional details are required |
 

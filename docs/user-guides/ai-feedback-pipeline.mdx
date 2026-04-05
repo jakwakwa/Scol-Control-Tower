@@ -1,13 +1,13 @@
 ---
 title: "AI feedback pipeline"
-description: "How human overrides are captured as structured data to retrain AI risk models."
+description: "How human adjudications are captured as structured data to retrain AI risk models."
 ---
 
 ## Overview
 
 Every human decision in the Control Tower creates a structured feedback log that captures what the AI recommended versus what the human decided and why. This data feeds directly into the AI retraining pipeline, enabling the risk models to improve over time.
 
-The pipeline follows a simple principle: **every override becomes a retrainable data point**.
+The pipeline follows a simple principle: **every adjudication becomes a retrainable data point**.
 
 ## How it works
 
@@ -21,9 +21,9 @@ AI recommends → Human decides → System compares → Feedback log created →
 4. A feedback log is written to the `ai_feedback_logs` table.
 5. If the decisions diverge, an `ai/feedback.divergence_detected` event is emitted for downstream processing.
 
-## Override taxonomy
+## Adjudication taxonomy
 
-The override taxonomy is a structured classification system that maps human overrides into programmatic categories. It is defined in `lib/constants/override-taxonomy.ts`.
+The adjudication taxonomy is a structured classification system that maps human adjudications into programmatic categories. It is defined in `lib/constants/adjudication-taxonomy.ts`.
 
 ### Categories
 
@@ -34,7 +34,7 @@ The override taxonomy is a structured classification system that maps human over
 | `INCORRECT_RISK_SCORING` | AI scored the risk too high or too low |
 | `FALSE_POSITIVE_FLAG` | AI flagged a non-issue |
 | `FALSE_NEGATIVE_MISS` | AI missed a real risk |
-| `POLICY_EXCEPTION` | Human overriding based on policy or management decision |
+| `POLICY_EXCEPTION` | Human adjudication based on policy or management decision |
 | `DATA_QUALITY_ISSUE` | AI used stale, incorrect, or missing data |
 | `OTHER` | Uncategorised — requires free-text explanation |
 
@@ -46,7 +46,7 @@ Each category has optional subcategories for finer granularity:
 - **Incorrect Risk Scoring**: Score Too High, Score Too Low, Wrong Risk Factors Weighted, Outdated Model Data
 - **False Positive Flag**: Name Collision, Resolved Issue, Incorrect Data Match, Legitimate Business Activity
 - **False Negative Miss**: Hidden Risk Factor, Pattern Not Detected, New/Emerging Risk Type, Cross-reference Not Found
-- **Policy Exception**: Management Override, New Regulatory Guidance, Client Tier Exception
+- **Policy Exception**: Management Exception, New Regulatory Guidance, Client Tier Exception
 - **Data Quality Issue**: Stale/Outdated Data, Incorrect Data Source, Missing Required Fields
 
 ## Divergence detection
@@ -75,9 +75,9 @@ Each log entry captures the full picture:
 | `aiConfidence` | AI confidence score (0–100) |
 | `aiCheckType` | Type of AI check (identity\_verification, document\_analysis, risk\_screening, aggregated) |
 | `humanOutcome` | What the human decided (APPROVED, REJECTED, REQUEST\_MORE\_INFO) |
-| `overrideCategory` | Selected category from the taxonomy |
-| `overrideSubcategory` | Optional subcategory |
-| `overrideDetails` | Optional free text (max 500 characters) |
+| `adjudicationReason` | Selected category from the taxonomy |
+| `adjudicationDetail` | Optional detail or subcategory |
+| `adjudicationNotes` | Optional free text (max 300 characters) |
 | `isDivergent` | Whether the AI and human decisions differ |
 | `divergenceWeight` | Priority for retraining (1–10) |
 | `divergenceType` | Classification of the divergence |
@@ -100,7 +100,7 @@ The `consumedForRetraining` flag and `consumedAt` timestamp track this status.
 
 ### API endpoints
 
-Both risk decision endpoints capture structured override data:
+Both risk decision endpoints capture structured adjudication data:
 
 - `POST /api/risk-decision` — final risk decision (approve, reject, request more info)
 - `POST /api/risk-decision/procurement` — procurement check decision (cleared, denied)
@@ -125,7 +125,7 @@ Each endpoint records:
   "workflowId": 123,
   "decision": {
     "outcome": "APPROVED",
-    "overrideCategory": "MISSING_CONTEXT",
+    "adjudicationReason": "MISSING_CONTEXT",
     "decidedBy": "user_abc"
   },
   "feedback": {

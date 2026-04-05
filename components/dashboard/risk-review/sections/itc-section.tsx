@@ -208,7 +208,7 @@ function CreditRiskCard({
 }) {
 	return (
 		<Card className="p-6 border-l-4 border-l-primary/40">
-			<div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+			<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 				<div className="flex flex-col items-center justify-center bg-muted/20 rounded-xl px-0">
 					<ScoreGauge score={cr.riskScore} label="AI Statements Score" max={100} />
 					<RiskReviewBadge
@@ -291,8 +291,8 @@ export function ItcSection({
 	return (
 		<div className="space-y-6 animate-in fade-in duration-500">
 			<SectionStatusBanner status={status} label="ITC Credit" />
-			<div className="grid grid-cols-1 md:grid-cols-6 gap-2  overflow-hidden py-2 glass-card items-center h-full max-h-full min-h-[30vh]">
-				<Card className="col-span-3 m-0 flex relative flex-col items-center justify-center h-full ">
+			<div className="grid grid-cols-1 md:grid-cols-1 gap-3  overflow-hidden my-3 items-center h-full max-h-full min-h-[30vh]">
+				<Card className="col-span-3 mx-4 flex relative flex-col items-center justify-center h-full ">
 					<ScoreGauge
 						score={data.creditScore}
 						label="Commercial Credit Score"
@@ -303,7 +303,7 @@ export function ItcSection({
 						{data.scoreBand}
 					</p>
 				</Card>
-				<div className="col-span-1 md:col-span-3 grid grid-cols-1 sm:grid-cols-1 align-center py-0 my-0 min-h-full w-full">
+				<div className="col-span-1 md:col-span-4 grid grid-cols-1 sm:grid-cols-2 align-center px-4 gap-3 py-0 my-0 min-h-full w-full">
 					<Card className="px-5  border-l- border-l-chart-4">
 						<div className="flex items-center gap-3 mb-2">
 							<Scale className="w-5 h-5 text-chart-4" />
