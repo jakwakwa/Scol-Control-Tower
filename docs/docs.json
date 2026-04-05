@@ -1,11 +1,11 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "sequoia",
+  "theme": "mint",
   "name": "StratCol Control Tower Docs",
   "colors": {
-    "primary": "#9f6a0f",
-    "light": "#edbf4c",
-    "dark": "#17536c"
+    "primary": "#af8300",
+    "light": "#f3be64",
+    "dark": "#965d07"
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -73,14 +73,6 @@
           },
           {
             "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
-            ]
-          },
-          {
-            "group": "Untitled Group",
             "pages": []
           }
         ]
@@ -155,8 +147,8 @@
   },
   "background": {
     "color": {
-      "light": "#ededf5",
-      "dark": "#180f07"
+      "light": "#e4dddb",
+      "dark": "#231a0e"
     },
     "decoration": "windows"
   },
@@ -164,10 +156,10 @@
     "default": "dark"
   },
   "fonts": {
-    "family": "Poppins",
-    "weight": 500,
+    "family": "Inter",
+    "weight": 400,
     "heading": {
-      "family": "Lato",
+      "family": "Merriweather",
       "weight": 600
     },
     "body": {
