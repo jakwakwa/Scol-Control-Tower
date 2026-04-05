@@ -203,9 +203,11 @@ Total Credits: R 144,500.00
         accountNumber: "62847391056",
         bankName: "FNB",
         branchCode: "250655",
-        accountType: "cheque",
+        accountType: "CURRENT",
+        accountHolderName: "StratCol Test (Pty) Ltd"
       },
     },
+    workflowId: 0
   });
 
   const hasRequired =

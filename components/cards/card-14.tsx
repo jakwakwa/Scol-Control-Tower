@@ -5,7 +5,7 @@ const Placeholder = {
 	content: <div className="bg-background h-20 w-full rounded-md" />,
 };
 
-export const Card = () => {
+export const Card14 = () => {
 	return (
 		<div className="relative overflow-hidden rounded-xl bg-background">
 			<div

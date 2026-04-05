@@ -1,18 +1,39 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { cva } from "class-variance-authority";
+
+const cardVariants = cva(
+  "group/card flex flex-col gap-2 mb-10 overflow-hidden rounded-xl bg-card/40 py-6 text-sm text-card-foreground ring-1 ring-foreground/10 has-[>img:first-child]:pt-0 data-[size=sm]:gap-4 data-[size=sm]:py-4 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-2xl shadow-[0_20px_40px_-31px_rgba(0,0,0,0.6)]",
+  {
+    variants: {
+      variant: {
+        default: "bg-card/40",
+        secondary: "bg-card/20",
+        tertiary: "bg-card/10",
+      },
+      size: {
+        default: "py-6",
+        sm: "py-4",
+      },
+    },
+  }
+)
+
 
 function Card({
   className,
+  variant = "default",
   size = "default",
   ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+}: React.ComponentProps<"div"> & { size?: "default" | "sm"; variant?: "default" | "secondary" | "tertiary"  } ) {
   return (
     <div
       data-slot="card"
       data-size={size}
+      data-variant={variant}
       className={cn(
-        "group/card flex flex-col gap-2 mb-10 overflow-hidden rounded-xl bg-card/40 py-6 text-sm text-card-foreground ring-1 ring-foreground/10 has-[>img:first-child]:pt-0 data-[size=sm]:gap-4 data-[size=sm]:py-4 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-2xl shadow-[0_20px_40px_-31px_rgba(0,0,0,0.6)]",
+        cardVariants({ variant, size }),
         className
       )}
       {...props}
