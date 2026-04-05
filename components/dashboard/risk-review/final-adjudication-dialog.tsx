@@ -315,7 +315,7 @@ export function FinalAdjudicationDialog({
 								) : (
 									<span />
 								)}
-								<p className="text-xs text-muted-foreground">
+								<p className="text-xs text-muted-foreground pt-2">
 									{adjudicationNotes.length}/{ADJUDICATION_NOTES_MAX_LENGTH}
 								</p>
 							</div>

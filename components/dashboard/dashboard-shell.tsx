@@ -65,18 +65,20 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 	return (
 		<>
 			{/* BACKGROUNDs */}
-			<div className="fixed w-full -z-20 top-0 min-h-full size-230 h-screen bg-radial-[at_-30%_-40%] from-10% from-[var(--gold-700)]/80 via-65% via-zinc-800/90	 to-zinc-900/90 to-110%" />
+			<div className="print:hidden print:bg-white fixed w-full -z-20 top-0 min-h-full size-230 h-screen bg-radial-[at_-30%_-40%] from-10% from-[var(--gold-700)]/80 via-65% via-zinc-800/90	 to-zinc-900/90 to-110%" />
 
-			<Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+			<div className="print:hidden">
+				<Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+			</div>
 
 			{/* Main content */}
 			<main
 				className={cn(
-					` ml-64 mr-0 transition-all w-[82vw] duration-300`,
+					` ml-64 mr-0 transition-all w-[82vw] duration-300 print:ml-0 print:w-full print:bg-white`,
 					isCollapsed && "ml-18 pl-0 w-[95vw]  overflow-hidden"
 				)}>
 				{/* Header */}
-				<header className="sticky top-0 z-20 border-b border-sidebar-border bg-chart-1 shadow-lg shadow-black/5 backdrop-blur-sm">
+				<header className="print:hidden sticky top-0 z-20 border-b border-sidebar-border bg-chart-1 shadow-lg shadow-black/5 backdrop-blur-sm">
 					<div className="flex h-20 items-center justify-between px-8">
 						<div>
 							{title && (
@@ -167,7 +169,7 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 				</header>
 
 				{/* Page content */}
-				<div className="p-8">{children}</div>
+				<div className="p-8 print:bg-white">{children}</div>
 			</main>
 		</>
 	);

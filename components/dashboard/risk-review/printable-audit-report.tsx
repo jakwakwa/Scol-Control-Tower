@@ -146,13 +146,13 @@ function SectionHeading({
 					<h2 className="text-lg font-bold uppercase">
 						{number}. {title}
 					</h2>
-					<p className="mt-1 text-xs text-gray-600">{sectionNarrative(status)}</p>
+					<p className="mt-1 px-0 text-xs text-gray-600">{sectionNarrative(status)}</p>
 				</div>
-				<div className="text-right text-xs">
-					<div className="inline-flex items-center rounded-full border border-gray-400 px-2.5 py-1 font-semibold uppercase tracking-wide">
+				<div className="text-right  text-xs px-0 min-w-[150px]">
+					<div className="inline-flex items-end rounded-full border border-gray-400 bg-neutral-300/50 px-[5px] py-[1px] font-bold h-fit text-center  text-[9px] tracking-tight">
 						{sectionStatusLabel(status)}
 					</div>
-					<p className="mt-1 text-gray-500">Review: {reviewStatusLabel(status)}</p>
+					<p className="mt-0 text-gray-500">Review: {reviewStatusLabel(status)}</p>
 				</div>
 			</div>
 		</div>
@@ -180,7 +180,7 @@ export function PrintableAuditReport({
 	const providers = availableProviders(data);
 
 	return (
-		<div className="hidden print:block text-black bg-white font-sans p-8 max-w-4xl mx-auto text-sm">
+		<div className="hidden print:block text-black print:bg-white font-sans p-8 max-w-4xl mx-auto text-sm">
 			<div className="border-b-2 border-black pb-6 mb-6">
 				<div className="flex justify-between items-end mb-4">
 					<div>
