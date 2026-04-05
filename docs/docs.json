@@ -4,7 +4,7 @@
   "name": "StratCol Control Tower Docs",
   "colors": {
     "primary": "#af8300",
-    "light": "#f3be64",
+    "light": "#dfa714",
     "dark": "#965d07"
   },
   "favicon": "/favicon.svg",
@@ -141,7 +141,7 @@
   "background": {
     "color": {
       "light": "#e4dddb",
-      "dark": "#1a0f07"
+      "dark": "#171012"
     },
     "decoration": "windows"
   },
