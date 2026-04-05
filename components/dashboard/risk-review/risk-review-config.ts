@@ -21,7 +21,7 @@ export const MACHINE_STATE_CONFIG: Record<
 	in_progress: { label: "In Progress", icon: "⟳" },
 	completed: { label: "Complete", icon: "✓" },
 	failed: { label: "Failed", icon: "✗" },
-	manual_required: { label: "Manual Review Required", icon: "⚠" },
+	manual_required: { label: "Full Review Required", icon: "⚠" },
 };
 
 export const REVIEW_STATE_CONFIG: Record<

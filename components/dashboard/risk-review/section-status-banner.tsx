@@ -16,23 +16,24 @@ export function SectionStatusBanner({ status, label }: { status?: SectionStatus;
 				status.machineState === "failed"
 					? "bg-destructive/10 border-destructive/20"
 					: status.machineState === "manual_required"
-						? "bg-warning/10 border-warning/20"
+						? "bg-warning border-warning/90"
 						: status.machineState === "in_progress"
 							? "bg-primary/5 border-primary/20"
 							: "bg-muted/30 border-border"
 			}`}>
+				
 			<span className="font-medium text-foreground">
-				{machineConfig.icon} {label}: {machineConfig.label}
+				{machineConfig.icon} {label} 
 			</span>
-			{isTerminal && status.reviewState !== "not_required" && (
+			{/* {isTerminal && status.reviewState !== "not_required" && (
 				<span className="text-muted-foreground">| Review: {reviewConfig.label}</span>
-			)}
-			{status.provider && (
+			)} */}
+			{/* {status.provider && (
 				<span className="text-xs text-muted-foreground">Provider: {status.provider}</span>
-			)}
-			{status.errorDetails && (
+			)} */}
+			{/* {status.errorDetails && (
 				<span className="text-xs text-destructive-foreground">{status.errorDetails}</span>
-			)}
+			)} */}
 		</div>
 	);
 }

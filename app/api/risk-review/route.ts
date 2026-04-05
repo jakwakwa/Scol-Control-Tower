@@ -280,7 +280,7 @@ export async function GET(_request: NextRequest) {
 					procurementDecisionMade: events.some(
 						e => e.eventType === "procurement_decision"
 					),
-					riskManagerDecisionMade: events.some(e => e.eventType === "human_override"),
+					riskManagerDecisionMade: events.some(e => e.eventType === "human_adjudication"),
 				};
 			})
 		);

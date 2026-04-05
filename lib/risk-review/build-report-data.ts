@@ -24,6 +24,12 @@ type WorkflowRow = {
 	startedAt: Date | null;
 };
 
+type RiskAssessmentSnapshot = {
+	overallScore?: number | null;
+	overallStatus?: string | null;
+	aiAnalysis?: string | null;
+};
+
 const DEFAULT_SECTION_STATUS: SectionStatus = {
 	machineState: "pending",
 	reviewState: "pending",
@@ -224,12 +230,62 @@ function parseFinancialRiskRawOutput(
 	return undefined;
 }
 
+function extractOverallSummary(
+	assessment?: RiskAssessmentSnapshot | null
+): Pick<RiskReviewData["globalData"], "overallRiskScore" | "overallStatus"> {
+	const fallback = {
+		overallRiskScore: 0,
+		overallStatus: "PENDING",
+	};
+
+	if (!assessment) return fallback;
+
+	const fromColumns = {
+		overallRiskScore:
+			typeof assessment.overallScore === "number"
+				? assessment.overallScore
+				: fallback.overallRiskScore,
+		overallStatus: assessment.overallStatus?.trim() || fallback.overallStatus,
+	};
+
+	if (
+		fromColumns.overallRiskScore !== fallback.overallRiskScore ||
+		fromColumns.overallStatus !== fallback.overallStatus
+	) {
+		return fromColumns;
+	}
+
+	const parsed = safeJsonParse<Record<string, unknown> | null>(
+		assessment.aiAnalysis ?? null,
+		null
+	);
+	if (!parsed) return fallback;
+
+	const scores =
+		typeof parsed.scores === "object" && parsed.scores !== null
+			? (parsed.scores as Record<string, unknown>)
+			: null;
+	const aggregatedScore =
+		typeof scores?.aggregatedScore === "number"
+			? scores.aggregatedScore
+			: fallback.overallRiskScore;
+	const recommendation =
+		typeof parsed.recommendation === "string" && parsed.recommendation.trim()
+			? parsed.recommendation.trim()
+			: fallback.overallStatus;
+
+	return {
+		overallRiskScore: aggregatedScore,
+		overallStatus: recommendation,
+	};
+}
+
 export function buildReportData(
 	applicant: ApplicantRow | null,
 	workflow: WorkflowRow | null,
 	riskChecks: RiskCheckRow[],
 	financialRiskRawOutput?: string | null,
-	aiAnalysisRaw?: string | null
+	assessment?: RiskAssessmentSnapshot | null
 ): RiskReviewData {
 	const applicantId = applicant?.id ?? 0;
 	const transactionId = workflow?.id ? `workflow-${workflow.id}` : `risk-${applicantId}`;
@@ -255,8 +311,12 @@ export function buildReportData(
 	const ficaParsed = ficaCheck?.payload
 		? safeJsonParse<Partial<RiskReviewData["ficaData"]>>(ficaCheck.payload, null)
 		: null;
-	const vatVerification = extractVatVerificationFromAiAnalysis(aiAnalysisRaw);
+	const vatVerification = extractVatVerificationFromAiAnalysis(
+		assessment?.aiAnalysis ?? null
+	);
 	const mergedFica = mergeFica(ficaParsed);
+	const mergedProcurement = mergeProcurement(procCheck?.payload ?? null);
+	const overallSummary = extractOverallSummary(assessment);
 
 	return {
 		workflowId: workflow?.id ?? 0,
@@ -264,14 +324,14 @@ export function buildReportData(
 		globalData: {
 			transactionId,
 			generatedAt,
-			overallStatus: "PENDING",
-			overallRiskScore: 0,
+			overallStatus: overallSummary.overallStatus,
+			overallRiskScore: overallSummary.overallRiskScore,
 			entity: {
 				name: applicant?.companyName ?? "Unknown",
 				tradingAs: applicant?.tradingName ?? undefined,
 				registrationNumber: applicant?.registrationNumber ?? undefined,
 				entityType: applicant?.entityType ?? undefined,
-				registeredAddress: "—",
+				registeredAddress: mergedProcurement?.vendor.registeredAddress || "—",
 			},
 		},
 		sectionStatuses: {
@@ -280,7 +340,7 @@ export function buildReportData(
 			sanctions: buildSectionStatus(sancCheck),
 			fica: buildSectionStatus(ficaCheck),
 		},
-		procurementData: mergeProcurement(procCheck?.payload ?? null),
+		procurementData: mergedProcurement,
 		itcData: mergeItc(itcParsed),
 		sanctionsData: mergeSanctions(sanctionsParsed),
 		ficaData: {

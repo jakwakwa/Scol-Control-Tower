@@ -300,10 +300,10 @@ export const workflowEvents = sqliteTable("workflow_events", {
 });
 
 /**
- * AI Feedback Logs - Structured override data for AI retraining
+ * AI Feedback Logs - Structured adjudication data for AI retraining
  *
  * Stores structured pairs: (AI said X, Human said Y because Z)
- * Every human override becomes a retrainable data point.
+ * Every human adjudication becomes a retrainable data point.
  * Divergence metrics enable prioritized retraining queues.
  */
 export const aiFeedbackLogs = sqliteTable("ai_feedback_logs", {
@@ -322,9 +322,9 @@ export const aiFeedbackLogs = sqliteTable("ai_feedback_logs", {
 
 	// What the human said
 	humanOutcome: text("human_outcome").notNull(), // "APPROVED" | "REJECTED" | "REQUEST_MORE_INFO"
-	overrideCategory: text("override_category").notNull(), // From OVERRIDE_CATEGORIES
-	overrideSubcategory: text("override_subcategory"),
-	overrideDetails: text("override_details"), // Optional free text for "OTHER"
+	adjudicationReason: text("adjudication_reason").notNull(), // From ADJUDICATION_CATEGORIES
+	adjudicationDetail: text("adjudication_detail"),
+	adjudicationNotes: text("adjudication_notes"), // Optional free text for "OTHER"
 
 	// Divergence metrics
 	isDivergent: integer("is_divergent", { mode: "boolean" }).notNull(),
@@ -869,7 +869,7 @@ export const aiAnalysisLogs = sqliteTable("ai_analysis_logs", {
 	agentName: text("agent_name").notNull(),
 	promptVersionId: text("prompt_version_id"),
 	confidenceScore: integer("confidence_score"), // 0-100
-	humanOverrideReason: text("human_override_reason", {
+	humanAdjudicationReason: text("human_adjudication_reason", {
 		enum: [
 			"AI_ALIGNED",
 			"MISSING_CONTEXT",

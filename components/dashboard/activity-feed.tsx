@@ -12,7 +12,7 @@ type EventType =
 	| "stage_change"
 	| "agent_dispatch"
 	| "agent_callback"
-	| "human_override"
+	| "human_adjudication"
 	| "timeout"
 	| "error"
 	| "vat_verification_completed";
@@ -47,7 +47,7 @@ const eventConfig: Record<
 		color: "text-emerald-700",
 		bgColor: "bg-emerald-500/70",
 	},
-	human_override: {
+	human_adjudication: {
 		icon: RiUserLine,
 		color: "text-purple-400",
 		bgColor: "bg-purple-500/20",

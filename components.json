@@ -21,6 +21,8 @@
     "hooks": "@/hooks"
   },
   "registries": {
-    "@react-bits": "https://reactbits.dev/r/{name}.json"
+    "@react-bits": "https://reactbits.dev/r/{name}.json",
+    "@cardcn": "https://cardcn.dev/r/{name}.json",
+    "@tour": "https://onboarding-tour.vercel.app/r/{name}.json"
   }
 }

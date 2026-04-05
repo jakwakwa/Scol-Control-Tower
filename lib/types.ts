@@ -133,6 +133,10 @@ export const DocumentTypeSchema = z.enum([
 	"SALES_AGREEMENT",
 	"FINANCIAL_STATEMENTS",
 	"CONSENT_FORM",
+	"CIPC_REGISTRATION",
+	"COMPANY_DIRECTORS",
+	"COMPANY_RESOLUTION",
+	"SHARE_CERTIFICATE",
 ]);
 
 export type DocumentType = z.infer<typeof DocumentTypeSchema>;

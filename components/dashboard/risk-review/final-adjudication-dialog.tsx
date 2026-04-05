@@ -21,20 +21,20 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-	DECISION_REASON,
-	DECISION_REASON_DETAILS,
-	DECISION_REASON_LABELS,
-	type OverrideCategory,
-} from "@/lib/constants/override-taxonomy";
+	ADJUDICATION_CATEGORIES,
+	ADJUDICATION_DETAILS_BY_CATEGORY,
+	ADJUDICATION_REASON_LABELS,
+	type AdjudicationCategory,
+} from "@/lib/constants/adjudication-taxonomy";
 
-const ADJUCATION_NOTES_MAX_LENGTH = 300;
-const ADJUCATION_DETAIL_MAX_LENGTH = 500;
+const ADJUDICATION_NOTES_MAX_LENGTH = 300;
+const ADJUDICATION_DETAIL_MAX_LENGTH = 500;
 
 type AdjudicationErrors = {
 	adjudicationReason?: string;
 	adjudicationDetailItem?: string;
 	adjudicationDetail?: string;
-	adjucationNotes?: string;
+	adjudicationNotes?: string;
 };
 
 type FinalAdjudicationDialogProps = {
@@ -46,13 +46,13 @@ type FinalAdjudicationDialogProps = {
 };
 
 function buildValidationErrors(input: {
-	adjudicationReason: OverrideCategory | "";
+	adjudicationReason: AdjudicationCategory | "";
 	adjudicationDetailItem: string;
 	adjudicationDetail: string;
-	adjucationNotes: string;
+	adjudicationNotes: string;
 	requiresReasonDetailSelection: boolean;
 	requiresReasonDetailText: boolean;
-	requiresAdjucationNotes: boolean;
+	requiresAdjudicationNotes: boolean;
 }): AdjudicationErrors {
 	const errors: AdjudicationErrors = {};
 
@@ -68,16 +68,17 @@ function buildValidationErrors(input: {
 		errors.adjudicationDetail = "Enter details when category is Other.";
 	}
 
-	if (input.adjudicationDetail.length > ADJUCATION_DETAIL_MAX_LENGTH) {
-		errors.adjudicationDetail = `Reason details must be ${ADJUCATION_DETAIL_MAX_LENGTH} characters or fewer.`;
+	if (input.adjudicationDetail.length > ADJUDICATION_DETAIL_MAX_LENGTH) {
+		errors.adjudicationDetail = `Reason details must be ${ADJUDICATION_DETAIL_MAX_LENGTH} characters or fewer.`;
 	}
 
-	if (input.requiresAdjucationNotes && input.adjucationNotes.trim().length === 0) {
-		errors.adjucationNotes = "Notes are required when the selected category has reasons.";
+	if (input.requiresAdjudicationNotes && input.adjudicationNotes.trim().length === 0) {
+		errors.adjudicationNotes =
+			"Notes are required when the selected category has reasons.";
 	}
 
-	if (input.adjucationNotes.length > ADJUCATION_NOTES_MAX_LENGTH) {
-		errors.adjucationNotes = `Notes must be ${ADJUCATION_NOTES_MAX_LENGTH} characters or fewer.`;
+	if (input.adjudicationNotes.length > ADJUDICATION_NOTES_MAX_LENGTH) {
+		errors.adjudicationNotes = `Notes must be ${ADJUDICATION_NOTES_MAX_LENGTH} characters or fewer.`;
 	}
 
 	return errors;
@@ -90,10 +91,12 @@ export function FinalAdjudicationDialog({
 	applicantId,
 	entityName,
 }: FinalAdjudicationDialogProps) {
-	const [adjudicationReason, setAdjudicationReason] = useState<OverrideCategory | "">("");
+	const [adjudicationReason, setAdjudicationReason] = useState<AdjudicationCategory | "">(
+		""
+	);
 	const [adjudicationDetailItem, setAdjudicationDetailItem] = useState("");
 	const [adjudicationDetail, setAdjudicationDetail] = useState("");
-	const [adjucationNotes, setAdjucationNotes] = useState("");
+	const [adjudicationNotes, setAdjudicationNotes] = useState("");
 	const [adjudicationSubmitting, setAdjudicationSubmitting] = useState(false);
 	const [adjudicationResult, setAdjudicationResult] = useState<{
 		success: boolean;
@@ -101,13 +104,13 @@ export function FinalAdjudicationDialog({
 	} | null>(null);
 
 	const adjudicationDetailOptions = adjudicationReason
-		? DECISION_REASON_DETAILS[adjudicationReason]
+		? ADJUDICATION_DETAILS_BY_CATEGORY[adjudicationReason]
 		: undefined;
 	const requiresReasonDetailSelection =
 		adjudicationReason !== "OTHER" &&
 		Boolean(adjudicationReason && adjudicationDetailOptions?.length);
 	const requiresReasonDetailText = adjudicationReason === "OTHER";
-	const requiresAdjucationNotes = requiresReasonDetailSelection;
+	const requiresAdjudicationNotes = requiresReasonDetailSelection;
 
 	const adjudicationErrors = useMemo(
 		() =>
@@ -115,17 +118,17 @@ export function FinalAdjudicationDialog({
 				adjudicationReason,
 				adjudicationDetailItem,
 				adjudicationDetail,
-				adjucationNotes,
+				adjudicationNotes,
 				requiresReasonDetailSelection,
 				requiresReasonDetailText,
-				requiresAdjucationNotes,
+				requiresAdjudicationNotes,
 			}),
 		[
 			adjudicationReason,
 			adjudicationDetail,
 			adjudicationDetailItem,
-			adjucationNotes,
-			requiresAdjucationNotes,
+			adjudicationNotes,
+			requiresAdjudicationNotes,
 			requiresReasonDetailSelection,
 			requiresReasonDetailText,
 		]
@@ -138,12 +141,12 @@ export function FinalAdjudicationDialog({
 		setAdjudicationReason("");
 		setAdjudicationDetailItem("");
 		setAdjudicationDetail("");
-		setAdjucationNotes("");
+		setAdjudicationNotes("");
 		setAdjudicationResult(null);
 		setAdjudicationSubmitting(false);
 	}, [open]);
 
-	const handleReasonChange = (value: OverrideCategory) => {
+	const handleReasonChange = (value: AdjudicationCategory) => {
 		setAdjudicationReason(value);
 		setAdjudicationDetailItem("");
 		setAdjudicationDetail("");
@@ -171,7 +174,7 @@ export function FinalAdjudicationDialog({
 						adjudicationDetail: requiresReasonDetailText
 							? adjudicationDetail.trim()
 							: adjudicationDetailItem,
-						adjucationNotes: adjucationNotes.trim(),
+						adjudicationNotes: adjudicationNotes.trim(),
 					},
 				}),
 			});
@@ -217,15 +220,15 @@ export function FinalAdjudicationDialog({
 						<Label htmlFor="decision-reason">Decision Category *</Label>
 						<Select
 							value={adjudicationReason}
-							onValueChange={value => handleReasonChange(value as OverrideCategory)}
+							onValueChange={value => handleReasonChange(value as AdjudicationCategory)}
 							disabled={adjudicationSubmitting}>
 							<SelectTrigger id="decision-reason" className="w-full">
 								<SelectValue placeholder="Select decision category" />
 							</SelectTrigger>
 							<SelectContent>
-								{DECISION_REASON.map(reason => (
+								{ADJUDICATION_CATEGORIES.map(reason => (
 									<SelectItem key={reason} value={reason}>
-										{DECISION_REASON_LABELS[reason]}
+										{ADJUDICATION_REASON_LABELS[reason]}
 									</SelectItem>
 								))}
 							</SelectContent>
@@ -273,7 +276,7 @@ export function FinalAdjudicationDialog({
 								value={adjudicationDetail}
 								onChange={event => setAdjudicationDetail(event.target.value)}
 								disabled={adjudicationSubmitting}
-								maxLength={ADJUCATION_DETAIL_MAX_LENGTH}
+								maxLength={ADJUDICATION_DETAIL_MAX_LENGTH}
 							/>
 							<div className="flex items-center justify-between">
 								{adjudicationErrors.adjudicationDetail ? (
@@ -284,7 +287,7 @@ export function FinalAdjudicationDialog({
 									<span />
 								)}
 								<p className="text-xs text-muted-foreground">
-									{adjudicationDetail.length}/{ADJUCATION_DETAIL_MAX_LENGTH}
+									{adjudicationDetail.length}/{ADJUDICATION_DETAIL_MAX_LENGTH}
 								</p>
 							</div>
 						</div>
@@ -292,28 +295,28 @@ export function FinalAdjudicationDialog({
 
 					{!requiresReasonDetailText && (
 						<div className="space-y-2">
-							<Label htmlFor="adjucation-notes">
-								Adjudication Notes {requiresAdjucationNotes ? "*" : "(Optional)"}
+							<Label htmlFor="adjudication-notes">
+								Adjudication Notes {requiresAdjudicationNotes ? "*" : "(Optional)"}
 							</Label>
 							<Textarea
-								id="adjucation-notes"
+								id="adjudication-notes"
 								className="min-h-[100px]"
 								placeholder="Add any context for this final adjudication..."
-								value={adjucationNotes}
-								onChange={event => setAdjucationNotes(event.target.value)}
+								value={adjudicationNotes}
+								onChange={event => setAdjudicationNotes(event.target.value)}
 								disabled={adjudicationSubmitting}
-								maxLength={ADJUCATION_NOTES_MAX_LENGTH}
+								maxLength={ADJUDICATION_NOTES_MAX_LENGTH}
 							/>
 							<div className="flex items-center justify-between">
-								{adjudicationErrors.adjucationNotes ? (
+								{adjudicationErrors.adjudicationNotes ? (
 									<p className="text-sm text-destructive">
-										{adjudicationErrors.adjucationNotes}
+										{adjudicationErrors.adjudicationNotes}
 									</p>
 								) : (
 									<span />
 								)}
 								<p className="text-xs text-muted-foreground">
-									{adjucationNotes.length}/{ADJUCATION_NOTES_MAX_LENGTH}
+									{adjudicationNotes.length}/{ADJUDICATION_NOTES_MAX_LENGTH}
 								</p>
 							</div>
 						</div>

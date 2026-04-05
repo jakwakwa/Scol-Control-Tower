@@ -1,0 +1,37 @@
+---
+title: "Risk adjudication contract"
+description: "Canonical payload fields, event types, permission slugs, and storage names for risk adjudication."
+---
+
+## Canonical vocabulary
+
+- `adjudicationReason`: top-level category
+- `adjudicationDetail`: structured detail or subcategory
+- `adjudicationNotes`: free-text context
+
+## API payload contract
+
+`POST /api/risk-decision` and `POST /api/risk-decision/procurement` accept:
+
+```json
+{
+  "workflowId": 123,
+  "applicantId": 456,
+  "decision": {
+    "outcome": "APPROVED",
+    "adjudicationReason": "AI_ALIGNED",
+    "adjudicationDetail": "decision_matches_policy",
+    "adjudicationNotes": "Validated by reviewer"
+  }
+}
+```
+
+## Operational identifiers
+
+- Workflow event type: `human_adjudication`
+- Clerk permission slug for denied outcomes: `org:risk_assessment:adjudication_denied`
+- AI analysis field: `human_adjudication_reason`
+
+## Contract status
+
+This is the only supported contract surface for risk adjudication. Legacy v1 naming has been retired from active code paths, tests, and migrations.

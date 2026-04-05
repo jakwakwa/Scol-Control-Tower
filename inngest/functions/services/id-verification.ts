@@ -1,7 +1,7 @@
 import { processIdentityVerification } from "@/app/actions/verify-id";
 import { inngest } from "@/inngest";
+import { isNonRetriableIdentityError } from "@/lib/risk-review/identity-verification-errors";
 import { recordVendorCheckAttempt } from "@/lib/services/telemetry/vendor-metrics";
-
 
 /**
  * Automated Identity Verification
@@ -29,26 +29,50 @@ export const autoVerifyIdentity = inngest.createFunction(
 				documentId
 			);
 			const hasError = "error" in verificationResult && Boolean(verificationResult.error);
+			const errorMessage =
+				hasError && verificationResult.error
+					? String(verificationResult.error)
+					: "Unknown identity verification error";
+			const isNonRetriableError = hasError && isNonRetriableIdentityError(errorMessage);
 
 			recordVendorCheckAttempt({
 				vendor: "document_ai_identity",
 				stage: "async",
 				workflowId,
 				applicantId,
-				outcome: hasError ? "transient_failure" : "success",
+				outcome: hasError
+					? isNonRetriableError
+						? "persistent_failure"
+						: "transient_failure"
+					: "success",
 				durationMs: Date.now() - verificationStart,
 				error: hasError ? verificationResult.error : undefined,
 			});
 
 			if (hasError) {
-				const errorMessage = verificationResult.error
-					? String(verificationResult.error)
-					: "Unknown identity verification error";
+				if (isNonRetriableError) {
+					return {
+						skipped: true,
+						reason: "manual_required_identity_document_constraints",
+						error: errorMessage,
+					};
+				}
+
 				throw new Error(`Identity verification failed: ${errorMessage}`);
 			}
 
 			return verificationResult;
 		});
+
+		if ("skipped" in result && result.skipped) {
+			return {
+				status: "manual_required",
+				applicantId,
+				documentId,
+				reason: result.reason,
+				error: result.error,
+			};
+		}
 
 		const entitiesFound = "data" in result ? result.data?.entities?.length || 0 : 0;
 

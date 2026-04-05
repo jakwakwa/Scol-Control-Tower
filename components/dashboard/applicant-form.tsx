@@ -25,6 +25,31 @@ import {
 	applicantSchema,
 } from "@/lib/validations/schemas/applicant.schema";
 
+const INDUSTRY_OPTIONS = [
+	"Agriculture",
+	"Construction",
+	"Education",
+	"Energy & Utilities",
+	"Financial Services",
+	"Food & Beverage",
+	"Healthcare",
+	"Hospitality & Tourism",
+	"Information Technology",
+	"Insurance",
+	"Legal Services",
+	"Logistics & Transport",
+	"Manufacturing",
+	"Mining",
+	"Professional Services",
+	"Property & Real Estate",
+	"Public Sector",
+	"Retail & E-commerce",
+	"Security Services",
+	"Telecommunications",
+	"Wholesale & Distribution",
+	"Other",
+] as const;
+
 interface ApplicantFormProps {
 	initialData?: Partial<ApplicantFormData>;
 	onSubmit?: (data: ApplicantFormData) => Promise<void>;
@@ -38,6 +63,7 @@ export function ApplicantForm({
 }: ApplicantFormProps) {
 	const router = useRouter();
 	const [isLoading, setIsLoading] = useState(false);
+	const [submitError, setSubmitError] = useState<string | null>(null);
 
 	const form = useForm<ApplicantFormData>({
 		resolver: zodResolver(applicantSchema),
@@ -87,7 +113,7 @@ export function ApplicantForm({
 			phone: `${isTestMode ? "" : "+27 82 123 4567"}`,
 			entityType: isTestMode ? "proprietor" : "company",
 			productType: "standard",
-			industry: `${isTestMode ? "IT" : "Financial Services"}`,
+			industry: `${isTestMode ? "Information Technology" : "Financial Services"}`,
 			mandateType: `${isTestMode ? "Debit Order" : "debit_order"}`,
 			employeeCount: `${isTestMode ? "1" : "5"}`,
 			estimatedTransactionsPerMonth: `${isTestMode ? "20" : "1500"}`,
@@ -97,6 +123,7 @@ export function ApplicantForm({
 
 	const onSubmitForm = async (data: ApplicantFormData) => {
 		setIsLoading(true);
+		setSubmitError(null);
 
 		try {
 			if (onSubmit) {
@@ -122,7 +149,19 @@ export function ApplicantForm({
 				});
 
 				if (!response.ok) {
-					throw new Error("Failed to create applicant");
+					const payload = (await response.json().catch(() => null)) as {
+						error?: string;
+						details?: Record<string, string[] | undefined>;
+					} | null;
+					const fieldValidationMessage = payload?.details
+						? Object.values(payload.details)
+								.filter((messages): messages is string[] => Array.isArray(messages))
+								.flat()
+								.find(message => Boolean(message))
+						: null;
+					throw new Error(
+						fieldValidationMessage || payload?.error || "Failed to create applicant"
+					);
 				}
 
 				const responseData = await response.json();
@@ -145,6 +184,9 @@ export function ApplicantForm({
 			}
 		} catch (error) {
 			console.error("Error saving applicant:", error);
+			setSubmitError(
+				error instanceof Error ? error.message : "Failed to create applicant"
+			);
 		} finally {
 			setIsLoading(false);
 		}
@@ -260,12 +302,36 @@ export function ApplicantForm({
 
 						<div className="space-y-2">
 							<Label htmlFor="industry">Industry</Label>
-							<Input
-								id="industry"
-								autoComplete={"industry"}
-								placeholder="e.g., Financial Services, Mining"
-								{...register("industry")}
-								className="border-input-border"
+							<Controller
+								name="industry"
+								control={control}
+								render={({ field }) => {
+									const hasCustomIndustryValue =
+										Boolean(field.value) &&
+										!INDUSTRY_OPTIONS.includes(
+											field.value as (typeof INDUSTRY_OPTIONS)[number]
+										);
+
+									return (
+										<Select
+											onValueChange={field.onChange}
+											value={field.value || undefined}>
+											<SelectTrigger id="industry" className="w-full">
+												<SelectValue placeholder="Select industry" />
+											</SelectTrigger>
+											<SelectContent>
+												{hasCustomIndustryValue && (
+													<SelectItem value={field.value || ""}>{field.value}</SelectItem>
+												)}
+												{INDUSTRY_OPTIONS.map(industry => (
+													<SelectItem key={industry} value={industry}>
+														{industry}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									);
+								}}
 							/>
 						</div>
 
@@ -419,6 +485,9 @@ export function ApplicantForm({
 			</div>
 
 			<div className="flex items-center justify-end gap-4">
+				{submitError ? (
+					<p className="text-sm text-red-500 mr-auto">{submitError}</p>
+				) : null}
 				<Button
 					type="button"
 					variant="ghost"

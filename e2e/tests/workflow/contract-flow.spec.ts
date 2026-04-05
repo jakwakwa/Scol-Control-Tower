@@ -89,13 +89,10 @@ test.describe("Contract Flow — Contract → ABSA → Applicant", () => {
 		const pollOpts = { timeout: 60_000, intervals: [1000, 2000, 5000] };
 
 		await expect
-			.poll(
-				async () => {
-					const snap = await getSnapshot(request, applicantId);
-					return `${snap.stage}:${snap.status}`;
-				},
-				pollOpts
-			)
+			.poll(async () => {
+				const snap = await getSnapshot(request, applicantId);
+				return `${snap.stage}:${snap.status}`;
+			}, pollOpts)
 			.toBe("2:awaiting_human");
 
 		await publishEvent(request, "form/facility.submitted", {
@@ -111,13 +108,10 @@ test.describe("Contract Flow — Contract → ABSA → Applicant", () => {
 		});
 
 		await expect
-			.poll(
-				async () => {
-					const snap = await getSnapshot(request, applicantId);
-					return snap.quoteId;
-				},
-				pollOpts
-			)
+			.poll(async () => {
+				const snap = await getSnapshot(request, applicantId);
+				return snap.quoteId;
+			}, pollOpts)
 			.not.toBeNull();
 		const quoteId = (await getSnapshot(request, applicantId)).quoteId as number;
 
@@ -151,13 +145,10 @@ test.describe("Contract Flow — Contract → ABSA → Applicant", () => {
 		});
 
 		await expect
-			.poll(
-				async () => {
-					const snap = await getSnapshot(request, applicantId);
-					return `${snap.stage}:${snap.status}`;
-				},
-				pollOpts
-			)
+			.poll(async () => {
+				const snap = await getSnapshot(request, applicantId);
+				return `${snap.stage}:${snap.status}`;
+			}, pollOpts)
 			.toBe("4:awaiting_human");
 
 		await publishEvent(request, "risk/decision.received", {
@@ -165,23 +156,19 @@ test.describe("Contract Flow — Contract → ABSA → Applicant", () => {
 			applicantId,
 			decision: {
 				outcome: "APPROVED",
-				reason: "E2E approval",
-				overrideCategory: "PROCESS_EXCEPTION",
-			},
-			audit: {
-				humanActor: "e2e-tester",
+				adjudicationReason: "POLICY_EXCEPTION",
+				adjudicationDetail: "e2e_approval",
+				adjudicationNotes: "E2E approval",
+				decidedBy: "e2e-tester",
 				timestamp: new Date().toISOString(),
 			},
 		});
 
 		await expect
-			.poll(
-				async () => {
-					const snap = await getSnapshot(request, applicantId);
-					return `${snap.stage}:${snap.status}`;
-				},
-				pollOpts
-			)
+			.poll(async () => {
+				const snap = await getSnapshot(request, applicantId);
+				return `${snap.stage}:${snap.status}`;
+			}, pollOpts)
 			.toBe("5:awaiting_human");
 
 		// Stage 5: Contract review now lives on the applicant detail Reviews tab.
@@ -196,13 +183,10 @@ test.describe("Contract Flow — Contract → ABSA → Applicant", () => {
 			.click();
 
 		await expect
-			.poll(
-				async () => {
-					const snap = await getSnapshot(request, applicantId);
-					return `${snap.stage}:${snap.status}`;
-				},
-				pollOpts
-			)
+			.poll(async () => {
+				const snap = await getSnapshot(request, applicantId);
+				return `${snap.stage}:${snap.status}`;
+			}, pollOpts)
 			.toBe("5:awaiting_human");
 
 		// Stage 5 ABSA packet actions remain covered outside this deprecated route path.
@@ -214,13 +198,10 @@ test.describe("Contract Flow — Contract → ABSA → Applicant", () => {
 		});
 
 		await expect
-			.poll(
-				async () => {
-					const snap = await getSnapshot(request, applicantId);
-					return `${snap.stage}:${snap.status}`;
-				},
-				pollOpts
-			)
+			.poll(async () => {
+				const snap = await getSnapshot(request, applicantId);
+				return `${snap.stage}:${snap.status}`;
+			}, pollOpts)
 			.toBe("6:awaiting_human");
 
 		// Stage 6: Contract to applicant → applicant submission and approval (via events for now)
@@ -249,13 +230,10 @@ test.describe("Contract Flow — Contract → ABSA → Applicant", () => {
 		});
 
 		await expect
-			.poll(
-				async () => {
-					const snap = await getSnapshot(request, applicantId);
-					return `${snap.stage}:${snap.status}`;
-				},
-				pollOpts
-			)
+			.poll(async () => {
+				const snap = await getSnapshot(request, applicantId);
+				return `${snap.stage}:${snap.status}`;
+			}, pollOpts)
 			.toBe("6:completed");
 	});
 });

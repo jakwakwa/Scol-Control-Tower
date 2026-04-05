@@ -19,7 +19,7 @@ Use the left sidebar to move between sections:
 - **Overview**: dashboard summary, active workflows, recent activity
 - **Applicants**: manage applicants and start onboarding
 - **Workflows**: track all workflows, take action, and view details
-- **Risk Review**: review AI risk assessments and make structured override decisions
+- **Risk Review**: review AI risk assessments and make structured adjudication decisions
 - **Agents**: monitor your external agent fleet
 
 ## Dashboard sections at a glance
@@ -53,7 +53,7 @@ This feed lists the latest workflow events, including:
 
 - Stage changes
 - Agent dispatches and callbacks
-- Human overrides
+- Human adjudications
 - Errors and timeouts
 
 ## Workflow stages
@@ -69,7 +69,7 @@ The onboarding process follows a 6-stage path:
 
 ## AI feedback pipeline
 
-Human override decisions on risk assessments are captured as structured data and fed into an AI retraining pipeline. When a reviewer's decision diverges from the AI recommendation, the system flags the divergence with a category, weight, and type. This enables prioritised model retraining.
+Human adjudication decisions on risk assessments are captured as structured data and fed into an AI retraining pipeline. When a reviewer's decision diverges from the AI recommendation, the system flags the divergence with a category, weight, and type. This enables prioritised model retraining.
 
 For details, see [AI feedback pipeline](/user-guides/ai-feedback-pipeline).
 

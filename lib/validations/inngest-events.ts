@@ -6,8 +6,8 @@ import { z } from "zod";
 // ============================================
 
 export {
-	LeadCreatedSchema as OnboardingLeadCreatedSchema,
 	type LeadCreatedPayload as OnboardingLeadCreated,
+	LeadCreatedSchema as OnboardingLeadCreatedSchema,
 } from "./control-tower/onboarding-schemas";
 
 export const WorkflowTerminatedSchema = z.object({
@@ -166,7 +166,9 @@ export const RiskProcurementCompletedSchema = z.object({
 	decision: z.object({
 		outcome: z.enum(["CLEARED", "DENIED"]),
 		decidedBy: z.string().min(1),
-		reason: z.string().optional(),
+		adjudicationReason: z.string().optional(),
+		adjudicationDetail: z.string().optional(),
+		adjudicationNotes: z.string().optional(),
 		timestamp: z.string().datetime(),
 	}),
 });
@@ -189,8 +191,11 @@ export const RiskDecisionReceivedSchema = z.object({
 	decision: z.object({
 		outcome: z.enum(["APPROVED", "REJECTED", "REQUEST_MORE_INFO"]),
 		decidedBy: z.string().min(1),
-		reason: z.string().optional(),
+		adjudicationReason: z.string().optional(),
+		adjudicationDetail: z.string().optional(),
+		adjudicationNotes: z.string().optional(),
 		conditions: z.array(z.string()).optional(),
+		source: z.enum(["manual_green_lane"]).optional(),
 		timestamp: z.string().datetime(),
 	}),
 });

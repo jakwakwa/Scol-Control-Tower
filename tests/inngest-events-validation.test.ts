@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { ExternalSanctionsIngressSchema } from "../lib/validations/control-tower/onboarding-schemas";
 import {
 	DocumentUploadedSchema,
 	FormFacilitySubmittedSchema,
@@ -13,9 +14,6 @@ import {
 	UploadFicaReceivedSchema,
 	WorkflowTerminatedSchema,
 } from "../lib/validations/inngest-events";
-import {
-	ExternalSanctionsIngressSchema,
-} from "../lib/validations/control-tower/onboarding-schemas";
 
 describe("Inngest Event Validation Schemas", () => {
 	describe("OnboardingLeadCreatedSchema", () => {
@@ -118,7 +116,11 @@ describe("Inngest Event Validation Schemas", () => {
 				workflowId: 1,
 				applicantId: 2,
 				submissionId: 3,
-				formData: { mandateVolume: 100000, mandateType: "EFT", businessType: "SOLE_PROPRIETOR" },
+				formData: {
+					mandateVolume: 100000,
+					mandateType: "EFT",
+					businessType: "SOLE_PROPRIETOR",
+				},
 				submittedAt: "2026-03-03T10:00:00Z",
 			};
 			expect(() => FormFacilitySubmittedSchema.parse(data)).not.toThrow();
@@ -266,21 +268,43 @@ describe("Inngest Event Validation Schemas", () => {
 				decision: {
 					outcome: "APPROVED" as const,
 					decidedBy: "risk@example.com",
+					adjudicationReason: "AI_ALIGNED",
+					adjudicationDetail: "decision_matches_policy",
+					adjudicationNotes: "Validated by risk manager",
 					timestamp: "2026-03-03T10:00:00Z",
 				},
 			};
 			expect(() => RiskDecisionReceivedSchema.parse(data)).not.toThrow();
 		});
 
-		it("should validate REJECTED decision with conditions", () => {
+		it("should validate REJECTED decision with adjudication fields and conditions", () => {
 			const data = {
 				workflowId: 1,
 				applicantId: 2,
 				decision: {
 					outcome: "REJECTED" as const,
 					decidedBy: "risk@example.com",
-					reason: "High risk profile",
+					adjudicationReason: "FALSE_POSITIVE_FLAG",
+					adjudicationDetail: "incorrect_match",
+					adjudicationNotes: "High risk profile",
 					conditions: ["Additional documentation required"],
+					timestamp: "2026-03-03T10:00:00Z",
+				},
+			};
+			expect(() => RiskDecisionReceivedSchema.parse(data)).not.toThrow();
+		});
+
+		it("should validate manual green lane source", () => {
+			const data = {
+				workflowId: 1,
+				applicantId: 2,
+				decision: {
+					outcome: "APPROVED" as const,
+					decidedBy: "manager@example.com",
+					adjudicationReason: "POLICY_EXCEPTION",
+					adjudicationDetail: "manual_green_lane",
+					adjudicationNotes: "Manual Green Lane",
+					source: "manual_green_lane" as const,
 					timestamp: "2026-03-03T10:00:00Z",
 				},
 			};

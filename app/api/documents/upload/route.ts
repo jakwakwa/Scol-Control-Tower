@@ -4,11 +4,11 @@ import { z } from "zod";
 import { getDatabaseClient } from "@/app/utils";
 import { documents } from "@/db/schema";
 import { inngest } from "@/inngest/client";
+import { evaluateDocumentQuality } from "@/lib/services/document-quality.service";
 import {
 	getFormInstanceByToken,
 	markFormInstanceStatus,
 } from "@/lib/services/form.service";
-import { evaluateDocumentQuality } from "@/lib/services/document-quality.service";
 import { DocumentCategorySchema, DocumentTypeSchema } from "@/lib/types";
 
 const UploadSchema = z.object({
@@ -31,8 +31,25 @@ export async function POST(request: NextRequest) {
 		});
 
 		if (!validation.success) {
+			const details = validation.error.flatten();
+			const detailMessages = [
+				...(details.fieldErrors.documentType ?? []),
+				...(details.fieldErrors.category ?? []),
+				...(details.fieldErrors.token ?? []),
+			];
+
 			return NextResponse.json(
-				{ error: "Validation failed", details: validation.error.flatten() },
+				{
+					error:
+						detailMessages.length > 0
+							? `Validation failed: ${detailMessages.join("; ")}`
+							: "Validation failed",
+					details,
+					received: {
+						documentType: typeof documentType === "string" ? documentType : null,
+						category: typeof category === "string" ? category : null,
+					},
+				},
 				{ status: 400 }
 			);
 		}
@@ -93,16 +110,11 @@ export async function POST(request: NextRequest) {
 
 			const arrayBuffer = await file.arrayBuffer();
 			const buffer = Buffer.from(arrayBuffer);
-			const quality = evaluateDocumentQuality(
-				file.name,
-				file.type,
-				buffer,
-				{
-					enforceRecency:
-						validation.data.documentType === "PROOF_OF_ADDRESS" ||
-						validation.data.documentType === "PROPRIETOR_RESIDENCE",
-				}
-			);
+			const quality = evaluateDocumentQuality(file.name, file.type, buffer, {
+				enforceRecency:
+					validation.data.documentType === "PROOF_OF_ADDRESS" ||
+					validation.data.documentType === "PROPRIETOR_RESIDENCE",
+			});
 			if (!quality.ok) {
 				rejected.push({ name: file.name, reason: quality.reasons.join("; ") });
 				continue;

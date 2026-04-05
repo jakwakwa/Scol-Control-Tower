@@ -9,10 +9,10 @@ import { RiskEntitiesTable } from "@/components/dashboard/risk-entities-table";
 import { Button } from "@/components/ui/button";
 import { getDecisionEndpoint } from "@/lib/utils";
 
-interface OverrideData {
-	overrideCategory?: string;
-	overrideSubcategory?: string;
-	overrideDetails?: string;
+interface AdjudicationData {
+	adjudicationReason?: string;
+	adjudicationDetail?: string;
+	adjudicationNotes?: string;
 }
 
 interface RiskReviewItem {
@@ -65,7 +65,11 @@ export default function RiskReviewPage() {
 		return "MANUAL_REVIEW";
 	};
 
-	const submitDecision = async (item, action: "approve" | "reject", overrideData) => {
+	const submitDecision = async (
+		item,
+		action: "approve" | "reject",
+		adjudicationData: AdjudicationData
+	) => {
 		const endpoint = getDecisionEndpoint({
 			decisionType: item.decisionType,
 			targetResource: item.targetResource,
@@ -102,9 +106,9 @@ export default function RiskReviewPage() {
 				},
 				decision: {
 					outcome: action === "approve" ? "CLEARED" : "DENIED",
-					overrideCategory: overrideData.overrideCategory,
-					overrideSubcategory: overrideData.overrideSubcategory,
-					overrideDetails: overrideData.overrideDetails,
+					adjudicationReason: adjudicationData.adjudicationReason,
+					adjudicationDetail: adjudicationData.adjudicationDetail,
+					adjudicationNotes: adjudicationData.adjudicationNotes,
 				},
 			};
 
@@ -131,9 +135,9 @@ export default function RiskReviewPage() {
 			applicantId: item.applicantId,
 			decision: {
 				outcome: action === "approve" ? "APPROVED" : "REJECTED",
-				overrideCategory: overrideData.overrideCategory,
-				overrideSubcategory: overrideData.overrideSubcategory,
-				overrideDetails: overrideData.overrideDetails,
+				adjudicationReason: adjudicationData.adjudicationReason,
+				adjudicationDetail: adjudicationData.adjudicationDetail,
+				adjudicationNotes: adjudicationData.adjudicationNotes,
 			},
 		};
 
@@ -181,7 +185,7 @@ export default function RiskReviewPage() {
 		fetchRiskReviewItems();
 	}, [fetchRiskReviewItems]);
 
-	const _handleApprove = async (id: number, overrideData: OverrideData) => {
+	const _handleApprove = async (id: number, adjudicationData: AdjudicationData) => {
 		const item = items.find(i => i.id === id);
 		if (!item) {
 			toast.error("Workflow not found");
@@ -189,7 +193,7 @@ export default function RiskReviewPage() {
 		}
 
 		try {
-			await submitDecision(item, "approve", overrideData);
+			await submitDecision(item, "approve", adjudicationData);
 
 			// Refresh the list
 			await fetchRiskReviewItems();
@@ -202,7 +206,7 @@ export default function RiskReviewPage() {
 		}
 	};
 
-	const _handleReject = async (id: number, overrideData: OverrideData) => {
+	const _handleReject = async (id: number, adjudicationData: AdjudicationData) => {
 		const item = items.find(i => i.id === id);
 		if (!item) {
 			toast.error("Workflow not found");
@@ -210,7 +214,7 @@ export default function RiskReviewPage() {
 		}
 
 		try {
-			await submitDecision(item, "reject", overrideData);
+			await submitDecision(item, "reject", adjudicationData);
 
 			// Refresh the list
 			await fetchRiskReviewItems();
