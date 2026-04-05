@@ -97,7 +97,7 @@ Multiple Gemini-powered agents in `lib/services/agents/`:
 
 - **OpenSanctions** — sanctions checks
 - **ProcureCheck** — entity verification
-- **Firecrawl** — web-based industry registration validation (behind `ENABLE_FIRECRAWL_INDUSTRY_REG` flag)
+- **Firecrawl** — sanctions fallback and VAT verification only (industry/social checks deprecated)
 - **Google Document AI** — ID document verification for FICA
 
 ### PostHog Telemetry
@@ -234,7 +234,7 @@ Multiple Gemini-powered agents in `lib/services/agents/`:
 
 - **OpenSanctions** — sanctions checks
 - **ProcureCheck** — entity verification
-- **Firecrawl** — web-based industry registration validation (behind `ENABLE_FIRECRAWL_INDUSTRY_REG` flag)
+- **Firecrawl** — sanctions fallback and VAT verification only (industry/social checks deprecated)
 - **Google Document AI** — ID document verification for FICA
 
 ### PostHog Telemetry

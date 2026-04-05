@@ -182,7 +182,7 @@ function BranchCard({ branch, isLast }: { branch: BranchStatus; isLast: boolean 
  * Both branches run in parallel and must complete before
  * the workflow can proceed to Stage 4.
  */
-export function ParallelBranchStatus({
+function ParallelBranchStatus({
 	stage,
 	branches,
 	title = "Parallel Processing",
@@ -279,4 +279,4 @@ export function createStage3Branches(data: {
 	];
 }
 
-export default ParallelBranchStatus;
+export { ParallelBranchStatus };

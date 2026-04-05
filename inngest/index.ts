@@ -8,23 +8,15 @@
  * - AI agent integration
  */
 export { inngest } from "./client";
-export {
-	controlTowerWorkflow,
-} from "./functions/workflow-coordinator";
 export { autoVerifyIdentity } from "./functions/services/id-verification";
+export { controlTowerWorkflow } from "./functions/workflow-coordinator";
 
-import {
-	controlTowerWorkflow,
-} from "./functions/control-tower-workflow";
-// Export all functions as array for serve()
-import { autoVerifyIdentity } from "./functions/id-verification";
-import { documentAggregator } from "./functions/document-aggregator";
-import { zombieReconciler } from "./functions/zombie-reconciler";
+import { documentAggregator } from "./functions/handlers/document-handler";
 import { killSwitchHandler } from "./functions/handlers/kill-switch-handler";
-
-
-
-
+import { zombieReconciler } from "./functions/handlers/zombie-reconciler";
+// Export all functions as array for serve()
+import { autoVerifyIdentity } from "./functions/services/id-verification";
+import { controlTowerWorkflow } from "./functions/workflow-coordinator";
 
 export const functions = [
 	controlTowerWorkflow,

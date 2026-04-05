@@ -143,7 +143,7 @@ export async function validateDocument(
 			model: getHighStakesModel(),
 			config: {
 				responseMimeType: "application/json",
-				responseJsonSchema: ValidationResultSchema,
+				responseJsonSchema: z.toJSONSchema(ValidationResultSchema),
 			},
 			contents:
 				input.contentType === "base64"
@@ -158,7 +158,16 @@ export async function validateDocument(
 						]
 					: prompt,
 		});
-		const analysis = ValidationResultSchema.parse(JSON.parse(response.text));
+		const rawText = response.text;
+		if (process.env.LOG_LEVEL === "debug" || process.env.DEBUG_FIX) {
+			console.log("[FIX:validation-agent] Raw AI response preview:", rawText?.slice(0, 500));
+		}
+		const parsed = JSON.parse(rawText);
+		if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+			console.error("[FIX:validation-agent] AI returned non-object JSON:", typeof parsed, JSON.stringify(parsed).slice(0, 300));
+			throw new Error(`[ValidationAgent] AI returned ${typeof parsed} instead of expected object`);
+		}
+		const analysis = ValidationResultSchema.parse(parsed);
 		return { ...analysis, dataSource: "Gemini AI" };
 	} catch (error) {
 		console.error("[ValidationAgent] AI generation failed:", error);

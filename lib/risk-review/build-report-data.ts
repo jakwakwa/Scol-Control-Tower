@@ -1,5 +1,4 @@
 import { type ProcurementData, ProcurementDataSchema } from "@/lib/procurecheck/types";
-import { getExternalScreeningUiAvailability } from "@/lib/risk-review/manual-firecrawl-checks";
 import {
 	parseAiAnalysisSnapshot,
 	parseMachineState,
@@ -23,6 +22,12 @@ type WorkflowRow = {
 	id: number;
 	applicantId: number;
 	startedAt: Date | null;
+};
+
+type RiskAssessmentSnapshot = {
+	overallScore?: number | null;
+	overallStatus?: string | null;
+	aiAnalysis?: string | null;
 };
 
 const DEFAULT_SECTION_STATUS: SectionStatus = {
@@ -201,90 +206,6 @@ function extractVatVerificationFromAiAnalysis(
 	};
 }
 
-function asRecord(v: unknown): Record<string, unknown> | undefined {
-	if (v && typeof v === "object" && !Array.isArray(v)) {
-		return v as Record<string, unknown>;
-	}
-	return undefined;
-}
-
-function extractIndustryRegulatorFromAiAnalysis(
-	aiAnalysisRaw?: string | null
-): RiskReviewData["industryRegulatorCheck"] | undefined {
-	const parsed = parseAiAnalysisSnapshot(aiAnalysisRaw ?? null);
-	if (!parsed.ok) {
-		return undefined;
-	}
-	const slot = parsed.value.externalChecks?.industryRegulator;
-	if (!slot) {
-		return undefined;
-	}
-	const r = asRecord(slot.result);
-	const status =
-		slot.status === "live" ? "live" : slot.status === "offline" ? "offline" : "unknown";
-	if (!r) {
-		return { status };
-	}
-	const evidence = r.evidence;
-	const first =
-		Array.isArray(evidence) && evidence.length > 0 ? asRecord(evidence[0]) : undefined;
-	const meta = asRecord(r.metadata);
-	return {
-		status,
-		runtimeState: typeof r.runtimeState === "string" ? r.runtimeState : undefined,
-		checked: typeof r.checked === "boolean" ? r.checked : undefined,
-		passed: typeof r.passed === "boolean" ? r.passed : undefined,
-		checkedAt: typeof r.checkedAt === "string" ? r.checkedAt : undefined,
-		provider: typeof meta?.provider === "string" ? meta.provider : undefined,
-		registrationStatus:
-			typeof first?.registrationStatus === "string"
-				? first.registrationStatus
-				: undefined,
-		evidenceMatchName:
-			typeof first?.matchedName === "string" ? first.matchedName : undefined,
-	};
-}
-
-function extractSocialReputationFromAiAnalysis(
-	aiAnalysisRaw?: string | null
-): RiskReviewData["socialReputationCheck"] | undefined {
-	const parsed = parseAiAnalysisSnapshot(aiAnalysisRaw ?? null);
-	if (!parsed.ok) {
-		return undefined;
-	}
-	const slot = parsed.value.externalChecks?.socialReputation;
-	if (!slot) {
-		return undefined;
-	}
-	const r = asRecord(slot.result);
-	const status =
-		slot.status === "live" ? "live" : slot.status === "offline" ? "offline" : "unknown";
-	if (!r) {
-		return { status };
-	}
-	const evidence = r.evidence;
-	const first =
-		Array.isArray(evidence) && evidence.length > 0 ? asRecord(evidence[0]) : undefined;
-	const details = first ? asRecord(first.details) : undefined;
-	return {
-		status,
-		runtimeState: typeof r.runtimeState === "string" ? r.runtimeState : undefined,
-		checked: typeof r.checked === "boolean" ? r.checked : undefined,
-		passed: typeof r.passed === "boolean" ? r.passed : undefined,
-		checkedAt: typeof r.checkedAt === "string" ? r.checkedAt : undefined,
-		summaryRating: typeof r.summaryRating === "number" ? r.summaryRating : undefined,
-		complaintCount: typeof r.complaintCount === "number" ? r.complaintCount : undefined,
-		complimentCount:
-			typeof r.complimentCount === "number" ? r.complimentCount : undefined,
-		businessName:
-			typeof first?.matchedName === "string"
-				? first.matchedName
-				: typeof details?.businessName === "string"
-					? details.businessName
-					: undefined,
-	};
-}
-
 function buildSectionStatus(check: RiskCheckRow | undefined): SectionStatus {
 	if (!check) return DEFAULT_SECTION_STATUS;
 	return {
@@ -309,12 +230,62 @@ function parseFinancialRiskRawOutput(
 	return undefined;
 }
 
+function extractOverallSummary(
+	assessment?: RiskAssessmentSnapshot | null
+): Pick<RiskReviewData["globalData"], "overallRiskScore" | "overallStatus"> {
+	const fallback = {
+		overallRiskScore: 0,
+		overallStatus: "PENDING",
+	};
+
+	if (!assessment) return fallback;
+
+	const fromColumns = {
+		overallRiskScore:
+			typeof assessment.overallScore === "number"
+				? assessment.overallScore
+				: fallback.overallRiskScore,
+		overallStatus: assessment.overallStatus?.trim() || fallback.overallStatus,
+	};
+
+	if (
+		fromColumns.overallRiskScore !== fallback.overallRiskScore ||
+		fromColumns.overallStatus !== fallback.overallStatus
+	) {
+		return fromColumns;
+	}
+
+	const parsed = safeJsonParse<Record<string, unknown> | null>(
+		assessment.aiAnalysis ?? null,
+		null
+	);
+	if (!parsed) return fallback;
+
+	const scores =
+		typeof parsed.scores === "object" && parsed.scores !== null
+			? (parsed.scores as Record<string, unknown>)
+			: null;
+	const aggregatedScore =
+		typeof scores?.aggregatedScore === "number"
+			? scores.aggregatedScore
+			: fallback.overallRiskScore;
+	const recommendation =
+		typeof parsed.recommendation === "string" && parsed.recommendation.trim()
+			? parsed.recommendation.trim()
+			: fallback.overallStatus;
+
+	return {
+		overallRiskScore: aggregatedScore,
+		overallStatus: recommendation,
+	};
+}
+
 export function buildReportData(
 	applicant: ApplicantRow | null,
 	workflow: WorkflowRow | null,
 	riskChecks: RiskCheckRow[],
 	financialRiskRawOutput?: string | null,
-	aiAnalysisRaw?: string | null
+	assessment?: RiskAssessmentSnapshot | null
 ): RiskReviewData {
 	const applicantId = applicant?.id ?? 0;
 	const transactionId = workflow?.id ? `workflow-${workflow.id}` : `risk-${applicantId}`;
@@ -340,8 +311,12 @@ export function buildReportData(
 	const ficaParsed = ficaCheck?.payload
 		? safeJsonParse<Partial<RiskReviewData["ficaData"]>>(ficaCheck.payload, null)
 		: null;
-	const vatVerification = extractVatVerificationFromAiAnalysis(aiAnalysisRaw);
+	const vatVerification = extractVatVerificationFromAiAnalysis(
+		assessment?.aiAnalysis ?? null
+	);
 	const mergedFica = mergeFica(ficaParsed);
+	const mergedProcurement = mergeProcurement(procCheck?.payload ?? null);
+	const overallSummary = extractOverallSummary(assessment);
 
 	return {
 		workflowId: workflow?.id ?? 0,
@@ -349,14 +324,14 @@ export function buildReportData(
 		globalData: {
 			transactionId,
 			generatedAt,
-			overallStatus: "PENDING",
-			overallRiskScore: 0,
+			overallStatus: overallSummary.overallStatus,
+			overallRiskScore: overallSummary.overallRiskScore,
 			entity: {
 				name: applicant?.companyName ?? "Unknown",
 				tradingAs: applicant?.tradingName ?? undefined,
 				registrationNumber: applicant?.registrationNumber ?? undefined,
 				entityType: applicant?.entityType ?? undefined,
-				registeredAddress: "—",
+				registeredAddress: mergedProcurement?.vendor.registeredAddress || "—",
 			},
 		},
 		sectionStatuses: {
@@ -365,7 +340,7 @@ export function buildReportData(
 			sanctions: buildSectionStatus(sancCheck),
 			fica: buildSectionStatus(ficaCheck),
 		},
-		procurementData: mergeProcurement(procCheck?.payload ?? null),
+		procurementData: mergedProcurement,
 		itcData: mergeItc(itcParsed),
 		sanctionsData: mergeSanctions(sanctionsParsed),
 		ficaData: {
@@ -373,8 +348,6 @@ export function buildReportData(
 			vatVerification,
 		},
 		bankStatementAnalysis: parseFinancialRiskRawOutput(financialRiskRawOutput),
-		industryRegulatorCheck: extractIndustryRegulatorFromAiAnalysis(aiAnalysisRaw),
-		socialReputationCheck: extractSocialReputationFromAiAnalysis(aiAnalysisRaw),
-		externalScreeningUi: getExternalScreeningUiAvailability(),
+		externalScreeningUi: { industryRegulator: false, socialReputation: false },
 	};
 }

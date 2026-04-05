@@ -1,5 +1,5 @@
-import { auth } from "@clerk/nextjs/server";
 import crypto from "node:crypto";
+import { auth } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
@@ -95,16 +95,11 @@ export async function POST(request: NextRequest) {
 		const skipQualityCheck = documentType === "ABSA_6995_PDF";
 		const quality = skipQualityCheck
 			? { ok: true, reasons: [] as string[], warnings: [] as string[] }
-			: evaluateDocumentQuality(
-					file.name,
-					file.type,
-					Buffer.from(fileBuffer),
-					{
-						enforceRecency:
-							documentType.toUpperCase() === "PROOF_OF_ADDRESS" ||
-							documentType.toUpperCase() === "PROPRIETOR_RESIDENCE",
-					}
-				);
+			: evaluateDocumentQuality(file.name, file.type, Buffer.from(fileBuffer), {
+					enforceRecency:
+						documentType.toUpperCase() === "PROOF_OF_ADDRESS" ||
+						documentType.toUpperCase() === "PROPRIETOR_RESIDENCE",
+				});
 		if (!quality.ok) {
 			return NextResponse.json(
 				{ error: `Document quality checks failed: ${quality.reasons.join("; ")}` },

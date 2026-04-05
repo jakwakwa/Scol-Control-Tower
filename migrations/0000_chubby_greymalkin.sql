@@ -4,7 +4,7 @@ CREATE TABLE `activity_logs` (
 	`action` text NOT NULL,
 	`description` text NOT NULL,
 	`performed_by` text,
-	`created_at` integer DEFAULT '"2026-03-27T09:38:00.051Z"',
+	`created_at` integer DEFAULT '"2026-04-04T16:29:52.265Z"',
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -15,7 +15,7 @@ CREATE TABLE `ai_analysis_logs` (
 	`agent_name` text NOT NULL,
 	`prompt_version_id` text,
 	`confidence_score` integer,
-	`human_override_reason` text,
+	`human_adjudication_reason` text,
 	`narrative` text,
 	`raw_output` text,
 	`created_at` integer NOT NULL,
@@ -31,9 +31,9 @@ CREATE TABLE `ai_feedback_logs` (
 	`ai_confidence` integer,
 	`ai_check_type` text NOT NULL,
 	`human_outcome` text NOT NULL,
-	`override_category` text NOT NULL,
-	`override_subcategory` text,
-	`override_details` text,
+	`adjudication_reason` text NOT NULL,
+	`adjudication_detail` text,
+	`adjudication_notes` text,
 	`is_divergent` integer NOT NULL,
 	`divergence_weight` integer,
 	`divergence_type` text,
@@ -254,7 +254,7 @@ CREATE TABLE `risk_assessments` (
 	`reviewed_by` text,
 	`reviewed_at` integer,
 	`notes` text,
-	`created_at` integer DEFAULT '"2026-03-27T09:38:00.049Z"',
+	`created_at` integer DEFAULT '"2026-04-04T16:29:52.264Z"',
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint

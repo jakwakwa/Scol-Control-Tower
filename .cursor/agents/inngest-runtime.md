@@ -1,6 +1,6 @@
 ---
 name: inngest-runtime
-model: default
+model: claude-opus-4-6
 description: Inngest implementation specialist. Use proactively for wiring Inngest in TypeScript, serve/connect, env and discovery, createFunction triggers and retries, replay-safe steps, flow control, and middleware. Prefer this over topic-by-topic agents for build and refactor work.
 readonly: true
 ---

@@ -1,13 +1,12 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "linden",
+  "theme": "mint",
   "name": "StratCol Control Tower Docs",
   "colors": {
-    "primary": "#231b0d",
-    "light": "#e0af46",
-    "dark": "#936f01"
+    "primary": "#af8300",
+    "light": "#dfa714",
+    "dark": "#012f3a"
   },
-  "favicon": "/favicon.svg",
   "navigation": {
     "dropdowns": [
       {
@@ -19,7 +18,12 @@
               "user-guides/overview",
               "user-guides/applicants",
               "user-guides/workflows",
-              "user-guides/risk-review",
+              {
+                "group": "Risk Review",
+                "pages": [
+                  "user-guides/risk-review"
+                ]
+              },
               "user-guides/ai-feedback-pipeline",
               "user-guides/onboarding-forms",
               "user-guides/quotations",
@@ -31,35 +35,27 @@
           {
             "group": "Development",
             "pages": [
-              "user-guides/e2e-testing"
+              "user-guides/e2e-testing",
+              "issues/integration-issues/2026-04-01-procurecheck-v5-jwt-auth-implementation"
             ]
           },
           {
-            "group": "Agent Contracts",
+            "group": "Skills",
+            "icon": "robot-face",
+            "tag": "agent skills",
             "pages": [
-              "agent-contracts/firecrawl-check-contracts"
-            ]
-          },
-          {
-            "group": "Customization",
-            "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "compound-engineering"
             ]
           },
           {
             "group": "Writing content",
-            "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
+            "pages": []
           },
           {
             "group": "Project",
             "pages": [
               "project/exec-summary",
+              "project/vendor-check-failure-handling-reference",
               "project/changelog-2026-03-02",
               "project/changelog-2026-03-03"
             ]
@@ -67,22 +63,16 @@
           {
             "group": "Issues",
             "pages": [
-              "issues/integration-issues/2026-04-01-procurecheck-v5-jwt-auth-implementation",
               "issues/integration-issues/2026-03-30-inngest-id-verification-telemetry-cleanup",
               "issues/database-issues/2026-03-27-remove-legacy-agents-xt-callbacks-dead-callback-plumbing",
               "issues/database-issues/2026-03-27-drizzle-migration-squash-and-combined-db-reset",
               "issues/2026-03-23-fix-stage6-inngest-workflow-stuck",
-              "issues/2026-03-22-refactor-forms-hub-workflow-gates",
-              "issues/2026-03-01-feat-harden-procurement-fallback-plan"
+              "issues/2026-03-22-refactor-forms-hub-workflow-gates"
             ]
           },
           {
             "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
-            ]
+            "pages": []
           }
         ]
       },
@@ -121,7 +111,7 @@
       }
     ]
   },
-  "logo": "/images/logo-liquidstratcolMedium.png",
+  "logo": "/images/control_tower_logo.png",
   "navbar": {
     "links": [
       {
@@ -147,17 +137,10 @@
       "vscode"
     ]
   },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
-  },
   "background": {
     "color": {
-      "light": "#ededf5",
-      "dark": "#0f202e"
+      "light": "#e4dddb",
+      "dark": "#171012"
     },
     "decoration": "grid"
   },
@@ -165,10 +148,10 @@
     "default": "dark"
   },
   "fonts": {
-    "family": "Poppins",
-    "weight": 500,
+    "family": "Inter",
+    "weight": 400,
     "heading": {
-      "family": "Lato",
+      "family": "Merriweather",
       "weight": 600
     },
     "body": {
@@ -182,13 +165,34 @@
   },
   "api": {
     "playground": {
-      "display": "auth"
+      "display": "none",
+      "proxy": false
     }
   },
   "interaction": {
     "drilldown": true
   },
   "icons": {
-    "library": "tabler"
+    "library": "lucide"
+  },
+  "thumbnails": {
+    "appearance": "dark"
+  },
+  "styling": {
+    "eyebrows": "section",
+    "codeblocks": "dark",
+    "latex": true
+  },
+  "search": {
+    "prompt": "Ask what you need..."
+  },
+  "integrations": {
+    "telemetry": {
+      "enabled": true
+    }
+  },
+  "favicon": {
+    "light": "/images/StratCol-Logo-Normal-on-WhiteBackgroundcopy.png",
+    "dark": "/images/StratCol-Logo-Normal-on-WhiteBackgroundcopy.png"
   }
 }

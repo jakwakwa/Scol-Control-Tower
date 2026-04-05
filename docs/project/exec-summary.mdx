@@ -1,29 +1,27 @@
 ---
-title: "Executive Summary"
+title: "README.md"
 description: "StratCol Control Tower is a Zero-Middleware onboarding automation platform for applicant lifecycles, risk assessment, and contract workflows."
 ---
 
 ## Overview
 
-The system has recently transitioned from a Zapier-dependent architecture to a direct event-driven model. This shift centralises state management within [Inngest](https://www.inngest.com/) workflows, eliminates external dependencies for core logic, and enables direct communication between capture sources (Google Forms/Apps Script) and the Next.js backend.
+The system uses a direct event-driven model. This  centralises state management within [Inngest](https://www.inngest.com/) workflows, eliminates external dependencies for core logic, and enables direct communication between external magic link forms and uploads by applicants and the Next.js backend.
 
 ## Key Features
 
-- **Zero-Middleware Architecture**: Direct ingestion of webhooks from Google Apps Script, removing Zapier entirely to reduce latency and costs.
 - **Event-Driven Workflows**: Complex business logic (onboarding, verification, signing, risk review) is orchestrated via Inngest, with clear domain events like `onboarding/lead.created`, `quote/responded`, and `form/decision.responded`.
 - **Deterministic Verification**: Replaces probabilistic AI voting with a strict, hierarchical veto system using a local blocklist (`mock_blacklist.json`).
-- **AI Feedback Pipeline**: Every human override creates a structured feedback log (category, subcategory, divergence type) that feeds the AI retraining pipeline.
-- **Direct Applicant Capture**: Secure HTTP endpoints (`/api/webhooks/lead-capture`) handle form submissions directly.
+- **HITL \+ AI Feedback Pipeline**: Every human adjudication creates a structured feedback log (category, detail, divergence type) that feeds the AI retraining pipeline.
 - **Real-time Dashboard**: A comprehensive UI built with Shadcn/UI for monitoring agents, applicants, and workflow statuses.
-- **Document quality gates**: Upload-time checks (legibility, dimensions, low-detail detection) and recency validation for proof-of-residence; high-stakes risk and document analysis use Gemini Pro with evidence-only outputs.
+- **Document quality**: Upload-time checks (legibility, dimensions, low-detail detection) and recency validation for proof-of-residence; high-stakes risk and document analysis use Gemini 3 / Firecrawl
 
 ## Tech Stack
 
 **Core Framework**
 
-- **Framework**: [Next.js 15](https://nextjs.org/) (App Router, Turbo)
+- **Framework**: [Next.js 15](https://nextjs.org/) (App Router, Turbopack)
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **Package Manager**: Bun (recommended) or Node.js
+- **Package Manager**: Bun 
 
 **Backend & Data**
 
@@ -31,6 +29,7 @@ The system has recently transitioned from a Zapier-dependent architecture to a d
 - **ORM**: [Drizzle ORM](https://orm.drizzle.team/)
 - **Auth**: [Clerk](https://clerk.com/)
 - **Background Jobs**: [Inngest](https://www.inngest.com/)
+- **Proxy**: Fixie
 
 **Frontend & UI**
 
@@ -43,55 +42,44 @@ The system has recently transitioned from a Zapier-dependent architecture to a d
 
 The platform follows a modern event-driven architecture:
 
-1.  **Ingestion**: Applicants are captured via Google Forms, which trigger a Google Apps Script to POST data directly to `/api/webhooks/lead-capture`.
-2.  **Orchestration**: The API triggers an Inngest workflow (`inngest/functions/onboarding.ts`).
-3.  **Verification**: The workflow performs immediate veto checks against the database and blocklists.
-4.  **State Management**: The workflow manages the applicant's state (e.g., waiting for contract signing via `/api/webhooks/contract-signed`) without polling.
+1. **Ingestion**: Applicants are captured via Google Forms, which trigger a Google Apps Script to POST data directly to `/api/webhooks/lead-capture`.
+2. **Orchestration**: The API triggers an Inngest workflow (`inngest/functions/onboarding.ts`).
+3. **Verification**: The workflow performs immediate veto checks against the database and blocklists.
+4. **State Management**: The workflow manages the applicant's state (e.g., waiting for contract signing via `/api/webhooks/contract-signed`) without polling.
 
 ## Getting Started
 
 ### Prerequisites
 
-- **Node.js** (v20+) or **Bun** (v1.0+)
+- **Node.js** (v20\+) or **Bun** (v1.0\+)
 - **Turso CLI** (for database management)
 - **Clerk Account** (for authentication)
 
 ### Installation
 
-1.  **Clone the repository**
-
-    ```bash
-    git clone [https://github.com/jakwakwa/scol-watchtower.git](https://github.com/jakwakwa/scol-watchtower.git)
-    cd scol-watchtower
-    ```
-
-2.  **Install dependencies**
-
-    ```bash
-    bun install
-    # or
-    npm install
-    ```
-
-3.  **Environment Configuration**
-    Copy the example environment file and fill in your credentials:
-
-    ```bash
-    cp .env.example .env.local
-    ```
-
-    _You will need API keys for Clerk, Turso, and your Inngest signing key (if running in production)._
-
-4.  **Database Setup**
-    Push the schema to your Turso database:
-    ```bash
-    bun run db:migrate
-    ```
+1. **Clone the repository**
+   ```bash
+   git clone [https://github.com/jakwakwa/scol-watchtower.git](https://github.com/jakwakwa/scol-watchtower.git)
+   cd scol-watchtower
+   ```
+2. **Install dependencies**
+   ```bash
+   bun install
+   ```
+3. **Environment Configuration** Copy the example environment file and fill in your credentials:
+   ```bash
+   cp .env.example .env.local .env.test
+   ```
+   _You will need API keys for Clerk, Turso, and your Inngest signing key (if running in production)._
+4. **Database Setup** Push the schema to your Turso database:
+   ```bash
+   bun run db:migrate
+   ```
 
 ### Running the Project
 
 You can start the development server using the standard Next.js command:
 
 ```bash
-bun dev
+bun dev:all
 ```

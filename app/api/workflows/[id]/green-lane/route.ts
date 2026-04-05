@@ -15,18 +15,23 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getBaseUrl, getDatabaseClient } from "@/app/utils";
-import { applicants, type WorkflowStatus, WORKFLOW_STATUSES, workflows } from "@/db/schema";
+import {
+	applicants,
+	WORKFLOW_STATUSES,
+	type WorkflowStatus,
+	workflows,
+} from "@/db/schema";
 import { inngest } from "@/inngest/client";
+import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
+import { captureServerEvent } from "@/lib/posthog-server";
+import { sendInternalAlertEmail } from "@/lib/services/email.service";
 import {
 	getManualGreenLaneBlockReason,
 	hasSignedQuotePrerequisite,
 	requestManualGreenLane,
 } from "@/lib/services/green-lane.service";
 import { createWorkflowNotification } from "@/lib/services/notification-events.service";
-import { sendInternalAlertEmail } from "@/lib/services/email.service";
-import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
 import { acquireStateLock } from "@/lib/services/state-lock.service";
-import { captureServerEvent } from "@/lib/posthog-server";
 
 const GreenLaneRequestSchema = z.object({
 	applicantId: z.number().int().positive("Applicant ID is required"),
@@ -81,10 +86,7 @@ export async function POST(
 		}
 
 		if (workflow.applicantId !== applicantId) {
-			return NextResponse.json(
-				{ error: "Applicant/workflow mismatch" },
-				{ status: 409 }
-			);
+			return NextResponse.json({ error: "Applicant/workflow mismatch" }, { status: 409 });
 		}
 
 		const hasSignedQuote = await hasSignedQuotePrerequisite(workflowId);
@@ -151,7 +153,11 @@ export async function POST(
 			}
 			if (result.alreadyRequested || result.alreadyConsumed) {
 				return NextResponse.json(
-					{ error: result.error, alreadyRequested: result.alreadyRequested, alreadyConsumed: result.alreadyConsumed },
+					{
+						error: result.error,
+						alreadyRequested: result.alreadyRequested,
+						alreadyConsumed: result.alreadyConsumed,
+					},
 					{ status: 409 }
 				);
 			}
@@ -189,7 +195,9 @@ export async function POST(
 					decision: {
 						outcome: "APPROVED" as const,
 						decidedBy: userId,
-						reason: "Manual Green Lane",
+						adjudicationReason: "POLICY_EXCEPTION",
+						adjudicationDetail: "manual_green_lane",
+						adjudicationNotes: "Manual Green Lane",
 						source: "manual_green_lane" as const,
 						timestamp: new Date().toISOString(),
 					},
@@ -216,9 +224,6 @@ export async function POST(
 		});
 	} catch (error) {
 		console.error("[GreenLane] Error:", error);
-		return NextResponse.json(
-			{ error: "Internal server error" },
-			{ status: 500 }
-		);
+		return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 	}
 }

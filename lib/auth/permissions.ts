@@ -10,7 +10,7 @@
  * Features:
  * - green_lane: approve (risk_manager, account_manager)
  * - quote: approve (account_manager)
- * - risk_assessment: approve, configure, override_denied (risk_manager)
+ * - risk_assessment: approve, configure, adjudication_denied (risk_manager)
  * - workflow: terminate (risk_manager, account_manager)
  */
 
@@ -19,7 +19,7 @@ export const PERMISSIONS = {
 	QUOTE_APPROVE: "org:quote:approve",
 	RISK_ASSESSMENT_APPROVE: "org:risk_assessment:approve",
 	RISK_ASSESSMENT_CONFIGURE: "org:risk_assessment:configure",
-	RISK_ASSESSMENT_OVERRIDE_DENIED: "org:risk_assessment:override_denied",
+	RISK_ASSESSMENT_ADJUDICATION_DENIED: "org:risk_assessment:adjudication_denied",
 	WORKFLOW_TERMINATE: "org:workflow:terminate",
 	/** View in-app PostHog analytics (private REST + charts). Configure in Clerk Roles & Permissions. */
 	ANALYTICS_VIEW: "org:analytics:view",

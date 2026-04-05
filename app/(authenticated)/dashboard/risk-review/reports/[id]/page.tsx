@@ -77,7 +77,11 @@ export default async function RiskReviewReportPage({
 
 	const riskAssessmentRows = workflow
 		? await db
-				.select({ aiAnalysis: riskAssessments.aiAnalysis })
+				.select({
+					overallScore: riskAssessments.overallScore,
+					overallStatus: riskAssessments.overallStatus,
+					aiAnalysis: riskAssessments.aiAnalysis,
+				})
 				.from(riskAssessments)
 				.where(eq(riskAssessments.applicantId, applicant.id))
 				.orderBy(desc(riskAssessments.createdAt))
@@ -89,7 +93,7 @@ export default async function RiskReviewReportPage({
 		workflow,
 		riskChecks,
 		financialRiskRows[0]?.rawOutput,
-		riskAssessmentRows[0]?.aiAnalysis
+		riskAssessmentRows[0]
 	);
 
 	return (

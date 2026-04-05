@@ -1,0 +1,262 @@
+---
+title: "Vendor-Dependent Workflow Inventory & Failure Handling Matrix"
+description: "Canonical map of Control Tower vendor dependencies, current failure behaviour, operator surfaces, and approved handling rules."
+category: "project"
+problem_type: "architecture-review"
+component: "inngest-orchestrator"
+symptoms: ["vendor failures", "workflow halts", "sanctions hits", "credit bureau failures", "document AI errors"]
+root_cause: "Lack of standardised retry and fallback patterns across vendor-dependent workflow stages."
+date: "2026-03-30"
+---
+
+# Vendor-Dependent Workflow Inventory & Failure Handling Matrix
+
+## Overview
+
+This document is the canonical reference for vendor-dependent workflow behaviour in Control Tower onboarding. It inventories every live workflow touchpoint that depends on vendor data or vendor-mediated evidence, shows what the code does **today**, and records the **approved handling rule** operators and engineers should align on.
+
+Use this document when:
+
+- reviewing a vendor failure or silent stall in onboarding
+- deciding whether a workflow should retry, continue in degraded mode, pause, or terminate
+- updating dashboard copy, operator runbooks, or Risk Review status language
+- identifying where telemetry, alerts, or follow-up engineering tasks are still missing
+
+> **Pattern Summary:**
+> - **Transient technical failures** should preserve state integrity and use bounded retries where the workflow can safely resume automatically.
+> - **Persistent technical failures** should move to an explicit degraded/manual path with understandable operator messaging and alerting.
+> - **Business denials** are not retried; they route to Risk Review, Compliance adjudication, or termination depending on severity.
+> - **Advisory checks** may continue without blocking, but they must still leave operator-visible evidence and telemetry.
+
+---
+
+## Failure Type Definitions
+
+| Code | Label | Examples |
+|------|-------|---------|
+| `T` | **Transient Technical** | Network timeout, HTTP 5xx, rate-limit 429 |
+| `P` | **Persistent Technical** | HTTP 401/403 (bad credentials), HTTP 400 (schema drift), vendor outage > threshold |
+| `B` | **Business Denial** | Sanctions hit, credit score below threshold, FICA mismatch, ProcureCheck STOP |
+
+---
+
+## Active Workflow Inventory
+
+The rows below reflect the currently wired onboarding flow in `inngest/index.ts`, `inngest/functions/workflow-coordinator.ts`, Stage 2 and Stage 3, plus async listeners triggered by `document/uploaded`.
+
+| Workflow surface | Trigger / step | Vendor or dependency | Gate classification | Primary operator surface | Current monitoring hooks |
+|---|---|---|---|---|---|
+| Stage 2 pre-risk sanctions | `stage2_facilityApplication.ts` → `pre-risk-sanctions-check` | OpenSanctions primary, Firecrawl fallback | Hard human gate for pre-risk approval; technical failures degrade to manual sanctions review guidance | Workflow status `awaiting_human` + pre-risk approval notification + sanctions failure notification/email | Workflow events, workflow notifications, internal alert email; no dedicated `vendor_check_attempt` metric from `runSanctionsForWorkflow` |
+| Stage 3 procurement | `stage3_enrichment.ts` → `check-procurement` | ProcureCheck | Hard gate with degraded continuation only for auth failures today; transient failures rely on retry semantics | `PROCUREMENT` machine state + procurement card in Risk Review | `recordVendorCheckFailure` in Stage 3, ProcureCheck network-check runbook |
+| Stage 3 ITC | `stage3_enrichment.ts` → `check-itc` | XDS / ITC bureau | Hard gate with degraded continuation | `ITC` machine state + degraded context in Risk Review | `recordVendorCheckFailure` in Stage 3 and ITC/XDS services |
+| Stage 3 sanctions | `stage3_enrichment.ts` → `check-sanctions` | OpenSanctions primary, Firecrawl fallback | Hard gate for business denials; technical failures degrade to manual sanctions review | `SANCTIONS` machine state, workflow notifications, possible pause or terminate | Workflow events, notifications, internal alert email; no success/failure vendor metric emitted by `runSanctionsForWorkflow` |
+| Stage 3 FICA validation | `stage3_enrichment.ts` → `check-fica-validation` | Google Document AI via validation agent | Hard gate with degraded continuation | `FICA` machine state + Risk Review document/risk context | `recordVendorCheckFailure` on failure only |
+| Stage 3 VAT evidence | `stage3_enrichment.ts` → `check-vat` | Firecrawl / SARS evidence lookup | Advisory only | Workflow notification + VAT evidence in risk review flow | Workflow events, `recordVendorCheckFailure` on failure |
+| Async identity verification | `functions/services/id-verification.ts` → `autoVerifyIdentity` | Google Document AI identity proofing | Hard downstream dependency for document verification status | Document verification state; currently failures surface mainly through retries/logs | `recordVendorCheckAttempt` for success/failure |
+| Async FICA document aggregation | `functions/handlers/document-handler.ts` → `documentAggregator` | Internal prerequisite for Stage 3 document readiness | Hard prerequisite for Stage 3 waits; not a vendor call itself | `upload/fica.received` wake-up for Stage 3 | Inngest retries on thrown errors; no dedicated operator-facing alert or idempotency guard |
+
+---
+
+## Operator Surface Reference
+
+Use these status semantics consistently in engineering docs, Risk Review UI, and operator handoffs:
+
+| Surface | Meaning | Where operators see it |
+|---|---|---|
+| `manual_required` | Automated check could not safely complete or found a condition requiring human review; workflow can continue in degraded mode | `risk_check_results`, Risk Review degraded context, procurement/FICA cards |
+| `failed` | Check ended unsuccessfully without an explicit manual-review envelope | `risk_check_results`; currently most visible for ITC and should be treated as a follow-up gap when no notification exists |
+| `paused` | Workflow intentionally stopped and is awaiting a structured decision before it can resume | Workflow list/detail page, sanction adjudication path |
+| `awaiting_human` | Workflow is waiting for an approval/review event | Workflow list/detail page, notifications |
+| Advisory evidence status (`verified`, `manual_review`, `error`, `unavailable`) | Evidence-only check result that should not change the main risk-check machine state | Workflow events and VAT-related notifications |
+
+---
+
+## Approved Handling Patterns
+
+### Pattern A: Retry Without Premature State Mutation
+
+Use when transient failures can recover automatically and the workflow should remain automated if retries succeed.
+
+1. Retry with bounded backoff.
+2. Avoid writing `manual_required` or `failed` until retries are exhausted.
+3. If exhaustion occurs, transition to an explicit degraded state and notify operators.
+
+### Pattern B: Fast-Path to Manual / Ops Intervention
+
+Use when the error is not likely to recover automatically, or when the product already prefers degraded continuation over retry storms.
+
+1. Detect persistent conditions such as auth, schema drift, egress/IP allowlist, or quota/configuration failures.
+2. Move the check to `manual_required` or another explicit degraded envelope.
+3. Create a workflow notification and, where severity warrants, an internal alert email or ops runbook step.
+
+### Pattern C: Business Denial Passthrough
+
+Use when the vendor returned a definitive compliance or risk outcome.
+
+1. Persist the denial/evidence as a normal result.
+2. Do not retry.
+3. Route to Risk Review, Compliance adjudication, or termination based on policy.
+
+---
+
+## Master Vendor × Workflow Matrix
+
+### Stage 2 — Facility Application & Pre-Risk
+
+#### Pre-Risk Sanctions Check (Optional path — triggered when `salesEvaluation.hasIssues === true`)
+- **Vendor:** OpenSanctions / Firecrawl
+- **Gate Type:** Hard human gate feeding the pre-risk approval path.
+- **Step:** `pre-risk-sanctions-check` in `stage2_facilityApplication.ts`
+
+| Failure Type | Current Behaviour | Operator / telemetry surface | Approved Handling Rule | Notes / gaps |
+|---|---|---|---|---|
+| `T` Transient | `runSanctionsForWorkflow()` catches vendor/runtime errors, emits a high-severity notification + internal alert, and returns a manual-fallback sanctions result. Stage 2 still moves into pre-risk approval. | Pre-risk approval notification, sanctions failure notification/email, workflow event | **Manual-review fallback is acceptable here.** Stage 2 already requires a human pre-risk approval when issues are present, so degraded continuation is acceptable if the failure is visible. | No dedicated `vendor_check_attempt` metric from `runSanctionsForWorkflow`; alerting relies on workflow notifications and email. |
+| `P` Persistent | Same as transient: manual fallback result + human approval path continues. | Same as above | **Status quo acceptable** if the operator guidance remains explicit and references the manual sanctions review requirement. | Runbook should continue to distinguish auth/config issues from list-based findings. |
+| `B` Business Denial (blocked) | The sanctions result is included in the pre-risk decision context; Stage 2 continues to the human approval gate rather than auto-terminating. | Pre-risk approval flow | **Status quo acceptable.** Pre-risk reviewers decide whether the workflow proceeds or is rejected. | This is intentionally different from the Stage 3 compliance path. |
+
+---
+
+### Stage 3 — Risk Enrichment (Parallel Checks)
+
+All four checks in Stage 3 run in a `Promise.all` parallel group: `check-procurement`, `check-itc`, `check-sanctions`, `fica-request-docs`.
+
+#### 1. ProcureCheck API
+- **Vendor:** ProcureCheck
+- **Gate Type:** Hard gate for automated procurement evidence.
+- **Step:** `check-procurement` in `stage3_enrichment.ts`
+- **Service file:** `lib/services/procurecheck.service.ts` (`executeProcurementCheck`)
+
+| Failure Type | Current Behaviour | Operator / telemetry surface | Approved Handling Rule | Notes / gaps |
+|---|---|---|---|---|
+| `T` Transient | The step logs the failure and re-throws after telemetry capture, allowing Inngest retry semantics to apply. No state is written on the first failure. | `vendor_check_attempt` failure event, eventual workflow failure if retries exhaust | **Retry with bounded backoff is the approved rule.** On final exhaustion, convert to `PROCUREMENT: manual_required` with an operator-facing notification rather than a generic failed run. | Current code still lacks an explicit exhaustion envelope after retries are exhausted. |
+| `P` Persistent | `401/403` auth-style errors are detected from the error message and immediately mapped to `PROCUREMENT: manual_required` with a warning notification. | `PROCUREMENT` machine state, procurement error card, vendor failure metric | **Status quo acceptable.** Persistent auth/config issues should bypass retry and move straight to manual review + ops action. | ProcureCheck egress/IP issues should be handled via `docs/procurecheck-ip-whitelist-runbook.md`. |
+| `B` Business Denial | Vendor result is persisted as `completed`; Stage 4 Risk Review handles the risk outcome. | Procurement section in Risk Review | **Status quo acceptable.** No retry; route as evidence for Risk Review. | Business denial is evidence, not a runtime failure. |
+
+**Gap (follow-up task required):** Add an explicit post-retry exhaustion path so transient ProcureCheck failures do not end as generic workflow failures.
+
+---
+
+#### 2. XDS API (ITC Credit Bureau)
+- **Vendor:** XDS
+- **Gate Type:** Hard gate with degraded continuation.
+- **Step:** `check-itc` in `stage3_enrichment.ts`
+- **Service file:** `lib/services/itc.service.ts` (`performITCCheck`)
+
+| Failure Type | Current Behaviour | Operator / telemetry surface | Approved Handling Rule | Notes / gaps |
+|---|---|---|---|---|
+| `T` Transient | Any exception is recorded as `ITC: failed`, with telemetry captured and no notification created. The workflow continues. | Risk Review degraded context can infer failure; no direct workflow notification | **Do not leave transient failures as silent `failed`.** Retry when feasible; otherwise convert to `manual_required` with visible operator messaging. | Current behaviour under-signals failures and does not distinguish transient from persistent. |
+| `P` Persistent | Same as transient: `ITC: failed`, no direct operator alert. | Same as above | **Persistent failures should fast-path to `manual_required` + notification.** | Missing notification/alert remains a high-priority gap. |
+| `B` Business Denial | Score, recommendation, and adverse listings are persisted as `completed`; workflow continues to Risk Review. | ITC data in Risk Review | **Status quo acceptable.** Business outcomes should be reviewed, not retried. | None. |
+
+**Gap (follow-up task required):** ITC failures currently land as `failed` without a notification, which makes degraded continuation harder for operators to interpret.
+
+---
+
+#### 3. Sanctions Check (OpenSanctions + Firecrawl optional)
+- **Vendor:** OpenSanctions (primary) / Firecrawl (fallback enrichment)
+- **Gate Type:** Hard gate for business denials; technical failures degrade to manual sanctions review.
+- **Step:** `check-sanctions` in `stage3_enrichment.ts`
+- **Service file:** `lib/services/kill-switch.service.ts`, `helpers.ts` (`runSanctionsForWorkflow`)
+
+| Failure Type | Current Behaviour | Operator / telemetry surface | Approved Handling Rule | Notes / gaps |
+|---|---|---|---|---|
+| `T` Transient | `runSanctionsForWorkflow()` catches vendor/runtime errors, emits a workflow error event, creates a high-severity notification, sends an internal alert email, and returns a manual-fallback result. Stage 3 stores `SANCTIONS: manual_required` and continues. | `SANCTIONS` machine state, manual sanctions notification, internal alert email, workflow event | **Status quo acceptable.** Stage 3 should continue in degraded mode as long as the workflow clearly requires a full manual sanctions review in Risk Review. | The older retry-first recommendation is superseded by the current manual-fallback operator model. |
+| `P` Persistent | Same as transient: manual fallback + explicit manual-review guidance. | Same as above | **Status quo acceptable.** Persistent sanctions failures should not stall silently. | Continue to treat auth/config/provider failures as ops/compliance-visible incidents. |
+| `B` Blocked (non-sanction list) | `executeKillSwitch(COMPLIANCE_VIOLATION)` terminates the workflow. | Terminated workflow, kill-switch handling | **Status quo acceptable.** Definitive compliance block should terminate. | None. |
+| `B` Confirmed Sanction Hit | Workflow is paused, the applicant is flagged, and `sanction/adjudicated` is awaited for up to 30 days. | `paused` workflow status, critical notification, internal alert email | **Status quo acceptable.** Human adjudication is mandatory. | None. |
+
+**Gap (follow-up task required):** The sanctioned/manual-fallback path is visible to operators, but `runSanctionsForWorkflow()` does not currently emit dedicated `vendor_check_attempt` telemetry for success or failure.
+
+---
+
+#### 4. FICA Validation (Google Document AI via Validation Agent)
+- **Vendor:** Google Document AI (via internal validation agent)
+- **Gate Type:** Hard gate with degraded continuation.
+- **Step:** `check-fica-validation` in `stage3_enrichment.ts`
+- **Service:** `lib/services/agents` (`validateDocumentsBatch`)
+
+| Failure Type | Current Behaviour | Operator / telemetry surface | Approved Handling Rule | Notes / gaps |
+|---|---|---|---|---|
+| `T` Transient | Any exception becomes `FICA: manual_required` after telemetry capture; workflow continues. | `FICA` machine state, Risk Review degraded context | **Status quo acceptable** for now because the product already expects degraded/manual-review continuation when document AI is unavailable. | If retry is later added, keep the operator-facing degraded envelope on exhaustion. |
+| `P` Persistent | Same as transient: `manual_required` with error details. | Same as above | **Status quo acceptable.** Persistent AI config/quota issues should route to manual review. | No workflow notification is currently created directly in this catch block. |
+| `B` Critical mismatch (`MISMATCHED`) | `FICA: manual_required`; workflow continues to Risk Review. | `FICA` card / degraded context | **Status quo acceptable.** Business mismatch should be reviewed, not retried. | None. |
+| No documents | Early return sets `FICA: manual_required`. | `FICA` machine state | **Status quo acceptable.** Missing evidence requires manual completion. | None. |
+
+---
+
+#### 5. VAT Check (Firecrawl / SARS)
+- **Vendor:** Firecrawl (scraping SARS eFiling)
+- **Gate Type:** **Advisory only** — evidence-only peer check. Never gates progression.
+- **Step:** `check-vat` in `stage3_enrichment.ts`
+- **Service:** `lib/services/firecrawl.ts` (`runVatVerificationCheck`)
+
+| Failure Type | Current Behaviour | Operator / telemetry surface | Approved Handling Rule | Notes / gaps |
+|---|---|---|---|---|
+| `T` Transient | Exception is caught, telemetry failure is recorded, a workflow event is logged with `status: "error"`, and the workflow continues. | VAT-related workflow event; advisory notification only when a result is returned | **Status quo acceptable.** VAT remains evidence-only. | Prefer describing the failed state as `unavailable` in operator docs so it is not confused with a blocking workflow error. |
+| `P` Persistent | Same as transient: evidence-only failure, no kill switch, no risk-check state mutation. | Same as above | **Status quo acceptable.** Persistent VAT failures should remain advisory. | None. |
+| `B` Not verified | Result is logged, and a workflow notification is created with warning/manual-review semantics. | Workflow notification + evidence in Risk Review | **Status quo acceptable.** Record evidence and recommend manual review. | None. |
+
+---
+
+### Async Listeners (Not Stage-bound)
+
+#### 6. Automated Identity Verification (`autoVerifyIdentity`)
+- **Vendor:** Google Document AI (Document Identity Proofing)
+- **Gate Type:** Hard (downstream) — failure prevents identity status from being set on uploaded docs.
+- **Trigger:** Event `document/uploaded`
+- **File:** `inngest/functions/services/id-verification.ts`
+
+| Failure Type | Current Behaviour | Operator / telemetry surface | Approved Handling Rule | Notes / gaps |
+|---|---|---|---|---|
+| `T` Transient | The step records a telemetry attempt and throws a raw error. Inngest retries the function, but no local status is written on exhaustion. | `vendor_check_attempt` for `document_ai_identity`; retry logs | **Retry with cap, then write an explicit failed verification status.** | Current function has no retry cap or final failure envelope. |
+| `P` Persistent | Same as transient: repeated retries and eventual function failure rather than a local degraded state. | Same as above | **Persistent failures should stop retrying and write an explicit unprocessable/failed status.** | Still a high-priority follow-up. |
+| `B` N/A | Identity proofing does not have a business-denial class in the current workflow. | N/A | N/A | None. |
+
+**Gap (follow-up task required):** Function currently has no retry cap or `onFailure` handler.
+
+---
+
+#### 7. FICA Document Aggregator (`documentAggregator`)
+- **Vendor:** None (internal DB polling; aggregation logic)
+- **Gate Type:** Hard — failure prevents `upload/fica.received` from being emitted.
+- **Trigger:** Event `document/uploaded`
+- **File:** `inngest/functions/handlers/document-handler.ts`
+
+| Failure Type | Current Behaviour | Operator / telemetry surface | Approved Handling Rule | Notes / gaps |
+|---|---|---|---|---|
+| `T` DB connection failure | Throws and relies on Inngest retries. | Inngest retry logs only | **Status quo acceptable.** Retry naturally on transient DB issues. | No dedicated operator surface today. |
+| Race Condition | Multiple rapid `document/uploaded` events can emit `upload/fica.received` more than once. | Hidden unless Stage 3 behaves unexpectedly | **Add an idempotency guard before emitting the wake-up event.** | Medium-priority follow-up. |
+
+---
+
+## Monitoring & Alerting Reference
+
+| Surface | What exists today | What to watch |
+|---|---|---|
+| `risk_check_results` machine state | Canonical state for `PROCUREMENT`, `ITC`, `SANCTIONS`, `FICA` | Unexpected growth in `failed` without matching notifications, long-lived `in_progress`, or high `manual_required` volume by check type |
+| Workflow notifications / internal emails | Used heavily for sanctions, FICA upload, ProcureCheck auth failure, VAT warning states | Missing notification on ITC failure, missing explicit exhaustion path for ProcureCheck transient retries |
+| `vendor_check_attempt` telemetry | Available for ProcureCheck, ITC/XDS, VAT/Firecrawl paths, identity verification, and some Firecrawl client calls | Alert on spikes by `vendor`, `outcome`, `failure_type`, and duration percentile |
+| ProcureCheck network-check runbook | `GET /api/integrations/procurecheck/network-check` plus Fixie/IP checklist | Use when auth/egress/firewall problems present as persistent ProcureCheck failures |
+
+**Current telemetry gap:** sanctions fallback handling lives in `runSanctionsForWorkflow()` but does not currently emit dedicated `vendor_check_attempt` metrics, making sanctions outages harder to monitor consistently with other vendors.
+
+---
+
+## Follow-up Implementation Tasks  
+
+The following gaps must be addressed in separate engineering tasks:
+
+| # | Gap | Affected File | Priority |
+|---|-----|--------------|----------|
+| 1 | ProcureCheck transient failures retry today, but exhaustion still falls through to a generic workflow failure instead of `manual_required` + notification | `inngest/functions/control-tower/stages/stage3_enrichment.ts` → `check-procurement` | High |
+| 2 | ITC check still sets `ITC: failed` with no explicit operator notification and weak transient/persistent classification | `inngest/functions/control-tower/stages/stage3_enrichment.ts` → `check-itc` | High |
+| 3 | Sanctions fallback handling is operator-visible but lacks dedicated `vendor_check_attempt` telemetry for success/failure trend monitoring | `inngest/functions/handlers/sanctions-logic.ts` | High |
+| 4 | `autoVerifyIdentity` has no retry cap or final failure envelope for document verification status | `inngest/functions/services/id-verification.ts` | High |
+| 5 | `documentAggregator` may emit duplicate `upload/fica.received` under rapid uploads | `inngest/functions/handlers/document-handler.ts` | Medium |
+
+---
+
+## Related Documents
+- [Inngest Workflow Audit & Map](/docs/issues/integration-issues/2026-03-30-inngest-workflow-audit)
+- [Fix: Stage 6 Inngest Workflow Stuck](/docs/issues/2026-03-23-fix-stage6-inngest-workflow-stuck)
+- [Inngest Timeout Reminders and Schema Alignment](/docs/issues/integration-issues/2026-03-27-inngest-timeout-reminders-and-test-schema-alignment)

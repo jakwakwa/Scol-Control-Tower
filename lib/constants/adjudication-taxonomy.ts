@@ -1,20 +1,10 @@
 /**
- * Override Taxonomy — Structured AI Feedback Categories
+ * Adjudication Taxonomy — Structured Risk Manager Decisions
  *
- * This taxonomy maps human overrides into programmatic categories
- * that feed the AI retraining pipeline. Each category represents
- * a class of AI failure that triggered a human correction.
+ * Canonical vocabulary for risk manager adjudication decisions.
  */
 
-// ============================================
-// Override Categories
-// ============================================
-
-/**
- * Top-level override category values.
- * Used in Zod schemas as z.enum(OVERRIDE_CATEGORIES).
- */
-export const OVERRIDE_CATEGORIES = [
+export const ADJUDICATION_CATEGORIES = [
 	"AI_ALIGNED",
 	"MISSING_CONTEXT",
 	"INCORRECT_RISK_SCORING",
@@ -25,31 +15,21 @@ export const OVERRIDE_CATEGORIES = [
 	"OTHER",
 ] as const;
 
-/** Union type for override categories */
-export type OverrideCategory = (typeof OVERRIDE_CATEGORIES)[number];
+export type AdjudicationCategory = (typeof ADJUDICATION_CATEGORIES)[number];
 
-/** Human-readable labels for each category */
-export const OVERRIDE_CATEGORY_LABELS: Record<OverrideCategory, string> = {
+export const ADJUDICATION_REASON_LABELS: Record<AdjudicationCategory, string> = {
 	AI_ALIGNED: "AI Decision Aligned",
 	MISSING_CONTEXT: "Missing Context",
 	INCORRECT_RISK_SCORING: "Incorrect Risk Scoring",
 	FALSE_POSITIVE_FLAG: "False Positive Flag",
 	FALSE_NEGATIVE_MISS: "False Negative Miss",
 	POLICY_EXCEPTION: "Policy Exception",
-	OTHER: "Other",
 	DATA_QUALITY_ISSUE: "Data Quality Issue",
+	OTHER: "Other",
 };
 
-// ============================================
-// Override Subcategories
-// ============================================
-
-/**
- * Subcategories mapped by parent category.
- * Provides finer granularity for retraining signals.
- */
-export const OVERRIDE_SUBCATEGORIES: Partial<
-	Record<OverrideCategory, { value: string; label: string }[]>
+export const ADJUDICATION_DETAILS_BY_CATEGORY: Partial<
+	Record<AdjudicationCategory, { value: string; label: string }[]>
 > = {
 	MISSING_CONTEXT: [
 		{ value: "additional_docs_provided", label: "Additional Documents Provided" },
@@ -76,7 +56,7 @@ export const OVERRIDE_SUBCATEGORIES: Partial<
 		{ value: "cross_reference_miss", label: "Cross-reference Not Found" },
 	],
 	POLICY_EXCEPTION: [
-		{ value: "management_override", label: "Management Override" },
+		{ value: "management_exception", label: "Management Exception" },
 		{ value: "regulatory_change", label: "New Regulatory Guidance" },
 		{ value: "client_tier_exception", label: "Client Tier Exception" },
 	],
@@ -87,14 +67,6 @@ export const OVERRIDE_SUBCATEGORIES: Partial<
 	],
 };
 
-// ============================================
-// Divergence Types
-// ============================================
-
-/**
- * Types of divergence between AI and human decisions.
- * Used to classify the nature of the AI's error.
- */
 export const DIVERGENCE_TYPES = [
 	"false_positive",
 	"false_negative",
@@ -103,14 +75,6 @@ export const DIVERGENCE_TYPES = [
 
 export type DivergenceType = (typeof DIVERGENCE_TYPES)[number];
 
-// ============================================
-// AI Check Types
-// ============================================
-
-/**
- * Types of AI checks that produced the analysis.
- * Maps to the assessment origin in riskAssessments.
- */
 export const AI_CHECK_TYPES = [
 	"identity_verification",
 	"document_analysis",
@@ -120,25 +84,17 @@ export const AI_CHECK_TYPES = [
 
 export type AiCheckType = (typeof AI_CHECK_TYPES)[number];
 
-// ============================================
-// Utility Functions
-// ============================================
-
-/**
- * Format a subcategory value into a human-readable label.
- * Falls back to title-casing the raw value if no mapping exists.
- */
-export function formatSubcategoryLabel(
-	category: OverrideCategory,
-	subcategoryValue: string
+export function formatAdjudicationDetailLabel(
+	category: AdjudicationCategory,
+	detailValue: string
 ): string {
-	const subcategories = OVERRIDE_SUBCATEGORIES[category];
-	if (subcategories) {
-		const match = subcategories.find(s => s.value === subcategoryValue);
+	const details = ADJUDICATION_DETAILS_BY_CATEGORY[category];
+	if (details) {
+		const match = details.find(d => d.value === detailValue);
 		if (match) return match.label;
 	}
-	// Fallback: convert snake_case to Title Case
-	return subcategoryValue
+
+	return detailValue
 		.split("_")
 		.map(word => word.charAt(0).toUpperCase() + word.slice(1))
 		.join(" ");

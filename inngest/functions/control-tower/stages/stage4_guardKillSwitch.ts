@@ -16,10 +16,9 @@ import {
 import { getHybridGateStatus } from "@/lib/services/risk-check.service";
 import { terminateRun } from "@/lib/services/terminate-run.service";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
-
+import { guardKillSwitch } from "../../../utils/guards";
+import { notifyApplicantDecline } from "../../../utils/helpers";
 import type { StageDependencies, StageResult } from "../types";
-import { guardKillSwitch } from "@/inngest/utils/guards";
-import { notifyApplicantDecline } from "@/inngest/utils/helpers";
 
 export async function executeStage4({
 	step,
@@ -161,12 +160,17 @@ export async function executeStage4({
 	}
 
 	if (riskDecision.data.decision.outcome === "REJECTED") {
+		const adjudicationMessage =
+			riskDecision.data.decision.adjudicationNotes ||
+			riskDecision.data.decision.adjudicationDetail ||
+			"Your application was not approved after final risk review.";
+
 		await executeKillSwitch({
 			workflowId,
 			applicantId,
 			reason: "MANUAL_TERMINATION",
 			decidedBy: riskDecision.data.decision.decidedBy,
-			notes: riskDecision.data.decision.reason,
+			notes: adjudicationMessage,
 		});
 		await step.run("risk-declined-notify-applicant", async () => {
 			await notifyApplicantDecline({
@@ -174,9 +178,7 @@ export async function executeStage4({
 				workflowId,
 				subject: "Facility Application Outcome",
 				heading: "Application declined after final risk review",
-				message:
-					riskDecision.data.decision.reason ||
-					"Your application was not approved after final risk review.",
+				message: adjudicationMessage,
 			});
 		});
 		return { status: "terminated", stage: 4, reason: "Rejected by Risk Manager" };
