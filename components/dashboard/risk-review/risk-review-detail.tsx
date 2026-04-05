@@ -77,8 +77,8 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 
 	return (
 		<>
-			<div className="card-form text-foreground font-sans p-4 md:p-6 selection:bg-primary/90 print:hidden w-full">
-				<div className="space-y-2 w-full">
+			<div className="bg-card  surface-card rounded-3xl text-foreground font-sans p-4 md:p-6 selection:bg-primary/90 print:shadow-none print:p-0 print:m-0 print:hidden print:border-white print:outline-0 w-full print:bg-white print:h-full">
+				<div className="space-y-2 w-full print:hidden">
 					<RiskReviewHeader
 						globalData={globalData}
 						isGeneratingSummary={isGeneratingSummary}
@@ -99,7 +99,7 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 
 					<RiskReviewTabs activeTab={primaryTab} onTabChange={setPrimaryTab} />
 
-					<div className="mt-6">
+					<div className="mt-6 print:bg-white">
 						{primaryTab === "procurement" && (
 							<ProcurementSection
 								data={procurementData}
