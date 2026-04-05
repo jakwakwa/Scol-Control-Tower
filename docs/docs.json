@@ -5,9 +5,8 @@
   "colors": {
     "primary": "#af8300",
     "light": "#dfa714",
-    "dark": "#965d07"
+    "dark": "#012f3a"
   },
-  "favicon": "/favicon.svg",
   "navigation": {
     "dropdowns": [
       {
@@ -143,7 +142,7 @@
       "light": "#e4dddb",
       "dark": "#171012"
     },
-    "decoration": "windows"
+    "decoration": "grid"
   },
   "appearance": {
     "default": "dark"
@@ -166,13 +165,34 @@
   },
   "api": {
     "playground": {
-      "display": "auth"
+      "display": "none",
+      "proxy": false
     }
   },
   "interaction": {
     "drilldown": true
   },
   "icons": {
-    "library": "tabler"
+    "library": "lucide"
+  },
+  "thumbnails": {
+    "appearance": "dark"
+  },
+  "styling": {
+    "eyebrows": "section",
+    "codeblocks": "dark",
+    "latex": true
+  },
+  "search": {
+    "prompt": "Ask what you need..."
+  },
+  "integrations": {
+    "telemetry": {
+      "enabled": true
+    }
+  },
+  "favicon": {
+    "light": "/images/StratCol-Logo-Normal-on-WhiteBackgroundcopy.png",
+    "dark": "/images/StratCol-Logo-Normal-on-WhiteBackgroundcopy.png"
   }
 }
