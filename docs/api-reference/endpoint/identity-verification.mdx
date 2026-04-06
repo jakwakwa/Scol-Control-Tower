@@ -1,0 +1,301 @@
+---
+title: 'Identity Verification Agent'
+description: 'Technical reference for the Google Document AI identity proofing integration — document discovery, fraud-signal extraction, persistence, and Risk Review surface.'
+---
+
+## Overview
+
+The Identity Verification Agent wraps the **Google Cloud Document AI** ID Proofing processor. It accepts a base64-encoded identity document, submits it to the processor, and returns a set of fraud-signal entities that are persisted to the originating document record and surfaced in the FICA / KYC section of the Risk Review report.
+
+The agent is invoked as a **Next.js Server Action** and can be called both from the Risk Review dashboard (manual re-verify) and directly by passing a specific `documentId`.
+
+**Source file:** `app/actions/verify-id.ts`
+
+---
+
+## Environment variables
+
+All four variables are required before the agent can run.
+
+| Variable | Description |
+| :--- | :--- |
+| `GOOGLE_APPLICATION_CREDENTIALS_JSON` | Service account JSON (inline) **or** path to a key file. The agent detects which by checking whether the value starts with `{`. |
+| `GOOGLE_CLOUD_PROJECT_ID` | GCP project that owns the Document AI processor. |
+| `GOOGLE_CLOUD_PROCESSOR_ID` | The ID of the ID Proofing processor resource (not the full name — the agent builds the full resource name internally). |
+| `GOOGLE_CLOUD_LOCATION` | Processor location. Defaults to `"us"` if omitted. |
+
+The Document AI API endpoint is constructed as `{location}-documentai.googleapis.com`.
+
+---
+
+## Exported functions
+
+### `verifyIdentity(applicantId)`
+
+Thin wrapper around `processIdentityVerification`. Called from the FICA section UI when no specific document is targeted.
+
+```ts
+export async function verifyIdentity(applicantId: number): Promise<VerifyResult>
+```
+
+### `processIdentityVerification(applicantId, documentId?)`
+
+Core function. Handles credential setup, document discovery, processor invocation, and result persistence.
+
+```ts
+export async function processIdentityVerification(
+  applicantId: number,
+  documentId?: number
+): Promise<VerifyResult>
+```
+
+#### Return type
+
+```ts
+type VerifyResult =
+  | { data: { entities: Array<{ type: string; value: string | null | undefined }> } }
+  | { error: string }
+```
+
+---
+
+## Document discovery
+
+The agent searches two database tables in a fixed priority order. This dual-table strategy exists because identity documents arrive through two separate ingestion paths: the legacy `documents` table (used by internal forms) and the `document_uploads` table (used by the FICA document workflow).
+
+### Accepted document types
+
+```ts
+["ID_DOCUMENT", "PROPRIETOR_ID", "DIRECTOR_ID", "FICA_ID"]
+```
+
+### With a specific `documentId`
+
+1. Look up `documents` by `id = documentId AND applicantId = applicantId`. Use this record if `fileContent` is present.
+2. If not found, look up `document_uploads` by `id = documentId`. Use this record if `fileContent` is present.
+3. If neither has content, return `{ error: "No ID document found." }`.
+
+### Without a `documentId` (auto-discover latest)
+
+1. Query `documents` for the most recent record matching `applicantId` and one of the accepted types, ordered by `uploadedAt DESC`.
+2. If no result with `fileContent`, query `document_uploads` for the most recent record matching `workflowId = applicantId` and an accepted type, ordered by `uploadedAt DESC`.
+3. If neither table yields a document, return `{ error: "No ID document found." }`.
+
+---
+
+## Document AI request
+
+The processor name is assembled as:
+
+```
+projects/{projectId}/locations/{location}/processors/{processorId}
+```
+
+Before submission, the agent strips any data-URI prefix from the stored base64 content:
+
+```ts
+const base64Content = doc.fileContent.replace(/^data:.*?;base64,/, "").trim();
+```
+
+The `processDocument` call is:
+
+```ts
+client.processDocument({
+  name,
+  rawDocument: {
+    content: base64Content,           // stripped base64 string
+    mimeType: doc.mimeType || "application/pdf",
+  },
+})
+```
+
+Supported MIME types are whatever the stored document carries. PDF and common image formats (JPEG, PNG) are typical.
+
+---
+
+## Response entities
+
+The ID Proofing processor returns entities via `result.document.entities`. The agent maps them to a flat array:
+
+```ts
+const entities = document.entities.map((e) => ({
+  type: e.type,
+  value: e.mentionText,
+}));
+```
+
+### Known fraud signal entity types
+
+| Entity type | Description | Expected values |
+| :--- | :--- | :--- |
+| `fraud_signals_is_identity_document` | Classifies whether the submitted document is a genuine identity document. | `PASS`, `FAIL`, `INCONCLUSIVE` |
+| `fraud_signals_image_manipulation` | Detects digital editing, splicing, or region tampering. | `PASS`, `FAIL`, `INCONCLUSIVE` |
+| `fraud_signals_suspicious_words` | Flags document text that matches patterns associated with fraudulent documents (e.g. "SPECIMEN", "SAMPLE"). | `PASS`, `FAIL`, `INCONCLUSIVE` |
+
+If the processor returns no entities, the agent returns `{ data: { entities: [] } }` rather than an error.
+
+---
+
+## Persistence
+
+Results are written back to the originating table only — the table where the document was found.
+
+### `document_uploads` table
+
+```ts
+db.update(documentUploads).set({
+  verificationStatus: "verified",
+  metadata: JSON.stringify({ documentAiResult: entities }),
+  verifiedAt: new Date(),
+  verifiedBy: "Document AI",
+})
+```
+
+Column mapping:
+
+| Column | Value |
+| :--- | :--- |
+| `verification_status` | `"verified"` |
+| `metadata` | `{ "documentAiResult": [...entities] }` (JSON string) |
+| `verified_at` | Current timestamp |
+| `verified_by` | `"Document AI"` |
+
+### `documents` table
+
+```ts
+db.update(documents).set({
+  processingStatus: "verified",
+  processingResult: JSON.stringify({ documentAiResult: entities }),
+  verifiedAt: new Date(),
+})
+```
+
+Column mapping:
+
+| Column | Value |
+| :--- | :--- |
+| `processing_status` | `"verified"` |
+| `processing_result` | `{ "documentAiResult": [...entities] }` (JSON string) |
+| `verified_at` | Current timestamp |
+
+---
+
+## Decoupled architecture
+
+The agent **does not write to `risk_check_results`**. Earlier versions mutated the `FICA` check-type row in `risk_check_results` directly when a document was verified. This was removed because it violated the separation of concerns between document-level verification and the workflow-level FICA risk check.
+
+The workflow's FICA check in `inngest/functions/control-tower/stages/stage3_enrichment.ts` is now the sole authority for the `FICA` row in `risk_check_results`.
+
+---
+
+## Surfacing results in Risk Review
+
+Despite the `risk_check_results` decoupling, the `documentAiResult` is still surfaced in the Risk Review report and PDF export. The report page (`app/(authenticated)/dashboard/risk-review/reports/[id]/page.tsx`) queries both document tables directly after loading risk-check data:
+
+```ts
+const idDocTypes = ["ID_DOCUMENT", "PROPRIETOR_ID", "DIRECTOR_ID", "FICA_ID"];
+
+// 1. Try documents table (by applicantId + type)
+const verifiedDocRows = await db
+  .select({ processingResult: documents.processingResult })
+  .from(documents)
+  .where(and(eq(documents.applicantId, applicantId), inArray(documents.type, idDocTypes)))
+  .orderBy(desc(documents.verifiedAt))
+  .limit(1);
+
+// 2. Try document_uploads table (by workflowId + documentType)
+const verifiedUploadRows = await db
+  .select({ metadata: documentUploads.metadata })
+  .from(documentUploads)
+  .where(and(
+    eq(documentUploads.workflowId, workflow.id),
+    inArray(documentUploads.documentType, idDocTypes)
+  ))
+  .orderBy(desc(documentUploads.verifiedAt))
+  .limit(1);
+```
+
+The extracted `documentAiResult` is passed into `buildReportData` as a fallback:
+
+```ts
+buildReportData(applicant, workflow, riskChecks, financialRiskRawOutput, assessment, documentAiResult)
+```
+
+Inside `buildReportData` (`lib/risk-review/build-report-data.ts`), the value is applied as:
+
+```ts
+ficaData: {
+  ...mergedFica,
+  documentAiResult: mergedFica.documentAiResult ?? documentAiResult,
+  vatVerification,
+}
+```
+
+This means:
+- If the FICA check payload already contains `documentAiResult` (legacy records written before the decoupling), that value takes precedence.
+- Otherwise, the result from the document tables is used.
+
+---
+
+## Error responses
+
+| Scenario | Error string |
+| :--- | :--- |
+| `GOOGLE_APPLICATION_CREDENTIALS_JSON` not set | `"Google Cloud credentials not configured."` |
+| Database client unavailable | `"Database not available."` |
+| No matching document found in either table | `"No ID document found."` |
+| `GOOGLE_CLOUD_PROCESSOR_ID` or `GOOGLE_CLOUD_PROJECT_ID` missing | `"Google Cloud Document AI is not fully configured."` |
+| Any uncaught exception | Original `error.message` or `"Verification failed."` |
+
+---
+
+## Data flow summary
+
+```
+Dashboard (FICA section)
+       │
+       │  verifyIdentity(applicantId)
+       ▼
+processIdentityVerification()
+       │
+       ├─ Resolve credentials & build DocumentProcessorServiceClient
+       │
+       ├─ Discover document
+       │    ├─ documents table     (by applicantId + type)
+       │    └─ document_uploads    (by workflowId + type)
+       │
+       ├─ Strip data-URI prefix from base64 content
+       │
+       ├─ processDocument() → Google Cloud Document AI
+       │
+       ├─ Map entities → [{ type, value }]
+       │
+       ├─ Persist to originating table
+       │    ├─ document_uploads.metadata         → { documentAiResult: [...] }
+       │    └─ documents.processing_result       → { documentAiResult: [...] }
+       │
+       └─ Return { data: { entities } }
+
+Risk Review Report page
+       │
+       ├─ Load riskCheckResults (FICA check payload)
+       ├─ Query documents / document_uploads for latest verified ID doc
+       ├─ Extract documentAiResult from processingResult / metadata
+       ├─ buildReportData(..., documentAiResult)
+       │
+       └─ ficaData.documentAiResult → FICA section UI + PDF export section 5.5
+```
+
+---
+
+## Related files
+
+| File | Role |
+| :--- | :--- |
+| `app/actions/verify-id.ts` | Agent implementation |
+| `app/(authenticated)/dashboard/risk-review/reports/[id]/page.tsx` | Report page — queries document tables and passes result to buildReportData |
+| `lib/risk-review/build-report-data.ts` | Merges documentAiResult into ficaData for the report |
+| `components/dashboard/risk-review/sections/fica-section.tsx` | UI — renders fraud signals and expose the "Verify Identity Document" button |
+| `components/dashboard/risk-review/printable-audit-report.tsx` | PDF export — section 5.5 renders the entity table |
+| `lib/risk-review/types.ts` | `RiskReviewData.ficaData.documentAiResult` type definition |
+| `db/schema.ts` | `documents` and `documentUploads` table definitions |
