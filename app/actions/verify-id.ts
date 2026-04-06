@@ -3,7 +3,7 @@
 import { DocumentProcessorServiceClient } from "@google-cloud/documentai";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
-import { documents, documentUploads, riskCheckResults } from "@/db/schema";
+import { documents, documentUploads } from "@/db/schema";
 
 export async function verifyIdentity(applicantId: number) {
 	return processIdentityVerification(applicantId);
@@ -167,33 +167,6 @@ export async function processIdentityVerification(applicantId: number, documentI
 					verifiedAt: new Date(),
 				})
 				.where(eq(documents.id, doc.id));
-		}
-
-		// Look for workflow ID
-		const workflowId = doc.workflowId || applicantId; // Fallback to applicantId as workflowId
-		if (workflowId) {
-			const ficaCheckRows = await db
-				.select()
-				.from(riskCheckResults)
-				.where(and(eq(riskCheckResults.workflowId, workflowId), eq(riskCheckResults.checkType, "FICA")));
-
-			if (ficaCheckRows.length > 0) {
-				const ficaCheck = ficaCheckRows[0];
-				let payload: any = {};
-				try {
-					payload = ficaCheck.payload ? JSON.parse(ficaCheck.payload) : {};
-				} catch (e) {}
-
-				payload.documentAiResult = entities;
-
-				await db
-					.update(riskCheckResults)
-					.set({
-						payload: JSON.stringify(payload),
-						updatedAt: new Date(),
-					})
-					.where(eq(riskCheckResults.id, ficaCheck.id));
-			}
 		}
 
 		return { data: { entities } };

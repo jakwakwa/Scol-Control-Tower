@@ -28,6 +28,7 @@
               "user-guides/onboarding-forms",
               "user-guides/quotations",
               "user-guides/agents",
+              "user-guides/identity-verification",
               "user-guides/notifications",
               "user-guides/e2e-testing"
             ]
@@ -91,7 +92,8 @@
               "api-reference/endpoint/applicants",
               "api-reference/endpoint/documents",
               "api-reference/endpoint/quotes",
-              "api-reference/endpoint/workflows"
+              "api-reference/endpoint/workflows",
+              "api-reference/endpoint/identity-verification"
             ]
           },
           {

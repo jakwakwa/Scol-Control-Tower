@@ -285,7 +285,8 @@ export function buildReportData(
 	workflow: WorkflowRow | null,
 	riskChecks: RiskCheckRow[],
 	financialRiskRawOutput?: string | null,
-	assessment?: RiskAssessmentSnapshot | null
+	assessment?: RiskAssessmentSnapshot | null,
+	documentAiResult?: Array<{ type: string; value: string }>
 ): RiskReviewData {
 	const applicantId = applicant?.id ?? 0;
 	const transactionId = workflow?.id ? `workflow-${workflow.id}` : `risk-${applicantId}`;
@@ -345,6 +346,7 @@ export function buildReportData(
 		sanctionsData: mergeSanctions(sanctionsParsed),
 		ficaData: {
 			...mergedFica,
+			documentAiResult: mergedFica.documentAiResult ?? documentAiResult,
 			vatVerification,
 		},
 		bankStatementAnalysis: parseFinancialRiskRawOutput(financialRiskRawOutput),

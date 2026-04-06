@@ -1,0 +1,11 @@
+---
+alwaysApply: true
+---
+
+Operational & developer experience
+*   **File size & structure**
+    * 	reduced by **\>60%** in line count.
+    *   New/Existing modules each remain under an agreed LOC threshold (e.g. 300–400 LOC).
+*   **Testing & deployment**
+    *   New modules achieve agreed unit test coverage (e.g. ≥80%).
+    *   Ability to deploy a change affecting only one key area without touching others, validated by at least one such deployment in production.
