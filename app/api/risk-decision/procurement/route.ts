@@ -26,6 +26,7 @@ import { ADJUDICATION_CATEGORIES } from "@/lib/constants/adjudication-taxonomy";
 import { captureServerEvent } from "@/lib/posthog-server";
 import { recordFeedbackLog } from "@/lib/services/divergence.service";
 import { executeKillSwitch } from "@/lib/services/kill-switch.service";
+import { updateRiskCheckReviewState } from "@/lib/services/risk-check.service";
 import { acquireStateLock, markStaleData } from "@/lib/services/state-lock.service";
 
 // ============================================
@@ -195,6 +196,18 @@ export async function POST(request: NextRequest) {
 				);
 			}
 		}
+
+		// Update the PROCUREMENT risk check review state so the hybrid gate and UI
+		// reflect the adjudication. This mirrors what Stage 4 does when it handles
+		// the procurement gate itself — needed for the path where the API is called
+		// directly while the workflow is already in Stage 4 awaiting the event.
+		await updateRiskCheckReviewState(
+			workflowId,
+			"PROCUREMENT",
+			decision.outcome === "CLEARED" ? "approved" : "rejected",
+			userId,
+			adjudicationNotes
+		);
 
 		// Send the event to Inngest to resume/terminate the workflow
 		await inngest.send({
