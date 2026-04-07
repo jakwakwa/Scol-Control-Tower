@@ -2,13 +2,7 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 const mockAuthenticate = mock(() => Promise.resolve("mock-token"));
 const mockClearTokenCache = mock(() => {});
-const mockCreateVendor = mock(() =>
-	Promise.resolve({
-		ProcureCheckVendorID: "vendor-abc-123",
-		vendor_Id: "vendor-abc-123",
-		message: "Created",
-	})
-);
+const mockCreateVendor = mock(() => Promise.resolve("vendor-abc-123"));
 const mockGetVendorSummary = mock(() =>
 	Promise.resolve({
 		VendorID: "vendor-abc-123",
@@ -53,6 +47,17 @@ const mockGetCategoryResult = mock(() =>
 );
 const mockPollUntilReady = mock(() => mockGetVendorSummary());
 
+class MockVendorAlreadyExistsError extends Error {
+	public readonly statusCode: number;
+	public readonly responseBody: string;
+	constructor(statusCode: number, responseBody: string) {
+		super(`Vendor already exists (HTTP ${statusCode})`);
+		this.name = "VendorAlreadyExistsError";
+		this.statusCode = statusCode;
+		this.responseBody = responseBody;
+	}
+}
+
 mock.module("@/lib/procurecheck/client", () => ({
 	authenticate: mockAuthenticate,
 	clearTokenCache: mockClearTokenCache,
@@ -60,6 +65,9 @@ mock.module("@/lib/procurecheck/client", () => ({
 	getVendorSummary: mockGetVendorSummary,
 	getCategoryResult: mockGetCategoryResult,
 	pollUntilReady: mockPollUntilReady,
+	findVendorByExternalId: mock(() => Promise.resolve(null)),
+	initiateVerification: mock(() => Promise.resolve({ success: true, raw: null })),
+	VendorAlreadyExistsError: MockVendorAlreadyExistsError,
 	getProcureCheckRuntimeConfig: () => ({
 		environment: "sandbox" as const,
 		baseUrl: "https://xdev.procurecheck.co.za/api/api/v1/",
@@ -134,19 +142,20 @@ describe("executeProcurementCheck", () => {
 		expect(mockPollUntilReady.mock.calls[0][0]).toBe("vendor-abc-123");
 	});
 
-	it("fetches all 6 category results in parallel", async () => {
+	it("fetches all 7 category results in parallel", async () => {
 		await executeProcurementCheck(1, 100);
 
-		expect(mockGetCategoryResult).toHaveBeenCalledTimes(6);
+		expect(mockGetCategoryResult).toHaveBeenCalledTimes(7);
 		const calledCategories = mockGetCategoryResult.mock.calls.map(
 			(c: [string, string]) => c[1]
 		);
 		expect(calledCategories).toContain("cipc");
 		expect(calledCategories).toContain("property");
 		expect(calledCategories).toContain("nonpreferred");
-		expect(calledCategories).toContain("judgement");
+		expect(calledCategories).toContain("legalMatter");
 		expect(calledCategories).toContain("safps");
 		expect(calledCategories).toContain("persal");
+		expect(calledCategories).toContain("doj");
 	});
 
 	it("throws when applicant is not found", async () => {

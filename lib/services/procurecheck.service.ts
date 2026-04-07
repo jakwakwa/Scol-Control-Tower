@@ -72,6 +72,14 @@ async function resolveVendorId(
 	}
 }
 
+/**
+ * @deprecated Use the atomic step functions in `lib/services/procurecheck-steps.ts`
+ * (resolveVendorStep, checkVendorReadiness, fetchAllCategoryResults) with Inngest
+ * step.run() and step.sleep() instead. The Inngest-native approach in
+ * inngest/functions/control-tower/stages/stage3_enrichment.ts provides durable
+ * polling that survives function restarts, unlike the in-process 60s polling here.
+ * Retained for backward compatibility and ad-hoc/manual invocation only.
+ */
 export async function executeProcurementCheck(
 	applicantId: number,
 	_workflowId: number

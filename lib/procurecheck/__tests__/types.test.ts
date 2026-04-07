@@ -2,11 +2,14 @@ import { describe, expect, it } from "bun:test";
 import {
 	AuthResponseSchema,
 	CategoryResultResponseSchema,
+	CategoryResultTablesSchema,
+	isSummaryReady,
 	PROCURECHECK_CATEGORY_IDS,
 	type ProcurementCategoryId,
 	type ProcurementData,
 	ProcurementDataSchema,
 	VendorCreateResponseSchema,
+	VendorSummaryArraySchema,
 	VendorSummaryResponseSchema,
 } from "../types";
 
@@ -195,8 +198,8 @@ describe("ProcureCheck Zod Schemas", () => {
 	});
 
 	describe("PROCURECHECK_CATEGORY_IDS", () => {
-		it("contains exactly 6 category identifiers", () => {
-			expect(PROCURECHECK_CATEGORY_IDS).toHaveLength(6);
+		it("contains exactly 7 category identifiers", () => {
+			expect(PROCURECHECK_CATEGORY_IDS).toHaveLength(7);
 		});
 
 		it("includes all expected categories", () => {
@@ -207,10 +210,175 @@ describe("ProcureCheck Zod Schemas", () => {
 				"legal",
 				"safps",
 				"persal",
+				"doj",
 			];
 			for (const id of expected) {
 				expect(PROCURECHECK_CATEGORY_IDS).toContain(id);
 			}
+		});
+	});
+
+	// ============================================
+	// V7 Actual API Response Schemas
+	// (sandbox-validated 2026-04-06)
+	// ============================================
+
+	describe("VendorSummaryArraySchema (actual V7 vendorresults response)", () => {
+		it("parses the array returned by GET /vendorresults?id=", () => {
+			const raw = [
+				{
+					$id: "1",
+					VerificationType: "CIPC",
+					TotalChecks: 7,
+					OutstandingChecks: 7,
+					ChecksCompleted: 0,
+					PassedChecks: 0,
+					FailedChecks: 0,
+					PendingChecks: 0,
+					VerificationCompleteDate: null,
+					IsOptional: false,
+					VerificationTypeId: 1,
+					RiskLevel: "0",
+					RiskColour: "#AFB2B6",
+					RiskDescription: "",
+				},
+				{
+					$id: "2",
+					VerificationType: "SAFPS",
+					TotalChecks: 1,
+					OutstandingChecks: 0,
+					ChecksCompleted: 1,
+					PassedChecks: 1,
+					FailedChecks: 0,
+					PendingChecks: 0,
+					VerificationCompleteDate: "2026-01-15T10:30:00",
+					IsOptional: false,
+					VerificationTypeId: 6,
+					RiskLevel: "1",
+					RiskColour: "#00AA00",
+					RiskDescription: "Clear",
+				},
+			];
+			const result = VendorSummaryArraySchema.safeParse(raw);
+			expect(result.success).toBe(true);
+			if (!result.success) return;
+			expect(result.data).toHaveLength(2);
+			expect(result.data[0].VerificationType).toBe("CIPC");
+			expect(result.data[0].OutstandingChecks).toBe(7);
+			expect(result.data[1].VerificationCompleteDate).toBe("2026-01-15T10:30:00");
+		});
+
+		it("computes readiness correctly via isSummaryReady helper", () => {
+			const allComplete = [
+				{
+					VerificationType: "CIPC",
+					TotalChecks: 7,
+					OutstandingChecks: 0,
+					ChecksCompleted: 7,
+					PassedChecks: 7,
+					FailedChecks: 0,
+				},
+				{
+					VerificationType: "SAFPS",
+					TotalChecks: 1,
+					OutstandingChecks: 0,
+					ChecksCompleted: 1,
+					PassedChecks: 1,
+					FailedChecks: 0,
+				},
+			];
+			const result = VendorSummaryArraySchema.safeParse(allComplete);
+			expect(result.success).toBe(true);
+			if (!result.success) return;
+			expect(isSummaryReady(result.data)).toBe(true);
+		});
+
+		it("isSummaryReady returns false when outstanding > 0", () => {
+			const pending = [
+				{
+					VerificationType: "CIPC",
+					TotalChecks: 7,
+					OutstandingChecks: 3,
+					ChecksCompleted: 4,
+					PassedChecks: 4,
+					FailedChecks: 0,
+				},
+			];
+			const result = VendorSummaryArraySchema.safeParse(pending);
+			expect(result.success).toBe(true);
+			if (!result.success) return;
+			expect(isSummaryReady(result.data)).toBe(false);
+		});
+
+		it("isSummaryReady returns false for empty array", () => {
+			expect(isSummaryReady([])).toBe(false);
+		});
+	});
+
+	describe("CategoryResultTablesSchema (VendorResultTablesDTO — Swagger-authoritative)", () => {
+		it("parses empty Tables response (checks still running)", () => {
+			// sandbox returned { "$id": "1", Tables: [] } — $id is JSON.NET artifact, ignored by Zod
+			const raw = { Tables: [] };
+			const result = CategoryResultTablesSchema.safeParse(raw);
+			expect(result.success).toBe(true);
+			if (!result.success) return;
+			expect(result.data.Tables).toHaveLength(0);
+		});
+
+		it("parses VendorResultTablesDTO with ITableData rows when checks complete", () => {
+			// Swagger: ITableData = { MetaData: ITableMetaData, Data: [IDataRowObject] }
+			// ITableMetaData = { TableName, TableHeader, RiskRanking, RiskRankingDisplayColour }
+			// IDataRowObject = { Severity: int, Comments: [ResultComments] }
+			const raw = {
+				Tables: [
+					{
+						MetaData: {
+							TableName: "CIPC Results",
+							TableHeader: "Company Registration",
+							RiskRanking: "Low",
+							RiskRankingDisplayColour: "#00AA00",
+						},
+						Data: [
+							{
+								Severity: 0,
+								Comments: [
+									{
+										Comment: "CIPC check cleared",
+										CommentDate: "2026-01-15T10:30:00",
+										UserNameOfCommenter: "System",
+										ResultID: 42,
+										IsEscalation: false,
+									},
+								],
+							},
+						],
+					},
+				],
+			};
+			const result = CategoryResultTablesSchema.safeParse(raw);
+			expect(result.success).toBe(true);
+			if (!result.success) return;
+			expect(result.data.Tables).toHaveLength(1);
+			expect(result.data.Tables[0].MetaData?.TableName).toBe("CIPC Results");
+			expect(result.data.Tables[0].Data[0].Severity).toBe(0);
+			expect(result.data.Tables[0].Data[0].Comments[0].Comment).toBe(
+				"CIPC check cleared"
+			);
+		});
+
+		it("treats Severity > 0 as a flagged result", () => {
+			const raw = {
+				Tables: [
+					{
+						MetaData: { TableName: "SAFPS Fraud", RiskRanking: "High" },
+						Data: [{ Severity: 2, Comments: [] }],
+					},
+				],
+			};
+			const result = CategoryResultTablesSchema.safeParse(raw);
+			expect(result.success).toBe(true);
+			if (!result.success) return;
+			expect(result.data.Tables[0].Data[0].Severity).toBe(2);
 		});
 	});
 });
