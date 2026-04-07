@@ -314,6 +314,7 @@ function PipelineCard({ workflow }: { workflow: PipelineWorkflow }) {
 						<Button
 							variant="ghost"
 							size="icon"
+							aria-label="Workflow actions"
 							className="p-1 m-0 h-4 w-3 select-none bg-transparent border-none shadow-none">
 							<EllipsisVertical className="text-white/60 bg-none font-black h-3 w-3 p-0 m-0" />
 						</Button>
