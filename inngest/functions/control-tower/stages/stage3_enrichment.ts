@@ -20,7 +20,12 @@ import {
 	createWorkflowNotification,
 	logWorkflowEvent,
 } from "@/lib/services/notification-events.service";
-import { executeProcurementCheck } from "@/lib/services/procurecheck.service";
+import { hasCompletionNotification } from "@/lib/procurecheck/notifications";
+import {
+	checkVendorReadiness,
+	fetchAllCategoryResults,
+	resolveVendorStep,
+} from "@/lib/services/procurecheck-steps";
 import { updateRiskCheckMachineState } from "@/lib/services/risk-check.service";
 import {
 	getStateLockInfo,
@@ -83,130 +88,326 @@ export async function executeStage3({
 		return { version: lockInfo.version };
 	});
 
-	const procurementCheck = step.run("check-procurement", async () => {
-		const terminated = await isWorkflowTerminated(workflowId);
-		if (terminated) {
-			return { killSwitchTriggered: true, isBlocked: false };
+	// Procurement check — multi-step durable flow with Inngest-native polling.
+	// Tier 1: Direct polling ~2 min (6 attempts, 5s→30s backoff)
+	// Tier 2: Notifications API fallback ~5 min (5 attempts, 60s intervals)
+	// Total window: ~7 minutes before escalating to manual_required.
+	const procurementCheck = (async () => {
+		// Step 1: Pre-flight checks (termination + state lock + state init)
+		const procPreFlight = await step.run("procurement-preflight", async () => {
+			const terminated = await isWorkflowTerminated(workflowId);
+			if (terminated) return { skip: true, reason: "terminated" as const };
+
+			const currentLock = await getStateLockInfo(workflowId);
+			if (currentLock.version !== preLockState.version) {
+				console.warn(
+					`[ControlTower] Procurement: State collision detected — ` +
+						`expected v${preLockState.version}, found v${currentLock.version}`
+				);
+				await handleStateCollision(workflowId, "check-procurement", {
+					stream: "procurement",
+					expectedVersion: preLockState.version,
+					actualVersion: currentLock.version,
+					lockedBy: currentLock.lockedBy,
+				});
+				await updateRiskCheckMachineState(
+					workflowId,
+					"PROCUREMENT",
+					"manual_required",
+					{
+						errorDetails:
+							"State lock collision — human decision overrides automated check",
+					}
+				);
+				return { skip: true, reason: "state_collision" as const };
+			}
+
+			await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "in_progress", {
+				provider: "procurecheck",
+			});
+
+			return { skip: false, reason: null };
+		});
+
+		if (procPreFlight.skip) {
+			return {
+				killSwitchTriggered: procPreFlight.reason === "terminated",
+				isBlocked: false,
+			};
 		}
 
-		const currentLock = await getStateLockInfo(workflowId);
-		if (currentLock.version !== preLockState.version) {
-			console.warn(
-				`[ControlTower] Procurement: State collision detected — ` +
-					`expected v${preLockState.version}, found v${currentLock.version}`
+		// Step 2: Resolve vendor (create new or find existing)
+		const procurementStart = Date.now();
+		let vendorId: string;
+		try {
+			const rawVendorResult = await step.run(
+				"procurement-resolve-vendor",
+				async () => {
+					const db = getDatabaseClient();
+					if (!db)
+						throw new Error(
+							"Database client unavailable for procurement check"
+						);
+
+					const rows = await db
+						.select()
+						.from(applicants)
+						.where(eq(applicants.id, applicantId));
+					const applicantData = rows[0];
+					if (!applicantData)
+						throw new Error(`Applicant ${applicantId} not found`);
+
+					return resolveVendorStep({
+						vendorName: applicantData.companyName,
+						registrationNumber: applicantData.registrationNumber ?? null,
+						entityType: applicantData.entityType ?? null,
+						idNumber: applicantData.idNumber ?? null,
+						vatNumber: applicantData.vatNumber ?? null,
+						applicantId,
+					});
+				}
 			);
-			await handleStateCollision(workflowId, "check-procurement", {
-				stream: "procurement",
-				expectedVersion: preLockState.version,
-				actualVersion: currentLock.version,
-				lockedBy: currentLock.lockedBy,
-			});
-			await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "manual_required", {
-				errorDetails: "State lock collision — human decision overrides automated check",
+			// Inngest's JsonifyObject serialization widens fields to optional; our
+			// resolveVendorStep always populates vendorId, so narrow it back here.
+			if (!rawVendorResult.vendorId) {
+				throw new Error("resolveVendorStep returned empty vendorId");
+			}
+			vendorId = rawVendorResult.vendorId;
+		} catch (error) {
+			await step.run("procurement-vendor-failed", async () => {
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				console.error(
+					"[ControlTower] Procurement vendor resolution failed:",
+					error
+				);
+				recordVendorCheckFailure({
+					vendor: "procurecheck",
+					stage: 3,
+					workflowId,
+					applicantId,
+					durationMs: Date.now() - procurementStart,
+					outcome: "persistent_failure",
+					error,
+				});
+				await logWorkflowEvent({
+					workflowId,
+					eventType: "error",
+					payload: {
+						error: errorMessage,
+						context: "procurement_vendor_resolution_failed",
+						source: "procurecheck",
+						stage: 3,
+					},
+				});
+				await updateRiskCheckMachineState(
+					workflowId,
+					"PROCUREMENT",
+					"manual_required",
+					{ errorDetails: errorMessage }
+				);
+				await createWorkflowNotification({
+					workflowId,
+					applicantId,
+					type: "warning",
+					title: "Procurement Check Needs Manual Review",
+					message:
+						"ProcureCheck vendor resolution failed. Workflow continues with manual procurement review.",
+					actionable: false,
+				});
 			});
 			return { killSwitchTriggered: false, isBlocked: false };
 		}
 
-		await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "in_progress", {
-			provider: "procurecheck",
-		});
+		// Step 3: Tier 1 — Direct polling with Inngest-native sleep (~2 minutes).
+		// Uses V7 vendorresults array endpoint via checkVendorReadiness().
+		const TIER1_ATTEMPTS = 6;
+		let isReady = false;
 
-		const procurementStart = Date.now();
+		for (let attempt = 0; attempt < TIER1_ATTEMPTS; attempt++) {
+			const readiness = await step.run(`procurement-poll-${attempt}`, () =>
+				checkVendorReadiness(vendorId)
+			);
+
+			if (readiness.ready) {
+				isReady = true;
+				break;
+			}
+
+			// After 3 attempts with 0 total checks, checks were not initiated — abort to manual.
+			if (readiness.totalChecks === 0 && attempt > 2) {
+				await step.run("procurement-no-checks-detected", async () => {
+					await updateRiskCheckMachineState(
+						workflowId,
+						"PROCUREMENT",
+						"manual_required",
+						{
+							errorDetails: `Vendor ${vendorId} has 0 total checks after ${attempt + 1} poll attempts. Checks may not have been initiated.`,
+							externalCheckId: vendorId,
+						}
+					);
+					await createWorkflowNotification({
+						workflowId,
+						applicantId,
+						type: "warning",
+						title: "ProcureCheck: No Checks Detected",
+						message:
+							"Vendor created but no checks are running. Manual review required.",
+						actionable: false,
+					});
+				});
+				return { killSwitchTriggered: false, isBlocked: false };
+			}
+
+			// Exponential backoff: 5s, 10s, 20s, 30s, 30s, 30s
+			const delaySec = Math.min(5 * 2 ** attempt, 30);
+			await step.sleep(`procurement-wait-${attempt}`, `${delaySec}s`);
+		}
+
+		// Step 3b: Tier 2 — Notifications API fallback (~5 minutes).
+		// Checks the ProcureCheck notifications API for completion signals.
+		if (!isReady) {
+			const TIER2_ATTEMPTS = 5;
+
+			for (let attempt = 0; attempt < TIER2_ATTEMPTS; attempt++) {
+				await step.sleep(`procurement-notify-wait-${attempt}`, "60s");
+
+				const pollResult = await step.run(
+					`procurement-notify-poll-${attempt}`,
+					async () => {
+						const ready = await checkVendorReadiness(vendorId);
+						const notified = await hasCompletionNotification(
+							vendorId
+						);
+						return { readiness: ready, hasNotification: notified };
+					}
+				);
+
+				if (pollResult.readiness.ready || pollResult.hasNotification) {
+					// If we got a notification but readiness wasn't confirmed, re-check.
+					if (!pollResult.readiness.ready && pollResult.hasNotification) {
+						const finalCheck = await step.run(
+							`procurement-notify-final-check-${attempt}`,
+							() => checkVendorReadiness(vendorId)
+						);
+						isReady = finalCheck.ready;
+					} else {
+						isReady = true;
+					}
+					if (isReady) break;
+				}
+			}
+		}
+
+		if (!isReady) {
+			await step.run("procurement-poll-exhausted", async () => {
+				await updateRiskCheckMachineState(
+					workflowId,
+					"PROCUREMENT",
+					"manual_required",
+					{
+						errorDetails:
+							"ProcureCheck polling exhausted after Tier 1 + Tier 2 (~7 min). Results not yet ready.",
+						externalCheckId: vendorId,
+					}
+				);
+				await createWorkflowNotification({
+					workflowId,
+					applicantId,
+					type: "warning",
+					title: "Procurement Check Needs Manual Review",
+					message:
+						"ProcureCheck results not ready after extended polling and notification checks. Manual review required.",
+					actionable: false,
+				});
+			});
+			return { killSwitchTriggered: false, isBlocked: false };
+		}
+
+		// Step 4: Fetch all category results, persist, and notify.
+		// Note: summary refetch + category fetch live in a single step so the
+		// summaryItems array does not cross an Inngest step boundary (which would
+		// widen all fields to optional via JsonifyObject serialization).
 		try {
-			const result = await executeProcurementCheck(applicantId, workflowId);
-
-			await logWorkflowEvent({
-				workflowId,
-				eventType: "procurement_check_completed",
-				payload: {
-					vendorId: result.vendorId,
-					provider: result.payload.provider,
-					categoriesCount: result.payload.categories.length,
-				},
+			const result = await step.run("procurement-fetch-results", async () => {
+				const db = getDatabaseClient();
+				const applicantRows = db
+					? await db
+							.select()
+							.from(applicants)
+							.where(eq(applicants.id, applicantId))
+					: [];
+				const vendorName = applicantRows[0]?.companyName ?? "Unknown Vendor";
+				const finalSummary = await checkVendorReadiness(vendorId);
+				return fetchAllCategoryResults(
+					vendorId,
+					finalSummary.summaryItems,
+					vendorName
+				);
 			});
 
-			await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "completed", {
-				externalCheckId: result.vendorId,
-				payload: result.payload,
-				rawPayload: result.rawPayload,
-			});
+			await step.run("procurement-save-results", async () => {
+				await logWorkflowEvent({
+					workflowId,
+					eventType: "procurement_check_completed",
+					payload: {
+						vendorId: result.vendorId,
+						provider: result.payload.provider,
+						categoriesCount: result.payload.categories.length,
+					},
+				});
 
-			await createWorkflowNotification({
-				workflowId,
-				applicantId,
-				type: "warning",
-				title: "Procurement Result Added To Risk Review",
-				message: `ProcureCheck completed for vendor ${result.vendorId}. ${result.payload.categories.length} categories checked.`,
-				actionable: false,
+				await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "completed", {
+					externalCheckId: result.vendorId,
+					payload: result.payload,
+					rawPayload: result.rawPayload,
+				});
+
+				await createWorkflowNotification({
+					workflowId,
+					applicantId,
+					type: "warning",
+					title: "Procurement Result Added To Risk Review",
+					message: `ProcureCheck completed for vendor ${result.vendorId}. ${result.payload.categories.length} categories checked.`,
+					actionable: false,
+				});
 			});
 
 			return { killSwitchTriggered: false, isBlocked: false };
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			const httpStatus = (() => {
-				const match = errorMessage.match(/\b([45]\d{2})\b/);
-				return match ? Number.parseInt(match[1], 10) : null;
-			})();
-			const isAuthError = httpStatus === 401 || httpStatus === 403;
-			const isClientError = httpStatus !== null && httpStatus >= 400 && httpStatus < 500;
-			const isRegistrationValidationError =
-				/Registration number does not exist in CIPC database/i.test(errorMessage);
-
-			console.error("[ControlTower] Procurement check execution failed:", error);
-			recordVendorCheckFailure({
-				vendor: "procurecheck",
-				stage: 3,
-				workflowId,
-				applicantId,
-				durationMs: Date.now() - procurementStart,
-				outcome:
-					isAuthError || isClientError ? "persistent_failure" : "transient_failure",
-				error,
-			});
-
-			await logWorkflowEvent({
-				workflowId,
-				eventType: "error",
-				payload: {
-					error: errorMessage,
-					context: "procurement_check_failed",
-					source: "procurecheck",
+			await step.run("procurement-fetch-failed", async () => {
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				console.error("[ControlTower] Procurement result fetch failed:", error);
+				recordVendorCheckFailure({
+					vendor: "procurecheck",
 					stage: 3,
-					isAuthError,
-					httpStatus,
-				},
+					workflowId,
+					applicantId,
+					durationMs: Date.now() - procurementStart,
+					outcome: "persistent_failure",
+					error,
+				});
+				await updateRiskCheckMachineState(
+					workflowId,
+					"PROCUREMENT",
+					"manual_required",
+					{
+						errorDetails: errorMessage,
+						externalCheckId: vendorId,
+					}
+				);
+				await createWorkflowNotification({
+					workflowId,
+					applicantId,
+					type: "warning",
+					title: "Procurement Check Needs Manual Review",
+					message:
+						"ProcureCheck results could not be fetched. Manual review required.",
+					actionable: false,
+				});
 			});
-
-			const manualReviewReason = isAuthError
-				? `Auth failure: ${errorMessage}`
-				: errorMessage;
-
-			await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "manual_required", {
-				errorDetails: manualReviewReason,
-			});
-
-			const notificationTitle = isAuthError
-				? "ProcureCheck Authentication Failed"
-				: "Procurement Check Needs Manual Review";
-			const notificationMessage = isAuthError
-				? "ProcureCheck credentials are invalid. Manual procurement review required."
-				: isRegistrationValidationError
-					? "ProcureCheck rejected the registration number (CIPC validation). Workflow continues with manual procurement review."
-					: "ProcureCheck could not complete. Workflow continues and procurement moves to manual review.";
-
-			await createWorkflowNotification({
-				workflowId,
-				applicantId,
-				type: "warning",
-				title: notificationTitle,
-				message: notificationMessage,
-				actionable: false,
-			});
-
-			// Non-blocking by design: procurement failures should not terminate Stage 3.
 			return { killSwitchTriggered: false, isBlocked: false };
 		}
-	});
+	})();
 
 	const itcCheck = step.run("check-itc", async () => {
 		await guardKillSwitch(workflowId, "check-itc");
