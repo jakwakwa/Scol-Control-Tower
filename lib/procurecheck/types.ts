@@ -102,9 +102,10 @@ export const API_CATEGORY_ENDPOINTS = [
 	"cipc",
 	"property",
 	"nonpreferred",
-	"judgement",
+	"legalMatter",
 	"safps",
 	"persal",
+	"doj",
 ] as const;
 
 export type ApiCategoryEndpoint = (typeof API_CATEGORY_ENDPOINTS)[number];
@@ -120,6 +121,7 @@ export const PROCURECHECK_CATEGORY_IDS = [
 	"legal",
 	"safps",
 	"persal",
+	"doj",
 ] as const;
 
 export type ProcurementCategoryId = (typeof PROCURECHECK_CATEGORY_IDS)[number];
@@ -203,9 +205,10 @@ export const API_TO_INTERNAL_CATEGORY: Record<
 	cipc: "cipc",
 	property: "property",
 	nonpreferred: "restrictedList",
-	judgement: "legal",
+	legalMatter: "legal",
 	safps: "safps",
 	persal: "persal",
+	doj: "doj",
 };
 
 // ============================================
@@ -220,3 +223,100 @@ export interface CreateVendorParams {
 	vatNumber: string | null;
 	applicantId: number;
 }
+
+// ============================================
+// V7 Actual API Response Schemas
+// (sandbox-validated 2026-04-06; Swagger-authoritative)
+// ============================================
+
+/**
+ * One entry in the GET /vendorresults?id= array response (per Swagger CheckResultsSummary).
+ * The overall readiness check sums OutstandingChecks across all items.
+ */
+const VendorSummaryItemSchema = z.object({
+	VerificationType: z.string(),
+	TotalChecks: z.number(),
+	OutstandingChecks: z.number(),
+	ChecksCompleted: z.number(),
+	PassedChecks: z.number(),
+	FailedChecks: z.number(),
+	PendingChecks: z.number().optional().default(0),
+	VerificationCompleteDate: z.string().nullable().optional(),
+	IsOptional: z.boolean().optional(),
+	VerificationTypeId: z.number().optional(),
+	RiskLevel: z.string().optional(),
+	RiskColour: z.string().optional(),
+	RiskDescription: z.string().optional(),
+});
+
+export type VendorSummaryItem = z.infer<typeof VendorSummaryItemSchema>;
+
+/**
+ * The actual response from GET /vendorresults?id={VendorID} — an array.
+ * ⚠️ WARNING: Do NOT confuse with GET /VendorResults/resultsummary?vendorId=,
+ * which returns World Compliance data (Category/Vendors/ActiveDirectors) — a different shape.
+ */
+export const VendorSummaryArraySchema = z.array(VendorSummaryItemSchema);
+
+export type VendorSummaryArray = z.infer<typeof VendorSummaryArraySchema>;
+
+/**
+ * Helper: derive readiness from the array response.
+ */
+export function isSummaryReady(items: VendorSummaryArray): boolean {
+	if (items.length === 0) return false;
+	const totalChecks = items.reduce((s, i) => s + i.TotalChecks, 0);
+	const outstanding = items.reduce((s, i) => s + i.OutstandingChecks, 0);
+	return totalChecks > 0 && outstanding === 0;
+}
+
+/**
+ * ResultComments — per Swagger definition.
+ */
+const ResultCommentSchema = z.object({
+	Comment: z.string().optional(),
+	CommentDate: z.string().optional(),
+	UserNameOfCommenter: z.string().optional(),
+	ResultID: z.number().optional(),
+	IsEscalation: z.boolean().optional(),
+});
+
+/**
+ * IDataRowObject — per Swagger. Severity=0 means clear; >0 means flagged.
+ */
+const IDataRowObjectSchema = z.object({
+	Severity: z.number().optional().default(0),
+	Comments: z.array(ResultCommentSchema).optional().default([]),
+});
+
+export type IDataRowObject = z.infer<typeof IDataRowObjectSchema>;
+
+/**
+ * ITableMetaData — per Swagger.
+ */
+const ITableMetaDataSchema = z.object({
+	TableName: z.string().optional(),
+	TableHeader: z.string().optional(),
+	RiskRanking: z.string().optional(),
+	RiskRankingDisplayColour: z.string().optional(),
+});
+
+/**
+ * ITableData — per Swagger. MetaData + Data rows (NOT Columns/Rows).
+ */
+const ITableDataSchema = z.object({
+	MetaData: ITableMetaDataSchema.optional(),
+	Data: z.array(IDataRowObjectSchema).optional().default([]),
+});
+
+export type ITableData = z.infer<typeof ITableDataSchema>;
+
+/**
+ * VendorResultTablesDTO — the actual response from GET /vendorresults/{category}?id={VendorID}.
+ * Per Swagger: { Tables: [ITableData] }
+ */
+export const CategoryResultTablesSchema = z.object({
+	Tables: z.array(ITableDataSchema).optional().default([]),
+});
+
+export type CategoryResultTables = z.infer<typeof CategoryResultTablesSchema>;
