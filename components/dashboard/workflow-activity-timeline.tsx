@@ -104,9 +104,10 @@ function PayloadItems({
 }) {
 	if (!payload) return null;
 
-	const data = isPlainObject(parsedPayload)
-		? parsedPayload
-		: parseWorkflowEventPayload(payload);
+	const data =
+		parsedPayload === undefined
+			? parseWorkflowEventPayload(payload)
+			: parsedPayload;
 
 	if (isPlainObject(data)) {
 		return (
