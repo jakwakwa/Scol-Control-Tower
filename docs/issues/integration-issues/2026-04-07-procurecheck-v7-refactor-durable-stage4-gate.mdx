@@ -1,0 +1,496 @@
+---
+title: "ProcureCheck V7 Refactor — Schema Fixes, Durable Polling, Stage 4 Gate"
+description: "V7 spec compliance pass: fixes broken vendorresults/category schemas, removes an undocumented parameter suppressing auto-checks, replaces fragile in-process polling with Inngest-native durable steps, and wires the procurement adjudication event into Stage 4 as a first-class gate."
+category: "integration-issues"
+problem_type: "external-api-integration"
+component: "procurecheck"
+symptoms:
+  - "ProcureCheck auth succeeds but results never come back"
+  - "Zod parse errors on every vendorresults response"
+  - "Workflows silently fall back to manual_required"
+  - "legalMatter / doj categories never fetched (404s hidden)"
+  - "risk/procurement.completed event fired but never consumed"
+  - "Stage 3 procurement polling crashes on >60s run duration"
+root_cause: "Five independent defects: (1) undocumented runInitialChecks=false param suppressed auto-checks, (2) dead POST /vendorverification call, (3) 50-min token cache vs 30-min server validity, (4) VendorSummaryResponseSchema expected object but API returns CheckResultsSummary[] array, (5) CategoryResultResponseSchema expected Category/Reviewed/Checks shape but API returns VendorResultTablesDTO = { Tables: [ITableData] }."
+date: "2026-04-07"
+status: "completed"
+---
+
+# ProcureCheck V7 Refactor — Schema Fixes, Durable Polling, Stage 4 Gate
+
+## Overview
+
+The ProcureCheck integration was authorizing successfully but did not reliably return check results. Investigation against the V7 spec (`docs/procurecheck-api-v7.yaml` and the Lexis V7 PDF) plus a live sandbox validation against `xdev.procurecheck.co.za` uncovered **five independent defects** — three from spec analysis and two from response-shape validation. This refactor:
+
+1. Brings the client back in line with the V7 spec.
+2. Fixes two critical Zod schemas that caused every real API response to crash.
+3. Replaces the fragile in-process 60s polling loop with a **durable Inngest-native multi-step flow** with two polling tiers.
+4. Wires the existing-but-unused `risk/procurement.completed` event into Stage 4 as a first-class adjudication gate.
+5. Ensures the procurement decision API updates `riskCheckResults.reviewState` so the hybrid gate and UI reflect adjudication immediately.
+
+**Predecessor:** [ProcureCheck Web API v5 — Full Production Integration](/issues/integration-issues/2026-04-01-procurecheck-v5-jwt-auth-implementation) — this refactor builds on that foundation.
+
+## Symptoms
+
+- Stage 3 workflows completed ProcureCheck auth, logged a vendor ID, then fell silently into `manual_required` review state.
+- Zod parse exceptions intermittently surfaced in Inngest logs on the polling step but were swallowed by the outer try/catch.
+- Risk Review UI showed procurement as "awaiting results" indefinitely even when the vendor was actually finished on the ProcureCheck side.
+- DOJ category results never appeared for any vendor type.
+- Legal category results never appeared — the endpoint was `judgement` which 404s on every call; the real endpoint is `legalMatter`.
+- The `/api/risk-decision/procurement` route fired `risk/procurement.completed` but no Inngest step ever consumed it — procurement adjudication did not independently gate workflow progression.
+
+## Investigation
+
+Two rounds of analysis were required:
+
+**Round 1: V7 spec comparison against current code**
+
+| Defect | Evidence |
+|---|---|
+| Undocumented `runInitialChecks=false` parameter on `POST /vendors` | Not present anywhere in `docs/procurecheck-api-v7.yaml`. Line 257 of `lib/procurecheck/client.ts` appended it to the query string. |
+| Dead `POST /vendorverification` endpoint | `initiateVerification()` at `lib/procurecheck/client.ts:416` calls an endpoint that does not exist in the V7 spec. |
+| Token TTL mismatch | V7 spec: 30-min token validity. `TOKEN_TTL_MS = 50 * 60 * 1000` at line 23. Silent auth failure after the 30-min mark. |
+
+**Round 2: Live sandbox validation**
+
+A manual `curl` run against `xdev.procurecheck.co.za` created a test vendor (`6410357b-f034-4704-b6a6-d86b1340112c`) with `runInitialChecks=false` **omitted** and revealed two additional defects:
+
+| Defect | Evidence |
+|---|---|
+| `vendorresults?id=` returns an array, not an object | Actual shape: `[{ VerificationType: "CIPC", TotalChecks: 7, OutstandingChecks: 7, ChecksCompleted: 0, ... }, ...]`. The old `VendorSummaryResponseSchema` expected `{ VendorID, VendorName, RiskSummary: { ... }, CheckCategories: [...] }`. Zod `.parse()` threw on every real response. |
+| Category result shape is `VendorResultTablesDTO`, not `{ Category, Reviewed, Checks }` | Swagger-authoritative: `{ Tables: [ITableData] }` where `ITableData = { MetaData: { TableName, RiskRanking, ... }, Data: [IDataRowObject] }` and `IDataRowObject = { Severity: int, Comments: [ResultComments] }`. There are **no `Columns` or `Rows` fields**. |
+
+The sandbox also confirmed that **removing `runInitialChecks=false` causes checks to auto-start on vendor creation** (`TotalChecks=20` across 6 categories visible within seconds) — so the separate `initiateVerification()` call is not needed.
+
+The ProcureCheck help page (`/api/Help`) revealed the final two corrections: the correct endpoint for legal results is `/vendorresults/legalMatter` (not `/judgement`), and DOJ (`/doj`) was missing from the endpoint list entirely.
+
+## Root Cause
+
+Five independent defects compounded to produce the observed behavior:
+
+1. **`runInitialChecks=false` suppressed auto-checks.** Undocumented parameter. Vendor was created but no checks ever started.
+2. **Dead `vendorverification` endpoint.** With `runInitialChecks=false` removed this call is unnecessary; with it in place the endpoint returned 404, masking the real problem.
+3. **Token TTL drift.** Cached tokens issued 31–50 minutes ago silently failed auth.
+4. **`VendorSummaryResponseSchema` shape mismatch.** The polling loop (`pollUntilReady`) always hit a `ZodError`, the outer error handler wrote `manual_required`, and the workflow never recovered.
+5. **`CategoryResultResponseSchema` shape mismatch.** Even if polling had worked, the per-category fetch would have crashed in the same way.
+
+Two secondary issues:
+
+- `API_CATEGORY_ENDPOINTS` listed `"judgement"` (404s) instead of `"legalMatter"`, and omitted `"doj"` entirely.
+- `risk/procurement.completed` was fired by the decision API but never consumed by any Inngest `step.waitForEvent` — a dead event path.
+
+## Solution
+
+### Phase 1: V7 spec compliance + resilience
+
+**`lib/procurecheck/client.ts`**
+
+```typescript
+// Before:
+const TOKEN_TTL_MS = 50 * 60 * 1000; // 50 minutes
+
+// After:
+const TOKEN_TTL_MS = 25 * 60 * 1000; // 25 minutes
+// (V7 spec: 30-min validity, refresh at 25min for safety margin)
+```
+
+```typescript
+// Before:
+const response = await fetch(
+  `${baseUrl}vendors?processBeeInfo=false&runInitialChecks=false`,
+  // ...
+);
+
+// After:
+const response = await fetch(
+  `${baseUrl}vendors?processBeeInfo=false`,
+  // ...
+);
+```
+
+```typescript
+/**
+ * @deprecated V7 spec does not include a vendorverification endpoint.
+ * With runInitialChecks removed from createVendor, checks auto-run.
+ */
+export async function initiateVerification(vendorId: string) { ... }
+```
+
+**`lib/procurecheck/types.ts`** — New schemas that match the actual V7 shapes (kept alongside the old ones for backward compat during the deprecation window):
+
+```typescript
+const VendorSummaryItemSchema = z.object({
+  VerificationType: z.string(),
+  TotalChecks: z.number(),
+  OutstandingChecks: z.number(),
+  ChecksCompleted: z.number(),
+  PassedChecks: z.number(),
+  FailedChecks: z.number(),
+  PendingChecks: z.number().optional().default(0),
+  VerificationCompleteDate: z.string().nullable().optional(),
+  IsOptional: z.boolean().optional(),
+  VerificationTypeId: z.number().optional(),
+  RiskLevel: z.string().optional(),
+  RiskColour: z.string().optional(),
+  RiskDescription: z.string().optional(),
+});
+
+export const VendorSummaryArraySchema = z.array(VendorSummaryItemSchema);
+
+export function isSummaryReady(items: VendorSummaryArray): boolean {
+  if (items.length === 0) return false;
+  const totalChecks = items.reduce((s, i) => s + i.TotalChecks, 0);
+  const outstanding = items.reduce((s, i) => s + i.OutstandingChecks, 0);
+  return totalChecks > 0 && outstanding === 0;
+}
+
+// ITableData = { MetaData: ITableMetaData, Data: [IDataRowObject] }
+// IDataRowObject = { Severity: int, Comments: [ResultComments] }
+// Severity 0 = clear; >0 = flagged.
+const IDataRowObjectSchema = z.object({
+  Severity: z.number().optional().default(0),
+  Comments: z.array(ResultCommentSchema).optional().default([]),
+});
+
+const ITableDataSchema = z.object({
+  MetaData: ITableMetaDataSchema.optional(),
+  Data: z.array(IDataRowObjectSchema).optional().default([]),
+});
+
+export const CategoryResultTablesSchema = z.object({
+  Tables: z.array(ITableDataSchema).optional().default([]),
+});
+```
+
+Endpoints and category IDs are also corrected:
+
+```typescript
+// Before:
+export const API_CATEGORY_ENDPOINTS = [
+  "cipc", "property", "nonpreferred", "judgement", "safps", "persal",
+] as const;
+
+// After:
+export const API_CATEGORY_ENDPOINTS = [
+  "cipc", "property", "nonpreferred", "legalMatter", "safps", "persal", "doj",
+] as const;
+```
+
+**`lib/procurecheck/notifications.ts`** (new) — V7 notifications client used as the Tier-2 fallback when direct polling doesn't resolve:
+
+```typescript
+export async function getUnreadNotifications(opts?: {
+  messageFilter?: string;
+  pageSize?: number;
+}): Promise<NotificationListResult> {
+  const token = await authenticate();
+  const { baseUrl } = getProcureCheckRuntimeConfig();
+  const response = await fetch(`${baseUrl}notifications/getlist`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      QueryParams: {
+        Conditions: [{
+          ColumnName: "Message",
+          Operator: "Contains",
+          Value: opts?.messageFilter ?? "",
+        }],
+        PageSize: opts?.pageSize ?? 100,
+        SortColumn: "CreationTime",
+        SortOrder: "Descending",
+      },
+      IsActive: false, // unread
+    }),
+  });
+  // ...parse + return
+}
+
+export async function hasCompletionNotification(
+  vendorNameOrId: string,
+): Promise<boolean> {
+  const result = await getUnreadNotifications({ messageFilter: vendorNameOrId });
+  return result.notifications.length > 0;
+}
+```
+
+**`lib/services/procurecheck-steps.ts`** (new) — Atomic step functions designed for use inside individual `step.run()` blocks. Each is self-contained and retriable:
+
+```typescript
+export async function resolveVendorStep(
+  params: CreateVendorParams,
+): Promise<VendorResolution> {
+  try {
+    const vendorId = await createVendor(params);
+    return { vendorId, isExisting: false };
+  } catch (error) {
+    if (!(error instanceof VendorAlreadyExistsError)) throw error;
+    let vendorId = extractVendorIdFromErrorBody(error.responseBody);
+    if (!vendorId) {
+      vendorId = await findVendorByExternalId(`STC-${params.applicantId}`);
+    }
+    if (!vendorId) throw new Error(/* ... */);
+    return { vendorId, isExisting: true };
+  }
+}
+
+export async function checkVendorReadiness(
+  vendorId: string,
+): Promise<VendorReadiness> {
+  const token = await authenticate();
+  const { baseUrl } = getProcureCheckRuntimeConfig();
+  const response = await fetch(
+    `${baseUrl}vendorresults?id=${encodeURIComponent(vendorId)}`,
+    { method: "GET", headers: { Authorization: `Bearer ${token}` } },
+  );
+  // ...
+  const items = VendorSummaryArraySchema.parse(normalized);
+  return {
+    ready: isSummaryReady(items),
+    outstandingChecks: items.reduce((s, i) => s + i.OutstandingChecks, 0),
+    totalChecks: items.reduce((s, i) => s + i.TotalChecks, 0),
+    executedChecks: items.reduce((s, i) => s + i.ChecksCompleted, 0),
+    summaryItems: items,
+  };
+}
+
+export async function fetchAllCategoryResults(
+  vendorId: string,
+  summaryItems: VendorSummaryArray,
+  vendorName: string,
+): Promise<ProcurementCheckResult> {
+  // Parallel fetch of all 7 categories.
+  // 404 = this vendor type doesn't have this check (e.g. SoleProp has no DOJ) — skip silently.
+  // Calls mapV7ResultsToPayload() to produce the internal ProcurementData shape.
+}
+```
+
+> **⚠️ Warning:** There are **two** different summary endpoints on ProcureCheck:
+>
+> - `GET /vendorresults?id={vendorId}` — returns `CheckResultsSummary[]`. This is the **correct** endpoint for polling check readiness.
+> - `GET /VendorResults/resultsummary?vendorId={vendorId}` — returns World Compliance data (`Category`, `Vendors`, `ActiveDirectors`). This is **not** a readiness signal and must not be used for polling.
+>
+> These are easy to confuse because the path differs only in casing and query parameter name. Always use `/vendorresults?id=` for readiness.
+
+**`inngest/functions/control-tower/stages/stage3_enrichment.ts`** — The single fragile `step.run("check-procurement", ...)` block (which contained an in-process `pollUntilReady` loop that would crash if it ran over 60s) is replaced with a **multi-step durable flow**:
+
+```
+procurement-preflight
+  → procurement-resolve-vendor
+  → [Tier 1: direct polling, ~2 min]
+      procurement-poll-0 → procurement-wait-0 (5s)
+      procurement-poll-1 → procurement-wait-1 (10s)
+      procurement-poll-2 → procurement-wait-2 (20s)
+      procurement-poll-3 → procurement-wait-3 (30s)
+      procurement-poll-4 → procurement-wait-4 (30s)
+      procurement-poll-5 → procurement-wait-5 (30s)
+  → [Tier 2: notifications fallback, ~5 min]
+      procurement-notify-wait-0 (60s) → procurement-notify-poll-0
+      procurement-notify-wait-1 (60s) → procurement-notify-poll-1
+      … (up to 5 attempts)
+  → procurement-fetch-results  (summary refetch + category fetch in same step)
+  → procurement-save-results   (updateRiskCheckMachineState + workflow event)
+```
+
+Error paths route to:
+
+- `procurement-vendor-failed` → `manual_required`
+- `procurement-no-checks-detected` → `manual_required` (after 3 attempts with `TotalChecks === 0`)
+- `procurement-poll-exhausted` → `manual_required` (after Tier 1 + Tier 2 both fail)
+- `procurement-fetch-failed` → `manual_required`
+
+**Key pattern — avoiding Inngest JsonifyObject widening:** Step return values are JSON-serialized and widen all fields to optional across step boundaries. For example, an array of `VendorSummaryItem` returned from `checkVendorReadiness()` in one `step.run()` cannot be directly passed into `fetchAllCategoryResults()` in another step without re-narrowing. The fix is to keep both calls inside the **same** step:
+
+```typescript
+const result = await step.run("procurement-fetch-results", async () => {
+  // Refetch summary INSIDE the same step so the array never crosses a step boundary.
+  const readySummary = await checkVendorReadiness(vendorResult.vendorId);
+  return fetchAllCategoryResults(
+    vendorResult.vendorId,
+    readySummary.summaryItems,
+    applicantData.companyName,
+  );
+});
+```
+
+For scalar fields like `vendorId`, an explicit narrowing check after the step call is enough:
+
+```typescript
+const rawVendorResult = await step.run("procurement-resolve-vendor", async () => {
+  // ...
+  return resolveVendorStep({ /* ... */ });
+});
+if (!rawVendorResult.vendorId) {
+  throw new Error("vendorId missing after resolve step");
+}
+const vendorId = rawVendorResult.vendorId; // narrowed to string
+```
+
+### Phase 2: Stage 4 procurement gate
+
+**`inngest/functions/control-tower/stages/stage4_guardKillSwitch.ts`** — New gate block inserted after `gateStatus`/`checkSummary` and before the green-lane checks:
+
+```typescript
+const procurementCheck = gateStatus.checks.find(c => c.checkType === "PROCUREMENT");
+const procurementNeedsReview =
+  procurementCheck?.machineState === "manual_required" &&
+  procurementCheck?.reviewState !== "approved" &&
+  procurementCheck?.reviewState !== "rejected";
+
+if (procurementNeedsReview) {
+  await step.run("notify-procurement-review-required", async () => { /* ... */ });
+
+  const procDecision = await step.waitForEvent("wait-procurement-decision", {
+    event: "risk/procurement.completed",
+    timeout: "30d",
+    match: "data.workflowId",
+  });
+
+  if (!procDecision) {
+    return { status: "terminated", stage: 4, reason: "Procurement review timed out after 30 days" };
+  }
+
+  if (procDecision.data.decision.outcome === "DENIED") {
+    // Kill switch already triggered by the API route
+    await step.run("log-procurement-denied-stage4", async () => { /* logWorkflowEvent */ });
+    return { status: "terminated", stage: 4, reason: "Procurement denied by Risk Manager" };
+  }
+
+  // CLEARED: update review state
+  await step.run("procurement-cleared-update", async () => {
+    await updateRiskCheckReviewState(
+      workflowId,
+      "PROCUREMENT",
+      "approved",
+      procDecision.data.decision.decidedBy,
+      procDecision.data.decision.adjudicationNotes,
+    );
+    // logWorkflowEvent
+  });
+}
+```
+
+Critically, this gate **only triggers** when procurement is in `manual_required` state. When Stage 3 procurement completes successfully, the gate is skipped entirely and Stage 4 proceeds straight to the general risk manager review.
+
+**`app/api/risk-decision/procurement/route.ts`** — After the decision is recorded and the kill switch (if DENIED) is triggered, the route now also updates `riskCheckResults.reviewState` directly:
+
+```typescript
+await updateRiskCheckReviewState(
+  workflowId,
+  "PROCUREMENT",
+  decision.outcome === "CLEARED" ? "approved" : "rejected",
+  userId,
+  adjudicationNotes,
+);
+```
+
+This mirrors the Stage 4 step so that the hybrid gate status and the Risk Review UI immediately reflect the adjudication — even if the workflow is currently mid-Stage 4 and hasn't yet resumed from the `step.waitForEvent` call.
+
+## Verification
+
+**Static checks**
+
+- `bun x tsc --noEmit` — clean, no type errors
+- `bun run lint` — no new violations in edited files
+
+**Test suite**
+
+- 172 tests pass across 27 files (full suite)
+- 98 pass / 1 fail in the ProcureCheck-scoped suite — the single failure is a pre-existing shell-env leak (`PROCURECHECK_BASE_URL` set in the environment causes the `uses production URL when env is production` test to see the sandbox URL). Confirmed pre-existing by running with `env -u PROCURECHECK_BASE_URL -u PROCURECHECK_SANDBOX_BASE_URL`: all 27 client tests pass.
+
+**Sandbox validation** (pre-implementation, Phase 0)
+
+- Created vendor without `runInitialChecks=false` → checks auto-started immediately (`TotalChecks=20, OutstandingChecks=20` across 6 categories within seconds)
+- `vendorresults?id=` returned a `CheckResultsSummary[]` array — confirmed schema fix needed
+- Category endpoints returned `{ Tables: [] }` — confirmed `VendorResultTablesDTO` shape
+- Notifications API (`notifications/getlist` with `IsActive: false`) returned `{ Data: [], TotalRecords: 0 }` — API functional
+
+## Prevention
+
+**When adding new ProcureCheck endpoints or parameters**
+
+1. **Always diff against `docs/procurecheck-api-v7.yaml` and the Swagger help page (`/api/Help`)** before adding or changing parameters. Do not add undocumented query params like `runInitialChecks=false` even if they appear to work.
+2. **Validate the actual response shape against the Swagger definition** before writing the Zod schema. ProcureCheck's responses have JSON.NET artifacts (`$id`, `$ref`) and can wrap payloads as string-encoded JSON in some edge cases — the schema parser must be defensive:
+    ```typescript
+    const data = await response.json();
+    const normalized = typeof data === "string" ? JSON.parse(data) : data;
+    const items = VendorSummaryArraySchema.parse(normalized);
+    ```
+3. **Never trust endpoint names from partial spec documents.** The PDF and YAML disagreed on `/judgement` vs `/legalMatter`. The authoritative source is the live `/api/Help` page.
+4. **Handle 404 per-category as normal.** Different vendor types (`SoleProp`, `PrivateCompany`, etc.) have different applicable checks — a 404 on `/doj` for a SoleProp vendor is expected, not an error:
+    ```typescript
+    if (!response.ok) {
+      console.info(`[ProcureCheck] Category ${endpoint} not available for vendor ${vendorId} (${response.status})`);
+      return null;
+    }
+    ```
+
+**When writing long-running Inngest steps**
+
+1. **Never poll in-process for more than a few seconds inside a single `step.run()`.** Inngest function timeouts (~60s default) will kill the whole step and lose all progress. Use `step.sleep()` between polls so each poll is its own durable step.
+2. **Watch for `JsonifyObject` widening at step boundaries.** If `step.run()` returns an object, downstream code sees all fields as optional. Either (a) explicitly narrow with null-checks, or (b) keep dependent operations inside the same step.
+3. **Plan for Inngest step-count limits.** A two-tier polling strategy (6 + 5 polls with sleeps) uses ~27 steps in the worst case — comfortable margin, but worth counting.
+4. **Use `step.waitForEvent` for human-in-the-loop gates, not polling.** The Stage 4 procurement gate uses `waitForEvent` with a 30-day timeout — Inngest handles retroactive event matching within the timeout window, so there is no race condition between the API route firing the event and the step subscribing to it.
+
+**When adjudication mutates state that other systems read**
+
+1. **Update the state table in the API route *and* the Inngest step that handles the same event.** Both paths must be idempotent and converge on the same final state — the API route updates `reviewState` directly (so the UI reflects the decision instantly), and the Inngest step does the same (so the workflow's own state transitions are consistent).
+
+## Test Cases
+
+The refactor is covered by these tests:
+
+**`lib/procurecheck/__tests__/types.test.ts`**
+
+- `VendorSummaryArraySchema` parses the actual sandbox response shape
+- `isSummaryReady()` returns false when any item has `OutstandingChecks > 0` and true when all items are complete
+- `CategoryResultTablesSchema` parses empty `Tables: []` (checks still running)
+- `CategoryResultTablesSchema` parses `VendorResultTablesDTO` with `ITableData` rows when complete
+- Severity > 0 on an `IDataRowObject` is treated as a flagged result
+
+**`lib/procurecheck/__tests__/client.test.ts`**
+
+- `createVendor` does not include `runInitialChecks` in the URL (V7 compliance)
+- Token cache expires in line with the 25-minute TTL
+- `getUnreadNotifications` posts to `notifications/getlist` with `IsActive: false`
+
+**`lib/services/__tests__/procurecheck-steps.test.ts`** (10 tests)
+
+- `resolveVendorStep` — new vendor, error-body extraction, `findVendorByExternalId` fallback
+- `checkVendorReadiness` — ready, not ready, error, string-encoded JSON edge case
+- `fetchAllCategoryResults` — all 7 categories, 404 skip (SoleProp has no DOJ), Severity > 0 → FLAGGED
+
+## Related Documentation
+
+**Direct predecessors**
+
+- [ProcureCheck Web API v5 — Full Production Integration](/issues/integration-issues/2026-04-01-procurecheck-v5-jwt-auth-implementation) — Current architecture this refactor builds on.
+- [ProcureCheck Production Integration — Walkthrough](/issues/integration-issues/2026-04-02-procurecheck-production-integration-walkthrough) — End-to-end data flow from Stage 3 through the UI.
+- [Vendor-Dependent Workflow Inventory & Failure Handling Matrix](/project/vendor-check-failure-handling-reference) — Hybrid gate architecture, `manual_required` semantics.
+
+**Sibling patterns**
+
+- [Financial Risk Agent: Gemini bank-statement analysis, Stage 4 Inngest, AI analysis logs, ITC report UI](/issues/integration-issues/2026-03-26-financial-risk-agent-stage4-itc-ui) — Sibling Stage 4 step orchestration pattern.
+- [Inngest Timeout Reminders and Zod Schema Test Alignment](/issues/integration-issues/2026-03-27-inngest-timeout-reminders-and-test-schema-alignment) — `handleWaitWithReminders` pattern for durable human-in-the-loop waits.
+
+**User-facing context**
+
+- [Risk review](/user-guides/risk-review) — Risk Review UI, adjudication categories, Stage 4 decision model.
+- [Workflows](/user-guides/workflows) — Six-stage workflow overview including Stage 3 parallel streams and Stage 4 human decision gate.
+
+## Commits
+
+- `fix(procurecheck): align token TTL with V7 spec (30min validity)`
+- `fix(procurecheck): remove undocumented runInitialChecks param (V7 compliance)`
+- `chore(procurecheck): deprecate initiateVerification (not in V7 spec)`
+- `fix(procurecheck): fix Zod schemas to match actual V7 API response shapes (sandbox-validated)`
+- `feat(procurecheck): add V7 notifications API client for check completion signals`
+- `feat(procurecheck): add atomic step functions for Inngest-native procurement flow`
+- `feat(procurecheck): replace fragile 60s polling with durable Inngest-native multi-step flow`
+- `chore(procurecheck): remove initiateVerification calls from deprecated service`
+- `feat(workflow): wire procurement approval gate into Stage 4`
+- `feat(procurement-decision): update riskCheckResults review state on CLEARED/DENIED`
+
+All commits on branch `feat/procurecheck-api-enhancements`.
