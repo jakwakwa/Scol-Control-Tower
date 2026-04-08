@@ -136,7 +136,7 @@ export async function analyzeFinancialRisk(
 				model: getHighStakesModel(),
 				config: {
 					responseMimeType: "application/json",
-					responseJsonSchema: RiskAnalysisResultSchema,
+					responseJsonSchema: z.toJSONSchema(RiskAnalysisResultSchema),
 				},
 				contents: [
 					{ text: prompt },
@@ -148,7 +148,16 @@ export async function analyzeFinancialRisk(
 					},
 				],
 			});
-			return RiskAnalysisResultSchema.parse(JSON.parse(response.text));
+			const rawText = response.text;
+			if (process.env.LOG_LEVEL === "debug" || process.env.DEBUG_FIX) {
+				console.log("[FIX:risk-agent] Raw AI response preview:", rawText?.slice(0, 500));
+			}
+			const parsed = JSON.parse(rawText);
+			if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+				console.error("[FIX:risk-agent] AI returned non-object JSON:", typeof parsed, JSON.stringify(parsed).slice(0, 300));
+				throw new Error(`[RiskAgent] AI returned ${typeof parsed} instead of expected object`);
+			}
+			return RiskAnalysisResultSchema.parse(parsed);
 		}
 
 		const analysis = await runStructuredInteraction({

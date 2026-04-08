@@ -4,7 +4,7 @@ impact: MEDIUM
 impactDescription: faster response times
 tags: server, async, logging, analytics, side-effects
 name: server-after-nonblocking
-model: composer-2
+model: gpt-5.3-codex
 is_background: true
 ---
 

@@ -1,28 +1,19 @@
 /**
  * Firecrawl Service Layer - Public API
  *
- * Re-exports the client, check runners, and provider registry
- * for consumption by the aggregated analysis service.
+ * Only the working sanctions-list search and VAT verification helpers
+ * are exported, along with the shared client primitives they depend on.
+ *
+ * Industry regulator, social reputation, and sanctions enrichment
+ * Firecrawl checks have been deprecated and removed.
  */
 
-export {
-	type IndustryRegulatorCheckInput,
-	runIndustryRegulatorCheck,
-} from "./checks/industry-regulator.check";
-export {
-	runSanctionsEnrichmentCheck,
-	type SanctionsEnrichmentCheckInput,
-} from "./checks/sanctions-enrichment.check";
 export {
 	type CombinedSanctionsResult,
 	type FirecrawlSanctionsSearchInput,
 	mapCombinedToSanctionsCheckResult,
 	runFirecrawlSanctionsSearch,
 } from "./checks/sanctions-list-search";
-export {
-	runSocialReputationCheck,
-	type SocialReputationCheckInput,
-} from "./checks/social-reputation.check";
 export {
 	runVatVerificationCheck,
 	type VatVerificationInput,

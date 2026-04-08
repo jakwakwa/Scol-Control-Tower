@@ -22,7 +22,7 @@ interface InternalAlertProps {
 	approveUrl?: string;
 }
 
-export const InternalAlert = ({
+const InternalAlert = ({
 	title,
 	message,
 	workflowId,
@@ -77,19 +77,37 @@ export const InternalAlert = ({
 
 			{/* Structured quote summary */}
 			{quoteDetails && (
-				<Section className="p-4 rounded-md my-4" style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb" }}>
+				<Section
+					className="p-4 rounded-md my-4"
+					style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb" }}>
 					<Text className="font-bold text-[14px] m-0 mb-2" style={{ color: "#111827" }}>
 						Quote Summary
 					</Text>
 
-					<table width="100%" cellPadding={0} cellSpacing={0} style={{ borderCollapse: "collapse" }}>
+					<table
+						width="100%"
+						cellPadding={0}
+						cellSpacing={0}
+						style={{ borderCollapse: "collapse" }}>
 						<tbody>
 							{quoteDetails.baseFeePercent != null && (
 								<tr>
-									<td style={{ padding: "6px 0", color: "#6b7280", fontSize: "13px", width: "50%" }}>
+									<td
+										style={{
+											padding: "6px 0",
+											color: "#6b7280",
+											fontSize: "13px",
+											width: "50%",
+										}}>
 										Base Fee (bps):
 									</td>
-									<td style={{ padding: "6px 0", color: "#111827", fontSize: "13px", fontWeight: 600 }}>
+									<td
+										style={{
+											padding: "6px 0",
+											color: "#111827",
+											fontSize: "13px",
+											fontWeight: 600,
+										}}>
 										{(quoteDetails.baseFeePercent / 100).toFixed(2)}%
 									</td>
 								</tr>
@@ -99,7 +117,13 @@ export const InternalAlert = ({
 									<td style={{ padding: "6px 0", color: "#6b7280", fontSize: "13px" }}>
 										Adjusted Fee (bps):
 									</td>
-									<td style={{ padding: "6px 0", color: "#111827", fontSize: "13px", fontWeight: 600 }}>
+									<td
+										style={{
+											padding: "6px 0",
+											color: "#111827",
+											fontSize: "13px",
+											fontWeight: 600,
+										}}>
 										{(quoteDetails.adjustedFeePercent / 100).toFixed(2)}%
 									</td>
 								</tr>
@@ -110,10 +134,19 @@ export const InternalAlert = ({
 					{quoteDetails.rationale && (
 						<>
 							<Hr style={{ borderColor: "#e5e7eb", margin: "10px 0" }} />
-							<Text className="text-[12px] m-0 mb-1" style={{ color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+							<Text
+								className="text-[12px] m-0 mb-1"
+								style={{
+									color: "#6b7280",
+									fontWeight: 600,
+									textTransform: "uppercase",
+									letterSpacing: "0.05em",
+								}}>
 								Rationale
 							</Text>
-							<Text className="text-[13px] m-0 leading-[20px]" style={{ color: "#374151", fontStyle: "italic" }}>
+							<Text
+								className="text-[13px] m-0 leading-[20px]"
+								style={{ color: "#374151", fontStyle: "italic" }}>
 								&ldquo;{quoteDetails.rationale}&rdquo;
 							</Text>
 						</>
@@ -122,10 +155,19 @@ export const InternalAlert = ({
 					{formattedRiskFactors && (
 						<>
 							<Hr style={{ borderColor: "#e5e7eb", margin: "10px 0" }} />
-							<Text className="text-[12px] m-0 mb-1" style={{ color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+							<Text
+								className="text-[12px] m-0 mb-1"
+								style={{
+									color: "#6b7280",
+									fontWeight: 600,
+									textTransform: "uppercase",
+									letterSpacing: "0.05em",
+								}}>
 								Risk Factors
 							</Text>
-							<Text className="text-[13px] m-0 leading-[20px]" style={{ color: "#374151" }}>
+							<Text
+								className="text-[13px] m-0 leading-[20px]"
+								style={{ color: "#374151" }}>
 								{formattedRiskFactors}
 							</Text>
 						</>
@@ -144,12 +186,16 @@ export const InternalAlert = ({
 
 			{/* Generic details fallback */}
 			{!quoteDetails && details && Object.keys(details).length > 0 && (
-				<Section className="p-4 rounded-md my-4" style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb" }}>
+				<Section
+					className="p-4 rounded-md my-4"
+					style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb" }}>
 					<Text className="font-bold mb-2 text-[14px]">Details:</Text>
 					{Object.entries(details).map(([key, value]) => (
-						<Text key={key} className="text-[13px] m-0 leading-[22px]" style={{ color: "#374151" }}>
-							<strong style={{ color: "#111827" }}>{key}:</strong>{" "}
-							{String(value)}
+						<Text
+							key={key}
+							className="text-[13px] m-0 leading-[22px]"
+							style={{ color: "#374151" }}>
+							<strong style={{ color: "#111827" }}>{key}:</strong> {String(value)}
 						</Text>
 					))}
 				</Section>
@@ -174,4 +220,4 @@ export const InternalAlert = ({
 	);
 };
 
-export default InternalAlert;
+export { InternalAlert };

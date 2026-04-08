@@ -64,17 +64,21 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 
 	return (
 		<>
-			<div style={{ width: "100vw", height: "1080px", position: "fixed", zIndex: "-2" }}>
-				{/* BACKGROUNDs */}
-				<div className="size-[90%] w-full bg-radial-[at_0%_-80%] from-10% from-[var(--gold-600)]/80 via-65% via-zinc-600/40 to-zinc-950 to-100%" />
+			{/* BACKGROUNDs */}
+			<div className="print:hidden print:bg-white fixed w-full -z-20 top-0 min-h-full size-230 h-screen bg-radial-[at_-30%_-40%] from-10% from-[var(--gold-700)]/80 via-65% via-zinc-800/90	 to-zinc-900/90 to-110%" />
+
+			<div className="print:hidden">
+				<Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
 			</div>
 
-			<Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
-
 			{/* Main content */}
-			<main className={cn(`pl-64 transition-all duration-300`, isCollapsed && "pl-20")}>
+			<main
+				className={cn(
+					` ml-64 mr-0 transition-all w-[82vw] duration-300 print:ml-0 print:w-full print:bg-white`,
+					isCollapsed && "ml-18 pl-0 w-[95vw]  overflow-hidden"
+				)}>
 				{/* Header */}
-				<header className="sticky top-0 z-30 border-b border-sidebar-border bg-chart-1 shadow-lg shadow-black/5 backdrop-blur-sm">
+				<header className="print:hidden sticky top-0 z-20 border-b border-sidebar-border bg-chart-1 shadow-lg shadow-black/5 backdrop-blur-sm">
 					<div className="flex h-20 items-center justify-between px-8">
 						<div>
 							{title && (
@@ -104,11 +108,11 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 								onAction={async (notification, action) => {
 									try {
 										if (action === "view") {
+											// Navigate first — push loads fresh server data
 											router.push(getNotificationRoute(notification));
 										}
 
 										if (action === "retry" || action === "cancel") {
-											// Call resolve-error API for workflow actions
 											await fetch(
 												`/api/workflows/${notification.workflowId}/resolve-error`,
 												{
@@ -119,29 +123,30 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 											);
 										}
 
-										// Mark notification as read
-										await fetch(`/api/notifications/${notification.id}`, {
+										// Mark notification as read in background
+										fetch(`/api/notifications/${notification.id}`, {
 											method: "PATCH",
-										});
+										}).catch(e => console.error("Failed to mark notification read", e));
 
-										router.refresh();
+										// Only refresh when not navigating away (retry/cancel stay on same page)
+										if (action !== "view") {
+											router.refresh();
+										}
 									} catch (e) {
 										console.error("Action failed", e);
 									}
 								}}
-								onNotificationClick={async notification => {
-									try {
-										router.push(getNotificationRoute(notification));
-
-										// Mark notification as read
-										await fetch(`/api/notifications/${notification.id}`, {
-											method: "PATCH",
-										});
-
-										router.refresh();
-									} catch (e) {
-										console.error("Click handler failed", e);
-									}
+								onNotificationClick={notification => {
+									const route = getNotificationRoute(notification);
+									// Navigate immediately — router.push loads fresh server data,
+									// no need to call router.refresh() after push.
+									router.push(route);
+									// Fire PATCH in background without blocking navigation
+									fetch(`/api/notifications/${notification.id}`, {
+										method: "PATCH",
+									}).catch(e => {
+										console.error("Failed to mark notification as read", e);
+									});
 								}}
 								onDelete={async notification => {
 									try {
@@ -164,7 +169,7 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 				</header>
 
 				{/* Page content */}
-				<div className="p-8">{children}</div>
+				<div className="p-8 print:bg-white">{children}</div>
 			</main>
 		</>
 	);

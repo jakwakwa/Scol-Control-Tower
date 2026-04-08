@@ -84,7 +84,11 @@ export async function GET(
 			: [];
 		const riskAssessmentRows = workflow
 			? await db
-					.select({ aiAnalysis: riskAssessments.aiAnalysis })
+					.select({
+						overallScore: riskAssessments.overallScore,
+						overallStatus: riskAssessments.overallStatus,
+						aiAnalysis: riskAssessments.aiAnalysis,
+					})
 					.from(riskAssessments)
 					.where(eq(riskAssessments.applicantId, applicant.id))
 					.orderBy(desc(riskAssessments.createdAt))
@@ -96,7 +100,7 @@ export async function GET(
 			workflow,
 			riskChecks,
 			financialRiskRows[0]?.rawOutput,
-			riskAssessmentRows[0]?.aiAnalysis
+			riskAssessmentRows[0]
 		);
 
 		return NextResponse.json(reportData);

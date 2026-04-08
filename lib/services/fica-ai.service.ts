@@ -12,6 +12,7 @@
  * - Multi-model strategy: Gemini 2.0 Flash for complex analysis
  */
 
+import { z } from "zod";
 import {
 	getGenAIClient,
 	getThinkingModel,
@@ -135,7 +136,7 @@ Be thorough but concise. Flag any concerning patterns immediately.`;
 		model: getThinkingModel(),
 		config: {
 			responseMimeType: "application/json",
-			responseJsonSchema: FicaDocumentAnalysisSchema,
+			responseJsonSchema: z.toJSONSchema(FicaDocumentAnalysisSchema),
 		},
 		contents:
 			contentType === "base64"
@@ -150,7 +151,16 @@ Be thorough but concise. Flag any concerning patterns immediately.`;
 					]
 				: prompt,
 	});
-	return FicaDocumentAnalysisSchema.parse(JSON.parse(response.text));
+	const rawText = response.text;
+	if (process.env.LOG_LEVEL === "debug" || process.env.DEBUG_FIX) {
+		console.log("[FIX:fica-ai] Raw bank statement AI response preview:", rawText?.slice(0, 500));
+	}
+	const parsedBank = JSON.parse(rawText);
+	if (typeof parsedBank !== "object" || parsedBank === null || Array.isArray(parsedBank)) {
+		console.error("[FIX:fica-ai] AI returned non-object JSON:", typeof parsedBank, JSON.stringify(parsedBank).slice(0, 300));
+		throw new Error(`[FicaAI] AI returned ${typeof parsedBank} instead of expected object`);
+	}
+	return FicaDocumentAnalysisSchema.parse(parsedBank);
 }
 
 // ============================================
@@ -215,7 +225,7 @@ ANALYSIS REQUIREMENTS:
 		model: getThinkingModel(),
 		config: {
 			responseMimeType: "application/json",
-			responseJsonSchema: AccountantLetterAnalysisSchema,
+			responseJsonSchema: z.toJSONSchema(AccountantLetterAnalysisSchema),
 		},
 		contents:
 			contentType === "base64"
@@ -230,7 +240,16 @@ ANALYSIS REQUIREMENTS:
 					]
 				: prompt,
 	});
-	return AccountantLetterAnalysisSchema.parse(JSON.parse(response.text));
+	const rawLetterText = response.text;
+	if (process.env.LOG_LEVEL === "debug" || process.env.DEBUG_FIX) {
+		console.log("[FIX:fica-ai] Raw accountant letter AI response preview:", rawLetterText?.slice(0, 500));
+	}
+	const parsedLetter = JSON.parse(rawLetterText);
+	if (typeof parsedLetter !== "object" || parsedLetter === null || Array.isArray(parsedLetter)) {
+		console.error("[FIX:fica-ai] Accountant letter AI returned non-object JSON:", typeof parsedLetter, JSON.stringify(parsedLetter).slice(0, 300));
+		throw new Error(`[FicaAI] AI returned ${typeof parsedLetter} instead of expected object`);
+	}
+	return AccountantLetterAnalysisSchema.parse(parsedLetter);
 }
 
 function normalizeBase64Pdf(raw: string): string {

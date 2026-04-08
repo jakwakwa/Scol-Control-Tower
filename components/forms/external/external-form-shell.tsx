@@ -21,7 +21,7 @@ export default function ExternalFormShell({
 					alt="StratCol"
 					width={160}
 					height={54}
-					className="h-auto w-auto mb-4"
+					className="h-auto w-auto mb-0"
 					priority
 				/>
 				<div className={styles.externalHeroText}>

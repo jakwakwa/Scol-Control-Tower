@@ -1,5 +1,5 @@
 import { RiArrowLeftLine } from "@remixicon/react";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDatabaseClient } from "@/app/utils";
@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import {
 	aiAnalysisLogs,
 	applicants,
+	documents,
+	documentUploads,
 	riskAssessments,
 	riskCheckResults,
 	workflows,
@@ -77,19 +79,63 @@ export default async function RiskReviewReportPage({
 
 	const riskAssessmentRows = workflow
 		? await db
-				.select({ aiAnalysis: riskAssessments.aiAnalysis })
+				.select({
+					overallScore: riskAssessments.overallScore,
+					overallStatus: riskAssessments.overallStatus,
+					aiAnalysis: riskAssessments.aiAnalysis,
+				})
 				.from(riskAssessments)
 				.where(eq(riskAssessments.applicantId, applicant.id))
 				.orderBy(desc(riskAssessments.createdAt))
 				.limit(1)
 		: [];
 
+	const idDocTypes = ["ID_DOCUMENT", "PROPRIETOR_ID", "DIRECTOR_ID", "FICA_ID"] as const;
+
+	const [verifiedDocRows, verifiedUploadRows] = await Promise.all([
+		db
+			.select({ processingResult: documents.processingResult })
+			.from(documents)
+			.where(and(eq(documents.applicantId, applicantId), inArray(documents.type, idDocTypes)))
+			.orderBy(desc(documents.verifiedAt))
+			.limit(1),
+		workflow
+			? db
+					.select({ metadata: documentUploads.metadata })
+					.from(documentUploads)
+					.where(
+						and(
+							eq(documentUploads.workflowId, workflow.id),
+							inArray(documentUploads.documentType, idDocTypes)
+						)
+					)
+					.orderBy(desc(documentUploads.verifiedAt))
+					.limit(1)
+			: Promise.resolve([] as Array<{ metadata: string | null }>),
+	]);
+
+	function extractDocAiResult(raw: string | null): Array<{ type: string; value: string }> | undefined {
+		if (!raw) return undefined;
+		try {
+			const parsed = JSON.parse(raw) as Record<string, unknown>;
+			if (Array.isArray(parsed?.documentAiResult)) {
+				return parsed.documentAiResult as Array<{ type: string; value: string }>;
+			}
+		} catch {}
+		return undefined;
+	}
+
+	const documentAiResult =
+		extractDocAiResult(verifiedDocRows[0]?.processingResult ?? null) ??
+		extractDocAiResult(verifiedUploadRows[0]?.metadata ?? null);
+
 	const reportData = buildReportData(
 		applicant,
 		workflow,
 		riskChecks,
 		financialRiskRows[0]?.rawOutput,
-		riskAssessmentRows[0]?.aiAnalysis
+		riskAssessmentRows[0],
+		documentAiResult
 	);
 
 	return (

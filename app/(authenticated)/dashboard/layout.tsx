@@ -1,11 +1,11 @@
+import { auth } from "@clerk/nextjs/server";
+import { desc, eq } from "drizzle-orm";
+import { redirect } from "next/navigation";
 import { getDatabaseClient } from "@/app/utils";
-import { notifications, workflows, applicants } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import type { WorkflowNotification } from "@/components/dashboard/notifications-panel";
+import { applicants, notifications, workflows } from "@/db/schema";
 import { isNotificationType } from "@/lib/notifications/types";
-import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
 
 export const dynamic = "force-dynamic";
 

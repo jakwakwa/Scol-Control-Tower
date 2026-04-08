@@ -176,7 +176,7 @@ export function NotificationsPanel({
 					size="icon"
 					aria-label="Open notifications"
 					className="relative h-9 w-9 hover:bg-background/50">
-					<RiNotification3Line className="h-5 w-5" />
+					<RiNotification3Line className="absolute h-5 w-5" />
 					{unreadCount > 0 && (
 						<Badge
 							variant="destructive"
@@ -190,15 +190,15 @@ export function NotificationsPanel({
 			</PopoverTrigger>
 			<PopoverContent
 				align="end"
-				className="w-[380px] border-amber-200/10 border -inset-1 bg-zinc-950/20 backdrop-blur-sm mx-auto">
+				className=" border-amber-200/10 border bg-zinc-950/50 backdrop-blur-sm mx-0 px-0 my-0 overflow-hidden">
 				{/* Header */}
-				<div className="flex items-center justify-between border-b border-secondary/10 px-4 py-3">
-					<h3 className="text-sm font-semibold">Notifications</h3>
+				<div className="flex items-center justify-between border-b border-secondary/10 px-4 h-12 bg-black/40 m-0 w-full">
+					<h3 className="text-xs font-light">Notifications</h3>
 					{unreadCount > 0 && (
 						<Button
 							variant="ghost"
 							size="sm"
-							className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+							className="h-7 gap-1.5 text-xs text-muted-foreground font-light hover:text-foreground"
 							onClick={onMarkAllRead}>
 							<RiCheckDoubleLine className="h-3.5 w-3.5" />
 							Mark all read
@@ -207,7 +207,7 @@ export function NotificationsPanel({
 				</div>
 
 				{/* Notifications List */}
-				<div className="flex flex-col h-[400px] overflow-y-auto gap-1 p-0">
+				<div className="flex flex-col h-[400px] overflow-y-auto gap-1.5 py-0 px-2">
 					{notifications?.length === 0 ? (
 						<div className="flex flex-col items-center justify-center py-12 text-center">
 							<RiNotification3Line className="h-10 w-10 text-muted-foreground/30" />
@@ -240,7 +240,7 @@ export function NotificationsPanel({
 									{/* Main Action Button */}
 									<button
 										type="button"
-										className="absolute bg-black/30 -inset-1 z-20 m-0 w-full border border-amber-300/15 rounded-xl left-0 p-0 focus:outline-1"
+										className="absolute bg-zinc-950/60 -inset-1 z-20 m-0 w-full border hover:bg-cyan-400/5 transition-all  ease-in-out border-amber-300/15 rounded-xl left-0 p-0 focus:outline-1"
 										onClick={() => onNotificationClick?.(notification)}>
 										<span className="sr-only mt-4">
 											View notification from {notification?.clientName}
@@ -248,13 +248,13 @@ export function NotificationsPanel({
 									</button>
 
 									{!notification?.read && (
-										<span className="absolute  h-2 w-2  top-5 z-30 shrink-0 left-6 rounded-full bg-zinc-800 outline-zinc-600 outline-2" />
+										<span className="absolute  h-1.5 w-1.5  top-7.5 z-30 shrink-0 left-4.5 rounded-full shadow-md shadow-teal-400 bg-zinc-800 outline-teal-500 outline-2" />
 									)}
 
 									{/* Icon */}
 									<div
 										className={cn(
-											" z-30 top-1/2 bottom-1/2  left-3 flex h-6 p-0 m-0 w-6 shrink-0 items-center bg-transparent justify-center rounded-full absolute pointer-events-none ",
+											" z-30 top-14 bottom-1/2  left-3 flex h-6 p-0 m-0 w-6 shrink-0 items-center bg-transparent justify-center rounded-full absolute pointer-events-none ",
 											config.bgColor
 										)}>
 										<Icon
@@ -289,7 +289,7 @@ export function NotificationsPanel({
 										<p className="text-[11.5px] text-muted-foreground/90 italic font-extralight mt-1.5 line-clamp-3">
 											{formatNotificationMessage(notification?.message || "")}
 										</p>
-										<div className="flex items-center  absolute z-40 -top-2 gap-2 right-0">
+										<div className="flex items-center  absolute z-40 top-0 gap-2 right-0">
 											<button
 												type="button"
 												onClick={e => {

@@ -12,7 +12,7 @@ interface SkeletonProps {
 	animate?: boolean;
 }
 
-export function Skeleton({ className, animate = true }: SkeletonProps) {
+function Skeleton({ className, animate = true }: SkeletonProps) {
 	return (
 		<div
 			className={cn("rounded-md bg-background/50", animate && "animate-pulse", className)}
@@ -280,4 +280,4 @@ export function TextSkeleton({
 	);
 }
 
-export default Skeleton;
+export { Skeleton };

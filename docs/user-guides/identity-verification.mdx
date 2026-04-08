@@ -1,0 +1,189 @@
+---
+title: "Identity Document Verification"
+description: "Understand how Document AI identity proofing works, what the fraud signals mean, and how to act on the results in the FICA / KYC section."
+---
+
+## What identity document verification does
+
+When an applicant submits an identity document — a South African ID card, a director ID, or a FICA-qualifying ID — the Control Tower can run it through **Google Cloud Document AI's ID Proofing processor**. The processor performs automated forensic analysis and returns a set of fraud signals that tell you:
+
+- Whether the document is a legitimate identity document at all
+- Whether the document image has been digitally edited or tampered with
+- Whether the document contains text patterns associated with fraudulent or specimen documents
+
+The result is stored against the document record and automatically surfaces in the **FICA / KYC tab** of the Risk Review report and in the **PDF export** (section 5.5 — Document AI Identity Proofing).
+
+---
+
+## When verification runs
+
+Identity document verification is **manual** — it does not run automatically as part of the Stage 3 pipeline. A reviewer triggers it from the Risk Review detail page.
+
+The button appears inside the **FICA / KYC tab**, in the "Identity Document Validity" card:
+
+- If the document has never been verified, the button reads **"Verify Identity Document"**.
+- If verification has already run (results are stored), the button reads **"Re-verify Document"** and the previous results are shown immediately below.
+
+You can re-verify at any time. Re-running replaces the stored result with the latest analysis.
+
+---
+
+## How to verify an identity document
+
+1. Open the applicant's **Risk Review report** from the Risk Review queue or the applicant detail page.
+2. Navigate to the **FICA / KYC** tab.
+3. Scroll to the **Identity Document Validity** card.
+4. Click **Verify Identity Document** (or **Re-verify Document** if results already exist).
+5. A loading spinner shows while the document is sent to Document AI. This typically takes a few seconds.
+6. On success, three fraud-signal cards appear below the button.
+7. If an error occurs, a red error banner appears with the reason.
+
+---
+
+## The three fraud signals
+
+Each signal is shown as a card with a result value. Understanding them correctly is important for a sound FICA adjudication decision.
+
+### Is Identity Document
+
+**Signal:** `fraud_signals_is_identity_document`
+
+This signal tells you whether the document submitted is recognised as a genuine, government-issued identity document — not a photocopy of a photocopy, a screenshot, a scan of the back only, or a non-ID document that was accidentally uploaded.
+
+| Result | Meaning |
+| :--- | :--- |
+| `PASS` | The document is recognised as a legitimate identity document. |
+| `FAIL` | The document is not recognised as a legitimate identity document. Action required. |
+| `INCONCLUSIVE` | The processor could not make a determination. Manual review recommended. |
+| `N/A` | The entity was not returned by the processor. |
+
+A `FAIL` here is a strong indicator that the wrong document was uploaded or the document is not genuine. Do not approve FICA solely on a failed document — escalate or request re-submission.
+
+---
+
+### Image Manipulation
+
+**Signal:** `fraud_signals_image_manipulation`
+
+This signal detects whether the document image shows signs of digital editing — cloning, splicing, region replacement, or metadata inconsistencies that suggest post-capture modification.
+
+| Result | Meaning |
+| :--- | :--- |
+| `PASS` | No evidence of image manipulation detected. |
+| `FAIL` | Manipulation detected. High-risk finding — treat this as a fraud flag. |
+| `INCONCLUSIVE` | The processor could not make a determination. Manual review recommended. |
+| `N/A` | The entity was not returned by the processor. |
+
+A `FAIL` on image manipulation is a serious finding. The document should be rejected and the applicant asked to submit an unaltered original. Flag the case for the Risk Manager before proceeding.
+
+---
+
+### Suspicious Words
+
+**Signal:** `fraud_signals_suspicious_words`
+
+This signal checks the document text for words that appear on known fraudulent documents or specimen/template versions of IDs — for example, "SPECIMEN", "SAMPLE", "NOT VALID", or similar phrases.
+
+| Result | Meaning |
+| :--- | :--- |
+| `PASS` | No suspicious words found. |
+| `FAIL` | Suspicious text detected on the document. |
+| `INCONCLUSIVE` | The processor could not make a determination. |
+| `N/A` | The entity was not returned by the processor. |
+
+---
+
+## How results appear in the Risk Report
+
+Once verification has run for an applicant, the results appear in two places:
+
+### Interactive FICA / KYC tab
+
+The three signal cards are shown with colour coding:
+
+- **Green** (PASS / YES): No fraud signal detected for this check.
+- **Neutral** (any other value): Verification inconclusive or a signal was detected.
+
+The cards animate in after a successful verification.
+
+### Risk Review PDF export — Section 5.5
+
+When you export the Risk Review report to PDF (using your browser's print function), **Section 5.5 — Document AI Identity Proofing** contains a table of all returned entity types and their values. This table includes every entity the processor returned — not only the three primary signals — making it a full audit record of the proofing run.
+
+```
+5.5 Document AI Identity Proofing
+
+Signal                              | Result
+------------------------------------|-------
+fraud_signals_is_identity_document  | PASS
+fraud_signals_image_manipulation    | PASS
+fraud_signals_suspicious_words      | PASS
+```
+
+Section 5.5 appears only if verification results exist. If the document has never been verified, section 5.5 is omitted from the export.
+
+---
+
+## Relationship to FICA compliance
+
+Document AI identity proofing is a **supplementary fraud-detection layer** within the broader FICA / KYC check. It does not replace the full FICA workflow, which includes:
+
+- HANIS identity and deceased-status verification
+- Proof of residence (90-day validity check)
+- Bank AVS verification
+- VAT number verification
+
+The Document AI result informs the **Identity Document Validity** sub-section of FICA. A clean Document AI result supports a positive FICA adjudication; a failed or inconclusive result is an escalation signal.
+
+The FICA risk check result in the workflow (visible in the section status banner at the top of the FICA / KYC tab) is managed independently by the Stage 3 enrichment pipeline. The identity proofing action does not change the FICA risk-check state — that is the responsibility of the automated workflow.
+
+---
+
+## Document selection
+
+When you click **Verify Identity Document**, the agent automatically selects the most recently uploaded identity document associated with the applicant. It searches across both document storage paths used by the platform:
+
+- Documents submitted through internal forms (`documents` table)
+- Documents submitted through the FICA document upload workflow (`document_uploads` table)
+
+If you need to verify a specific document rather than the most recent one, the agent also supports direct document selection — contact your engineering team to enable per-document verification if required.
+
+---
+
+## What to do with each outcome
+
+### All three signals pass
+
+The document has passed automated forensic checks. Record this as supporting evidence in your FICA adjudication notes and proceed with the remaining FICA sub-checks.
+
+### One or more signals fail
+
+| Failed signal | Recommended action |
+| :--- | :--- |
+| `fraud_signals_is_identity_document` | Request the applicant to re-submit a clearer, original identity document. Do not approve pending re-submission. |
+| `fraud_signals_image_manipulation` | Treat as a potential fraud indicator. Escalate to Risk Manager. Do not approve until resolved. |
+| `fraud_signals_suspicious_words` | Reject the current document. Ask the applicant to submit an original, unaltered document. |
+
+### Inconclusive results
+
+An `INCONCLUSIVE` result means the processor did not have enough confidence to pass or fail the check. This can happen with low-quality scans, unusual lighting, or document formats the processor has limited training data for.
+
+Treat inconclusive results as requiring manual review. Use the other FICA sub-checks (HANIS status, residence document age, AVS) to reach a decision, and record your manual assessment in the adjudication notes.
+
+### Verification error
+
+If the error banner appears after clicking the button, the most likely causes are:
+
+- The document file stored in the database could not be decoded (corrupted upload)
+- Google Cloud Document AI is temporarily unavailable
+- The applicant has no identity document uploaded yet
+
+Wait a few minutes and retry. If the error persists, check the document is uploaded and contact your engineering team with the error message shown in the banner.
+
+---
+
+## Audit trail
+
+Verification results are stored permanently against the document record and do not expire when a re-verification is run (the previous result is replaced in the document record, but the new result is captured in the report). The Risk Review PDF export captures the state at the time of export, providing a point-in-time audit record.
+
+For compliance purposes, export the PDF after the final verification run and before making your FICA adjudication decision.

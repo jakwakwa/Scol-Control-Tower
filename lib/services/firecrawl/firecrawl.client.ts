@@ -14,17 +14,27 @@
 import Firecrawl from "@mendable/firecrawl-js";
 import type { z } from "zod";
 
-import type {
-	FailureDetail,
-	RuntimeState,
-} from "@/lib/services/agents/contracts/firecrawl-check.contracts";
 import {
 	recordVendorCheckAttempt,
 	recordVendorCheckFailure,
 	type VendorCheckStage,
 } from "@/lib/services/telemetry/vendor-metrics";
 
-export type { RuntimeState, FailureDetail };
+export type RuntimeState =
+	| "success"
+	| "partial"
+	| "action_required"
+	| "blocked"
+	| "error";
+
+export type RetryPolicy = "immediate" | "backoff" | "manual";
+
+export interface FailureDetail {
+	code: RuntimeState;
+	message: string;
+	retryPolicy?: RetryPolicy;
+	blockedReason?: string;
+}
 
 interface FirecrawlTelemetryContext {
 	vendor: "firecrawl_sanctions" | "firecrawl_vat";

@@ -4,7 +4,7 @@ impact: CRITICAL
 impactDescription: prevents unmaintainable component variants
 tags: composition, props, architecture
 name: architecture-avoid-boolean-props
-model: composer-2
+model: grok-4-20
 is_background: true
 ---
 

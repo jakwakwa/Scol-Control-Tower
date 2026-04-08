@@ -52,9 +52,9 @@ export function Sidebar({
 				isCollapsed ? "w-20" : "w-64"
 			)}>
 			{/* Header */}
-			<div className="flex h-24 items-center justify-between px-6 border-b border-secondary/5">
-				<div className={cn("flex items-center gap-1 ", isCollapsed && "hidden")}>
-					<div className="flex flex-col w-45 h-auto items-start px-4 py-2 justify-center rounded-2xl  border-stone-500/20">
+			<div className="flex h-24 mx-0 gap-0	items-center justify-evenly px-0 border-b border-secondary/5">
+				<div className={cn("flex items-center gap-0 ", isCollapsed && "hidden")}>
+					<div className="flex flex-col w-44 items-start px-4 py-2 justify-start mx-0 px-0 rounded-2xl  border-stone-500/20">
 						<img src="/control_tower_logo.png" alt="StratCol" className="w-fit h-auto" />
 						<span className="text-secondary text-xs uppercase hidden leading-[14px]">
 							Control Tower
@@ -65,12 +65,12 @@ export function Sidebar({
 				{/* Collapse button */}
 				<Button
 					variant="ghost"
-					size="icon"
+					size="sm"
 					onClick={() => setIsCollapsed(!isCollapsed)}
 					className={cn(
 						"flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
 						"hover:bg-secondary/5 text-muted-foreground hover:text-foreground",
-						isCollapsed && "m-0 left-3 absolute"
+						isCollapsed && "left-5 w-1/2 absolute "
 					)}
 					aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}>
 					{isCollapsed ? (

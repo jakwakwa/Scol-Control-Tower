@@ -29,7 +29,7 @@ export interface LogEventParams {
 		| "stage_change"
 		| "agent_dispatch"
 		| "agent_callback"
-		| "human_override"
+		| "human_adjudication"
 		| "timeout"
 		| "error"
 		| "risk_check_completed"

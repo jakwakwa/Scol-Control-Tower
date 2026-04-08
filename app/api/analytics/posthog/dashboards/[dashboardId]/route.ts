@@ -20,7 +20,7 @@ export async function GET(_req: Request, ctx: RouteParams) {
 	try {
 		const dashboard = await getPostHogDashboardDetail(id);
 		if (!dashboard) {
-			return NextResponse.json({ error: "Not found" }, { status: 404 });
+			return NextResponse.json({ error: "Not found" }, { status: 401 });
 		}
 		return NextResponse.json({ dashboard });
 	} catch (e) {

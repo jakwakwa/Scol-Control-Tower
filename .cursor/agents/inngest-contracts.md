@@ -1,6 +1,6 @@
 ---
 name: inngest-contracts
-model: composer-2
+model: claude-opus-4-6
 description: Inngest contracts and assurance specialist. Use proactively for event naming and payloads, EventSchemas, deduplication, waitForEvent match expressions, repo-wide workflow audits, and evidence-based reliability review. Prefer this for design and audit — not day-to-day handler edits alone.
 is_background: true
 ---

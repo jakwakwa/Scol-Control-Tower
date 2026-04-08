@@ -12,6 +12,10 @@ export const metadata: Metadata = {
 	metadataBase: new URL(baseUrl),
 	title: "SCOL WatchTower -Onboarding Ai",
 	description: "Database per user starter with Turso, Clerk, and SQLite",
+	icons: {
+		icon: "/favicon.png",
+		apple: "/favicon.png",
+	},
 };
 
 export default function RootLayout({

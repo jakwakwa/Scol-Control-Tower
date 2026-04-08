@@ -79,7 +79,7 @@ function InsightTile({ insightId, title }: { insightId: number; title: string | 
 	);
 
 	return (
-		<Card variant="secondary" size="sm" className="mb-0">
+		<Card variant="default" size="sm" className="mb-0">
 			<CardHeader className="border-b border-secondary/10 pb-4">
 				<CardTitle className="text-base">
 					{title || data?.name || `Insight ${insightId}`}

@@ -39,7 +39,7 @@ const withRetryAndTimeout = async <T>(
 			// Check if it's a rate limit or service unavailable
 			const status =
 				error && typeof error === "object" && "status" in error
-					? (error as any).status
+					? error.status
 					: undefined;
 			const message = error instanceof Error ? error.message : "";
 
@@ -90,43 +90,5 @@ export async function generateRiskBriefing(dataContext: string): Promise<string>
 	} catch (error) {
 		console.error("AI Risk Briefing Error:", error);
 		throw new Error("Failed to generate AI insights. Please try again.");
-	}
-}
-
-export async function analyzeMediaRisk(
-	alertTitle: string,
-	alertSource: string,
-	alertSeverity: string
-): Promise<string> {
-	if (!isAIConfigured()) {
-		return "AI Service is not configured. Analysis unavailable.";
-	}
-
-	const systemPrompt =
-		"You are a Risk Analyst specializing in Anti-Money Laundering (AML) and Reputational Risk in South Africa.";
-	const prompt = `Analyze the following adverse media alert for a potential supplier:
-    Title: "${alertTitle}"
-    Source: "${alertSource}"
-    Severity: "${alertSeverity}"
-
-    Provide a brief (3-4 sentences) explanation of what this kind of alert typically entails in a South African context and what specific further investigation the procurement officer should conduct regarding this alert.`;
-
-	try {
-		return await withRetryAndTimeout(async () => {
-			const ai = getGenAIClient();
-			const response = await ai.models.generateContent({
-				model: getThinkingModel(),
-				contents: prompt,
-				config: {
-					systemInstruction: systemPrompt,
-					temperature: AI_CONFIG?.ANALYSIS_TEMPERATURE || 0.1,
-				},
-			});
-
-			return response.text || "No analysis provided.";
-		}, 15000); // 15-second timeout for a smaller request
-	} catch (error) {
-		console.error("AI Media Analysis Error:", error);
-		throw new Error("Analysis failed to load.");
 	}
 }
