@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import posthog from "posthog-js";
+import { useMemo, useState } from "react";
 import styles from "@/components/forms/external/external-form-theme.module.css";
 import type { DocumentRequirement } from "@/config/document-requirements";
 import { getPostHogProjectToken } from "@/lib/posthog-env";
@@ -12,6 +12,16 @@ interface UploadViewProps {
 }
 
 type UploadStatus = "idle" | "uploading" | "uploaded" | "error";
+type UploadErrorPayload = {
+	error?: string;
+	details?: {
+		fieldErrors?: Record<string, string[] | undefined>;
+	};
+	received?: {
+		documentType?: string | null;
+		category?: string | null;
+	};
+};
 
 export default function UploadView({ token, requirements }: UploadViewProps) {
 	const [selectedFiles, setSelectedFiles] = useState<Record<string, File[]>>({});
@@ -63,11 +73,25 @@ export default function UploadView({ token, requirements }: UploadViewProps) {
 		});
 
 		if (!response.ok) {
-			const payload = await response.json().catch(() => ({}));
+			const payload = (await response.json().catch(() => ({}))) as UploadErrorPayload;
+			const fieldErrorMessages = Object.values(payload?.details?.fieldErrors ?? {})
+				.flatMap(messages => messages ?? [])
+				.filter(message => message.length > 0);
+			const receivedMeta =
+				payload.received?.documentType || payload.received?.category
+					? ` (documentType: ${payload.received?.documentType ?? "n/a"}, category: ${payload.received?.category ?? "n/a"})`
+					: "";
+			const errorMessage =
+				payload?.error && payload.error.length > 0
+					? `${payload.error}${receivedMeta}`
+					: fieldErrorMessages.length > 0
+						? `${fieldErrorMessages.join("; ")}${receivedMeta}`
+						: `Upload failed${receivedMeta}`;
+
 			setStatuses(prev => ({ ...prev, [requirement.type]: "error" }));
 			setErrors(prev => ({
 				...prev,
-				[requirement.type]: payload?.error || "Upload failed",
+				[requirement.type]: errorMessage,
 			}));
 			return;
 		}
@@ -99,7 +123,7 @@ export default function UploadView({ token, requirements }: UploadViewProps) {
 					<div className={styles.externalCard}>
 						{items.map(req => (
 							<div key={req.type} className={styles.ownerCard}>
-								<div className="flex items-start justify-between gap-4">
+								<div className="flex items-start justify-between gap-4 relative">
 									<div>
 										<p>{req.label}</p>
 										{req.description ? (
@@ -109,7 +133,7 @@ export default function UploadView({ token, requirements }: UploadViewProps) {
 											{req.required ? "Required" : "Optional"}
 										</p>
 									</div>
-									{statuses[req.type] === "uploaded" ? <span>Uploaded</span> : null}
+									{statuses[req.type] === "uploaded" ? <span className="absolute bottom-2 right-0 animate-pulse bg-emerald-400/20 px-2 rounded-[4px] text-sm text-emerald-500 outline-emerald-300 outline-[1.5px]">File Uploaded Successful</span> : null}
 								</div>
 								<div className="flex flex-col gap-3 md:flex-row md:items-center">
 									<input

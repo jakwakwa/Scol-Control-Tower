@@ -1,7 +1,7 @@
 ---
 argument-hint: "[optional: brief context about the fix]"
 name: compound-mintlify
-model: composer-2
+model: gemini-3-flash
 description: Document a recently solved problem to compound your team's knowledge
 is_background: true
 ---

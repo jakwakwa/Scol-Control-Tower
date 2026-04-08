@@ -11,7 +11,7 @@ import summaryFixture from "./fixtures/vendor-summary-response.json";
 import cipcFixture from "./fixtures/category-cipc-response.json";
 import propertyFixture from "./fixtures/category-property-response.json";
 import nonpreferredFixture from "./fixtures/category-nonpreferred-response.json";
-import judgementFixture from "./fixtures/category-judgement-response.json";
+import legalMatterFixture from "./fixtures/category-legalmatter-response.json";
 import safpsFixture from "./fixtures/category-safps-response.json";
 import persalFixture from "./fixtures/category-persal-response.json";
 
@@ -22,7 +22,7 @@ function buildCategoryResults(): Map<ApiCategoryEndpoint, CategoryResultResponse
 	map.set("cipc", cipcFixture as CategoryResultResponse);
 	map.set("property", propertyFixture as CategoryResultResponse);
 	map.set("nonpreferred", nonpreferredFixture as CategoryResultResponse);
-	map.set("judgement", judgementFixture as CategoryResultResponse);
+	map.set("legalMatter", legalMatterFixture as CategoryResultResponse);
 	map.set("safps", safpsFixture as CategoryResultResponse);
 	map.set("persal", persalFixture as CategoryResultResponse);
 	return map;
@@ -142,7 +142,7 @@ describe("mapVendorResultsToPayload", () => {
 			expect(cat).toBeDefined();
 		});
 
-		it("maps judgement -> legal", () => {
+		it("maps legalMatter -> legal", () => {
 			const cat = result.categories.find((c) => c.id === "legal");
 			expect(cat).toBeDefined();
 		});

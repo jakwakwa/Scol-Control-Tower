@@ -3,25 +3,26 @@ title: "Agents"
 description: "Monitor external agent performance and workflow health."
 ---
 
-## What agents do
+## What Agents do:
 
 Agents are autonomous AI services or system workers that handle specialised tasks in the onboarding workflow.
 
-### Active Agents (Powered by **Gemini 3 Flash**)
+### Active Agents - (Powered by **Gemini 3 Flash, GOOGLE DOCUMENT AI, XDS Webservices, Procurecheck API (xdev), Firecrawl, OpenSanctions**)
 
-- **Validation Agent**: Verifies uploaded documents (bank statements, ID, proof of residence, and optional accountant letter file when provided) for authenticity, completeness, and cross-reference consistency. Receives base64-encoded file content from the `documents` table.
-- **Risk Verification Agent**: Analyzes bank statements and accountant letters to assess FICA compliance and financial risk.
+- **Validation Agent**: **XDS Webservice api need to** verify uploaded documents I of residence, and optional accountant letter file when provided) for authenticity, completeness, and cross-reference consistency. _Receives base64-encoded file content from the _`documents`_ table._
+- **Risk Verification Agent**: **_Gemini_** 3 Flash Analyzes bank statements for FICA requirement
+- **ID Proofing: _Google Document Ai SDK_**
+- ~~and accountant letters to assess FICA compliance and financial risk.~~
 - **Quote Generator Agent**: Generates risk-adjusted pricing quotes based on applicant profiles and credit scores.
-- **Sanctions Agent**: Screens applicants via OpenSanctions `/match/sanctions` as primary, then falls back to Firecrawl crawling across UN consolidated, OFAC, and FIC TFS lists if OpenSanctions fails. See [Firecrawl Check Contracts](/agent-contracts/firecrawl-check-contracts) for configuration details.
-- **Reporter Agent**: Synthesis agent that combines ITC/sanctions check results with AI validation agent results into a single consolidated report for Risk Manager review. Runs only after both ITC and AI paths complete. Emits `reporter/analysis.completed` with combined flags and trust score.
+- **Sanctions Agent**: Screens applicants via **OpenSanctions** API `/match/sanctions` as **primary**, then optionally falls back to **Firecrawl SDK** crawling the UN consolidated list if OpenSanctions fails. Industry-regulator and social-reputation Firecrawl checks have been deprecated and removed.
+
+> <Badge color="red" shape="pill" stroke>deprecated</Badge>** Reporter Agent**: Synthesis agent that combines ITC/sanctions check results with AI validation agent results into a single consolidated report for Risk Manager review. Runs only after both ITC and AI paths complete. Emits `reporter/analysis.completed` with combined flags and trust score.
 
 ### Planned Agents
 
 The following agents are currently in development or planned for future releases:
 
-- **Document Generator**: For legal agreements.
-- **E-Signature Handler**: For managing DocuSign workflows.
-
+- **E-Signature Handler**: Custom made verification and secure signature storage.
 
 ## Agent dashboard
 
@@ -41,13 +42,13 @@ Each agent card displays:
 - **Identity**: Agent Name and ID (e.g., `xt_risk_agent_v2`).
 - **AI Model**: The specific AI model powering the agent (e.g., **Gemini 3 Flash**).
 - **Status**:
-    - **Active**: Operational and processing tasks.
-    - **Inactive / Planned**: Not yet deployed or currently disabled.
-    - **Error**: Experiencing critical failures.
+  - **Active**: Operational and processing tasks.
+  - **Inactive / Planned**: Not yet deployed or currently disabled.
+  - **Error**: Experiencing critical failures.
 - **Performance**:
-    - **Last callback**: Timestamp of the most recent activity.
-    - **Callbacks**: Total successful runs.
-    - **Errors**: Total failed runs.
+  - **Last callback**: Timestamp of the most recent activity.
+  - **Callbacks**: Total successful runs.
+  - **Errors**: Total failed runs.
 
 ## Interpreting agent status
 
@@ -63,19 +64,7 @@ During Stage 3 of the onboarding workflow, agents operate in a parallel architec
 
 The Validation Agent receives documents from three sources:
 
-| Source | Table | Content type |
-| :--- | :--- | :--- |
-| FICA document uploads | `documents` | Base64-encoded files (PDF, images) |
-| Onboarding document uploads | `documentUploads` | Base64-encoded files |
-
 ### Parallel execution
-
-Two independent paths run concurrently after all required documents and forms are received:
-
-1. **ITC + Sanctions path**: performs credit checks and sanctions screening via external APIs
-2. **AI Validation path**: runs the Validation Agent, Risk Agent, and Sanctions Agent in parallel via `performAggregatedAnalysis`
-
-Both paths must complete before the Reporter Agent synthesizes the results. See [Workflows → Stage 3](/user-guides/workflows#stage-3-procurement--ai-verification) for the full flow.
 
 ## When to escalate
 

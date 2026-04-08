@@ -217,7 +217,7 @@ SWR retries on error by default with exponential backoff. Customize with:
 ```tsx
 useSWR(key, fetcher, {
   onErrorRetry: (error, key, config, revalidate, { retryCount }) => {
-    if (error.status === 404) return // Don't retry on 404
+    if (error.status === 401) return // Don't retry on 404
     if (retryCount >= 3) return      // Max 3 retries
     setTimeout(() => revalidate({ retryCount }), 5000)
   },

@@ -226,5 +226,3 @@ export function WorkflowProgressStepper({
 		</div>
 	);
 }
-
-export default WorkflowProgressStepper;

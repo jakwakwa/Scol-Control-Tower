@@ -2,8 +2,7 @@
 .agents/**/*.md
 .agent/**/*.md 
 
-migrations/**/*.sql
-tests/browser-flow/screenshots/
+# tests/browser-flow/screenshots/
 implementation_*.md
 *.pdf
 .agents/

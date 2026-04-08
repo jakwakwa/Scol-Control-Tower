@@ -16,7 +16,7 @@ import { getDatabaseClient } from "@/app/utils";
 import { workflows } from "@/db/schema";
 import { executeKillSwitch } from "@/lib/services/kill-switch.service";
 import { logWorkflowEvent } from "@/lib/services/notification-events.service";
-import { inngest } from "../client";
+import { inngest } from "../../client";
 
 const STAGE2_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 const TERMINAL_STATUSES = ["completed", "terminated", "failed"];

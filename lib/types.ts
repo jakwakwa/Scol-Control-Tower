@@ -133,6 +133,10 @@ export const DocumentTypeSchema = z.enum([
 	"SALES_AGREEMENT",
 	"FINANCIAL_STATEMENTS",
 	"CONSENT_FORM",
+	"CIPC_REGISTRATION",
+	"COMPANY_DIRECTORS",
+	"COMPANY_RESOLUTION",
+	"SHARE_CERTIFICATE",
 ]);
 
 export type DocumentType = z.infer<typeof DocumentTypeSchema>;
@@ -177,7 +181,7 @@ export type DirectorInfo = z.infer<typeof DirectorInfoSchema>;
  */
 export const FacilityApplicationSchema = z.object({
 	/** Unique application ID */
-	applicationId: z.string().uuid().optional(),
+	applicationId: z.uuid().optional(),
 
 	// Company Information
 	/** Registered company name */
@@ -533,8 +537,8 @@ export type agreementContractResponse = z.infer<typeof agreementContractResponse
 // ============================================
 
 export const TrainingSessionSchema = z.object({
-	sessionId: z.string().uuid(),
-	clientEmail: z.string().email(),
+	sessionId: z.string(),
+	clientEmail: z.email(),
 	scheduledDate: z.date(),
 	duration: z.number().default(60), // minutes
 	type: z.enum(["ONBOARDING", "ADVANCED", "REFRESHER"]).default("ONBOARDING"),

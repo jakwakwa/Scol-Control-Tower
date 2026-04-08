@@ -69,6 +69,11 @@ const CATEGORY_UI: Record<
 		badgeClass: "bg-violet-500/15 text-violet-300 border-violet-500/35",
 		icon: <Users className={ICON_CLASS} aria-hidden="true" />,
 	},
+	doj: {
+		label: "Department of Justice",
+		badgeClass: "bg-red-500/15 text-red-300 border-red-500/35",
+		icon: <Scale className={ICON_CLASS} aria-hidden="true" />,
+	},
 };
 
 const LABEL_TO_CATEGORY_ID = new Map<string, ProcurementCategoryId>(

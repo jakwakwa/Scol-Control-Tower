@@ -1,22 +1,25 @@
 import { render } from "@react-email/render";
 import { Resend } from "resend";
-import ApplicantFormLinks, {
+import {
+	ApplicantFormLinks,
 	type FormLink,
 	type RequiredDocumentSummary,
 } from "@/components/emails/ApplicantFormLinks";
-import ApplicantReminder from "@/components/emails/ApplicantReminder";
-import InternalAlert from "@/components/emails/InternalAlert";
+import { ApplicantReminder } from "@/components/emails/ApplicantReminder";
+import { InternalAlert } from "@/components/emails/InternalAlert";
 import type { ScreeningValueType } from "@/db/schema";
 
 const resendApiKey = process.env.RESEND_API_KEY;
 // Use the configured alert recipients or fall back to a default/empty
 // Optional chaining on split; nullish coalesce before map so undefined never throws
-const alertRecipients = (
-	process.env.ALERT_EMAIL_RECIPIENTS?.split(",") ?? []
-).map((e) => e.trim()).filter(Boolean);
+const alertRecipients = (process.env.ALERT_EMAIL_RECIPIENTS?.split(",") ?? [])
+	.map(e => e.trim())
+	.filter(Boolean);
 const dataEntrantRecipients = (
 	process.env.DATA_ENTRANT_EMAIL_RECIPIENTS?.split(",") ?? []
-).map((e) => e.trim()).filter(Boolean);
+)
+	.map(e => e.trim())
+	.filter(Boolean);
 const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
 
 // Initialize Resend client if API key is present
@@ -347,4 +350,3 @@ export async function sendApplicantReminderEmail(params: {
 		return { success: false, error: String(error) };
 	}
 }
-

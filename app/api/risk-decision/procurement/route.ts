@@ -5,7 +5,7 @@
  * procurement check results. Sends 'risk/procurement.completed' event
  * to resume the V2 workflow.
  *
- * V2: Captures structured override data for AI retraining pipeline.
+ * V2: Captures structured adjudication data for AI retraining pipeline.
  *
  * CRITICAL: When procurement is DENIED, this triggers the kill switch
  * to immediately halt all parallel processes.
@@ -22,11 +22,12 @@ import { getDatabaseClient } from "@/app/utils";
 import { workflowEvents, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
-import { OVERRIDE_CATEGORIES } from "@/lib/constants/override-taxonomy";
+import { ADJUDICATION_CATEGORIES } from "@/lib/constants/adjudication-taxonomy";
+import { captureServerEvent } from "@/lib/posthog-server";
 import { recordFeedbackLog } from "@/lib/services/divergence.service";
 import { executeKillSwitch } from "@/lib/services/kill-switch.service";
+import { updateRiskCheckReviewState } from "@/lib/services/risk-check.service";
 import { acquireStateLock, markStaleData } from "@/lib/services/state-lock.service";
-import { captureServerEvent } from "@/lib/posthog-server";
 
 // ============================================
 // Request Schema
@@ -43,10 +44,10 @@ const ProcurementDecisionSchema = z.object({
 	}),
 	decision: z.object({
 		outcome: z.enum(["CLEARED", "DENIED"]),
-		/** Structured override category — maps to AI failure taxonomy */
-		overrideCategory: z.enum(OVERRIDE_CATEGORIES),
-		overrideSubcategory: z.string().optional(),
-		overrideDetails: z.string().max(500).optional(),
+		/** Structured adjudication category — canonical name for risk manager decision */
+		adjudicationReason: z.enum(ADJUDICATION_CATEGORIES),
+		adjudicationDetail: z.string().optional(),
+		adjudicationNotes: z.string().max(500).optional(),
 	}),
 });
 
@@ -82,18 +83,28 @@ export async function POST(request: NextRequest) {
 		const { workflowId, applicantId, procureCheckResult, decision } =
 			validationResult.data;
 
-		// CLEARED needs approve, DENIED needs override_denied
+		const adjudicationReason = decision.adjudicationReason;
+		const adjudicationDetail = decision.adjudicationDetail;
+		const adjudicationNotes = decision.adjudicationNotes;
+
+		// CLEARED needs approve, DENIED needs adjudication_denied
 		const canApprove = hasPermissionOrAdmin(has, orgRole, "org:risk_assessment:approve");
-		const canOverrideDenied = hasPermissionOrAdmin(has, orgRole, "org:risk_assessment:override_denied");
+		const canAdjudicationDenied = hasPermissionOrAdmin(
+			has,
+			orgRole,
+			"org:risk_assessment:adjudication_denied"
+		);
 		if (decision.outcome === "CLEARED" && !canApprove) {
 			return NextResponse.json(
 				{ error: "Forbidden - Missing org:risk_assessment:approve permission" },
 				{ status: 403 }
 			);
 		}
-		if (decision.outcome === "DENIED" && !canOverrideDenied) {
+		if (decision.outcome === "DENIED" && !canAdjudicationDenied) {
 			return NextResponse.json(
-				{ error: "Forbidden - Missing org:risk_assessment:override_denied permission" },
+				{
+					error: "Forbidden - Missing org:risk_assessment:adjudication_denied permission",
+				},
 				{ status: 403 }
 			);
 		}
@@ -139,9 +150,9 @@ export async function POST(request: NextRequest) {
 			eventType: "procurement_decision",
 			payload: JSON.stringify({
 				decision: decision.outcome,
-				overrideCategory: decision.overrideCategory,
-				overrideSubcategory: decision.overrideSubcategory,
-				overrideDetails: decision.overrideDetails,
+				adjudicationReason,
+				adjudicationDetail,
+				adjudicationNotes,
 				riskScore: procureCheckResult.riskScore,
 				anomalies: procureCheckResult.anomalies,
 				fromStage: workflow.stage,
@@ -155,9 +166,9 @@ export async function POST(request: NextRequest) {
 			workflowId,
 			applicantId,
 			humanOutcome: decision.outcome === "CLEARED" ? "APPROVED" : "REJECTED",
-			overrideCategory: decision.overrideCategory,
-			overrideSubcategory: decision.overrideSubcategory,
-			overrideDetails: decision.overrideDetails,
+			adjudicationReason,
+			adjudicationDetail,
+			adjudicationNotes,
 			decidedBy: userId,
 		});
 
@@ -175,7 +186,7 @@ export async function POST(request: NextRequest) {
 				applicantId,
 				reason: "PROCUREMENT_DENIED",
 				decidedBy: userId,
-				notes: decision.overrideDetails || "Procurement check denied by Risk Manager",
+				notes: adjudicationNotes || "Procurement check denied by Risk Manager",
 			});
 
 			if (!killSwitchResult.success) {
@@ -185,6 +196,18 @@ export async function POST(request: NextRequest) {
 				);
 			}
 		}
+
+		// Update the PROCUREMENT risk check review state so the hybrid gate and UI
+		// reflect the adjudication. This mirrors what Stage 4 does when it handles
+		// the procurement gate itself — needed for the path where the API is called
+		// directly while the workflow is already in Stage 4 awaiting the event.
+		await updateRiskCheckReviewState(
+			workflowId,
+			"PROCUREMENT",
+			decision.outcome === "CLEARED" ? "approved" : "rejected",
+			userId,
+			adjudicationNotes
+		);
 
 		// Send the event to Inngest to resume/terminate the workflow
 		await inngest.send({
@@ -201,9 +224,9 @@ export async function POST(request: NextRequest) {
 				decision: {
 					outcome: decision.outcome,
 					decidedBy: userId,
-					overrideCategory: decision.overrideCategory,
-					overrideSubcategory: decision.overrideSubcategory,
-					overrideDetails: decision.overrideDetails,
+					adjudicationReason,
+					adjudicationDetail,
+					adjudicationNotes,
 					timestamp: new Date().toISOString(),
 				},
 			},
@@ -217,7 +240,7 @@ export async function POST(request: NextRequest) {
 				workflow_id: workflowId,
 				decision: decision.outcome,
 				kill_switch_triggered: decision.outcome === "DENIED",
-				override_category: decision.overrideCategory,
+				adjudication_reason: adjudicationReason,
 				risk_score: procureCheckResult.riskScore,
 			},
 		});

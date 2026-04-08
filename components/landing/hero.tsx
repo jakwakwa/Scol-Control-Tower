@@ -58,14 +58,14 @@ export function Hero() {
 						<Button
 							variant="secondary"
 							size="lg"
-							className="bg-gold-500 shadow-xl shadow-gold-500/50"
+							className="bg-secondary shadow-xl h-11 outline-0 border-1  border-gray-900/90 shadow-zinc-900/90"
 							asChild>
 							<Link href="/dashboard" target="_blank">
 								Launch Control Tower
 								<ArrowRight className="mx-2 h-4 w-4" />
 							</Link>
 						</Button>
-						<Button variant="secondary" size="lg" className="bg-(--gold-900)" asChild>
+						<Button variant="secondary" size="lg" className="bg-(--gold-900) border-amber-400/30 shadow-xl shadow-zinc-900/50" asChild>
 							<Link
 								href="https://stratcolltd.mintlify.app/user-guides/overview"
 								target="_blank">

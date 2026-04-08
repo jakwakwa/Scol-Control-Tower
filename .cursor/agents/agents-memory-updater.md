@@ -1,6 +1,6 @@
 ---
 name: agents-memory-updater
-model: auto
+model: grok-4-20
 description: Mine high-signal transcript deltas, update `AGENTS.md`, and keep the incremental transcript index in sync.
 is_background: true
 ---

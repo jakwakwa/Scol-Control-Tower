@@ -3,7 +3,7 @@ title: Use Compound Components
 impact: HIGH
 tags: composition, compound-components, architecture
 name: architecture-compound-components
-model: composer-2
+model: grok-4-20
 description: enables flexible composition without prop drilling
 is_background: true
 ---

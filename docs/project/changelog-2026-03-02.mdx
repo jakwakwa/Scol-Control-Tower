@@ -5,7 +5,7 @@ description: "Decision routing, state-lock enforcement, tiered notifications, AI
 
 # Weekly Change Log: 2 March 2026
 
-*StratCol Control Tower — 58 commits across 2 active branches this week*
+_StratCol Control Tower — 58 commits across 2 active branches this week_
 
 ## Breaking Changes
 
@@ -15,36 +15,27 @@ description: "Decision routing, state-lock enforcement, tiered notifications, AI
 
 - **Decision routing decoupled from stages** — New `getDecisionEndpoint` helper resolves API endpoints from metadata instead of hardcoded stage numbers. Front-end and back-end no longer assume "stage 3 = procurement." (`43437cc`, Jaco Kotzee)
 - **State-lock enforcement on all manual decisions** — Every human decision endpoint (risk-decision, quote approve/reject, final approval, contract review) now acquires a state lock, preventing ghost processes from overwriting finalized records (`3aea4d7`, `43437cc`, Jaco Kotzee)
-- **Tiered notification system** — Low severity: log-only (no alert spam). Medium with groupKey: batched into a single summary card. High/critical: full `bg-destructive` dashboard + email alerts. Workflow table rows show bouncing alert icons linking to the graph view (`43437cc`, Jaco Kotzee)
+- **Tiered notification system** — Low severity: log-only (no alert spam). Medium with groupKey: batched into a single summary card. High/critical: full `bg-destructive` dashboard \+ email alerts. Workflow table rows show bouncing alert icons linking to the graph view (`43437cc`, Jaco Kotzee)
 - **Data lineage for failure resolution** — Manual decisions now link back to the specific automation failure via `relatedFailureEventId` on `ai_feedback_logs` (`43437cc`, Jaco Kotzee)
 - **AI financial risk analysis** — Integrated AI-driven risk scoring into the Stage 3 analysis pipeline (`317a405`, Jaco Kotzee)
-- **Sanctions screening with Firecrawl** — Enhanced sanctions with web-scraping evidence enrichment (`92c271c`, Jaco Kotzee)
+- **~~Sanctions screening with Firecrawl~~**~~ — Enhanced sanctions with web-scraping evidence enrichment (~~`92c271c`~~, Jaco Kotzee)~~
 - **Risk Review history** — "Show History" toggle surfaces past decisions alongside active reviews (`74e757b`, `a45b828`, Jaco Kotzee)
-- **SA ID field + clickable applicant names** — PR #84 brought form improvements, scroll restoration, and notification auto-refresh (Copilot)
-- **Workflow settings page** — New Slider, Switch, and Tooltip UI components (`2182a2c`, Jaco Kotzee)
+- **SA ID field \+ clickable applicant names** — PR #84 brought form improvements, scroll restoration, and notification auto-refresh (Copilot)
 
 ## Bug Fixes
 
 - **Stage 3 FICA deadlock resolved** — Inngest replay model caused a gate deadlock; fixed by narrowing the `source` type check (`46b5225`, Jaco Kotzee)
 - **Transaction volume != currency** — Six-commit fix chain corrected the quote AI prompt and all forms/APIs to use estimated transactions per month instead of mandate volume in cents (`b3f67af`..`4cce0f9`, Jaco Kotzee)
 - **`TIMEOUT_TERMINATION` type mismatch** — Added missing reason to the Inngest event type union (`a909134`, Jaco Kotzee)
-- **FICA API auth + Content-Disposition** — Code review fixes for applicant ID resolution and file downloads (`e850244`, Jaco Kotzee)
+- **FICA API auth \+ Content-Disposition** — Code review fixes for applicant ID resolution and file downloads (`e850244`, Jaco Kotzee)
 
 ## Other Improvements
 
-- Parallelised procurement + FICA checks and final approvals in the Inngest workflow (`c8a63d8`)
-- Glassmorphism styling pass on cards and buttons (`4f40295`, `7390d54`)
-- Migrated agent skills from `.agents` to `.cursor` directories (`6a355fb`)
+- Parallelised procurement \+ FICA checks and final approvals in the Inngest workflow (`c8a63d8`)
 - Added Playwright regression test for procurement fallback (`82d57ce`)
-- Removed seed scripts and mock external API calls — project now fully prohibits seeded data (`bf2948d`)
 
 ## Shoutouts
 
 **Jaco Kotzee** — 55 commits this week spanning schema design, workflow hardening, AI integration, and UI polish.
 
-**Copilot** — Shipped PR #84 with SA ID fields and notification auto-refresh.
-
-## Deployment Notes
-
-- Run database migrations for the new `decisionType`, `targetResource`, `severity`, `groupKey`, and `relatedFailureEventId` columns before deploying.
-- No environment variable changes required.
+**Copilot** — Shipped PR #84 with SA ID fields and notification auto-refresh

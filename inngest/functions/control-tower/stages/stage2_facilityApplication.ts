@@ -26,11 +26,8 @@ import { generateQuote } from "@/lib/services/quote.service";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 import type { FormType } from "@/lib/types";
 import { inngest } from "../../../client";
-import {
-	guardKillSwitch,
-	notifyApplicantDecline,
-	runSanctionsForWorkflow,
-} from "../../../utils/helpers";
+import { guardKillSwitch } from "../../../utils/guards";
+import { notifyApplicantDecline, runSanctionsForWorkflow } from "../../../utils/helpers";
 import { handleWaitWithReminders } from "../../handlers/reminder-handler";
 import { handleWaitTimeout } from "../../handlers/timeout-handler";
 import type { StageDependencies, StageResult } from "../types";

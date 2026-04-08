@@ -1,15 +1,15 @@
 import { z } from "zod";
 import {
-	AuthResponseSchema,
-	VendorCreateResponseSchema,
-	VendorSummaryResponseSchema,
-	CategoryResultResponseSchema,
-	VendorListResponseSchema,
-	type CreateVendorParams,
 	type ApiCategoryEndpoint,
-	type VendorSummaryResponse,
+	AuthResponseSchema,
 	type CategoryResultResponse,
+	CategoryResultResponseSchema,
+	type CreateVendorParams,
+	VendorCreateResponseSchema,
 	type VendorListResponse,
+	VendorListResponseSchema,
+	type VendorSummaryResponse,
+	VendorSummaryResponseSchema,
 } from "./types";
 
 // ============================================
@@ -20,7 +20,7 @@ const DEFAULT_SANDBOX_BASE_URL = "https://xdev.procurecheck.co.za/api/api/v1/";
 const DEFAULT_PRODUCTION_BASE_URL = "https://api.procurecheck.co.za/api/api/v1/";
 const DEFAULT_EGRESS_OWNER = "control-tower-server-runtime";
 const SA_NATIONALITY_ID = "153a0fb2-cc8d-4805-80d2-5f996720fed9";
-const TOKEN_TTL_MS = 50 * 60 * 1000; // 50 minutes
+const TOKEN_TTL_MS = 25 * 60 * 1000; // 25 minutes (V7 spec: 30min validity, refresh at 25min for safety margin)
 
 // ============================================
 // Env schemas
@@ -65,6 +65,21 @@ export interface PollOptions {
 	timeoutMs?: number;
 	initialDelayMs?: number;
 	maxDelayMs?: number;
+}
+
+// ============================================
+// Custom errors
+// ============================================
+
+export class VendorAlreadyExistsError extends Error {
+	public readonly statusCode: number;
+	public readonly responseBody: string;
+	constructor(statusCode: number, responseBody: string) {
+		super(`Vendor already exists (HTTP ${statusCode})`);
+		this.name = "VendorAlreadyExistsError";
+		this.statusCode = statusCode;
+		this.responseBody = responseBody;
+	}
 }
 
 // ============================================
@@ -167,19 +182,20 @@ export async function authenticate(): Promise<string> {
 				username: creds.PROCURECHECK_USERNAME,
 				password: creds.PROCURECHECK_PASSWORD,
 			}),
-		}),
+		})
 	);
 
 	if (!response.ok) {
 		const errorText = await response.text();
 		throw new Error(
-			`ProcureCheck auth failed (POST ${baseUrl}authenticate): ${response.status} ${errorText}`,
+			`ProcureCheck auth failed (POST ${baseUrl}authenticate): ${response.status} ${errorText}`
 		);
 	}
 
 	const data = await response.json();
 	const parsed = AuthResponseSchema.parse(data);
-	const token = parsed.token ?? parsed.access_token;
+	const token =
+		typeof parsed === "string" ? parsed : (parsed.token ?? parsed.access_token);
 
 	if (!token) {
 		throw new Error("ProcureCheck auth response did not contain a token");
@@ -245,18 +261,28 @@ export async function createVendor(params: CreateVendorParams): Promise<string> 
 				Authorization: `Bearer ${token}`,
 			},
 			body: JSON.stringify(payload),
-		}),
+		})
 	);
 
 	if (!response.ok) {
 		const errorText = await response.text();
+		const isAlreadyExists =
+			(response.status === 400 || response.status === 409) &&
+			/already exists|duplicate|already registered/i.test(errorText);
+		if (isAlreadyExists) {
+			throw new VendorAlreadyExistsError(response.status, errorText);
+		}
 		throw new Error(
-			`ProcureCheck vendor create failed (POST ${baseUrl}vendors): ${response.status} ${errorText}`,
+			`ProcureCheck vendor create failed (POST ${baseUrl}vendors): ${response.status} ${errorText}`
 		);
 	}
 
 	const data = await response.json();
-	const parsed = VendorCreateResponseSchema.parse(data);
+	// Guard: ProcureCheck may return string-encoded JSON in some edge cases
+	const normalizedCreate = typeof data === "string" ? JSON.parse(data) : data;
+	if (process.env.LOG_LEVEL === "debug" || process.env.DEBUG_FIX) {
+	}
+	const parsed = VendorCreateResponseSchema.parse(normalizedCreate);
 	const vendorId = parsed.ProcureCheckVendorID ?? parsed.vendor_Id ?? parsed.id;
 
 	if (!vendorId) {
@@ -280,18 +306,22 @@ export async function getVendorSummary(vendorId: string): Promise<VendorSummaryR
 		withProcureCheckProxy({
 			method: "GET",
 			headers: { Authorization: `Bearer ${token}` },
-		}),
+		})
 	);
 
 	if (!response.ok) {
 		const errorText = await response.text();
 		throw new Error(
-			`ProcureCheck getVendorSummary failed (GET ${url}): ${response.status} ${errorText}`,
+			`ProcureCheck getVendorSummary failed (GET ${url}): ${response.status} ${errorText}`
 		);
 	}
 
 	const data = await response.json();
-	return VendorSummaryResponseSchema.parse(data);
+	// Guard: ProcureCheck may return string-encoded JSON in some edge cases
+	const normalizedSummary = typeof data === "string" ? JSON.parse(data) : data;
+	if (process.env.LOG_LEVEL === "debug" || process.env.DEBUG_FIX) {
+	}
+	return VendorSummaryResponseSchema.parse(normalizedSummary);
 }
 
 // ============================================
@@ -300,7 +330,7 @@ export async function getVendorSummary(vendorId: string): Promise<VendorSummaryR
 
 export async function getCategoryResult(
 	vendorId: string,
-	category: ApiCategoryEndpoint,
+	category: ApiCategoryEndpoint
 ): Promise<CategoryResultResponse> {
 	const token = await authenticate();
 	const { baseUrl } = getProcureCheckRuntimeConfig();
@@ -311,18 +341,22 @@ export async function getCategoryResult(
 		withProcureCheckProxy({
 			method: "GET",
 			headers: { Authorization: `Bearer ${token}` },
-		}),
+		})
 	);
 
 	if (!response.ok) {
 		const errorText = await response.text();
 		throw new Error(
-			`ProcureCheck getCategoryResult failed (GET ${url}): ${response.status} ${errorText}`,
+			`ProcureCheck getCategoryResult failed (GET ${url}): ${response.status} ${errorText}`
 		);
 	}
 
 	const data = await response.json();
-	return CategoryResultResponseSchema.parse(data);
+	// Guard: ProcureCheck may return string-encoded JSON in some edge cases
+	const normalizedCategory = typeof data === "string" ? JSON.parse(data) : data;
+	if (process.env.LOG_LEVEL === "debug" || process.env.DEBUG_FIX) {
+	}
+	return CategoryResultResponseSchema.parse(normalizedCategory);
 }
 
 // ============================================
@@ -331,7 +365,7 @@ export async function getCategoryResult(
 
 export async function pollUntilReady(
 	vendorId: string,
-	opts?: PollOptions,
+	opts?: PollOptions
 ): Promise<VendorSummaryResponse> {
 	const timeoutMs = opts?.timeoutMs ?? 60_000;
 	const initialDelayMs = opts?.initialDelayMs ?? 1_000;
@@ -350,13 +384,81 @@ export async function pollUntilReady(
 		if (Date.now() + delayMs > deadline) {
 			throw new Error(
 				`ProcureCheck pollUntilReady timed out after ${timeoutMs}ms for vendor ${vendorId} ` +
-					`(${summary.RiskSummary.OutstandingChecks} checks still outstanding)`,
+					`(${summary.RiskSummary.OutstandingChecks} checks still outstanding)`
 			);
 		}
 
-		await new Promise((resolve) => setTimeout(resolve, delayMs));
+		await new Promise(resolve => setTimeout(resolve, delayMs));
 		delayMs = Math.min(delayMs * 2, maxDelayMs);
 	}
+}
+
+// ============================================
+// initiateVerification()
+// ============================================
+
+export interface InitiateVerificationOptions {
+	/** Override the check types to run. Defaults to all standard checks. */
+	checkTypes?: string[];
+	notes?: string;
+}
+
+const DEFAULT_CHECK_TYPES = [
+	"CIPC",
+	"SAFPS",
+	"Bank",
+	"PropertyOwnership",
+	"NonPreferred",
+	"Judgement",
+	"Persal",
+];
+
+/**
+ * @deprecated V7 spec does not include a vendorverification endpoint.
+ * With runInitialChecks removed from createVendor, checks auto-run on vendor creation.
+ * Retained as fallback — remove after confirming auto-check behavior in production.
+ */
+export async function initiateVerification(
+	vendorId: string,
+	opts?: InitiateVerificationOptions
+): Promise<{ success: boolean; raw: unknown }> {
+	const token = await authenticate();
+	const { baseUrl } = getProcureCheckRuntimeConfig();
+	const url = `${baseUrl}vendorverification`;
+
+	const body = {
+		VendorID: vendorId,
+		CheckTypes: opts?.checkTypes ?? DEFAULT_CHECK_TYPES,
+		Notes: opts?.notes ?? "Initial verification triggered by Control Tower",
+	};
+
+	if (process.env.LOG_LEVEL === "debug" || process.env.DEBUG_FIX) {
+	}
+
+	const response = await fetch(
+		url,
+		withProcureCheckProxy({
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${token}`,
+			},
+			body: JSON.stringify(body),
+		})
+	);
+
+	const raw = await response.json().catch(() => null);
+
+	if (!response.ok) {
+		throw new Error(
+			`ProcureCheck initiateVerification failed (POST ${url}): ${response.status} ${JSON.stringify(raw)}`
+		);
+	}
+
+	if (process.env.LOG_LEVEL === "debug" || process.env.DEBUG_FIX) {
+	}
+
+	return { success: true, raw };
 }
 
 // ============================================
@@ -383,16 +485,72 @@ export async function getVendorsList(token: string): Promise<VendorListResponse>
 					SortOrder: "Descending",
 				},
 			}),
-		}),
+		})
 	);
 
 	if (!response.ok) {
 		const errorText = await response.text();
 		throw new Error(
-			`ProcureCheck getVendorsList failed (POST ${baseUrl}vendors/getlist): ${response.status} ${errorText}`,
+			`ProcureCheck getVendorsList failed (POST ${baseUrl}vendors/getlist): ${response.status} ${errorText}`
 		);
 	}
 
 	const data = await response.json();
 	return VendorListResponseSchema.parse(data);
+}
+
+// ============================================
+// findVendorByExternalId()
+// ============================================
+
+export async function findVendorByExternalId(externalId: string): Promise<string | null> {
+	const token = await authenticate();
+	const { baseUrl } = getProcureCheckRuntimeConfig();
+
+	const response = await fetch(
+		`${baseUrl}vendors/getlist`,
+		withProcureCheckProxy({
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${token}`,
+			},
+			body: JSON.stringify({
+				QueryParams: {
+					Conditions: [
+						{
+							ColumnName: "VendorExternalID",
+							Operator: "Equals",
+							Value: externalId,
+						},
+					],
+					PageIndex: 0,
+					PageSize: 1,
+					SortColumn: "Created",
+					SortOrder: "Descending",
+				},
+			}),
+		})
+	);
+
+	if (!response.ok) {
+		const errorText = await response.text();
+		throw new Error(
+			`ProcureCheck findVendorByExternalId failed (POST ${baseUrl}vendors/getlist): ${response.status} ${errorText}`
+		);
+	}
+
+	const data = await response.json();
+	const parsed = VendorListResponseSchema.parse(data);
+
+	if (!parsed.Data || parsed.Data.length === 0) return null;
+
+	const vendor = parsed.Data[0];
+	const vendorId =
+		(vendor.ProcureCheckVendorID as string | undefined) ??
+		(vendor.vendor_Id as string | undefined) ??
+		(vendor.Id as string | undefined) ??
+		(vendor.id as string | undefined);
+
+	return vendorId ?? null;
 }

@@ -337,7 +337,9 @@ export type Events = {
 			decision: {
 				outcome: "APPROVED" | "REJECTED" | "REQUEST_MORE_INFO";
 				decidedBy: string; // Risk Manager email/ID
-				reason?: string;
+				adjudicationReason?: string;
+				adjudicationDetail?: string;
+				adjudicationNotes?: string;
 				conditions?: string[];
 				timestamp?: string;
 				/** Set to "manual_green_lane" when AM grants Green Lane while Stage 4 is awaiting review */
@@ -389,7 +391,9 @@ export type Events = {
 			decision: {
 				outcome: "CLEARED" | "DENIED";
 				decidedBy: string;
-				reason?: string;
+				adjudicationReason?: string;
+				adjudicationDetail?: string;
+				adjudicationNotes?: string;
 				timestamp: string;
 			};
 		};
@@ -920,8 +924,8 @@ export type Events = {
 			feedbackLogId: number;
 			divergenceType: "false_positive" | "false_negative" | "severity_mismatch";
 			divergenceWeight: number;
-			overrideCategory: string;
-			overrideSubcategory?: string;
+			adjudicationReason: string;
+			adjudicationDetail?: string;
 			aiOutcome: string;
 			humanOutcome: string;
 		};

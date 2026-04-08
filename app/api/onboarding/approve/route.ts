@@ -8,18 +8,18 @@
  * Body: { workflowId, applicantId, role: "risk_manager" | "account_manager", decision, reason? }
  */
 
+import { auth } from "@clerk/nextjs/server";
+import { eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { inngest } from "@/inngest/client";
 import { getDatabaseClient } from "@/app/utils";
-import { workflows, workflowEvents, applicants } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { auth } from "@clerk/nextjs/server";
+import { applicants, workflowEvents, workflows } from "@/db/schema";
+import { inngest } from "@/inngest/client";
 import { hasPermissionOrAdmin } from "@/lib/auth/permissions";
-import { acquireStateLock } from "@/lib/services/state-lock.service";
-import { recordFinalApprovalDecision } from "@/lib/services/workflow-command.service";
 import { captureServerEvent } from "@/lib/posthog-server";
+import { acquireStateLock } from "@/lib/services/state-lock.service";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
+import { recordFinalApprovalDecision } from "@/lib/services/workflow-command.service";
 
 const TwoFactorApprovalSchema = z.object({
 	workflowId: z.number().int().positive("Workflow ID is required"),
@@ -56,17 +56,28 @@ export async function POST(request: NextRequest) {
 
 		// Role-specific permission: risk_manager → risk_assessment, account_manager → quote (admin bypasses)
 		if (role === "risk_manager") {
-			const canApprove = hasPermissionOrAdmin(has, orgRole, "org:risk_assessment:approve");
-			const canOverride = hasPermissionOrAdmin(has, orgRole, "org:risk_assessment:override_denied");
+			const canApprove = hasPermissionOrAdmin(
+				has,
+				orgRole,
+				"org:risk_assessment:approve"
+			);
+			const canAdjudicationDenied = hasPermissionOrAdmin(
+				has,
+				orgRole,
+				"org:risk_assessment:adjudication_denied"
+			);
 			if (decision === "APPROVED" && !canApprove) {
 				return NextResponse.json(
 					{ error: "Forbidden - Missing org:risk_assessment:approve permission" },
 					{ status: 403 }
 				);
 			}
-			if (decision === "REJECTED" && !canOverride) {
+			if (decision === "REJECTED" && !canAdjudicationDenied) {
 				return NextResponse.json(
-					{ error: "Forbidden - Missing org:risk_assessment:override_denied permission" },
+					{
+						error:
+							"Forbidden - Missing org:risk_assessment:adjudication_denied permission",
+					},
 					{ status: 403 }
 				);
 			}
@@ -137,9 +148,10 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Re-send is idempotent for waitForEvent and can unblock if the first send missed an active wait.
-		const eventName = role === "risk_manager"
-			? "approval/risk-manager.received" as const
-			: "approval/account-manager.received" as const;
+		const eventName =
+			role === "risk_manager"
+				? ("approval/risk-manager.received" as const)
+				: ("approval/account-manager.received" as const);
 
 		await inngest.send({
 			name: eventName,

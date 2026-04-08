@@ -19,7 +19,7 @@
 
 import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
-import { applicants, workflowEvents } from "@/db/schema";
+import { applicants } from "@/db/schema";
 import { ensurePerimeterValidationConfigLoaded } from "@/lib/config/perimeter-validation";
 import {
 	checkReApplicant,
@@ -42,6 +42,11 @@ import type {
 	ControlTowerStepTools,
 	WorkflowContext,
 } from "./control-tower/types";
+
+function shouldBypassInitialReApplicantTest(): boolean {
+	const value = process.env.BYPASS_INITIAL_REAPPLICANT_TEST?.trim().toLowerCase();
+	return value === "1" || value === "true" || value === "yes" || value === "on";
+}
 
 // ============================================
 // Constants (re-exported from centralised module)
@@ -148,10 +153,19 @@ export const controlTowerWorkflow = inngest.createFunction(
 			`[ControlTower] Starting workflow ${workflowId} for applicant ${applicantId}`
 		);
 
+		const bypassInitialReApplicantTest = shouldBypassInitialReApplicantTest();
+		if (bypassInitialReApplicantTest) {
+			console.info(
+				"[ControlTower] BYPASS_INITIAL_REAPPLICANT_TEST enabled; skipping initial re-applicant check"
+			);
+		}
+
 		// Scenario 2b: Re-applicant check — deny if previously declined (ID, bank, cellphone)
-		const reApplicantMatch = await step.run("re-applicant-check", async () => {
-			return checkReApplicant(applicantId, workflowId);
-		});
+		const reApplicantMatch = bypassInitialReApplicantTest
+			? null
+			: await step.run("re-applicant-check", async () => {
+					return checkReApplicant(applicantId, workflowId);
+				});
 
 		if (reApplicantMatch) {
 			await step.run("re-applicant-denied-terminate", async () => {
@@ -219,5 +233,3 @@ export const controlTowerWorkflow = inngest.createFunction(
 		});
 	}
 );
-
-

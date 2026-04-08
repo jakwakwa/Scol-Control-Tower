@@ -67,7 +67,7 @@ export function FicaSection({
 					<h3 className="font-medium text-foreground">FICA Verification</h3>
 				</div>
 				<p className="text-xs text-muted-foreground">
-					Last verified: {formatDate(Date.now(), " MMM d Y")}
+					Last verified: {formatDate(Date.now(), "MMM d y")}
 				</p>
 			</div>
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">

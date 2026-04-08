@@ -9,10 +9,10 @@ export interface AgreementReport {
 	};
 	summary: {
 		totalEvaluations: number;
-		totalOverrides: number;
+		totalAdjudications: number;
 		agreementRate: number;
 	};
-	overridesByReason: {
+	adjudicationsByReason: {
 		context: number;
 		hallucination: number;
 		dataError: number;
@@ -21,15 +21,15 @@ export interface AgreementReport {
 		string,
 		{
 			evaluations: number;
-			overrides: number;
+			adjudications: number;
 			agreementRate: number;
 		}
 	>;
-	detailedOverrides: Array<{
+	detailedAdjudications: Array<{
 		workflowId: number;
 		applicantId: number;
 		promptVersionId: string | null;
-		overrideReason: string | null;
+		adjudicationReason: string | null;
 		confidenceScore: number | null;
 		createdAt: Date;
 	}>;
@@ -63,24 +63,25 @@ export async function generateWeeklyAgreementReport(
 		.orderBy(desc(aiAnalysisLogs.createdAt));
 
 	const totalEvaluations = logs.length;
-	const overrides = logs.filter(log => log.humanOverrideReason !== null);
-	const totalOverrides = overrides.length;
+	const adjudications = logs.filter(log => log.humanAdjudicationReason !== null);
+	const totalAdjudications = adjudications.length;
 	const agreementRate =
 		totalEvaluations > 0
-			? ((totalEvaluations - totalOverrides) / totalEvaluations) * 100
+			? ((totalEvaluations - totalAdjudications) / totalEvaluations) * 100
 			: 100;
 
 	// Breakdown by reason
-	const overridesByReason = {
+	const adjudicationsByReason = {
 		context: 0,
 		hallucination: 0,
 		dataError: 0,
 	};
 
-	overrides.forEach(log => {
-		if (log.humanOverrideReason === "CONTEXT") overridesByReason.context++;
-		if (log.humanOverrideReason === "HALLUCINATION") overridesByReason.hallucination++;
-		if (log.humanOverrideReason === "DATA_ERROR") overridesByReason.dataError++;
+	adjudications.forEach(log => {
+		if (log.humanAdjudicationReason === "CONTEXT") adjudicationsByReason.context++;
+		if (log.humanAdjudicationReason === "HALLUCINATION")
+			adjudicationsByReason.hallucination++;
+		if (log.humanAdjudicationReason === "DATA_ERROR") adjudicationsByReason.dataError++;
 	});
 
 	// Breakdown by Prompt Version
@@ -91,13 +92,13 @@ export async function generateWeeklyAgreementReport(
 		if (!promptPerformance[version]) {
 			promptPerformance[version] = {
 				evaluations: 0,
-				overrides: 0,
+				adjudications: 0,
 				agreementRate: 0,
 			};
 		}
 		promptPerformance[version].evaluations++;
-		if (log.humanOverrideReason !== null) {
-			promptPerformance[version].overrides++;
+		if (log.humanAdjudicationReason !== null) {
+			promptPerformance[version].adjudications++;
 		}
 	});
 
@@ -106,7 +107,7 @@ export async function generateWeeklyAgreementReport(
 		const stats = promptPerformance[version];
 		stats.agreementRate =
 			stats.evaluations > 0
-				? ((stats.evaluations - stats.overrides) / stats.evaluations) * 100
+				? ((stats.evaluations - stats.adjudications) / stats.evaluations) * 100
 				: 100;
 	});
 
@@ -117,16 +118,16 @@ export async function generateWeeklyAgreementReport(
 		},
 		summary: {
 			totalEvaluations,
-			totalOverrides,
+			totalAdjudications,
 			agreementRate,
 		},
-		overridesByReason,
+		adjudicationsByReason,
 		promptPerformance,
-		detailedOverrides: overrides.map(log => ({
+		detailedAdjudications: adjudications.map(log => ({
 			workflowId: log.workflowId,
 			applicantId: log.applicantId,
 			promptVersionId: log.promptVersionId,
-			overrideReason: log.humanOverrideReason,
+			adjudicationReason: log.humanAdjudicationReason,
 			confidenceScore: log.confidenceScore,
 			createdAt: log.createdAt,
 		})),

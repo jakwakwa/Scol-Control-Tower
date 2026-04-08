@@ -13,13 +13,15 @@ import {
 	createWorkflowNotification,
 	logWorkflowEvent,
 } from "@/lib/services/notification-events.service";
-import { getHybridGateStatus } from "@/lib/services/risk-check.service";
+import {
+	getHybridGateStatus,
+	updateRiskCheckReviewState,
+} from "@/lib/services/risk-check.service";
 import { terminateRun } from "@/lib/services/terminate-run.service";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
-
+import { guardKillSwitch } from "../../../utils/guards";
+import { notifyApplicantDecline } from "../../../utils/helpers";
 import type { StageDependencies, StageResult } from "../types";
-import { guardKillSwitch } from "@/inngest/utils/guards";
-import { notifyApplicantDecline } from "@/inngest/utils/helpers";
 
 export async function executeStage4({
 	step,
@@ -46,6 +48,96 @@ export async function executeStage4({
 	const checkSummary = gateStatus.checks
 		.map(c => `${c.checkType}: ${c.machineState}`)
 		.join(", ");
+
+	// ================================================================
+	// PROCUREMENT GATE: Independent procurement adjudication
+	// Only triggers when procurement is in manual_required state.
+	// When procurement completed successfully in Stage 3, this is skipped.
+	// ================================================================
+	const procurementCheck = gateStatus.checks.find(c => c.checkType === "PROCUREMENT");
+	const procurementNeedsReview =
+		procurementCheck?.machineState === "manual_required" &&
+		procurementCheck?.reviewState !== "approved" &&
+		procurementCheck?.reviewState !== "rejected";
+
+	if (procurementNeedsReview) {
+		await step.run("notify-procurement-review-required", async () => {
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: "warning",
+				title: "Procurement Manual Review Required",
+				message:
+					"ProcureCheck results require Risk Manager adjudication. Other risk checks are unaffected.",
+				actionable: true,
+			});
+			await sendInternalAlertEmail({
+				title: "Procurement Manual Review Required",
+				message:
+					"ProcureCheck results need manual adjudication. The general risk review will follow after procurement is resolved.",
+				workflowId,
+				applicantId,
+				type: "warning",
+				actionUrl: `${getBaseUrl()}/dashboard/risk-review`,
+			});
+		});
+
+		const procDecision = await step.waitForEvent("wait-procurement-decision", {
+			event: "risk/procurement.completed",
+			timeout: "30d",
+			match: "data.workflowId",
+		});
+
+		if (!procDecision) {
+			return {
+				status: "terminated",
+				stage: 4,
+				reason: "Procurement review timed out after 30 days",
+			};
+		}
+
+		if (procDecision.data.decision.outcome === "DENIED") {
+			// Kill switch already triggered by the API route
+			await step.run("log-procurement-denied-stage4", async () => {
+				await logWorkflowEvent({
+					workflowId,
+					eventType: "procurement_decision",
+					payload: {
+						outcome: "DENIED",
+						stage: 4,
+						decidedBy: procDecision.data.decision.decidedBy,
+						reason: procDecision.data.decision.adjudicationNotes,
+					},
+				});
+			});
+			return {
+				status: "terminated",
+				stage: 4,
+				reason: "Procurement denied by Risk Manager",
+			};
+		}
+
+		// CLEARED: update review state
+		await step.run("procurement-cleared-update", async () => {
+			await updateRiskCheckReviewState(
+				workflowId,
+				"PROCUREMENT",
+				"approved",
+				procDecision.data.decision.decidedBy,
+				procDecision.data.decision.adjudicationNotes
+			);
+			await logWorkflowEvent({
+				workflowId,
+				eventType: "procurement_decision",
+				payload: {
+					outcome: "CLEARED",
+					stage: 4,
+					decidedBy: procDecision.data.decision.decidedBy,
+					timestamp: procDecision.data.decision.timestamp,
+				},
+			});
+		});
+	}
 
 	const isHighRisk = await step.run("check-high-risk", async () => {
 		const db = getDatabaseClient();
@@ -161,12 +253,17 @@ export async function executeStage4({
 	}
 
 	if (riskDecision.data.decision.outcome === "REJECTED") {
+		const adjudicationMessage =
+			riskDecision.data.decision.adjudicationNotes ||
+			riskDecision.data.decision.adjudicationDetail ||
+			"Your application was not approved after final risk review.";
+
 		await executeKillSwitch({
 			workflowId,
 			applicantId,
 			reason: "MANUAL_TERMINATION",
 			decidedBy: riskDecision.data.decision.decidedBy,
-			notes: riskDecision.data.decision.reason,
+			notes: adjudicationMessage,
 		});
 		await step.run("risk-declined-notify-applicant", async () => {
 			await notifyApplicantDecline({
@@ -174,9 +271,7 @@ export async function executeStage4({
 				workflowId,
 				subject: "Facility Application Outcome",
 				heading: "Application declined after final risk review",
-				message:
-					riskDecision.data.decision.reason ||
-					"Your application was not approved after final risk review.",
+				message: adjudicationMessage,
 			});
 		});
 		return { status: "terminated", stage: 4, reason: "Rejected by Risk Manager" };
