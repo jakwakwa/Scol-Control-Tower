@@ -27,16 +27,16 @@
     "create-plugin": {
       "enabled": true
     },
-    "compound-engineering": {
-      "enabled": true
-    },
     "firecrawl": {
       "enabled": true
     },
     "continual-learning": {
       "enabled": false
     },
-    "postman": {
+    "clickup": {
+      "enabled": true
+    },
+    "compound-engineering": {
       "enabled": true
     }
   }

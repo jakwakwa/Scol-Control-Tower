@@ -543,13 +543,14 @@ export async function findVendorByExternalId(externalId: string): Promise<string
 	const data = await response.json();
 	const parsed = VendorListResponseSchema.parse(data);
 
-	if (!parsed.Data || parsed.Data.length === 0) return null;
+	const list = parsed.VendorList;
+	if (!list || list.length === 0) return null;
 
-	const vendor = parsed.Data[0];
+	const vendor = list[0];
 	const vendorId =
+		(vendor.Id as string | undefined) ??
 		(vendor.ProcureCheckVendorID as string | undefined) ??
 		(vendor.vendor_Id as string | undefined) ??
-		(vendor.Id as string | undefined) ??
 		(vendor.id as string | undefined);
 
 	return vendorId ?? null;

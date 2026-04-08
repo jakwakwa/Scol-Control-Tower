@@ -10,8 +10,8 @@ import { mapV7ResultsToPayload } from "@/lib/procurecheck/mapper";
 import {
 	API_CATEGORY_ENDPOINTS,
 	type ApiCategoryEndpoint,
-	CategoryResultTablesSchema,
 	type CategoryResultTables,
+	CategoryResultTablesSchema,
 	type CreateVendorParams,
 	isSummaryReady,
 	type ProcurementCheckResult,
@@ -19,23 +19,12 @@ import {
 	VendorSummaryArraySchema,
 } from "@/lib/procurecheck/types";
 
-// ============================================
-// Helpers
-// ============================================
-
-/**
- * Extract a UUID from a ProcureCheck error response body.
- */
 function extractVendorIdFromErrorBody(body: string): string | null {
 	const match = body.match(
-		/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+		/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
 	);
 	return match ? match[0] : null;
 }
-
-// ============================================
-// Step 1: resolveVendorStep
-// ============================================
 
 export interface VendorResolution {
 	vendorId: string;
@@ -43,12 +32,36 @@ export interface VendorResolution {
 }
 
 /**
- * Resolve vendor — create new or find existing when it already exists.
- * Designed for use inside a single Inngest step.run() block.
+ * Create or reuse a vendor. Inngest step.run() context.
+ * When E2E_PROCURECHECK_REUSE_VENDOR + PROCURECHECK_VERIFICATION_VENDOR_ID are set (.env.test),
+ * skips create and reuses the sandbox vendor (no DELETE API on ProcureCheck).
  */
 export async function resolveVendorStep(
-	params: CreateVendorParams,
+	params: CreateVendorParams
 ): Promise<VendorResolution> {
+	if (
+		process.env.E2E_PROCURECHECK_REUSE_VENDOR === "1" &&
+		process.env.PROCURECHECK_VERIFICATION_VENDOR_ID
+	) {
+		const vendorId =
+			process.env.PROCURECHECK_VERIFICATION_VENDOR_GUID ??
+			process.env.PROCURECHECK_VERIFICATION_VENDOR_ID;
+		console.info(
+			`[ProcureCheck] TEST MODE: reusing verification vendor ${vendorId} ` +
+				`for applicant ${params.applicantId} (no create call)`
+		);
+		return { vendorId, isExisting: true };
+	}
+
+	const externalId = `STC-${params.applicantId}`;
+	const preflightId = await findVendorByExternalId(externalId);
+	if (preflightId) {
+		console.info(
+			`[ProcureCheck] Vendor ${externalId} already exists (${preflightId}), skipping create`
+		);
+		return { vendorId: preflightId, isExisting: true };
+	}
+
 	try {
 		const vendorId = await createVendor(params);
 		return { vendorId, isExisting: false };
@@ -56,26 +69,22 @@ export async function resolveVendorStep(
 		if (!(error instanceof VendorAlreadyExistsError)) throw error;
 
 		console.info(
-			`[ProcureCheck] Vendor already exists for applicant ${params.applicantId}, finding existing`,
+			`[ProcureCheck] Vendor already exists for applicant ${params.applicantId} (race), finding existing`
 		);
 
 		let vendorId = extractVendorIdFromErrorBody(error.responseBody);
 		if (!vendorId) {
-			vendorId = await findVendorByExternalId(`STC-${params.applicantId}`);
+			vendorId = await findVendorByExternalId(externalId);
 		}
 		if (!vendorId) {
 			throw new Error(
-				`Vendor already exists for applicant ${params.applicantId} but could not determine vendor ID`,
+				`Vendor already exists for applicant ${params.applicantId} but could not determine vendor ID`
 			);
 		}
 
 		return { vendorId, isExisting: true };
 	}
 }
-
-// ============================================
-// Step 2: checkVendorReadiness
-// ============================================
 
 export interface VendorReadiness {
 	ready: boolean;
@@ -85,19 +94,8 @@ export interface VendorReadiness {
 	summaryItems: VendorSummaryArray;
 }
 
-/**
- * Check if vendor results are ready by polling the V7 vendorresults endpoint.
- *
- * Confirmed endpoint: GET /vendorresults?id={vendorId} → CheckResultsSummary[]
- *
- * ⚠️  WARNING: GET /VendorResults/resultsummary?vendorId= returns WORLD COMPLIANCE data
- *              (Category/Vendors/ActiveDirectors), NOT check readiness — do NOT use it here.
- *
- * Returns readiness status — does NOT throw on "not ready".
- */
-export async function checkVendorReadiness(
-	vendorId: string,
-): Promise<VendorReadiness> {
+/** GET /vendorresults?id= for check readiness. Do not use /VendorResults/resultsummary for this. */
+export async function checkVendorReadiness(vendorId: string): Promise<VendorReadiness> {
 	const token = await authenticate();
 	const { baseUrl } = getProcureCheckRuntimeConfig();
 	const response = await fetch(
@@ -105,16 +103,15 @@ export async function checkVendorReadiness(
 		withProcureCheckProxy({
 			method: "GET",
 			headers: { Authorization: `Bearer ${token}` },
-		}),
+		})
 	);
 	if (!response.ok) {
 		const text = await response.text();
 		throw new Error(
-			`ProcureCheck vendorresults failed (GET): ${response.status} ${text}`,
+			`ProcureCheck vendorresults failed (GET): ${response.status} ${text}`
 		);
 	}
 	const data = await response.json();
-	// Guard: ProcureCheck may return string-encoded JSON in some edge cases
 	const normalized = typeof data === "string" ? JSON.parse(data) : data;
 	const items = VendorSummaryArraySchema.parse(normalized);
 	return {
@@ -126,72 +123,56 @@ export async function checkVendorReadiness(
 	};
 }
 
-// ============================================
-// Step 3: fetchAllCategoryResults
-// ============================================
-
-/**
- * Fetch all category results in parallel and map them to the internal payload.
- *
- * Accepts summaryItems already fetched by checkVendorReadiness — avoids a second fetch.
- * Uses CategoryResultTablesSchema (V7 VendorResultTablesDTO) for each category.
- *
- * Handles 404 gracefully: not all vendors have all category types (e.g. SoleProp skips DOJ).
- */
+/** Parallel GET per category; 404 skipped (not all vendor types expose every category). */
 export async function fetchAllCategoryResults(
 	vendorId: string,
 	summaryItems: VendorSummaryArray,
-	vendorName: string,
+	vendorName: string
 ): Promise<ProcurementCheckResult> {
 	const token = await authenticate();
 	const { baseUrl } = getProcureCheckRuntimeConfig();
 
 	const categoryEntries = await Promise.all(
-		API_CATEGORY_ENDPOINTS.map(async (endpoint) => {
+		API_CATEGORY_ENDPOINTS.map(async endpoint => {
 			const url = `${baseUrl}vendorresults/${endpoint}?id=${encodeURIComponent(vendorId)}`;
 			const response = await fetch(
 				url,
 				withProcureCheckProxy({
 					method: "GET",
 					headers: { Authorization: `Bearer ${token}` },
-				}),
+				})
 			);
 			if (!response.ok) {
-				// 404 = this vendor type doesn't have this check category — skip silently
 				console.info(
-					`[ProcureCheck] Category ${endpoint} not available for vendor ${vendorId} (${response.status})`,
+					`[ProcureCheck] Category ${endpoint} not available for vendor ${vendorId} (${response.status})`
 				);
 				return null;
 			}
 			const data = await response.json();
-			// Guard: ProcureCheck may return string-encoded JSON in some edge cases
 			const normalized = typeof data === "string" ? JSON.parse(data) : data;
 			const parsed = CategoryResultTablesSchema.safeParse(normalized);
 			if (!parsed.success) {
 				console.warn(
 					`[ProcureCheck] Category ${endpoint} parse failed:`,
-					parsed.error.message,
+					parsed.error.message
 				);
 				return null;
 			}
-			return [endpoint, parsed.data] as [
-				ApiCategoryEndpoint,
-				CategoryResultTables,
-			];
-		}),
+			return [endpoint, parsed.data] as [ApiCategoryEndpoint, CategoryResultTables];
+		})
 	);
 
 	const categoryTables = new Map<ApiCategoryEndpoint, CategoryResultTables>(
 		categoryEntries.filter(
-			(e): e is [ApiCategoryEndpoint, CategoryResultTables] => e !== null,
-		),
+			(e): e is [ApiCategoryEndpoint, CategoryResultTables] => e !== null
+		)
 	);
 
 	const payload = mapV7ResultsToPayload(
 		summaryItems,
 		categoryTables,
 		vendorId,
-		vendorName,
+		vendorName
 	);
 	const rawPayload: Record<string, unknown> = {
 		summaryItems,

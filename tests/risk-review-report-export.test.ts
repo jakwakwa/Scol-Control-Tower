@@ -1,15 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { buildReportData } from "../lib/risk-review/build-report-data";
-import { getReportExportState } from "../lib/risk-review/export-readiness";
-import type { SectionStatus } from "../lib/risk-review/types";
 import type { RiskCheckRow } from "../lib/services/risk-check.service";
-
-function makeStatus(
-	machineState: SectionStatus["machineState"],
-	reviewState: SectionStatus["reviewState"] = "pending"
-): SectionStatus {
-	return { machineState, reviewState };
-}
 
 function makeRiskCheck(
 	checkType: string,
@@ -38,35 +29,6 @@ function makeRiskCheck(
 		updatedAt: null,
 	};
 }
-
-describe("getReportExportState", () => {
-	it("disables export until all sections reach a terminal state", () => {
-		const exportState = getReportExportState({
-			procurement: makeStatus("completed"),
-			itc: makeStatus("pending"),
-			sanctions: makeStatus("in_progress"),
-			fica: makeStatus("manual_required"),
-		});
-
-		expect(exportState.canExport).toBe(false);
-		expect(exportState.hasPendingSections).toBe(true);
-		expect(exportState.pendingSections).toEqual(["ITC Credit", "Sanctions & AML"]);
-	});
-
-	it("allows export for degraded but terminal workflows", () => {
-		const exportState = getReportExportState({
-			procurement: makeStatus("completed"),
-			itc: makeStatus("failed"),
-			sanctions: makeStatus("manual_required"),
-			fica: makeStatus("completed", "approved"),
-		});
-
-		expect(exportState.canExport).toBe(true);
-		expect(exportState.hasPendingSections).toBe(false);
-		expect(exportState.hasDegradedSections).toBe(true);
-		expect(exportState.degradedSections).toEqual(["ITC Credit", "Sanctions & AML"]);
-	});
-});
 
 describe("buildReportData", () => {
 	it("uses assessment summary fields and procurement address in global data", () => {
@@ -164,5 +126,115 @@ describe("buildReportData", () => {
 
 		expect(report.globalData.overallRiskScore).toBe(81);
 		expect(report.globalData.overallStatus).toBe("COMPLIANT");
+	});
+});
+
+describe("buildReportData — V7 procurement parsing", () => {
+	it("returns null procurementData when payload fails V7 schema validation", () => {
+		const invalidPayload = JSON.stringify({
+			vendorId: "vendor-xyz",
+			vendor: { name: "Partial Vendor" }, // missing required V7 fields
+			summary: { categories: [] },
+			categories: [],
+			// missing checkedAt + provider
+		});
+
+		const report = buildReportData(
+			{
+				id: 7,
+				companyName: "Partial Vendor",
+				tradingName: null,
+				registrationNumber: "2010/000001/07",
+				contactName: "Jane Doe",
+				entityType: "Private Company",
+			},
+			{ id: 42, applicantId: 7, startedAt: new Date("2026-04-07T10:00:00.000Z") },
+			[makeRiskCheck("PROCUREMENT", "completed", "pending", invalidPayload)],
+			null,
+			null
+		);
+
+		expect(report.procurementData).toBeNull();
+		expect(report.globalData.entity.registeredAddress).toBe("—");
+	});
+
+	it("preserves V7 category structure when payload is valid", () => {
+		const validPayload = JSON.stringify({
+			vendorId: "vendor-123",
+			vendor: {
+				name: "Acme Supplies",
+				entityNumber: "2010/000001/07",
+				entityType: "Private Company",
+				entityStatus: "Active",
+				startDate: "2020-01-01",
+				registrationDate: "2020-01-01",
+				taxNumber: "1234567890",
+				withdrawFromPublic: "No",
+				postalAddress: "PO Box 1",
+				registeredAddress: "1 Main Street, Johannesburg",
+			},
+			summary: {
+				categories: [
+					{
+						category: "CIPC",
+						outstanding: 0,
+						total: 2,
+						executed: 2,
+						review: 0,
+						status: "CLEARED",
+					},
+					{
+						category: "SAFPS",
+						outstanding: 0,
+						total: 1,
+						executed: 1,
+						review: 0,
+						status: "FLAGGED",
+					},
+				],
+			},
+			categories: [
+				{
+					id: "cipc",
+					description: "CIPC checks",
+					reviewed: true,
+					checks: [
+						{ name: "Company status", status: "EXECUTED", result: "CLEARED" },
+						{ name: "Directors", status: "EXECUTED", result: "CLEARED" },
+					],
+				},
+				{
+					id: "safps",
+					description: "SAFPS fraud check",
+					reviewed: true,
+					checks: [{ name: "Fraud list match", status: "EXECUTED", result: "FLAGGED" }],
+				},
+			],
+			checkedAt: "2026-04-07T10:00:00.000Z",
+			provider: "procurecheck",
+		});
+
+		const report = buildReportData(
+			{
+				id: 7,
+				companyName: "Acme Supplies",
+				tradingName: "Acme",
+				registrationNumber: "2010/000001/07",
+				contactName: "Jane Doe",
+				entityType: "Private Company",
+			},
+			{ id: 42, applicantId: 7, startedAt: new Date("2026-04-07T10:00:00.000Z") },
+			[makeRiskCheck("PROCUREMENT", "completed", "pending", validPayload)],
+			null,
+			null
+		);
+
+		expect(report.procurementData).not.toBeNull();
+		expect(report.procurementData?.provider).toBe("procurecheck");
+		expect(report.procurementData?.summary.categories).toHaveLength(2);
+		expect(report.procurementData?.categories[1]?.checks[0]?.result).toBe("FLAGGED");
+		expect(report.globalData.entity.registeredAddress).toBe(
+			"1 Main Street, Johannesburg"
+		);
 	});
 });

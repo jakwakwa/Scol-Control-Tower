@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
-import { config } from "dotenv";
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@libsql/client";
+import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/libsql";
 import { applicants, workflows } from "../db/schema";
 
@@ -94,16 +94,20 @@ async function seedBrowserFlowData() {
 		targetResource: "/api/onboarding/approve",
 	});
 
+	// -----------------------------------------------------------------------
+	// ProcureCheck verification applicant:
+	// Run scripts/seed-procurecheck-verify.ts separately — it calls the
+	// ProcureCheck API directly (DB-seed shortcut, bypassing Stages 1-2).
+	// That script writes pcVerifyApplicantId to .seed-output.json.
+	// -----------------------------------------------------------------------
+
 	const output = {
 		createdAt: new Date().toISOString(),
 		stage4ApplicantId: stage4Applicant.id,
 		stage56ApplicantId: stage56Applicant.id,
 	};
 
-	const outputPath = resolve(
-		process.cwd(),
-		"tests/browser-flow/.seed-output.json"
-	);
+	const outputPath = resolve(process.cwd(), "tests/browser-flow/.seed-output.json");
 	writeFileSync(outputPath, `${JSON.stringify(output, null, 2)}\n`, "utf8");
 
 	process.stdout.write("Browser-flow seed complete:\n");

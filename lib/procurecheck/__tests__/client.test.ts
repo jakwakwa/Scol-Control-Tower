@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import type { CreateVendorParams } from "../types";
 
 import authFixture from "./fixtures/auth-response.json";
+import categoryCipcFixture from "./fixtures/category-cipc-response.json";
 import vendorCreateFixture from "./fixtures/vendor-create-response.json";
 import vendorSummaryFixture from "./fixtures/vendor-summary-response.json";
-import categoryCipcFixture from "./fixtures/category-cipc-response.json";
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
@@ -59,7 +59,9 @@ describe("authenticate()", () => {
 
 	it("returns token from 'access_token' variant", async () => {
 		const accessTokenResponse = { access_token: "access-tok-123" };
-		fetchMock.mockImplementation(() => Promise.resolve(jsonResponse(accessTokenResponse)));
+		fetchMock.mockImplementation(() =>
+			Promise.resolve(jsonResponse(accessTokenResponse))
+		);
 		const client = await importClient();
 		client.clearTokenCache();
 		const token = await client.authenticate();
@@ -68,7 +70,7 @@ describe("authenticate()", () => {
 
 	it("throws on 401 response", async () => {
 		fetchMock.mockImplementation(() =>
-			Promise.resolve(textResponse("Unauthorized", 401)),
+			Promise.resolve(textResponse("Unauthorized", 401))
 		);
 		const client = await importClient();
 		client.clearTokenCache();
@@ -77,7 +79,7 @@ describe("authenticate()", () => {
 
 	it("throws when response contains no token", async () => {
 		fetchMock.mockImplementation(() =>
-			Promise.resolve(jsonResponse({ message: "ok but no token" })),
+			Promise.resolve(jsonResponse({ message: "ok but no token" }))
 		);
 		const client = await importClient();
 		client.clearTokenCache();
@@ -312,9 +314,7 @@ describe("getCategoryResult()", () => {
 		const client = await importClient();
 		client.clearTokenCache();
 
-		await expect(
-			client.getCategoryResult("vendor-123", "cipc"),
-		).rejects.toThrow(/500/);
+		await expect(client.getCategoryResult("vendor-123", "cipc")).rejects.toThrow(/500/);
 	});
 });
 
@@ -370,7 +370,7 @@ describe("pollUntilReady()", () => {
 			client.pollUntilReady("vendor-123", {
 				timeoutMs: 100,
 				initialDelayMs: 10,
-			}),
+			})
 		).rejects.toThrow(/timeout|timed out/i);
 	});
 });
@@ -441,7 +441,7 @@ describe("getProcureCheckRuntimeConfig()", () => {
 
 describe("getVendorsList()", () => {
 	it("posts to vendors/getlist with token", async () => {
-		const listResponse = { Data: [{ id: "1" }], TotalRecords: 1 };
+		const listResponse = { VendorList: [{ Id: "1" }], TotalVendors: 1 };
 		fetchMock.mockImplementation(() => Promise.resolve(jsonResponse(listResponse)));
 		const client = await importClient();
 
@@ -451,7 +451,7 @@ describe("getVendorsList()", () => {
 		expect(url).toContain("vendors/getlist");
 		expect(init.method).toBe("POST");
 		expect((init.headers as Record<string, string>).Authorization).toBe(
-			"Bearer bearer-tok",
+			"Bearer bearer-tok"
 		);
 	});
 });

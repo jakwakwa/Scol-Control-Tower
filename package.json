@@ -29,6 +29,8 @@
     "docs:dev": "bun --cwd docs run dev",
     "posthog:perimeter-dashboard": "bun run scripts/posthog/create-perimeter-dashboard.ts",
     "procurecheck:network-check": "curl -s http://localhost:3000/api/integrations/procurecheck/network-check | bun -e 'const r=await Bun.stdin.json();console.log(JSON.stringify(r,null,2))'",
+    "procurecheck:audit": "bun run scripts/procurecheck-audit-test-vendors.ts",
+    "procurecheck:verify-seed": "E2E_USE_TEST_DB=1 bun run scripts/seed-procurecheck-verify.ts",
     "test:browser:preflight": "bun run scripts/verify-browser-flow-preflight.ts",
     "test:browser:stage1-3": "bun run test:browser:preflight && bash tests/browser-flow/stage1-3.sh",
     "test:browser:stage4": "bun run test:browser:preflight && bash tests/browser-flow/stage4.sh",
