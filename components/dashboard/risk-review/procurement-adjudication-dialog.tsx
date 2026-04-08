@@ -120,7 +120,7 @@ function buildProcureCheckResult(data: RiskReviewData): {
 			? "APPROVE"
 			: "MANUAL_REVIEW";
 
-	const riskScore = Math.min(100, Math.max(0, data.globalData.overallRiskScore || 50));
+	const riskScore = Math.min(100, Math.max(0, data.globalData.overallRiskScore ?? 50));
 
 	return {
 		riskScore,

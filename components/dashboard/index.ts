@@ -16,6 +16,7 @@ export {
 } from "./workflow-table";
 export { AgentStatusCard, AgentStatusRow } from "./agent-status-card";
 export { ActivityFeed, CompactTimeline } from "./activity-feed";
+export { WorkflowActivityTimeline } from "./workflow-activity-timeline";
 export { ApplicantsTable } from "./applicants-table";
 export { FinalApprovalCard } from "./final-approval-card";
 export {
