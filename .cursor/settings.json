@@ -36,7 +36,7 @@
     "continual-learning": {
       "enabled": false
     },
-    "postman": {
+    "clickup": {
       "enabled": true
     }
   }
