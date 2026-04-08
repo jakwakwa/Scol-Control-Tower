@@ -421,7 +421,8 @@ function formatEventType(type: string) {
 function parsePayload(payload: string | null): Record<string, unknown> | null {
 	if (!payload) return null;
 	try {
-		return JSON.parse(payload) as Record<string, unknown>;
+		const parsed = JSON.parse(payload);
+		return isPlainObject(parsed) ? (parsed as Record<string, unknown>) : null;
 	} catch {
 		return null;
 	}
@@ -435,9 +436,21 @@ function PayloadItems({
 	parsedPayload?: Record<string, unknown> | null;
 }) {
 	if (!payload) return null;
+
+	const data: unknown = parsedPayload ?? (() => {
+		try {
+			return JSON.parse(payload);
+		} catch {
+			return null;
+		}
+	})();
+
+	if (!isPlainObject(data)) {
+		const truncatedPayload = payload.length > 300 ? `${payload.slice(0, 300)}…` : payload;
+		return <span>{truncatedPayload}</span>;
+	}
+
 	try {
-		const data = parsedPayload || JSON.parse(payload);
-		// If simple object, show truncated
 		return (
 			<ul className="space-y-1">
 				{Object.entries(data)
@@ -455,4 +468,13 @@ function PayloadItems({
 	} catch {
 		return <span>{payload}</span>;
 	}
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		!Array.isArray(value) &&
+		Object.getPrototypeOf(value) === Object.prototype
+	);
 }
