@@ -23,20 +23,34 @@ export type VendorFailureType =
 	| "rate_limit"
 	| "outage";
 
+/** Orchestration path for sanctions checks (PostHog: sanctions_path). */
+export type SanctionsTelemetryPath =
+	| "primary"
+	| "fallback"
+	| "manual_fallback"
+	| "reused";
+
+/** Workflow source for sanctions (PostHog: sanctions_source). */
+export type SanctionsTelemetrySource = "pre_risk" | "itc_main";
+
+type VendorCheckAttemptProperties = {
+	vendor: VendorCheckName;
+	stage: VendorCheckStage;
+	workflow_id: number;
+	applicant_id: number;
+	outcome: VendorCheckOutcome;
+	failure_type: VendorFailureType | null;
+	http_status: number | null;
+	duration_ms: number;
+	env: "production" | "preview" | "development";
+	sanctions_path?: SanctionsTelemetryPath;
+	sanctions_source?: SanctionsTelemetrySource;
+};
+
 type VendorCaptureEvent = {
 	distinctId: string;
 	event: "vendor_check_attempt";
-	properties: {
-		vendor: VendorCheckName;
-		stage: VendorCheckStage;
-		workflow_id: number;
-		applicant_id: number;
-		outcome: VendorCheckOutcome;
-		failure_type: VendorFailureType | null;
-		http_status: number | null;
-		duration_ms: number;
-		env: "production" | "preview" | "development";
-	};
+	properties: VendorCheckAttemptProperties;
 };
 
 type VendorCaptureSender = (event: VendorCaptureEvent) => void;
@@ -49,7 +63,7 @@ function getDeploymentEnv(): "production" | "preview" | "development" {
 	return "development";
 }
 
-function inferFailureType(params: {
+export function inferVendorFailureType(params: {
 	error?: unknown;
 	httpStatus?: number | null;
 }): VendorFailureType | null {
@@ -114,6 +128,10 @@ export interface VendorAttemptMetric {
 	failureType?: VendorFailureType | null;
 	httpStatus?: number | null;
 	error?: unknown;
+	/** Sanctions orchestration only — forwarded to PostHog as sanctions_path. */
+	sanctionsPath?: SanctionsTelemetryPath;
+	/** Sanctions orchestration only — forwarded to PostHog as sanctions_source. */
+	sanctionsSource?: SanctionsTelemetrySource;
 }
 
 export function recordVendorCheckAttempt(params: VendorAttemptMetric): void {
@@ -121,9 +139,13 @@ export function recordVendorCheckAttempt(params: VendorAttemptMetric): void {
 		params.outcome === "success"
 			? null
 			: (params.failureType ??
-				inferFailureType({ error: params.error, httpStatus: params.httpStatus }));
+				inferVendorFailureType({
+					error: params.error,
+					httpStatus: params.httpStatus,
+				}));
 
-	const metric = {
+	const env = getDeploymentEnv();
+	const metric: Record<string, string | number | null | undefined> = {
 		metric: "vendor_check_attempt",
 		vendor: params.vendor,
 		stage: params.stage,
@@ -133,27 +155,41 @@ export function recordVendorCheckAttempt(params: VendorAttemptMetric): void {
 		failure_type: failureType,
 		http_status: params.httpStatus ?? null,
 		duration_ms: params.durationMs,
-		env: getDeploymentEnv(),
+		env,
 	};
+	if (params.sanctionsPath !== undefined) {
+		metric.sanctions_path = params.sanctionsPath;
+	}
+	if (params.sanctionsSource !== undefined) {
+		metric.sanctions_source = params.sanctionsSource;
+	}
 
 	const logLevel = params.outcome === "success" ? "info" : "error";
 	// biome-ignore lint/suspicious/noConsole: intentional structured operations telemetry
 	console[logLevel]("[VendorTelemetry]", JSON.stringify(metric));
 
+	const properties: VendorCheckAttemptProperties = {
+		vendor: params.vendor,
+		stage: params.stage,
+		workflow_id: params.workflowId,
+		applicant_id: params.applicantId,
+		outcome: params.outcome,
+		failure_type: failureType,
+		http_status: params.httpStatus ?? null,
+		duration_ms: params.durationMs,
+		env,
+	};
+	if (params.sanctionsPath !== undefined) {
+		properties.sanctions_path = params.sanctionsPath;
+	}
+	if (params.sanctionsSource !== undefined) {
+		properties.sanctions_source = params.sanctionsSource;
+	}
+
 	const event: VendorCaptureEvent = {
 		distinctId: `vendor-check:${params.vendor}`,
 		event: "vendor_check_attempt",
-		properties: {
-			vendor: params.vendor,
-			stage: params.stage,
-			workflow_id: params.workflowId,
-			applicant_id: params.applicantId,
-			outcome: params.outcome,
-			failure_type: failureType,
-			http_status: params.httpStatus ?? null,
-			duration_ms: params.durationMs,
-			env: getDeploymentEnv(),
-		},
+		properties,
 	};
 
 	try {

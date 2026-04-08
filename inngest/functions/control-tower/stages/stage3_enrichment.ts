@@ -500,7 +500,6 @@ export async function executeStage3({
 
 		await updateRiskCheckMachineState(workflowId, "SANCTIONS", "in_progress");
 
-		const sanctionsStart = Date.now();
 		try {
 			const sanctions = await runSanctionsForWorkflow(
 				applicantId,
@@ -546,23 +545,6 @@ export async function executeStage3({
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			console.error("[ControlTower] Sanctions check execution failed:", error);
-
-			const lowerErr = errorMessage.toLowerCase();
-			const isAuth =
-				lowerErr.includes("401") ||
-				lowerErr.includes("403") ||
-				lowerErr.includes("unauth") ||
-				lowerErr.includes("forbidden");
-
-			recordVendorCheckFailure({
-				vendor: "opensanctions",
-				stage: 3,
-				workflowId,
-				applicantId,
-				durationMs: Date.now() - sanctionsStart,
-				outcome: isAuth ? "persistent_failure" : "transient_failure",
-				error,
-			});
 
 			await updateRiskCheckMachineState(workflowId, "SANCTIONS", "manual_required", {
 				errorDetails: `Sanctions check failed: ${errorMessage}`,
