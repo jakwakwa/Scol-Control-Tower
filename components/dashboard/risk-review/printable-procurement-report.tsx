@@ -4,9 +4,9 @@ import {
 } from "@/components/dashboard/risk-review/risk-review-config";
 import type { RiskReviewData } from "@/lib/risk-review/types";
 
-type ProcurementStatus = RiskReviewData["sectionStatuses"][keyof NonNullable<
+type ProcurementStatus = NonNullable<
 	RiskReviewData["sectionStatuses"]
->];
+>[keyof NonNullable<RiskReviewData["sectionStatuses"]>];
 
 function asDisplayValue(value: unknown, fallback = "Not provided"): string {
 	if (value == null) return fallback;
