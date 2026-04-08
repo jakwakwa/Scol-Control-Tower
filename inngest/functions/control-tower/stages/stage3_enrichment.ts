@@ -449,18 +449,46 @@ export async function executeStage3({
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			console.error("[ControlTower] ITC check execution failed:", error);
+
+			const lowerErr = errorMessage.toLowerCase();
+			const isAuth =
+				lowerErr.includes("401") ||
+				lowerErr.includes("403") ||
+				lowerErr.includes("unauth") ||
+				lowerErr.includes("forbidden");
+
 			recordVendorCheckFailure({
 				vendor: "xds_itc",
 				stage: 3,
 				workflowId,
 				applicantId,
 				durationMs: Date.now() - itcStart,
-				outcome: "persistent_failure",
+				outcome: isAuth ? "persistent_failure" : "transient_failure",
 				error,
 			});
 
-			await updateRiskCheckMachineState(workflowId, "ITC", "failed", {
-				errorDetails: errorMessage,
+			await updateRiskCheckMachineState(workflowId, "ITC", "manual_required", {
+				errorDetails: `ITC check failed: ${errorMessage}`,
+			});
+
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: "error",
+				title: "ITC Check Needs Manual Review",
+				message:
+					"Automated ITC credit check failed. Manual review required before proceeding.",
+				actionable: true,
+				severity: "high",
+			});
+
+			await sendInternalAlertEmail({
+				title: "ITC Check Failed — Manual Review Required",
+				message: `Automated ITC credit check failed.\nError: ${errorMessage}\nRequired Action: Complete a manual ITC credit assessment in Risk Review.`,
+				workflowId,
+				applicantId,
+				type: "error",
+				actionUrl: `${getBaseUrl()}/dashboard/risk-review`,
 			});
 
 			return { killSwitchTriggered: false };
@@ -518,18 +546,46 @@ export async function executeStage3({
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			console.error("[ControlTower] Sanctions check execution failed:", error);
+
+			const lowerErr = errorMessage.toLowerCase();
+			const isAuth =
+				lowerErr.includes("401") ||
+				lowerErr.includes("403") ||
+				lowerErr.includes("unauth") ||
+				lowerErr.includes("forbidden");
+
 			recordVendorCheckFailure({
 				vendor: "opensanctions",
 				stage: 3,
 				workflowId,
 				applicantId,
 				durationMs: Date.now() - sanctionsStart,
-				outcome: "persistent_failure",
+				outcome: isAuth ? "persistent_failure" : "transient_failure",
 				error,
 			});
 
 			await updateRiskCheckMachineState(workflowId, "SANCTIONS", "manual_required", {
-				errorDetails: errorMessage,
+				errorDetails: `Sanctions check failed: ${errorMessage}`,
+			});
+
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: "error",
+				title: "Manual Sanctions Check Required",
+				message:
+					"Automated sanctions checks failed. Complete a full manual sanctions check in Risk Review.",
+				actionable: true,
+				severity: "high",
+			});
+
+			await sendInternalAlertEmail({
+				title: "Manual Sanctions Check Required",
+				message: `Automated sanctions checks failed for this workflow.\nError: ${errorMessage}\nRequired Action: Complete a full manual sanctions check and record the outcome in Risk Review.`,
+				workflowId,
+				applicantId,
+				type: "error",
+				actionUrl: `${getBaseUrl()}/dashboard/risk-review`,
 			});
 
 			return { killSwitchTriggered: false, isBlocked: false, isSanctionHit: false };
