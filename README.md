@@ -32,6 +32,28 @@
 3. **Verification & risk**: Workflow steps call OpenSanctions, ProcureCheck, Firecrawl (when enabled), and AI agents; state is updated in the database.
 4. **External callbacks**: Contract signing and other events are received via webhooks (e.g. `/api/webhooks/contract-signed`) and drive the workflow forward without polling.
 
+## Documentation
+
+This project uses [Mintlify](https://mintlify.com/) for comprehensive documentation. The documentation source is located in the `docs/` directory.
+
+To view the documentation locally:
+
+1. Install the Mintlify CLI:
+   ```bash
+   bun i -g mint
+   ```
+2. Change into the `docs` directory and start the Mintlify dev server:
+   ```bash
+   cd docs
+   mint dev
+   ```
+3. Open `http://localhost:3000` to view the docs.
+
+The documentation contains:
+- **User Guides**: Comprehensive guides on Workflows, Risk Review, AI Pipelines, Onboarding Forms, Agents, and E2E Testing.
+- **API Reference**: Core endpoints for `/applicants`, `/documents`, `/quotes`, `/workflows`, and external APIs like ProcureCheck.
+- **Project and Issues**: Historical logs, solved integration issues, and database schemas.
+
 ## Getting started
 
 ### Prerequisites
