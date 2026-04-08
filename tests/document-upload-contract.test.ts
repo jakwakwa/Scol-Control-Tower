@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { isNonRetriableIdentityError } from "@/lib/risk-review/identity-verification-errors";
 import { DocumentTypeSchema } from "@/lib/types";
-import { writeTerminalVerificationStatus } from "@/app/actions/verify-id";
 
 describe("company upload document type contract", () => {
 	test("accepts required company mandate document types", () => {
