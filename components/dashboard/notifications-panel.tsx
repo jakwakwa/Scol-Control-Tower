@@ -152,6 +152,7 @@ export function NotificationsPanel({
 			<Button
 				variant="ghost"
 				size="icon"
+				aria-label="Open notifications"
 				className="relative h-9 w-9 hover:bg-background/50">
 				<RiNotification3Line className="h-5 w-5" />
 				{unreadCount > 0 && (
@@ -173,13 +174,14 @@ export function NotificationsPanel({
 				<Button
 					variant="ghost"
 					size="icon"
+					aria-label="Open notifications"
 					className="relative h-9 w-9 hover:bg-background/50">
 					<RiNotification3Line className="absolute h-5 w-5" />
 					{unreadCount > 0 && (
 						<Badge
 							variant="destructive"
-							className="absolute right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full p-0 text-[10px] animate-pulse">
-							<span className="text-white text-[7px]">
+							className="absolute right-2 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full p-0 text-[10px] animate-pulse">
+							<span className="text-white text-[8px]">
 								{unreadCount > 9 ? "9+" : unreadCount}
 							</span>
 						</Badge>
@@ -294,8 +296,8 @@ export function NotificationsPanel({
 													e.stopPropagation();
 													onDelete?.(notification);
 												}}
-												className="text-red-400/80 bg-transparent hover:text-red-200 transition-colors text-xs border-red-700/50 cursor-pointer  absolute -right-4 pointer-events-auto p-0">
-												<RiCloseLine className="h-3 p-0	border-0 outline-0  w-3 " />
+												className="text-pink-400/70 bg-transparent hover:text-red-900 transition-colors text-xs border-red-700/50 cursor-pointer  absolute -right-6 pointer-events-auto p-2">
+												<RiCloseLine className="h-2.5 p-0	border-0 outline-0  w-2.5 " />
 												<span className="sr-only">Dismiss</span>
 											</button>
 										</div>
