@@ -27,9 +27,6 @@
     "create-plugin": {
       "enabled": true
     },
-    "compound-engineering": {
-      "enabled": true
-    },
     "firecrawl": {
       "enabled": true
     },
@@ -37,6 +34,9 @@
       "enabled": false
     },
     "clickup": {
+      "enabled": true
+    },
+    "compound-engineering": {
       "enabled": true
     }
   }
