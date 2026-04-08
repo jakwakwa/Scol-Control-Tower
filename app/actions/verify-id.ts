@@ -5,6 +5,41 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import { documents, documentUploads } from "@/db/schema";
 
+export async function writeTerminalVerificationStatus({
+	documentId,
+	status,
+	reason,
+	errorMessage,
+}: {
+	documentId: number;
+	status: "failed_ocr" | "failed_unprocessable";
+	reason: string;
+	errorMessage?: string;
+}): Promise<void> {
+	const db = getDatabaseClient();
+	if (!db) return;
+
+	const notes = [reason, errorMessage].filter(Boolean).join(" | ");
+
+	// Idempotent: only update if the row is still pending or already carries the
+	// same terminal status. Protects "verified" rows from being overwritten by a
+	// duplicate onFailure event.
+	await db
+		.update(documentUploads)
+		.set({
+			verificationStatus: status,
+			verificationNotes: notes,
+			verifiedAt: new Date(),
+			verifiedBy: "auto-verify-identity",
+		})
+		.where(
+			and(
+				eq(documentUploads.id, documentId),
+				inArray(documentUploads.verificationStatus, ["pending", status])
+			)
+		);
+}
+
 export async function verifyIdentity(applicantId: number) {
 	return processIdentityVerification(applicantId);
 }
