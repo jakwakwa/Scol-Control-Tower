@@ -88,8 +88,8 @@ export const CategoryResultResponseSchema = z.object({
 export type CategoryResultResponse = z.infer<typeof CategoryResultResponseSchema>;
 
 export const VendorListResponseSchema = z.object({
-	Data: z.array(z.record(z.string(), z.unknown())).optional(),
-	TotalRecords: z.number().optional(),
+	VendorList: z.array(z.record(z.string(), z.unknown())).optional(),
+	TotalVendors: z.number().optional(),
 });
 
 export type VendorListResponse = z.infer<typeof VendorListResponseSchema>;
@@ -297,8 +297,8 @@ export type IDataRowObject = z.infer<typeof IDataRowObjectSchema>;
 const ITableMetaDataSchema = z.object({
 	TableName: z.string().optional(),
 	TableHeader: z.string().optional(),
-	RiskRanking: z.string().optional(),
-	RiskRankingDisplayColour: z.string().optional(),
+	RiskRanking: z.string().nullable().optional(),
+	RiskRankingDisplayColour: z.string().nullable().optional(),
 });
 
 /**

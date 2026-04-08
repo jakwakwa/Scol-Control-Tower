@@ -1,17 +1,14 @@
 .gemini/**/*.md
 .agents/**/*.md
 .agent/**/*.md 
-
+.agents/skills/ce-compound
 # tests/browser-flow/screenshots/
 implementation_*.md
-*.pdf
-.agents/
-.agent/
-.gemini/
+*.claude
+.agents/skills
+
 GEMINI.md
-skills-lock.json
-*-lock.json
-*.lock
+!skills-lock.json
 CLAUDE.md
 compound-engineering.local.md
 doc-1.md
