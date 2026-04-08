@@ -1,5 +1,5 @@
 import { RiAiGenerate2 } from "@remixicon/react";
-import { Check, Download, FileText, Loader2 } from "lucide-react";
+import { Check, Download, FileText, Loader2, ShieldCheck } from "lucide-react";
 import { RiskReviewBadge } from "@/components/dashboard/risk-review/risk-review-badge";
 import { Button } from "@/components/ui/button";
 import type { RiskReviewData } from "@/lib/risk-review/types";
@@ -7,19 +7,27 @@ import type { RiskReviewData } from "@/lib/risk-review/types";
 export function RiskReviewHeader({
 	globalData,
 	isGeneratingSummary,
-	canExport,
-	exportHint,
+	canExportCreditCompliance,
+	creditComplianceExportHint,
+	canExportProcurement,
+	procurementExportHint,
 	onGenerateSummary,
-	onPrint,
+	onPrintCreditCompliance,
+	onPrintProcurement,
 	onAdjudicate,
+	onAdjudicateProcurement,
 }: {
 	globalData: RiskReviewData["globalData"];
 	isGeneratingSummary: boolean;
-	canExport: boolean;
-	exportHint: string;
+	canExportCreditCompliance: boolean;
+	creditComplianceExportHint: string;
+	canExportProcurement: boolean;
+	procurementExportHint: string;
 	onGenerateSummary: () => void;
-	onPrint: () => void;
+	onPrintCreditCompliance: () => void;
+	onPrintProcurement: () => void;
 	onAdjudicate: () => void;
+	onAdjudicateProcurement: () => void;
 }) {
 	return (
 		<header className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-6 border-b border-border">
@@ -57,11 +65,27 @@ export function RiskReviewHeader({
 					</Button>
 					<Button
 						variant="secondary"
-						onClick={onPrint}
+						onClick={onPrintCreditCompliance}
 						className="bg-gray-700"
-						disabled={!canExport}
-						title={exportHint}>
-						<Download className="w-4 h-4" /> Export Master PDF
+						disabled={!canExportCreditCompliance}
+						title={creditComplianceExportHint}>
+						<Download className="w-4 h-4" /> Export Credit & Compliance
+					</Button>
+					<Button
+						variant="secondary"
+						onClick={onPrintProcurement}
+						className="bg-gray-700"
+						disabled={!canExportProcurement}
+						title={procurementExportHint}
+						data-testid="export-procurement-report">
+						<Download className="w-4 h-4" /> Export Procurement Report
+					</Button>
+					<Button
+						variant="link"
+						className="px-5 py-1 transition-all flex items-center gap-2 bg-amber-700 text-amber-200"
+						onClick={onAdjudicateProcurement}
+						data-testid="procurement-adjudication-button">
+						<ShieldCheck className="w-4 h-4" /> Procurement Adjudication
 					</Button>
 					<Button
 						variant="link"
@@ -70,9 +94,14 @@ export function RiskReviewHeader({
 						<Check className="w-4 h-4" /> Final Adjudication
 					</Button>
 				</div>
-				<p className="text-xs text-muted-foreground md:text-right max-w-md">
-					{exportHint}
-				</p>
+				<div className="flex flex-col items-start md:items-end gap-1 max-w-md">
+					<p className="text-xs text-muted-foreground md:text-right">
+						{creditComplianceExportHint}
+					</p>
+					<p className="text-xs text-muted-foreground md:text-right">
+						{procurementExportHint}
+					</p>
+				</div>
 			</div>
 		</header>
 	);

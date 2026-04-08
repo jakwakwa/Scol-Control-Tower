@@ -15,7 +15,11 @@ import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDatabaseClient } from "@/app/utils";
-import { DashboardLayout, DashboardSection } from "@/components/dashboard";
+import {
+	DashboardLayout,
+	DashboardSection,
+	WorkflowActivityTimeline,
+} from "@/components/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +31,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { applicants, quotes, workflowEvents, workflows } from "@/db/schema";
+import { mapWorkflowEventRowsToTimelineItems } from "@/lib/dashboard/workflow-timeline-mapper";
 import { cn } from "@/lib/utils";
 
 // --- Types ---
@@ -39,39 +44,41 @@ type WorkflowStatus =
 	| "timeout";
 
 // --- Status Config ---
-const statusConfig: Record<WorkflowStatus, { label: string; color: string; icon: any }> =
-	{
-		pending: {
-			label: "Pending",
-			color: "bg-muted text-muted-foreground border-border",
-			icon: RiTimeLine,
-		},
-		in_progress: {
-			label: "Processing",
-			color: "bg-blue-950 text-blue-300 border-blue-900",
-			icon: RiTimeLine,
-		},
-		awaiting_human: {
-			label: "Awaiting Input",
-			color: "bg-warning/50 text-warning-foreground border-warning",
-			icon: RiUserLine,
-		},
-		completed: {
-			label: "Completed",
-			color: "bg-emerald-500/10 text-emerald-500 border-emerald-200/70",
-			icon: RiCheckLine,
-		},
-		failed: {
-			label: "Failed",
-			color: "bg-red-500/10 text-red-500 border-red-500/20",
-			icon: RiErrorWarningLine,
-		},
-		timeout: {
-			label: "Timeout",
-			color: "bg-orange-500/10 text-orange-500 border-orange-500/20",
-			icon: RiTimeLine,
-		},
-	};
+const statusConfig: Record<
+	WorkflowStatus,
+	{ label: string; color: string; icon: typeof RiTimeLine }
+> = {
+	pending: {
+		label: "Pending",
+		color: "bg-muted text-muted-foreground border-border",
+		icon: RiTimeLine,
+	},
+	in_progress: {
+		label: "Processing",
+		color: "bg-blue-950 text-blue-300 border-blue-900",
+		icon: RiTimeLine,
+	},
+	awaiting_human: {
+		label: "Awaiting Input",
+		color: "bg-warning/50 text-warning-foreground border-warning",
+		icon: RiUserLine,
+	},
+	completed: {
+		label: "Completed",
+		color: "bg-emerald-500/10 text-emerald-500 border-emerald-200/70",
+		icon: RiCheckLine,
+	},
+	failed: {
+		label: "Failed",
+		color: "bg-red-500/10 text-red-500 border-red-500/20",
+		icon: RiErrorWarningLine,
+	},
+	timeout: {
+		label: "Timeout",
+		color: "bg-orange-500/10 text-orange-500 border-orange-500/20",
+		icon: RiTimeLine,
+	},
+};
 
 function StatusBadge({ status }: { status: string }) {
 	const config = statusConfig[status as WorkflowStatus] || statusConfig.pending;
@@ -150,6 +157,8 @@ export default async function WorkflowDetailsPage({
 		.orderBy(desc(quotes.createdAt));
 
 	const latestQuote = workflowQuotes[0];
+
+	const timelineItems = mapWorkflowEventRowsToTimelineItems(events);
 
 	// Helper for stage badge
 	const stageName = applicant?.status ? applicant.status.replace("_", " ") : "Unknown";
@@ -249,81 +258,10 @@ export default async function WorkflowDetailsPage({
 
 					{/* Timeline */}
 					<DashboardSection title="Activity Timeline">
-						<div className="relative pl-8 space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-0 before:w-px before:bg-border">
-							{events.map(event => {
-								const parsedPayload = parsePayload(event.payload);
-								const isProcurementExecutionFailure =
-									event.eventType === "error" &&
-									parsedPayload?.context === "procurement_check_failed";
-								return (
-									<div key={event.id} className="relative">
-										{/* Dot */}
-										<div
-											className={cn(
-												"absolute -left-[29px] top-1 h-2.5 w-2.5 rounded-full border border-background ring-4 ring-background",
-												event.eventType === "error" ? "bg-red-500" : "bg-emerald-500"
-											)}
-										/>
-
-										<div className="flex flex-col gap-1">
-											<div className="flex items-center justify-between">
-												<span className="text-sm font-medium text-foreground">
-													{isProcurementExecutionFailure
-														? "Procurement Automation Failed"
-														: formatEventType(event.eventType)}
-												</span>
-												<span className="text-xs text-muted-foreground">
-													{formatDistanceToNow(event.timestamp || new Date())} ago
-												</span>
-											</div>
-
-											{isProcurementExecutionFailure && (
-												<div className="mt-1 p-2 rounded-md border border-red-500/20 bg-red-500/10 text-xs text-red-200">
-													Automated procurement checks did not run. Continue with
-													available Stage 3 outputs and complete a full manual procurement
-													check in Risk Review.
-												</div>
-											)}
-
-											{event.payload && (
-												<div className="mt-1.5 p-3 rounded-lg bg-muted/50 border border-border text-xs font-mono text-muted-foreground overflow-hidden">
-													<PayloadItems
-														payload={event.payload}
-														parsedPayload={parsedPayload}
-													/>
-												</div>
-											)}
-
-											<div className="flex items-center gap-2 mt-1">
-												<Badge
-													variant="secondary"
-													className="h-5 px-1.5 text-[10px] bg-muted text-muted-foreground hover:bg-muted/80">
-													{event.actorType || "system"}
-												</Badge>
-												{event.actorId && (
-													<span className="text-[10px] text-muted-foreground font-mono">
-														id: {event.actorId}
-													</span>
-												)}
-											</div>
-										</div>
-									</div>
-								);
-							})}
-
-							{/* Start Node */}
-							<div className="relative">
-								<div className="absolute -left-[29px] top-1 h-2.5 w-2.5 rounded-full border border-background ring-4 ring-background bg-blue-500" />
-								<div className="flex flex-col">
-									<span className="text-sm font-medium text-foreground">
-										Workflow Started
-									</span>
-									<span className="text-xs text-muted-foreground">
-										{formatDistanceToNow(workflow.startedAt || new Date())} ago
-									</span>
-								</div>
-							</div>
-						</div>
+						<WorkflowActivityTimeline
+							items={timelineItems}
+							workflowStartedAt={workflow.startedAt ?? null}
+						/>
 					</DashboardSection>
 				</div>
 
@@ -407,52 +345,4 @@ export default async function WorkflowDetailsPage({
 			</div>
 		</DashboardLayout>
 	);
-}
-
-// --- Helpers ---
-
-function formatEventType(type: string) {
-	return type
-		.split("_")
-		.map(w => w.charAt(0).toUpperCase() + w.slice(1))
-		.join(" ");
-}
-
-function parsePayload(payload: string | null): Record<string, unknown> | null {
-	if (!payload) return null;
-	try {
-		return JSON.parse(payload) as Record<string, unknown>;
-	} catch {
-		return null;
-	}
-}
-
-function PayloadItems({
-	payload,
-	parsedPayload,
-}: {
-	payload: string | null;
-	parsedPayload?: Record<string, unknown> | null;
-}) {
-	if (!payload) return null;
-	try {
-		const data = parsedPayload || JSON.parse(payload);
-		// If simple object, show truncated
-		return (
-			<ul className="space-y-1">
-				{Object.entries(data)
-					.slice(0, 5)
-					.map(([key, val]) => (
-						<li key={key} className="flex gap-2">
-							<span className="text-muted-foreground">{key}:</span>
-							<span className="text-foreground truncate max-w-[200px]">
-								{typeof val === "object" ? JSON.stringify(val) : String(val)}
-							</span>
-						</li>
-					))}
-			</ul>
-		);
-	} catch {
-		return <span>{payload}</span>;
-	}
 }
