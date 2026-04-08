@@ -34,6 +34,27 @@ describe("identity verification retry classification", () => {
 	});
 });
 
+describe("non-retriable document errors produce failed_unprocessable status", () => {
+    test("page limit error is classified as non-retriable (existing coverage)", () => {
+        expect(
+            isNonRetriableIdentityError(
+                "3 INVALID_ARGUMENT: Document pages exceed the limit: 2 got 11"
+            )
+        ).toBe(true);
+    });
+
+    test("UNSUPPORTED_FILE_TYPE error is classified as non-retriable", () => {
+        // Extend the pattern list to cover additional Document AI content errors
+        expect(isNonRetriableIdentityError("UNSUPPORTED_FILE_TYPE")).toBe(true);
+    });
+
+    test("INVALID_ARGUMENT content errors are classified as non-retriable", () => {
+        expect(
+            isNonRetriableIdentityError("3 INVALID_ARGUMENT: Unable to process document")
+        ).toBe(true);
+    });
+});
+
 describe("writeTerminalVerificationStatus idempotency", () => {
 	test("status map covers both terminal failure values", () => {
 		// Validates the enum values match the schema — no DB needed

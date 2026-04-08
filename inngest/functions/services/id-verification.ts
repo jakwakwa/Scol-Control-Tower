@@ -1,4 +1,4 @@
-import { processIdentityVerification } from "@/app/actions/verify-id";
+import { processIdentityVerification, writeTerminalVerificationStatus } from "@/app/actions/verify-id";
 import { inngest } from "@/inngest";
 import { isNonRetriableIdentityError } from "@/lib/risk-review/identity-verification-errors";
 import { recordVendorCheckAttempt } from "@/lib/services/telemetry/vendor-metrics";
@@ -51,6 +51,12 @@ export const autoVerifyIdentity = inngest.createFunction(
 
 			if (hasError) {
 				if (isNonRetriableError) {
+					await writeTerminalVerificationStatus({
+						documentId,
+						status: "failed_unprocessable",
+						reason: "Document content rejected by Document AI — re-upload required",
+						errorMessage,
+					});
 					return {
 						skipped: true,
 						reason: "manual_required_identity_document_constraints",
