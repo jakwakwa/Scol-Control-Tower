@@ -1,6 +1,9 @@
 import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import type { WorkflowTimelineItem } from "@/lib/dashboard/workflow-timeline-mapper";
+import {
+	parseWorkflowEventPayload,
+	type WorkflowTimelineItem,
+} from "@/lib/dashboard/workflow-timeline-mapper";
 import { cn } from "@/lib/utils";
 
 interface WorkflowActivityTimelineProps {
@@ -79,6 +82,19 @@ function TimelineEvent({ item }: { item: WorkflowTimelineItem }) {
 	);
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	if (value === null || typeof value !== "object") {
+		return false;
+	}
+	const prototype = Object.getPrototypeOf(value);
+	return prototype === Object.prototype || prototype === null;
+}
+
+function truncatePayload(payload: string, maxLength = 500) {
+	if (payload.length <= maxLength) return payload;
+	return `${payload.slice(0, maxLength)}...`;
+}
+
 function PayloadItems({
 	payload,
 	parsedPayload,
@@ -87,8 +103,12 @@ function PayloadItems({
 	parsedPayload?: Record<string, unknown> | null;
 }) {
 	if (!payload) return null;
-	try {
-		const data = parsedPayload ?? (JSON.parse(payload) as Record<string, unknown>);
+
+	const data = isPlainObject(parsedPayload)
+		? parsedPayload
+		: parseWorkflowEventPayload(payload);
+
+	if (isPlainObject(data)) {
 		return (
 			<ul className="space-y-1">
 				{Object.entries(data)
@@ -105,7 +125,8 @@ function PayloadItems({
 					))}
 			</ul>
 		);
-	} catch {
-		return <span>{payload}</span>;
 	}
+
+	const displayPayload = truncatePayload(payload);
+	return <span className="break-words">{displayPayload}</span>;
 }
