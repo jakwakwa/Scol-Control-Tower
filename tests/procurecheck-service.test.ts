@@ -1,15 +1,22 @@
+/**
+ * Regression tests for `executeProcurementCheck` (`lib/services/procurecheck.service.ts`).
+ * That orchestration is @deprecated in favor of `procurecheck-steps` + Inngest step.run/sleep;
+ * this file keeps the legacy path covered for backward compatibility and ad-hoc callers.
+ */
 import { beforeEach, describe, expect, it, mock } from "bun:test";
+import type {
+	ApiCategoryEndpoint,
+	CategoryResultResponse,
+	CreateVendorParams,
+	VendorSummaryResponse,
+} from "../lib/procurecheck/types";
 
 const mockAuthenticate = mock(() => Promise.resolve("mock-token"));
 const mockClearTokenCache = mock(() => {});
-const mockCreateVendor = mock(() =>
-	Promise.resolve({
-		ProcureCheckVendorID: "vendor-abc-123",
-		vendor_Id: "vendor-abc-123",
-		message: "Created",
-	})
+const mockCreateVendor = mock<(params: CreateVendorParams) => Promise<string>>(() =>
+	Promise.resolve("vendor-abc-123")
 );
-const mockGetVendorSummary = mock(() =>
+const mockGetVendorSummary = mock<() => Promise<VendorSummaryResponse>>(() =>
 	Promise.resolve({
 		VendorID: "vendor-abc-123",
 		VendorName: "Test Company",
@@ -41,7 +48,9 @@ const mockGetVendorSummary = mock(() =>
 		],
 	})
 );
-const mockGetCategoryResult = mock(() =>
+const mockGetCategoryResult = mock<
+	(vendorId: string, category: ApiCategoryEndpoint) => Promise<CategoryResultResponse>
+>(() =>
 	Promise.resolve({
 		Category: "CIPC",
 		Description: "CIPC checks",
@@ -51,7 +60,24 @@ const mockGetCategoryResult = mock(() =>
 		],
 	})
 );
-const mockPollUntilReady = mock(() => mockGetVendorSummary());
+const mockPollUntilReady = mock<(vendorId: string) => Promise<VendorSummaryResponse>>(
+	() => mockGetVendorSummary()
+);
+
+class MockVendorAlreadyExistsError extends Error {
+	public readonly statusCode: number;
+	public readonly responseBody: string;
+	constructor(statusCode: number, responseBody: string) {
+		super(`Vendor already exists (HTTP ${statusCode})`);
+		this.name = "VendorAlreadyExistsError";
+		this.statusCode = statusCode;
+		this.responseBody = responseBody;
+	}
+}
+
+const mockFindVendorByExternalId = mock(
+	(): Promise<string | null> => Promise.resolve(null)
+);
 
 mock.module("@/lib/procurecheck/client", () => ({
 	authenticate: mockAuthenticate,
@@ -60,6 +86,9 @@ mock.module("@/lib/procurecheck/client", () => ({
 	getVendorSummary: mockGetVendorSummary,
 	getCategoryResult: mockGetCategoryResult,
 	pollUntilReady: mockPollUntilReady,
+	findVendorByExternalId: mockFindVendorByExternalId,
+	initiateVerification: mock(() => Promise.resolve({ success: true, raw: null })),
+	VendorAlreadyExistsError: MockVendorAlreadyExistsError,
 	getProcureCheckRuntimeConfig: () => ({
 		environment: "sandbox" as const,
 		baseUrl: "https://xdev.procurecheck.co.za/api/api/v1/",
@@ -67,10 +96,28 @@ mock.module("@/lib/procurecheck/client", () => ({
 	}),
 	getProcureCheckProxyOption: () => undefined,
 	withProcureCheckProxy: (init: RequestInit) => init,
-	getVendorsList: mock(() => Promise.resolve({ Data: [], TotalRecords: 0 })),
+	getVendorsList: mock(() => Promise.resolve({ VendorList: [], TotalVendors: 0 })),
 }));
 
-const mockGetDatabaseClient = mock(() => ({
+type ApplicantProbeRow = {
+	id: number;
+	companyName: string;
+	tradingName: null;
+	registrationNumber: string;
+	entityType: string;
+	idNumber: null;
+	vatNumber: null;
+};
+
+type MockDatabaseClient = {
+	select: () => {
+		from: () => {
+			where: () => Promise<ApplicantProbeRow[]>;
+		};
+	};
+};
+
+const defaultApplicantDb: MockDatabaseClient = {
 	select: () => ({
 		from: () => ({
 			where: () =>
@@ -87,16 +134,20 @@ const mockGetDatabaseClient = mock(() => ({
 				]),
 		}),
 	}),
-}));
+};
+
+const mockGetDatabaseClient = mock<() => MockDatabaseClient | null>(
+	() => defaultApplicantDb
+);
 
 mock.module("@/app/utils", () => ({
 	getDatabaseClient: mockGetDatabaseClient,
 	getBaseUrl: () => "http://localhost:3000",
 }));
 
-const { executeProcurementCheck } = await import("@/lib/services/procurecheck.service");
+const { executeProcurementCheck } = await import("../lib/services/procurecheck.service");
 
-describe("executeProcurementCheck", () => {
+describe("executeProcurementCheck (legacy orchestration)", () => {
 	beforeEach(() => {
 		mockAuthenticate.mockClear();
 		mockCreateVendor.mockClear();
@@ -104,6 +155,7 @@ describe("executeProcurementCheck", () => {
 		mockGetCategoryResult.mockClear();
 		mockPollUntilReady.mockClear();
 		mockClearTokenCache.mockClear();
+		mockGetDatabaseClient.mockImplementation(() => defaultApplicantDb);
 	});
 
 	it("fetches applicant, creates vendor, polls, and returns structured payload", async () => {
@@ -120,7 +172,9 @@ describe("executeProcurementCheck", () => {
 		await executeProcurementCheck(1, 100);
 
 		expect(mockCreateVendor).toHaveBeenCalledTimes(1);
-		const callArgs = mockCreateVendor.mock.calls[0][0];
+		const callArgs = mockCreateVendor.mock.calls[0]?.[0];
+		expect(callArgs).toBeDefined();
+		if (!callArgs) return;
 		expect(callArgs.vendorName).toBe("Test Company (Pty) Ltd");
 		expect(callArgs.registrationNumber).toBe("2024/123456/07");
 		expect(callArgs.entityType).toBe("company");
@@ -131,22 +185,21 @@ describe("executeProcurementCheck", () => {
 		await executeProcurementCheck(1, 100);
 
 		expect(mockPollUntilReady).toHaveBeenCalledTimes(1);
-		expect(mockPollUntilReady.mock.calls[0][0]).toBe("vendor-abc-123");
+		expect(mockPollUntilReady.mock.calls[0]?.[0]).toBe("vendor-abc-123");
 	});
 
-	it("fetches all 6 category results in parallel", async () => {
+	it("fetches all 7 category results in parallel", async () => {
 		await executeProcurementCheck(1, 100);
 
-		expect(mockGetCategoryResult).toHaveBeenCalledTimes(6);
-		const calledCategories = mockGetCategoryResult.mock.calls.map(
-			(c: [string, string]) => c[1]
-		);
+		expect(mockGetCategoryResult).toHaveBeenCalledTimes(7);
+		const calledCategories = mockGetCategoryResult.mock.calls.map(call => call[1]);
 		expect(calledCategories).toContain("cipc");
 		expect(calledCategories).toContain("property");
 		expect(calledCategories).toContain("nonpreferred");
-		expect(calledCategories).toContain("judgement");
+		expect(calledCategories).toContain("legalMatter");
 		expect(calledCategories).toContain("safps");
 		expect(calledCategories).toContain("persal");
+		expect(calledCategories).toContain("doj");
 	});
 
 	it("throws when applicant is not found", async () => {
@@ -158,7 +211,7 @@ describe("executeProcurementCheck", () => {
 			}),
 		});
 
-		const reloadedModule = await import("@/lib/services/procurecheck.service");
+		const reloadedModule = await import("../lib/services/procurecheck.service");
 		await expect(reloadedModule.executeProcurementCheck(999, 100)).rejects.toThrow(
 			"not found"
 		);
@@ -167,7 +220,7 @@ describe("executeProcurementCheck", () => {
 	it("throws when database client is unavailable", async () => {
 		mockGetDatabaseClient.mockReturnValueOnce(null);
 
-		const reloadedModule = await import("@/lib/services/procurecheck.service");
+		const reloadedModule = await import("../lib/services/procurecheck.service");
 		await expect(reloadedModule.executeProcurementCheck(1, 100)).rejects.toThrow(
 			"Database"
 		);

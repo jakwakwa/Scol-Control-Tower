@@ -6,15 +6,25 @@ const TERMINAL_MACHINE_STATES = new Set<SectionStatus["machineState"]>([
 	"manual_required",
 ]);
 
-const SECTION_LABELS: Record<
-	keyof NonNullable<RiskReviewData["sectionStatuses"]>,
-	string
-> = {
+type SectionKey = keyof NonNullable<RiskReviewData["sectionStatuses"]>;
+
+const SECTION_LABELS: Record<SectionKey, string> = {
 	procurement: "Procurement",
 	itc: "ITC Credit",
 	sanctions: "Sanctions & AML",
 	fica: "FICA / KYC",
 };
+
+const CREDIT_COMPLIANCE_KEYS: readonly SectionKey[] = ["itc", "sanctions", "fica"];
+const PROCUREMENT_KEYS: readonly SectionKey[] = ["procurement"];
+
+export interface ReportExportState {
+	canExport: boolean;
+	hasPendingSections: boolean;
+	hasDegradedSections: boolean;
+	pendingSections: string[];
+	degradedSections: string[];
+}
 
 export function isTerminalMachineState(
 	machineState: SectionStatus["machineState"]
@@ -22,26 +32,31 @@ export function isTerminalMachineState(
 	return TERMINAL_MACHINE_STATES.has(machineState);
 }
 
-export function getReportExportState(
-	sectionStatuses?: RiskReviewData["sectionStatuses"]
-) {
-	const sections = (
-		Object.entries(sectionStatuses ?? {}) as Array<
-			[keyof NonNullable<RiskReviewData["sectionStatuses"]>, SectionStatus]
-		>
-	).map(([key, status]) => ({
+function isPendingStatus(
+	status: SectionStatus | undefined
+): status is undefined | SectionStatus {
+	if (!status) return true;
+	return !isTerminalMachineState(status.machineState);
+}
+
+function computeExportState(
+	sectionStatuses: RiskReviewData["sectionStatuses"] | undefined,
+	keys: readonly SectionKey[]
+): ReportExportState {
+	const sections = keys.map(key => ({
 		key,
 		label: SECTION_LABELS[key],
-		status,
+		status: sectionStatuses?.[key],
 	}));
 
 	const pendingSections = sections
-		.filter(({ status }) => !isTerminalMachineState(status.machineState))
+		.filter(({ status }) => isPendingStatus(status))
 		.map(({ label }) => label);
+
 	const degradedSections = sections
 		.filter(
 			({ status }) =>
-				status.machineState === "failed" || status.machineState === "manual_required"
+				status?.machineState === "failed" || status?.machineState === "manual_required"
 		)
 		.map(({ label }) => label);
 
@@ -52,4 +67,18 @@ export function getReportExportState(
 		pendingSections,
 		degradedSections,
 	};
+}
+
+/** Credit & compliance PDF (ITC, sanctions, FICA) — not gated by procurement. */
+export function getCreditComplianceExportState(
+	sectionStatuses?: RiskReviewData["sectionStatuses"]
+): ReportExportState {
+	return computeExportState(sectionStatuses, CREDIT_COMPLIANCE_KEYS);
+}
+
+/** Procurement Checks PDF — only the procurement section gates export. */
+export function getProcurementExportState(
+	sectionStatuses?: RiskReviewData["sectionStatuses"]
+): ReportExportState {
+	return computeExportState(sectionStatuses, PROCUREMENT_KEYS);
 }

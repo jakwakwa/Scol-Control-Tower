@@ -45,7 +45,9 @@ export async function GET(request: NextRequest) {
 		const vendors = await getVendorsList(token);
 		const observedPublicIp = await observedPublicIpPromise;
 		const proxyConfigured = Boolean(getProcureCheckProxyOption());
-		const listedRecords = Array.isArray(vendors.Data) ? vendors.Data.length : 0;
+		const listedRecords = Array.isArray(vendors.VendorList)
+			? vendors.VendorList.length
+			: 0;
 
 		return NextResponse.json({
 			ok: true,

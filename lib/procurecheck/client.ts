@@ -20,7 +20,7 @@ const DEFAULT_SANDBOX_BASE_URL = "https://xdev.procurecheck.co.za/api/api/v1/";
 const DEFAULT_PRODUCTION_BASE_URL = "https://api.procurecheck.co.za/api/api/v1/";
 const DEFAULT_EGRESS_OWNER = "control-tower-server-runtime";
 const SA_NATIONALITY_ID = "153a0fb2-cc8d-4805-80d2-5f996720fed9";
-const TOKEN_TTL_MS = 50 * 60 * 1000; // 50 minutes
+const TOKEN_TTL_MS = 25 * 60 * 1000; // 25 minutes (V7 spec: 30min validity, refresh at 25min for safety margin)
 
 // ============================================
 // Env schemas
@@ -253,7 +253,7 @@ export async function createVendor(params: CreateVendorParams): Promise<string> 
 	}
 
 	const response = await fetch(
-		`${baseUrl}vendors?processBeeInfo=false&runInitialChecks=false`,
+		`${baseUrl}vendors?processBeeInfo=false`,
 		withProcureCheckProxy({
 			method: "POST",
 			headers: {
@@ -413,6 +413,11 @@ const DEFAULT_CHECK_TYPES = [
 	"Persal",
 ];
 
+/**
+ * @deprecated V7 spec does not include a vendorverification endpoint.
+ * With runInitialChecks removed from createVendor, checks auto-run on vendor creation.
+ * Retained as fallback — remove after confirming auto-check behavior in production.
+ */
 export async function initiateVerification(
 	vendorId: string,
 	opts?: InitiateVerificationOptions
@@ -538,13 +543,14 @@ export async function findVendorByExternalId(externalId: string): Promise<string
 	const data = await response.json();
 	const parsed = VendorListResponseSchema.parse(data);
 
-	if (!parsed.Data || parsed.Data.length === 0) return null;
+	const list = parsed.VendorList;
+	if (!list || list.length === 0) return null;
 
-	const vendor = parsed.Data[0];
+	const vendor = list[0];
 	const vendorId =
+		(vendor.Id as string | undefined) ??
 		(vendor.ProcureCheckVendorID as string | undefined) ??
 		(vendor.vendor_Id as string | undefined) ??
-		(vendor.Id as string | undefined) ??
 		(vendor.id as string | undefined);
 
 	return vendorId ?? null;

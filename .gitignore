@@ -109,3 +109,9 @@ tests/browser-flow/screenshots/blank-page.pdf
 tests/browser-flow/screenshots/blank-page.pptx
 .cursor/plans/# Context found..plan.md
 .cursor/plans/risk-reasons-refactor.plan.md
+tests/browser-flow/artifacts/verify-refactor-procurement.pdf
+tests/browser-flow/artifacts/verify-refactor-credit-compliance.pdf
+
+# Local ProcureCheck curl/API test scripts — may contain secrets; do not commit
+test_procurecheck_part2.sh
+test_procurecheck.sh
