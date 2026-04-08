@@ -24,7 +24,10 @@ describe("ProcureCheck Zod Schemas", () => {
 			const result = AuthResponseSchema.safeParse(authFixture);
 			expect(result.success).toBe(true);
 			if (result.success) {
-				expect(result.data.token).toBe(authFixture.token);
+				expect(typeof result.data).toBe("object");
+				if (typeof result.data !== "string") {
+					expect(result.data.token).toBe(authFixture.token);
+				}
 			}
 		});
 
@@ -35,7 +38,10 @@ describe("ProcureCheck Zod Schemas", () => {
 			});
 			expect(result.success).toBe(true);
 			if (result.success) {
-				expect(result.data.access_token).toBe("abc123");
+				expect(typeof result.data).toBe("object");
+				if (typeof result.data !== "string") {
+					expect(result.data.access_token).toBe("abc123");
+				}
 			}
 		});
 
@@ -379,6 +385,26 @@ describe("ProcureCheck Zod Schemas", () => {
 			expect(result.success).toBe(true);
 			if (!result.success) return;
 			expect(result.data.Tables[0].Data[0].Severity).toBe(2);
+		});
+
+		it("accepts null RiskRanking and RiskRankingDisplayColour on MetaData (API may omit display fields)", () => {
+			const raw = {
+				Tables: [
+					{
+						MetaData: {
+							TableName: "CIPC Results",
+							RiskRanking: null,
+							RiskRankingDisplayColour: null,
+						},
+						Data: [{ Severity: 0, Comments: [] }],
+					},
+				],
+			};
+			const result = CategoryResultTablesSchema.safeParse(raw);
+			expect(result.success).toBe(true);
+			if (!result.success) return;
+			expect(result.data.Tables[0].MetaData?.RiskRanking).toBeNull();
+			expect(result.data.Tables[0].MetaData?.RiskRankingDisplayColour).toBeNull();
 		});
 	});
 });

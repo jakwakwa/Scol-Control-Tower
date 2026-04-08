@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { generateRiskBriefing } from "@/actions/ai.actions";
 import { AiBriefingPanel } from "@/components/dashboard/risk-review/ai-briefing-panel";
 import { EntitySummaryCards } from "@/components/dashboard/risk-review/entity-summary-cards";
-
 import { FinalAdjudicationDialog } from "@/components/dashboard/risk-review/final-adjudication-dialog";
-import { PrintableAuditReport } from "@/components/dashboard/risk-review/printable-audit-report";
+import { PrintableCreditComplianceReport } from "@/components/dashboard/risk-review/printable-credit-compliance-report";
+import { PrintableProcurementReport } from "@/components/dashboard/risk-review/printable-procurement-report";
+import { ProcurementAdjudicationDialog } from "@/components/dashboard/risk-review/procurement-adjudication-dialog";
 import type { PrimaryRiskTabId } from "@/components/dashboard/risk-review/risk-review-config";
 import { RiskReviewHeader } from "@/components/dashboard/risk-review/risk-review-header";
 import { RiskReviewTabs } from "@/components/dashboard/risk-review/risk-review-tabs";
@@ -14,8 +15,32 @@ import { FicaSection } from "@/components/dashboard/risk-review/sections/fica-se
 import { ItcSection } from "@/components/dashboard/risk-review/sections/itc-section";
 import { ProcurementSection } from "@/components/dashboard/risk-review/sections/procurement-section";
 import { SanctionsSection } from "@/components/dashboard/risk-review/sections/sanctions-section";
-import { getReportExportState } from "@/lib/risk-review/export-readiness";
+import {
+	getCreditComplianceExportState,
+	getProcurementExportState,
+} from "@/lib/risk-review/export-readiness";
+import {
+	type PrintMode,
+	parsePrintModeParam,
+} from "@/lib/risk-review/print-mode-from-params";
 import type { RiskReviewData } from "@/lib/risk-review/types";
+
+function buildExportHint(args: {
+	label: string;
+	canExport: boolean;
+	hasPendingSections: boolean;
+	pendingSections: string[];
+	hasDegradedSections: boolean;
+	degradedSections: string[];
+}): string {
+	if (args.hasPendingSections) {
+		return `${args.label} export becomes available once ${args.pendingSections.join(", ")} reach a final status.`;
+	}
+	if (args.hasDegradedSections) {
+		return `${args.label} export includes degraded sections. ${args.degradedSections.join(", ")} will be clearly marked in the report.`;
+	}
+	return `${args.label} is ready to export as a print-ready PDF.`;
+}
 
 function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 	const [primaryTab, setPrimaryTab] = useState<PrimaryRiskTabId>("procurement");
@@ -23,6 +48,33 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 	const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
 	const [summaryError, setSummaryError] = useState<string | null>(null);
 	const [adjudicationOpen, setAdjudicationOpen] = useState(false);
+	const [procurementAdjudicationOpen, setProcurementAdjudicationOpen] = useState(false);
+	const [printMode, setPrintMode] = useState<PrintMode>(null);
+	// E2E: ?printMode= renders print DOM without window.print(); gated by NEXT_PUBLIC_E2E_ENABLED.
+	const [urlPrintMode, setUrlPrintMode] = useState<PrintMode>(null);
+
+	useEffect(() => {
+		if (printMode === null) return;
+
+		const handleAfterPrint = () => setPrintMode(null);
+		window.addEventListener("afterprint", handleAfterPrint);
+
+		const frame = requestAnimationFrame(() => {
+			window.print();
+		});
+
+		return () => {
+			cancelAnimationFrame(frame);
+			window.removeEventListener("afterprint", handleAfterPrint);
+		};
+	}, [printMode]);
+
+	useEffect(() => {
+		if (process.env.NEXT_PUBLIC_E2E_ENABLED !== "true") return;
+		setUrlPrintMode(parsePrintModeParam(window.location.search));
+	}, []);
+
+	const activePrintMode = printMode ?? urlPrintMode;
 
 	if (!data?.globalData) {
 		return (
@@ -38,16 +90,27 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 		ficaData,
 		bankStatementAnalysis,
 	} = data;
-	const exportState = getReportExportState(data.sectionStatuses);
-	const exportHint = exportState.hasPendingSections
-		? `Export becomes available once ${exportState.pendingSections.join(", ")} reach a final status.`
-		: exportState.hasDegradedSections
-			? `This export includes degraded sections. ${exportState.degradedSections.join(", ")} will be clearly marked in the report.`
-			: "Exports the current master compliance report as a print-ready PDF.";
 
-	const handlePrint = () => {
-		if (!exportState.canExport) return;
-		window.print();
+	const creditComplianceState = getCreditComplianceExportState(data.sectionStatuses);
+	const procurementState = getProcurementExportState(data.sectionStatuses);
+
+	const creditComplianceHint = buildExportHint({
+		label: "Credit & Compliance",
+		...creditComplianceState,
+	});
+	const procurementHint = buildExportHint({
+		label: "Procurement Checks",
+		...procurementState,
+	});
+
+	const handlePrintCreditCompliance = () => {
+		if (!creditComplianceState.canExport) return;
+		setPrintMode("credit-compliance");
+	};
+
+	const handlePrintProcurement = () => {
+		if (!procurementState.canExport) return;
+		setPrintMode("procurement");
 	};
 
 	const handleGenerateSummary = async () => {
@@ -82,11 +145,15 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 					<RiskReviewHeader
 						globalData={globalData}
 						isGeneratingSummary={isGeneratingSummary}
-						canExport={exportState.canExport}
-						exportHint={exportHint}
+						canExportCreditCompliance={creditComplianceState.canExport}
+						creditComplianceExportHint={creditComplianceHint}
+						canExportProcurement={procurementState.canExport}
+						procurementExportHint={procurementHint}
 						onGenerateSummary={handleGenerateSummary}
-						onPrint={handlePrint}
+						onPrintCreditCompliance={handlePrintCreditCompliance}
+						onPrintProcurement={handlePrintProcurement}
 						onAdjudicate={() => setAdjudicationOpen(true)}
+						onAdjudicateProcurement={() => setProcurementAdjudicationOpen(true)}
 					/>
 
 					<AiBriefingPanel
@@ -130,7 +197,10 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 				</div>
 			</div>
 
-			<PrintableAuditReport aiSummary={aiSummary} data={data} />
+			{activePrintMode === "credit-compliance" && (
+				<PrintableCreditComplianceReport aiSummary={aiSummary} data={data} />
+			)}
+			{activePrintMode === "procurement" && <PrintableProcurementReport data={data} />}
 
 			<FinalAdjudicationDialog
 				open={adjudicationOpen}
@@ -138,6 +208,15 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 				workflowId={data.workflowId}
 				applicantId={data.applicantId}
 				entityName={globalData.entity.name}
+			/>
+
+			<ProcurementAdjudicationDialog
+				open={procurementAdjudicationOpen}
+				onOpenChange={setProcurementAdjudicationOpen}
+				workflowId={data.workflowId}
+				applicantId={data.applicantId}
+				entityName={globalData.entity.name}
+				data={data}
 			/>
 		</>
 	);

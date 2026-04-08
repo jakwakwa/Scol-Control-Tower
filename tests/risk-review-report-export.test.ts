@@ -1,15 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { buildReportData } from "../lib/risk-review/build-report-data";
-import { getReportExportState } from "../lib/risk-review/export-readiness";
-import type { SectionStatus } from "../lib/risk-review/types";
 import type { RiskCheckRow } from "../lib/services/risk-check.service";
-
-function makeStatus(
-	machineState: SectionStatus["machineState"],
-	reviewState: SectionStatus["reviewState"] = "pending"
-): SectionStatus {
-	return { machineState, reviewState };
-}
 
 function makeRiskCheck(
 	checkType: string,
@@ -38,35 +29,6 @@ function makeRiskCheck(
 		updatedAt: null,
 	};
 }
-
-describe("getReportExportState", () => {
-	it("disables export until all sections reach a terminal state", () => {
-		const exportState = getReportExportState({
-			procurement: makeStatus("completed"),
-			itc: makeStatus("pending"),
-			sanctions: makeStatus("in_progress"),
-			fica: makeStatus("manual_required"),
-		});
-
-		expect(exportState.canExport).toBe(false);
-		expect(exportState.hasPendingSections).toBe(true);
-		expect(exportState.pendingSections).toEqual(["ITC Credit", "Sanctions & AML"]);
-	});
-
-	it("allows export for degraded but terminal workflows", () => {
-		const exportState = getReportExportState({
-			procurement: makeStatus("completed"),
-			itc: makeStatus("failed"),
-			sanctions: makeStatus("manual_required"),
-			fica: makeStatus("completed", "approved"),
-		});
-
-		expect(exportState.canExport).toBe(true);
-		expect(exportState.hasPendingSections).toBe(false);
-		expect(exportState.hasDegradedSections).toBe(true);
-		expect(exportState.degradedSections).toEqual(["ITC Credit", "Sanctions & AML"]);
-	});
-});
 
 describe("buildReportData", () => {
 	it("uses assessment summary fields and procurement address in global data", () => {
