@@ -4,15 +4,16 @@ import { useState } from "react";
 import { analyzeMediaRisk, generateRiskBriefing } from "@/actions/ai.actions";
 import { AiBriefingPanel } from "@/components/dashboard/risk-review/ai-briefing-panel";
 import { EntitySummaryCards } from "@/components/dashboard/risk-review/entity-summary-cards";
+import { ExternalScreeningPanel } from "@/components/dashboard/risk-review/external-screening-panel";
 import { PrintableAuditReport } from "@/components/dashboard/risk-review/printable-audit-report";
+import type { PrimaryRiskTabId } from "@/components/dashboard/risk-review/risk-review-config";
 import { RiskReviewHeader } from "@/components/dashboard/risk-review/risk-review-header";
 import { RiskReviewTabs } from "@/components/dashboard/risk-review/risk-review-tabs";
-import type { PrimaryRiskTabId } from "@/components/dashboard/risk-review/risk-review-config";
-import { ExternalScreeningPanel } from "@/components/dashboard/risk-review/external-screening-panel";
 import { FicaSection } from "@/components/dashboard/risk-review/sections/fica-section";
 import { ItcSection } from "@/components/dashboard/risk-review/sections/itc-section";
 import { ProcurementSection } from "@/components/dashboard/risk-review/sections/procurement-section";
 import { SanctionsSection } from "@/components/dashboard/risk-review/sections/sanctions-section";
+import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
@@ -21,7 +22,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
 	Select,
@@ -31,12 +31,12 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { RiskReviewData } from "@/lib/risk-review/types";
 import {
 	OVERRIDE_CATEGORIES,
 	OVERRIDE_CATEGORY_LABELS,
 	type OverrideCategory,
 } from "@/lib/constants/override-taxonomy";
+import type { RiskReviewData } from "@/lib/risk-review/types";
 
 function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 	const [primaryTab, setPrimaryTab] = useState<PrimaryRiskTabId>("procurement");
@@ -45,7 +45,8 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 	const [summaryError, setSummaryError] = useState<string | null>(null);
 	const [adjudicationOpen, setAdjudicationOpen] = useState(false);
 	const [adjudicationReason, setAdjudicationReason] = useState("");
-	const [overrideCategory, setOverrideCategory] = useState<OverrideCategory>("AI_ALIGNED");
+	const [overrideCategory, setOverrideCategory] =
+		useState<OverrideCategory>("AI_ALIGNED");
 	const [adjudicationSubmitting, setAdjudicationSubmitting] = useState(false);
 	const [adjudicationResult, setAdjudicationResult] = useState<{
 		success: boolean;
@@ -53,11 +54,19 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 	} | null>(null);
 
 	if (!data?.globalData) {
-		return <div className="p-8 text-center text-muted-foreground">Loading risk data...</div>;
+		return (
+			<div className="p-8 text-center text-muted-foreground">Loading risk data...</div>
+		);
 	}
 
-	const { globalData, procurementData, itcData, sanctionsData, ficaData, bankStatementAnalysis } =
-		data;
+	const {
+		globalData,
+		procurementData,
+		itcData,
+		sanctionsData,
+		ficaData,
+		bankStatementAnalysis,
+	} = data;
 
 	const handleAdjudicate = async (outcome: "APPROVED" | "REJECTED") => {
 		setAdjudicationSubmitting(true);
@@ -140,17 +149,17 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 		<>
 			<div className="card-form text-foreground font-sans p-4 md:p-6 selection:bg-primary/30 print:hidden">
 				<div className="space-y-6">
-				<RiskReviewHeader
-					globalData={globalData}
-					isGeneratingSummary={isGeneratingSummary}
-					onGenerateSummary={handleGenerateSummary}
-					onPrint={handlePrint}
-					onAdjudicate={() => {
-						setAdjudicationReason("");
-						setAdjudicationResult(null);
-						setAdjudicationOpen(true);
-					}}
-				/>
+					<RiskReviewHeader
+						globalData={globalData}
+						isGeneratingSummary={isGeneratingSummary}
+						onGenerateSummary={handleGenerateSummary}
+						onPrint={handlePrint}
+						onAdjudicate={() => {
+							setAdjudicationReason("");
+							setAdjudicationResult(null);
+							setAdjudicationOpen(true);
+						}}
+					/>
 
 					<AiBriefingPanel
 						isGeneratingSummary={isGeneratingSummary}
@@ -214,8 +223,8 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 					<DialogHeader>
 						<DialogTitle>Final Adjudication</DialogTitle>
 						<DialogDescription>
-							Submit your risk manager decision for{" "}
-							{globalData.entity.name}. This will advance the workflow.
+							Submit your risk manager decision for {globalData.entity.name}. This will
+							advance the workflow.
 						</DialogDescription>
 					</DialogHeader>
 

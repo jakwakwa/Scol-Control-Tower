@@ -1,11 +1,6 @@
 "use client";
 
-import {
-	RiAlertLine,
-	RiFilter3Line,
-	RiRefreshLine,
-	RiTimeLine,
-} from "@remixicon/react";
+import { RiAlertLine, RiFilter3Line, RiRefreshLine, RiTimeLine } from "@remixicon/react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { DashboardLayout, SearchInput } from "@/components/dashboard";
@@ -233,7 +228,6 @@ export default function RiskReviewPage() {
 		setIsDetailOpen(true);
 	};
 
-
 	const highRiskCount = items.filter(item => (item.aiTrustScore || 100) < 60).length;
 	const pendingCount = items.length;
 
@@ -285,7 +279,11 @@ export default function RiskReviewPage() {
 			{/* Applicant Entities Table */}
 			<div className="mt-8">
 				<h2 className="text-lg font-semibold mb-4">Applicant Entities</h2>
-				<RiskEntitiesTable search={searchTerm} />
+				<RiskEntitiesTable
+					key={showHistory ? "history" : "active"}
+					search={searchTerm}
+					showHistory={showHistory}
+				/>
 			</div>
 		</DashboardLayout>
 	);

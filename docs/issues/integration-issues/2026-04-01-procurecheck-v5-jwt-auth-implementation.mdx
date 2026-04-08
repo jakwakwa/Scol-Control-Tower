@@ -1,0 +1,129 @@
+---
+title: "ProcureCheck Web API v5 — Full Production Integration"
+description: "Production-grade ProcureCheck API integration replacing the demo/mock client. Includes TDD-driven API client, mapper, service orchestrator, Inngest Stage 3 wiring, and frontend with error/loading states."
+category: "integration-issues"
+problem_type: "external-api-integration"
+component: "procurecheck-client"
+symptoms: ["mock procurement data in UI", "no real API calls", "PROCURECHECK_MOCK_ENABLED workaround", "flat procurement payload in DB"]
+root_cause: "Demo client in lib/procurecheck-demo.ts and risk.service.ts used hardcoded risk scoring. Frontend used mock data. No structured per-category persistence."
+date: "2026-04-02"
+status: "completed"
+---
+
+# ProcureCheck Web API v5 — Full Production Integration
+
+## Overview
+
+Replaced the demo/mock ProcureCheck integration with a **production-grade service** that calls the real ProcureCheck Web API v5. The implementation:
+
+- **82 new tests** across 4 test files (TDD approach)
+- **Structured per-category results** — CIPC, Property, Restricted List, Legal, SAFPS, Persal
+- **Inngest Stage 3 wiring** — automatic vendor check during onboarding workflow
+- **Clean error handling** — auth errors → manual review, transient errors → Inngest retries
+- **Frontend states** — loading skeleton, error card, real data rendering
+
+## Module Structure
+
+```
+lib/procurecheck/
+├── types.ts      — Zod schemas for API responses + ProcurementData persistence type
+├── client.ts     — JWT auth, vendor CRUD, polling with exponential backoff
+├── mapper.ts     — mapVendorResultsToPayload() transformer
+├── index.ts      — barrel export
+└── __tests__/
+    ├── types.test.ts   (17 tests)
+    ├── client.test.ts  (27 tests)
+    ├── mapper.test.ts  (31 tests)
+    └── fixtures/       (9 JSON fixtures)
+
+lib/services/
+└── procurecheck.service.ts  — executeProcurementCheck() orchestrator (7 tests)
+```
+
+## Data Flow
+
+```
+Inngest Stage 3 check-procurement step
+  → executeProcurementCheck(applicantId, workflowId)
+    → authenticate() [JWT, 50-min cache]
+    → createVendor(params) [entity type mapping]
+    → pollUntilReady(vendorId) [exponential backoff, 60s timeout]
+    → getCategoryResult() × 6 [parallel Promise.all]
+    → mapVendorResultsToPayload()
+      → ProcurementData [Zod-validated]
+        → persisted in risk_check_results.payload
+          → mergeProcurement() [build-report-data.ts]
+            → ProcurementSection [procurement-section.tsx]
+```
+
+## Key Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| Zod schemas for all API responses | Runtime validation prevents silent data corruption |
+| 50-minute token cache (JWT TTL is 60min) | Reduces auth calls without risking expired tokens |
+| Exponential backoff polling (1s → 8s cap) | Balances responsiveness with API rate limiting |
+| Auth errors → `manual_required` | 401/403 won't resolve with retries — human review needed |
+| Transient errors re-thrown | Inngest step retries handle network/5xx naturally |
+| No backward compatibility | Clean break from old `cipcStatus`/`taxStatus`/`beeLevel` shape |
+
+## Files Changed
+
+| File | Change |
+|------|--------|
+| `lib/procurecheck/` | Created — complete API client module |
+| `lib/services/procurecheck.service.ts` | Created — orchestrator replacing `risk.service.ts` |
+| `lib/risk-review/types.ts` | `procurementData` changed to `ProcurementData \| null` |
+| `lib/risk-review/build-report-data.ts` | `mergeProcurement()` rewritten for Zod-parsed `ProcurementData` |
+| `inngest/.../stage3_enrichment.ts` | `check-procurement` step uses new service |
+| `procurement-section.tsx` | Removed ~450 lines of mock/normalization code, added loading/error states |
+| `printable-audit-report.tsx` | Updated to new `ProcurementData` shape |
+| `network-check/route.ts` | Import from `lib/procurecheck` instead of `lib/procurecheck-demo` |
+
+### Deleted
+
+- `lib/procurecheck-demo.ts` → replaced by `lib/procurecheck/client.ts`
+- `lib/services/risk.service.ts` → replaced by `lib/services/procurecheck.service.ts`
+- `scripts/procurecheck-verifier.ts` → referenced deleted demo module
+- `scripts/procurecheck-network-check.ts` → replaced by API route
+
+## How to Use
+
+### Environment Variables
+
+```bash
+PROCURECHECK_USERNAME="..."
+PROCURECHECK_PASSWORD="..."
+PROCURECHECK_ENV="sandbox"
+PROCURECHECK_BASE_URL="https://xdev.procurecheck.co.za/api/api/v1/"
+FIXIE_URL="..."  # optional, for static IP egress
+```
+
+### Network Check
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  http://localhost:3000/api/integrations/procurecheck/network-check
+```
+
+### In Code
+
+```typescript
+import { executeProcurementCheck } from "@/lib/services/procurecheck.service";
+
+const result = await executeProcurementCheck(applicantId, workflowId);
+// result.vendorId, result.payload (ProcurementData), result.rawPayload
+```
+
+## Related Documentation
+
+- `docs/procurecheck-credentials-request.md` — How to request API credentials
+- `docs/procurecheck-api-v5.yaml` — Ground truth API specification
+- `docs/procurecheck-ip-whitelist-runbook.md` — IP allowlist and Fixie proxy setup
+- `docs/api-reference/external_apis/procurecheck/procurecheck_web_api.mdx` — API reference
+
+---
+
+**Status**: ✅ Production-ready
+**Component**: ProcureCheck API Integration
+**Last updated**: 2026-04-02

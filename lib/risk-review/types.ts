@@ -37,6 +37,7 @@ export interface RiskReviewData {
 		generatedAt: string;
 		overallStatus: string;
 		overallRiskScore: number;
+		//  used for calling the procurecheck API (entity name = vendor name, registration number = registration number, entity type = entity type, registered address = registered address)
 		entity: {
 			name: string;
 			tradingAs?: string;
@@ -51,27 +52,8 @@ export interface RiskReviewData {
 		sanctions: SectionStatus;
 		fica: SectionStatus;
 	};
-	procurementData: {
-		cipcStatus: string;
-		taxStatus: string;
-		taxExpiry: string;
-		beeLevel: string;
-		beeExpiry: string;
-		riskAlerts: Array<{
-			category: string;
-			message: string;
-			id?: string;
-			action?: string;
-		}>;
-		checks: Array<{ name: string; status: string; detail: string }>;
-		directors: Array<{
-			name: string;
-			idNumber: string;
-			otherDirectorships: number;
-			conflicts: number;
-			status?: string;
-		}>;
-	};
+	procurementData: import("@/lib/procurecheck/types").ProcurementData | null;
+
 	itcData: {
 		creditScore: number;
 		scoreBand: string;

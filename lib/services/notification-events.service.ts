@@ -2,8 +2,8 @@ import { and, eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import type { NotificationSeverity } from "@/db/schema";
 import { notifications, workflowEvents } from "@/db/schema";
-import type { NotificationType } from "@/lib/notifications/types";
 import { broadcast } from "@/lib/notification-broadcaster";
+import type { NotificationType } from "@/lib/notifications/types";
 
 export interface NotificationErrorDetails {
 	message: string;
@@ -76,7 +76,10 @@ export interface LogEventParams {
 		| "green_lane_approved"
 		| "green_lane_blocked"
 		| "green_lane_requested"
-		| "vat_verification_completed";
+		| "vat_verification_completed"
+		| "vendor_check_failed"
+		| "vendor_check_succeeded"
+		| "reminder_sent";
 	payload: object;
 	actorType?: "user" | "agent" | "platform";
 	actorId?: string;

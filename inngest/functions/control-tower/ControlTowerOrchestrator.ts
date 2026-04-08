@@ -5,7 +5,6 @@ import { executeStage4 } from "./stages/stage4_guardKillSwitch";
 import { executeStage5 } from "./stages/stage5_contractWait";
 import { executeStage6 } from "./stages/stage6_activation";
 import type { StageDependencies, StageResult } from "./types";
-
 export async function runControlTowerOrchestrator(
 	deps: StageDependencies
 ): Promise<StageResult> {

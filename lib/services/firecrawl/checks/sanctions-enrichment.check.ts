@@ -73,6 +73,12 @@ export async function runSanctionsEnrichmentCheck(
 				schema: config.extractionSchema,
 				prompt: config.prompt.replace("{companyName}", input.entityName),
 				timeoutMs: 30_000,
+				telemetry: {
+					vendor: "firecrawl_sanctions",
+					workflowId: input.workflowId,
+					applicantId: input.applicantId,
+					stage: "async",
+				},
 			});
 
 			return { provider, scrapeResult, url };

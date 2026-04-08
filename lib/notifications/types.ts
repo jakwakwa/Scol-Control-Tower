@@ -9,6 +9,7 @@ export const NOTIFICATION_TYPES = [
 	"info",
 	"success",
 	"terminated",
+	"reminder",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

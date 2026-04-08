@@ -24,11 +24,27 @@ export interface RiskEntityRow {
 const TERMINAL_MACHINE_STATES = ["completed", "failed", "manual_required"];
 const REVIEWED_STATES = ["acknowledged", "approved", "not_required"];
 
+/** Workflow statuses excluded from the Applicant Entities list when history is hidden. */
+export const ENTITIES_LIST_EXCLUDED_WORKFLOW_STATUSES = [
+	"completed",
+	"terminated",
+	"failed",
+] as const;
+
+/** Same convention as GET /api/risk-review (`showHistory=true`). */
+export function parseEntitiesShowHistory(searchParams: URLSearchParams): boolean {
+	return searchParams.get("showHistory") === "true";
+}
+
 /**
- * GET /api/risk-review/entities?page=1&pageSize=10
+ * GET /api/risk-review/entities?page=1&pageSize=10&search=&showHistory=
  *
- * Returns paginated applicants with in-progress workflows and their
- * check statuses from the canonical risk_check_results table.
+ * Paginated workflows with check statuses from `risk_check_results`.
+ *
+ * - **showHistory omitted / false:** Excludes workflows whose status is completed,
+ *   terminated, or failed (active / in-flight queue only).
+ * - **showHistory=true:** Includes all workflow rows (subject to `search`), for
+ *   viewing applicants and reports after completion.
  */
 export async function GET(request: NextRequest) {
 	try {
@@ -50,18 +66,22 @@ export async function GET(request: NextRequest) {
 		);
 		const offset = (page - 1) * pageSize;
 
-		const terminalStatuses = ["completed", "terminated", "failed"];
+		const showHistory = parseEntitiesShowHistory(url.searchParams);
 		const search = url.searchParams.get("search") || "";
 
-		const whereClause = and(
-			notInArray(workflows.status, terminalStatuses),
-			search
-				? or(
-						like(applicants.companyName, `%${search}%`),
-						like(applicants.contactName, `%${search}%`)
-					)
-				: undefined
-		);
+		const searchFilter = search
+			? or(
+					like(applicants.companyName, `%${search}%`),
+					like(applicants.contactName, `%${search}%`)
+				)
+			: undefined;
+
+		const whereClause = showHistory
+			? searchFilter
+			: and(
+					notInArray(workflows.status, [...ENTITIES_LIST_EXCLUDED_WORKFLOW_STATUSES]),
+					searchFilter
+				);
 
 		const [totalResult] = await db
 			.select({ value: count() })
@@ -95,9 +115,7 @@ export async function GET(request: NextRequest) {
 					.from(riskCheckResults)
 					.where(eq(riskCheckResults.workflowId, row.workflowId));
 
-				const checkMap = new Map(
-					checks.map(c => [c.checkType, c])
-				);
+				const checkMap = new Map(checks.map(c => [c.checkType, c]));
 
 				const proc = checkMap.get("PROCUREMENT");
 				const itc = checkMap.get("ITC");

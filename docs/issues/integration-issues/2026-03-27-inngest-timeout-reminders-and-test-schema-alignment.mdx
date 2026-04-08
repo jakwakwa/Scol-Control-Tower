@@ -1,0 +1,75 @@
+---
+title: "Inngest Timeout Reminders and Zod Schema Test Alignment"
+description: "Implementation of a configurable reminder loop for stalled workflows to reduce applicant drop-off, and fixing v2 strict schema validation failures in tests."
+category: "integration-issues"
+problem_type: "logic-error"
+component: "inngest-orchestrator"
+symptoms: ["stalled workflows", "silent termination", "applicant drop-off", "failing Zod validation tests"]
+root_cause: "Binary wait-to-terminate pattern without intermediate nudges; schema drift between harden v2 schemas and legacy test data."
+date: "2026-03-27"
+---
+
+# Inngest Timeout Reminders and Zod Schema Test Alignment
+
+## Problem
+
+### Workflow Drop-off
+Onboarding workflows were designed with a binary "wait or terminate" pattern. If an applicant stalled at a document upload or form submission (e.g., Stage 2 facility app or Stage 3 FICA), the workflow would silently wait for the full duration (14–30 days) and then terminate. This lacked engagement and led to preventable drop-off.
+
+### Test Failures
+Pre-existing tests in `tests/inngest-events-validation.test.ts` were failing because the `LeadCreatedSchema` and `ExternalSanctionsIngressSchema` had been hardened to "v2 strict" mode, while the test data remained in "v1 legacy" format (missing required fields like `companyName` or `riskLevel`).
+
+## Solution
+
+### 1. Wait with Reminders Helper
+Created a reusable `handleWaitWithReminders` helper in `inngest/functions/control-tower/reminder-handler.ts`. This wraps `step.waitForEvent` in a loop that:
+1. Waits for a nudge interval (e.g., 3 days).
+2. Sends a reminder (email/notification) if timed out.
+3. Repeats until `MAX_REMINDERS` is reached.
+4. Finally delegates to the hard-terminate handler.
+
+```typescript
+// inngest/functions/control-tower/reminder-handler.ts
+const waitDurations = [
+  REMINDER_INTERVALS.FIRST_NUDGE,
+  ...Array.from({ length: Math.max(0, maxReminders - 1) }, () => REMINDER_INTERVALS.SECOND_NUDGE),
+  totalTimeout,
+];
+
+for (let i = 0; i < waitDurations.length; i++) {
+  event = await step.waitForEvent(`${waitStepId}${stepSuffix}`, { ... });
+  if (event) return event;
+  // Send reminder nudge logic...
+}
+```
+
+### 2. Configurable Intervals
+Introduced environment-variable-driven intervals in `lib/constants/workflow-timeouts.ts`:
+- `REMINDER_FIRST_NUDGE`: (default `3d`)
+- `REMINDER_SECOND_NUDGE`: (default `4d`)
+- `REMINDER_MAX_COUNT`: (default `2`)
+
+### 3. Test Alignment
+Updated `tests/inngest-events-validation.test.ts` to include required fields for v2 schemas:
+- **LeadCreated:** Added `companyName`, `contactName`, `email`.
+- **ExternalSanctionsIngress:** Added required `riskLevel`.
+
+## Implementation Details
+
+- **Filesystem**: 
+  - `inngest/functions/control-tower/reminder-handler.ts` (New)
+  - `components/emails/ApplicantReminder.tsx` (New)
+  - `lib/constants/workflow-timeouts.ts` (Config)
+  - Multiple `stages/*.ts` (Refactored)
+- **Wait Points**: Refactored 7 points across Stages 2, 3, 5, and 6.
+- **AM Mode**: Added `internalOnly: true` flag to skip applicant emails for internal staff-only wait points (e.g., ABSA form).
+
+## Prevention & Best Practices
+
+1. **Avoid Silent Timeouts**: Never use raw `step.waitForEvent` for long-running applicant-facing tasks. Always wrap with `handleWaitWithReminders`.
+2. **Schema Cutover**: When hardening Zod schemas, immediately perform a grep for test files referencing that schema to ensure data alignment.
+3. **Observability**: Log `reminder_sent` events to the `workflowEvents` table to track engagement efficacy.
+
+## Related
+- [Fix: Stage 6 Workflow Stuck — Inngest Orchestration (2026-03-23)](../2026-03-23-fix-stage6-inngest-workflow-stuck.mdx)
+- [Inngest Workflow Stage Transitions & Browser Flow Tests](./2026-03-23-inngest-workflow-stage-transitions-browser-flow-tests.mdx)

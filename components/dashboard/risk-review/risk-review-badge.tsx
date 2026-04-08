@@ -2,10 +2,16 @@ import type React from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-type RiskReviewBadgeVariant = "default" | "success" | "warning" | "danger" | "gold" | "ai";
+type RiskReviewBadgeVariant =
+	| "default"
+	| "success"
+	| "warning"
+	| "danger"
+	| "gold"
+	| "ai";
 
 const variantClassMap: Record<RiskReviewBadgeVariant, string> = {
-	default: "bg-secondary/90 text-muted-foreground border-border",
+	default: "bg-indigo-950/50 text-chart-3 border-chart-3/20",
 	success: "bg-chart-4/10 text-chart-4 border-chart-4/20",
 	warning: "bg-warning/50 text-warning-foreground border-warning",
 	danger: "bg-destructive/20 text-destructive-foreground border-destructive/30",
@@ -25,7 +31,11 @@ export function RiskReviewBadge({
 	return (
 		<Badge
 			variant="outline"
-			className={cn("px-2.5 py-1 rounded-full text-xs font-medium border", variantClassMap[variant], className)}>
+			className={cn(
+				"px-2.5 pb-1 h-6 rounded-full flex items-center justify-center text-xs  leading-none font-medium border",
+				variantClassMap[variant],
+				className
+			)}>
 			{children}
 		</Badge>
 	);

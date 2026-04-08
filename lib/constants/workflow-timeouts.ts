@@ -39,6 +39,37 @@ export const WORKFLOW_TIMEOUTS = {
 
 export type TimeoutKey = keyof typeof WORKFLOW_TIMEOUTS;
 
+// ============================================
+// Reminder Intervals (env-var-driven)
+// ============================================
+
+/** Parse an env var as an Inngest duration string (e.g. "3d", "12h"). Falls back to `fallback`. */
+function envDuration(key: string, fallback: string): string {
+	return process.env[key]?.trim() || fallback;
+}
+
+function envInt(key: string, fallback: number): number {
+	const v = Number(process.env[key]);
+	return Number.isFinite(v) && v > 0 ? v : fallback;
+}
+
+/**
+ * Configurable reminder intervals for applicant/staff follow-up nudges.
+ *
+ * Env vars:
+ *   REMINDER_FIRST_NUDGE  — Inngest duration string for first nudge (default "3d")
+ *   REMINDER_SECOND_NUDGE — Inngest duration string for second nudge after first (default "4d")
+ *   REMINDER_MAX_COUNT    — Maximum reminders before hard terminate (default 2)
+ */
+export const REMINDER_INTERVALS = {
+	/** First nudge after N days of inactivity (env: REMINDER_FIRST_NUDGE, default "3d") */
+	FIRST_NUDGE: envDuration("REMINDER_FIRST_NUDGE", "3d"),
+	/** Second nudge interval after first nudge (env: REMINDER_SECOND_NUDGE, default "4d") */
+	SECOND_NUDGE: envDuration("REMINDER_SECOND_NUDGE", "4d"),
+	/** Max reminder count before hard terminate (env: REMINDER_MAX_COUNT, default 2) */
+	MAX_REMINDERS: envInt("REMINDER_MAX_COUNT", 2),
+};
+
 /** Maximum mandate collection retries before escalation */
 export const MAX_MANDATE_RETRIES = 8;
 

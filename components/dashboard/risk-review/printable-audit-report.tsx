@@ -76,69 +76,95 @@ export function PrintableAuditReport({
 					</tbody>
 				</table>
 
-				{procurementData.riskAlerts.length > 0 && (
+				{procurementData?.categories.some(c =>
+					c.checks.some(ch => ch.result === "FLAGGED")
+				) && (
 					<div className="border-l-4 border-black pl-4 py-2 my-4 bg-gray-50">
 						<h3 className="font-bold uppercase text-red-700 mb-2">
 							CRITICAL EXCEPTIONS IDENTIFIED
 						</h3>
-						{procurementData.riskAlerts.map((alert, idx) => (
-							<p key={idx} className="mb-1">
-								<span className="font-bold">{alert.category}:</span> {alert.message}
-							</p>
-						))}
+						{procurementData.categories
+							.flatMap(c =>
+								c.checks
+									.filter(ch => ch.result === "FLAGGED")
+									.map(ch => ({ category: c.id.toUpperCase(), message: ch.name }))
+							)
+							.map((alert, idx) => (
+								<p key={idx} className="mb-1">
+									<span className="font-bold">{alert.category}:</span> {alert.message}
+								</p>
+							))}
 					</div>
 				)}
 			</div>
 
 			<div className="mb-8">
 				<h2 className="text-lg font-bold uppercase border-b border-gray-300 pb-1 mb-3">
-					2. Procurement & Governance (CIPC & SARS)
+					2. Procurement & Governance
 				</h2>
-				<div className="grid grid-cols-2 gap-4 mb-4">
-					<div>
-						<p>
-							<span className="font-bold">CIPC Status:</span> {procurementData.cipcStatus}
-						</p>
-						<p>
-							<span className="font-bold">SARS Tax Clearance:</span>{" "}
-							{procurementData.taxStatus} (Exp: {procurementData.taxExpiry})
-						</p>
-					</div>
-					<div>
-						<p>
-							<span className="font-bold">B-BBEE Status:</span> Level{" "}
-							{procurementData.beeLevel} (Exp: {procurementData.beeExpiry})
-						</p>
-					</div>
-				</div>
+				{procurementData ? (
+					<>
+						<div className="grid grid-cols-2 gap-4 mb-4">
+							<div>
+								<p>
+									<span className="font-bold">Entity:</span> {procurementData.vendor.name}
+								</p>
+								<p>
+									<span className="font-bold">Entity Number:</span>{" "}
+									{procurementData.vendor.entityNumber}
+								</p>
+								<p>
+									<span className="font-bold">Status:</span>{" "}
+									{procurementData.vendor.entityStatus}
+								</p>
+							</div>
+							<div>
+								<p>
+									<span className="font-bold">Type:</span>{" "}
+									{procurementData.vendor.entityType}
+								</p>
+								<p>
+									<span className="font-bold">Tax Number:</span>{" "}
+									{procurementData.vendor.taxNumber}
+								</p>
+							</div>
+						</div>
 
-				<h3 className="font-bold mt-4 mb-2">2.1 Active Directors & Conflict Matches</h3>
-				<table className="w-full border-collapse border border-gray-300 text-sm">
-					<thead className="bg-gray-100">
-						<tr>
-							<th className="border border-gray-300 p-2 text-left">Full Name</th>
-							<th className="border border-gray-300 p-2 text-left">Identity Number</th>
-							<th className="border border-gray-300 p-2 text-center">
-								Other Directorships
-							</th>
-							<th className="border border-gray-300 p-2 text-center">Conflict Matches</th>
-						</tr>
-					</thead>
-					<tbody>
-						{procurementData.directors.map((director, idx) => (
-							<tr key={idx}>
-								<td className="border border-gray-300 p-2">{director.name}</td>
-								<td className="border border-gray-300 p-2">{director.idNumber}</td>
-								<td className="border border-gray-300 p-2 text-center">
-									{director.otherDirectorships}
-								</td>
-								<td className="border border-gray-300 p-2 text-center font-bold">
-									{director.conflicts > 0 ? `${director.conflicts} MATCHES` : "NONE"}
-								</td>
-							</tr>
-						))}
-					</tbody>
-				</table>
+						<h3 className="font-bold mt-4 mb-2">2.1 Category Check Summary</h3>
+						<table className="w-full border-collapse border border-gray-300 text-sm">
+							<thead className="bg-gray-100">
+								<tr>
+									<th className="border border-gray-300 p-2 text-left">Category</th>
+									<th className="border border-gray-300 p-2 text-center">Total</th>
+									<th className="border border-gray-300 p-2 text-center">Executed</th>
+									<th className="border border-gray-300 p-2 text-center">Outstanding</th>
+									<th className="border border-gray-300 p-2 text-center">Status</th>
+								</tr>
+							</thead>
+							<tbody>
+								{procurementData.summary.categories.map((cat, idx) => (
+									<tr key={idx}>
+										<td className="border border-gray-300 p-2">{cat.category}</td>
+										<td className="border border-gray-300 p-2 text-center">
+											{cat.total}
+										</td>
+										<td className="border border-gray-300 p-2 text-center">
+											{cat.executed}
+										</td>
+										<td className="border border-gray-300 p-2 text-center">
+											{cat.outstanding}
+										</td>
+										<td className="border border-gray-300 p-2 text-center font-bold">
+											{cat.status}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</>
+				) : (
+					<p className="italic text-gray-500">Procurement check pending</p>
+				)}
 			</div>
 
 			<div className="mb-8">

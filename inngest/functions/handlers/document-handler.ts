@@ -6,7 +6,7 @@ import {
 	resolveBusinessType,
 } from "@/lib/services/document-requirements.service";
 import { DocumentTypeSchema } from "@/lib/types";
-import { inngest } from "../client";
+import { inngest } from "@/inngest/client";
 
 /**
  * FICA Document Aggregator

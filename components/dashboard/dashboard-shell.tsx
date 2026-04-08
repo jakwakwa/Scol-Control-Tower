@@ -66,7 +66,7 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 		<>
 			<div style={{ width: "100vw", height: "1080px", position: "fixed", zIndex: "-2" }}>
 				{/* BACKGROUNDs */}
-				<div className="size-[90%] w-full bg-radial-[at_0%_-80%] from-primary via-50% via-zinc-800 to-zinc-900 to-90%" />
+				<div className="size-[90%] w-full bg-radial-[at_0%_-80%] from-10% from-[var(--gold-600)]/80 via-65% via-zinc-600/40 to-zinc-950 to-100%" />
 			</div>
 
 			<Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
@@ -74,11 +74,11 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 			{/* Main content */}
 			<main className={cn(`pl-64 transition-all duration-300`, isCollapsed && "pl-20")}>
 				{/* Header */}
-				<header className="sticky top-0 z-30 border-b border-sidebar-border bg-transparent">
+				<header className="sticky top-0 z-30 border-b border-sidebar-border bg-chart-1 shadow-lg shadow-black/5 backdrop-blur-sm">
 					<div className="flex h-20 items-center justify-between px-8">
 						<div>
 							{title && (
-								<h1 className="text-xl font-bold bg-linear-to-r from-chart-5 to-muted-foreground bg-clip-text text-transparent">
+								<h1 className="text-xl font-bold bg-linear-to-br from-0% from-primary to-50% to-amber-200 text-shadow-sm text-shadow-black/10  bg-clip-text text-transparent">
 									{title}
 								</h1>
 							)}

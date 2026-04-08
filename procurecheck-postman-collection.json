@@ -1,0 +1,99 @@
+{
+  "info": {
+    "name": "ProcureCheck Meeting Pre-checks",
+    "description": "3 ready-to-run requests for tomorrow's meeting (as per the plan).\nUses PROCURECHECK_BASE_URL to stay consistent with the codebase.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "vendorId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Authenticate",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{PROCURECHECK_USERNAME}}\",\n  \"password\": \"{{PROCURECHECK_PASSWORD}}\"\n}"
+        },
+        "url": "{{PROCURECHECK_BASE_URL}}/authenticate"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "const token = json.token || json.access_token;",
+              "if (token) {",
+              "    pm.collectionVariables.set(\"token\", token);",
+              "    console.log(\"✅ Token saved to collection variable\");",
+              "} else {",
+              "    console.log(\"❌ No token found in response\");",
+              "    console.log(json);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Vendors - Get List (Safe)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"QueryParams\": {\n    \"Conditions\": [],\n    \"PageIndex\": 0,\n    \"PageSize\": 1,\n    \"SortColumn\": \"Created\",\n    \"SortOrder\": \"Descending\"\n  }\n}"
+        },
+        "url": "{{PROCURECHECK_BASE_URL}}/vendors/getlist"
+      }
+    },
+    {
+      "name": "3. Create Test Vendor",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"vendor_Name\": \"Meeting Demo\",\n  \"vendor_Type\": \"4\",\n  \"vendor_RegNum\": \"\",\n  \"nationality_Id\": \"153a0fb2-cc8d-4805-80d2-5f996720fed9\",\n  \"vendor_VatNum\": null,\n  \"vendorExternalID\": \"MEETING-DEMO-001\"\n}"
+        },
+        "url": "{{PROCURECHECK_BASE_URL}}/vendors?processBeeInfo=false"
+      }
+    }
+  ]
+}

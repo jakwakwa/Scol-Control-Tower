@@ -10,6 +10,7 @@ import {
 } from "@/lib/services/agents";
 import { getDocumentRequirements } from "@/lib/services/document-requirements.service";
 import { sendInternalAlertEmail } from "@/lib/services/email.service";
+import { runVatVerificationCheck } from "@/lib/services/firecrawl";
 import { performITCCheck } from "@/lib/services/itc.service";
 import {
 	executeKillSwitch,
@@ -19,17 +20,18 @@ import {
 	createWorkflowNotification,
 	logWorkflowEvent,
 } from "@/lib/services/notification-events.service";
+import { executeProcurementCheck } from "@/lib/services/procurecheck.service";
 import { updateRiskCheckMachineState } from "@/lib/services/risk-check.service";
-import { analyzeRisk as runProcureCheck } from "@/lib/services/risk.service";
 import {
 	getStateLockInfo,
 	handleStateCollision,
 } from "@/lib/services/state-lock.service";
+import { recordVendorCheckFailure } from "@/lib/services/telemetry/vendor-metrics";
 import { terminateRun } from "@/lib/services/terminate-run.service";
-import { runVatVerificationCheck } from "@/lib/services/firecrawl";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 import { inngest } from "../../../client";
-import { guardKillSwitch, runSanctionsForWorkflow } from "../helpers";
+import { guardKillSwitch, runSanctionsForWorkflow } from "../../../utils/helpers";
+import { handleWaitWithReminders } from "../../handlers/reminder-handler";
 import type { Stage2Output, StageDependencies, StageResult } from "../types";
 
 export async function executeStage3({
@@ -108,27 +110,24 @@ export async function executeStage3({
 			provider: "procurecheck",
 		});
 
+		const procurementStart = Date.now();
 		try {
-			const result = await runProcureCheck(applicantId);
+			const result = await executeProcurementCheck(applicantId, workflowId);
 
 			await logWorkflowEvent({
 				workflowId,
 				eventType: "procurement_check_completed",
 				payload: {
-					riskScore: result.riskScore,
-					anomalies: result.anomalies,
-					recommendedAction: result.recommendedAction,
+					vendorId: result.vendorId,
+					provider: result.payload.provider,
+					categoriesCount: result.payload.categories.length,
 				},
 			});
 
 			await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "completed", {
-				payload: {
-					riskScore: result.riskScore,
-					anomalies: result.anomalies,
-					recommendedAction: result.recommendedAction,
-					procureCheckId: result.procureCheckId,
-				},
-				rawPayload: result.procureCheckData,
+				externalCheckId: result.vendorId,
+				payload: result.payload,
+				rawPayload: result.rawPayload,
 			});
 
 			await createWorkflowNotification({
@@ -136,14 +135,25 @@ export async function executeStage3({
 				applicantId,
 				type: "warning",
 				title: "Procurement Result Added To Risk Review",
-				message: `ProcureCheck score: ${result.riskScore}. Action: ${result.recommendedAction}.`,
+				message: `ProcureCheck completed for vendor ${result.vendorId}. ${result.payload.categories.length} categories checked.`,
 				actionable: false,
 			});
 
 			return { killSwitchTriggered: false, isBlocked: false };
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
+			const isAuthError = /\b(401|403)\b/.test(errorMessage);
+
 			console.error("[ControlTower] Procurement check execution failed:", error);
+			recordVendorCheckFailure({
+				vendor: "procurecheck",
+				stage: 3,
+				workflowId,
+				applicantId,
+				durationMs: Date.now() - procurementStart,
+				outcome: isAuthError ? "persistent_failure" : "transient_failure",
+				error,
+			});
 
 			await logWorkflowEvent({
 				workflowId,
@@ -153,25 +163,29 @@ export async function executeStage3({
 					context: "procurement_check_failed",
 					source: "procurecheck",
 					stage: 3,
-					manualReviewRequired: true,
+					isAuthError,
 				},
 			});
 
-			await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "manual_required", {
-				errorDetails: errorMessage,
-			});
+			if (isAuthError) {
+				await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "manual_required", {
+					errorDetails: `Auth failure: ${errorMessage}`,
+				});
 
-			await createWorkflowNotification({
-				workflowId,
-				applicantId,
-				type: "warning",
-				title: "Procurement Automation Offline",
-				message:
-					"Automated ProcureCheck failed. Manual procurement evidence required at risk review.",
-				actionable: false,
-			});
+				await createWorkflowNotification({
+					workflowId,
+					applicantId,
+					type: "warning",
+					title: "ProcureCheck Authentication Failed",
+					message:
+						"ProcureCheck credentials are invalid. Manual procurement review required.",
+					actionable: false,
+				});
 
-			return { killSwitchTriggered: false, isBlocked: false };
+				return { killSwitchTriggered: false, isBlocked: false };
+			}
+
+			throw error;
 		}
 	});
 
@@ -182,6 +196,7 @@ export async function executeStage3({
 			provider: "itc",
 		});
 
+		const itcStart = Date.now();
 		try {
 			const itcResult = await performITCCheck({ applicantId, workflowId });
 
@@ -241,6 +256,15 @@ export async function executeStage3({
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			console.error("[ControlTower] ITC check execution failed:", error);
+			recordVendorCheckFailure({
+				vendor: "xds_itc",
+				stage: 3,
+				workflowId,
+				applicantId,
+				durationMs: Date.now() - itcStart,
+				outcome: "persistent_failure",
+				error,
+			});
 
 			await updateRiskCheckMachineState(workflowId, "ITC", "failed", {
 				errorDetails: errorMessage,
@@ -255,6 +279,7 @@ export async function executeStage3({
 
 		await updateRiskCheckMachineState(workflowId, "SANCTIONS", "in_progress");
 
+		const sanctionsStart = Date.now();
 		try {
 			const sanctions = await runSanctionsForWorkflow(
 				applicantId,
@@ -263,7 +288,9 @@ export async function executeStage3({
 				{ allowReuse: true }
 			);
 
-			const machineState = sanctions.isBlocked ? "manual_required" as const : "completed" as const;
+			const machineState = sanctions.isBlocked
+				? ("manual_required" as const)
+				: ("completed" as const);
 			await updateRiskCheckMachineState(workflowId, "SANCTIONS", machineState, {
 				provider: sanctions.result.metadata.dataSource || "opensanctions+firecrawl",
 				payload: {
@@ -298,6 +325,15 @@ export async function executeStage3({
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			console.error("[ControlTower] Sanctions check execution failed:", error);
+			recordVendorCheckFailure({
+				vendor: "opensanctions",
+				stage: 3,
+				workflowId,
+				applicantId,
+				durationMs: Date.now() - sanctionsStart,
+				outcome: "persistent_failure",
+				error,
+			});
 
 			await updateRiskCheckMachineState(workflowId, "SANCTIONS", "manual_required", {
 				errorDetails: errorMessage,
@@ -353,53 +389,31 @@ export async function executeStage3({
 
 	const ficaDocsReceived = mandateVerified.documentsComplete
 		? { data: { workflowId, applicantId, source: "stage2_documents_already_complete" } }
-		: await step.waitForEvent("wait-fica-docs", {
-				event: "upload/fica.received",
-				timeout: WORKFLOW_TIMEOUTS.STAGE,
-				match: "data.workflowId",
-			});
-
-	if (!ficaDocsReceived) {
-		await step.run("notify-am-fica-timeout", async () => {
-			await guardKillSwitch(workflowId, "notify-am-fica-timeout");
-			await createWorkflowNotification({
-				workflowId,
-				applicantId,
-				type: "warning",
-				title: "Delay: FICA Documents",
-				message:
-					"Applicant failed to upload FICA documents within the expected timeframe.",
-				actionable: true,
-			});
-			await sendInternalAlertEmail({
-				title: "Delay: FICA Documents",
-				message: `Applicant has not uploaded FICA documents within the ${WORKFLOW_TIMEOUTS.STAGE} timeout window. Please follow up.`,
-				workflowId,
-				applicantId,
-				type: "warning",
-				actionUrl: `${getBaseUrl()}/dashboard/applicants/${applicantId}`,
-			});
-		});
-
-		await step.run("fica-timeout-update-row", () =>
-			updateRiskCheckMachineState(workflowId, "FICA", "failed", {
-				errorDetails: "FICA document upload timed out",
-			})
-		);
-
-		await step.run("terminate-fica-timeout", () =>
-			terminateRun({
+		: await handleWaitWithReminders({
+				step,
 				workflowId,
 				applicantId,
 				stage: 3,
-				reason: "STAGE3_FICA_UPLOAD_TIMEOUT",
-			})
-		);
-	}
+				waitStepId: "wait-fica-docs",
+				eventName: "upload/fica.received",
+				totalTimeout: WORKFLOW_TIMEOUTS.STAGE,
+				terminationReason: "STAGE3_FICA_UPLOAD_TIMEOUT",
+				reminderContext: {
+					itemName: "FICA Documents",
+					actionTab: "documents",
+				},
+			});
+	const ficaDocsData = (
+		ficaDocsReceived as {
+			data?: {
+				source?: string;
+			};
+		}
+	).data;
 
 	if (
-		"source" in ficaDocsReceived.data &&
-		ficaDocsReceived.data.source !== "stage2_documents_already_complete"
+		ficaDocsData?.source &&
+		ficaDocsData.source !== "stage2_documents_already_complete"
 	) {
 		await step.run("notify-am-fica-docs-uploaded", async () => {
 			await guardKillSwitch(workflowId, "notify-am-fica-docs-uploaded");
@@ -476,8 +490,10 @@ export async function executeStage3({
 			return;
 		}
 
-		const ficaComparisonContext = facilitySubmission?.data?.formData?.ficaComparisonContext;
+		const ficaComparisonContext =
+			facilitySubmission?.data?.formData?.ficaComparisonContext;
 
+		const ficaValidationStart = Date.now();
 		try {
 			const validationResult: BatchValidationResult = await validateDocumentsBatch({
 				documents: aiDocuments,
@@ -526,6 +542,15 @@ export async function executeStage3({
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			console.error("[ControlTower] FICA validation failed:", error);
+			recordVendorCheckFailure({
+				vendor: "document_ai_fica",
+				stage: 3,
+				workflowId,
+				applicantId,
+				durationMs: Date.now() - ficaValidationStart,
+				outcome: "persistent_failure",
+				error,
+			});
 
 			await updateRiskCheckMachineState(workflowId, "FICA", "manual_required", {
 				errorDetails: errorMessage,
@@ -572,6 +597,7 @@ export async function executeStage3({
 			return { status: "invalid_input" satisfies VatStatus };
 		}
 
+		const vatStart = Date.now();
 		try {
 			const result = await runVatVerificationCheck({
 				vatNumber,
@@ -637,6 +663,15 @@ export async function executeStage3({
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			console.error("[ControlTower] VAT check failed (non-blocking):", error);
+			recordVendorCheckFailure({
+				vendor: "firecrawl_vat",
+				stage: 3,
+				workflowId,
+				applicantId,
+				durationMs: Date.now() - vatStart,
+				outcome: "persistent_failure",
+				error,
+			});
 
 			await logWorkflowEvent({
 				workflowId,

@@ -13,6 +13,10 @@
 import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants } from "@/db/schema";
+import {
+	recordVendorCheckAttempt,
+	recordVendorCheckFailure,
+} from "@/lib/services/telemetry/vendor-metrics";
 import { ITC_THRESHOLDS, type ITCCheckResult } from "@/lib/types";
 import {
 	mapProcureCheckRiskCategory,
@@ -35,6 +39,14 @@ const PROCURECHECK_CONFIG = {
 // Token cache
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
+function extractHttpStatus(error: unknown): number | null {
+	const message = error instanceof Error ? error.message : String(error);
+	const match = message.match(/\b([1-5]\d{2})\b/);
+	if (!match) return null;
+	const status = Number(match[1]);
+	return Number.isFinite(status) ? status : null;
+}
+
 // ============================================
 // Types
 // ============================================
@@ -56,7 +68,7 @@ export interface ITCCheckOptions {
  * Perform ITC credit check for an applicant
  */
 export async function performITCCheck(options: ITCCheckOptions): Promise<ITCCheckResult> {
-	const { applicantId } = options;
+	const { applicantId, workflowId } = options;
 	const useXDS = process.env.ENABLE_XDS_ITC === "true";
 
 	if (useXDS) {
@@ -97,10 +109,24 @@ export async function performITCCheck(options: ITCCheckOptions): Promise<ITCChec
 				: options.registrationNumber || extractRegistrationNumber(applicantData);
 
 			if (identifier) {
-				return await performProcureCheckCheck(identifier, applicantId, isProprietor);
+				return await performProcureCheckCheck(
+					identifier,
+					applicantId,
+					workflowId,
+					isProprietor
+				);
 			}
 			console.warn(
 				`[ITCService] Applicant ${applicantId} has no identifier for lookup. Returning manual-required ITC result.`
+			);
+			console.error(
+				"[ITCService] Manual-required fallback",
+				JSON.stringify({
+					applicantId,
+					workflowId,
+					reason: "No identifier (ID or Reg No) found for ITC lookup",
+					source: "registration_data",
+				})
 			);
 			return createManualRequiredResult(
 				applicantId,
@@ -119,6 +145,15 @@ export async function performITCCheck(options: ITCCheckOptions): Promise<ITCChec
 
 	console.warn(
 		`[ITCService] ProcureCheck is not configured for applicant ${applicantId}. Returning manual-required ITC result.`
+	);
+	console.error(
+		"[ITCService] Manual-required fallback",
+		JSON.stringify({
+			applicantId,
+			workflowId,
+			reason: "ProcureCheck API is not configured",
+			source: "configuration",
+		})
 	);
 	return createManualRequiredResult(
 		applicantId,
@@ -202,52 +237,81 @@ async function getProcureCheckToken(): Promise<string> {
 async function performProcureCheckCheck(
 	identifier: string,
 	applicantId: number,
+	workflowId: number,
 	isProprietor: boolean = false
 ): Promise<ITCCheckResult> {
-	const token = await getProcureCheckToken();
+	const start = Date.now();
+	try {
+		const token = await getProcureCheckToken();
 
-	const endpoint = isProprietor ? "individual/v1/credit" : "business/v1/credit";
-	const payload = isProprietor
-		? { idNumber: identifier, country: "ZA" }
-		: { registrationNumber: identifier, country: "ZA" };
+		const endpoint = isProprietor ? "individual/v1/credit" : "business/v1/credit";
+		const payload = isProprietor
+			? { idNumber: identifier, country: "ZA" }
+			: { registrationNumber: identifier, country: "ZA" };
 
-	const response = await fetch(`${PROCURECHECK_CONFIG.apiUrl}/${endpoint}`, {
-		method: "POST",
-		headers: {
-			Authorization: `Bearer ${token}`,
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify(payload),
-	});
+		const response = await fetch(`${PROCURECHECK_CONFIG.apiUrl}/${endpoint}`, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${token}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(payload),
+		});
 
-	if (!response.ok) {
-		const error = await response.text();
-		throw new Error(`ProcureCheck credit check failed: ${response.status} - ${error}`);
+		if (!response.ok) {
+			const error = await response.text();
+			throw new Error(`ProcureCheck credit check failed: ${response.status} - ${error}`);
+		}
+
+		const data = (await response.json()) as ProcureCheckBusinessCreditResponse;
+
+		// Map ProcureCheck response to our ITCCheckResult
+		const creditScore = mapProcureCheckScore(data.creditProfile.score);
+		const riskCategory = mapProcureCheckRiskCategory(data.creditProfile.riskCategory);
+
+		const result: ITCCheckResult = {
+			creditScore,
+			riskCategory,
+			passed: creditScore >= ITC_THRESHOLDS.AUTO_DECLINE,
+			recommendation: getRecommendation(creditScore),
+			adverseListings: data.adverseListings.map(listing => ({
+				type: listing.type,
+				amount: listing.amount,
+				date: listing.date,
+				creditor: listing.creditor || "Unknown",
+			})),
+			checkedAt: new Date(),
+			referenceNumber: `EXP-${data.requestId}-${applicantId}`,
+			rawResponse: data,
+		};
+
+		recordVendorCheckAttempt({
+			vendor: "procurecheck",
+			stage: 3,
+			workflowId,
+			applicantId,
+			outcome: result.recommendation === "AUTO_DECLINE" ? "business_denial" : "success",
+			durationMs: Date.now() - start,
+		});
+
+		return result;
+	} catch (error) {
+		const httpStatus = extractHttpStatus(error);
+		recordVendorCheckFailure({
+			vendor: "procurecheck",
+			stage: 3,
+			workflowId,
+			applicantId,
+			durationMs: Date.now() - start,
+			outcome:
+				httpStatus === 401 || httpStatus === 403
+					? "persistent_failure"
+					: "transient_failure",
+			httpStatus,
+			error,
+		});
+		throw error;
 	}
-
-	const data = (await response.json()) as ProcureCheckBusinessCreditResponse;
-
-	// Map ProcureCheck response to our ITCCheckResult
-	const creditScore = mapProcureCheckScore(data.creditProfile.score);
-	const riskCategory = mapProcureCheckRiskCategory(data.creditProfile.riskCategory);
-
-	const result: ITCCheckResult = {
-		creditScore,
-		riskCategory,
-		passed: creditScore >= ITC_THRESHOLDS.AUTO_DECLINE,
-		recommendation: getRecommendation(creditScore),
-		adverseListings: data.adverseListings.map(listing => ({
-			type: listing.type,
-			amount: listing.amount,
-			date: listing.date,
-			creditor: listing.creditor || "Unknown",
-		})),
-		checkedAt: new Date(),
-		referenceNumber: `EXP-${data.requestId}-${applicantId}`,
-		rawResponse: data,
-	};
-
-	return result;
 }
 
 /**

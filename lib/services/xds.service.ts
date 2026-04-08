@@ -1,15 +1,12 @@
 import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import { applicants } from "@/db/schema";
+import {
+	recordVendorCheckAttempt,
+	recordVendorCheckFailure,
+} from "@/lib/services/telemetry/vendor-metrics";
 import { ITC_THRESHOLDS, type ITCCheckResult } from "@/lib/types";
 import {
-	XDS_DEFAULT_PRODUCT_ID,
-	XDS_DEFAULT_REPORT_ID,
-	XDS_SERVICE_NAMESPACE,
-	type XDSBusinessMatchResult,
-	type XDSGetResultResponse,
-	type XDSLoginResult,
-	type XDSTicketValidationResult,
 	extractNumericField,
 	extractSoapFault,
 	extractTextField,
@@ -18,6 +15,13 @@ import {
 	mapXDSScoreToITCScore,
 	parseBooleanString,
 	parseResultIdFromText,
+	XDS_DEFAULT_PRODUCT_ID,
+	XDS_DEFAULT_REPORT_ID,
+	XDS_SERVICE_NAMESPACE,
+	type XDSBusinessMatchResult,
+	type XDSGetResultResponse,
+	type XDSLoginResult,
+	type XDSTicketValidationResult,
 } from "./xds.types";
 
 interface XDSCheckOptions {
@@ -36,10 +40,19 @@ const XDS_CONFIG = {
 
 let cachedTicket: { ticket: string; expiresAt: number } | null = null;
 
+function extractHttpStatus(error: unknown): number | null {
+	const message = error instanceof Error ? error.message : String(error);
+	const match = message.match(/\b([1-5]\d{2})\b/);
+	if (!match) return null;
+	const status = Number(match[1]);
+	return Number.isFinite(status) ? status : null;
+}
+
 export async function performXDSCreditCheck(
 	options: XDSCheckOptions
 ): Promise<ITCCheckResult> {
-	const { applicantId, registrationNumber } = options;
+	const { applicantId, registrationNumber, workflowId } = options;
+	const start = Date.now();
 
 	if (!isXDSConfigured()) {
 		return createManualRequiredResult(
@@ -66,10 +79,36 @@ export async function performXDSCreditCheck(
 	try {
 		const ticket = await getValidTicket();
 		const matchResult = await connectBusinessMatch(ticket, identifier);
-		const getResult = await connectGetResult(ticket, matchResult.resultId ?? matchResult.resultText);
-		return mapXDSResultToITCCheckResult(applicantId, getResult.resultText);
+		const getResult = await connectGetResult(
+			ticket,
+			matchResult.resultId ?? matchResult.resultText
+		);
+		const result = mapXDSResultToITCCheckResult(applicantId, getResult.resultText);
+		recordVendorCheckAttempt({
+			vendor: "xds_itc",
+			stage: 3,
+			workflowId,
+			applicantId,
+			outcome: result.recommendation === "AUTO_DECLINE" ? "business_denial" : "success",
+			durationMs: Date.now() - start,
+		});
+		return result;
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
+		const httpStatus = extractHttpStatus(error);
+		recordVendorCheckFailure({
+			vendor: "xds_itc",
+			stage: 3,
+			workflowId,
+			applicantId,
+			durationMs: Date.now() - start,
+			outcome:
+				httpStatus === 401 || httpStatus === 403
+					? "persistent_failure"
+					: "transient_failure",
+			httpStatus,
+			error,
+		});
 		console.error("[XDSService] XDS check failed:", error);
 		return createManualRequiredResult(applicantId, `XDS API failed: ${message}`, "xds");
 	}

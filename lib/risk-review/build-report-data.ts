@@ -1,3 +1,4 @@
+import { type ProcurementData, ProcurementDataSchema } from "@/lib/procurecheck/types";
 import { getExternalScreeningUiAvailability } from "@/lib/risk-review/manual-firecrawl-checks";
 import {
 	parseAiAnalysisSnapshot,
@@ -29,16 +30,7 @@ const DEFAULT_SECTION_STATUS: SectionStatus = {
 	reviewState: "pending",
 };
 
-const DEFAULT_PROCUREMENT: RiskReviewData["procurementData"] = {
-	cipcStatus: "Pending",
-	taxStatus: "Pending",
-	taxExpiry: "",
-	beeLevel: "—",
-	beeExpiry: "—",
-	riskAlerts: [],
-	checks: [],
-	directors: [],
-};
+const DEFAULT_PROCUREMENT: RiskReviewData["procurementData"] = null;
 
 const DEFAULT_ITC: RiskReviewData["itcData"] = {
 	creditScore: 0,
@@ -89,24 +81,16 @@ function safeJsonParse<T>(raw: string | null, fallback: T): T {
 	}
 }
 
-function mergeProcurement(
-	parsed: Partial<RiskReviewData["procurementData"]> | null
-): RiskReviewData["procurementData"] {
+function mergeProcurement(raw: string | null): ProcurementData | null {
+	if (!raw) return DEFAULT_PROCUREMENT;
+	const parsed = safeJsonParse<Record<string, unknown>>(raw, null);
 	if (!parsed) return DEFAULT_PROCUREMENT;
-	return {
-		cipcStatus: parsed.cipcStatus ?? DEFAULT_PROCUREMENT.cipcStatus,
-		taxStatus: parsed.taxStatus ?? DEFAULT_PROCUREMENT.taxStatus,
-		taxExpiry: parsed.taxExpiry ?? DEFAULT_PROCUREMENT.taxExpiry,
-		beeLevel: parsed.beeLevel ?? DEFAULT_PROCUREMENT.beeLevel,
-		beeExpiry: parsed.beeExpiry ?? DEFAULT_PROCUREMENT.beeExpiry,
-		riskAlerts: Array.isArray(parsed.riskAlerts)
-			? parsed.riskAlerts
-			: DEFAULT_PROCUREMENT.riskAlerts,
-		checks: Array.isArray(parsed.checks) ? parsed.checks : DEFAULT_PROCUREMENT.checks,
-		directors: Array.isArray(parsed.directors)
-			? parsed.directors
-			: DEFAULT_PROCUREMENT.directors,
-	};
+	const result = ProcurementDataSchema.safeParse(parsed);
+	if (!result.success) {
+		console.warn("[buildReportData] Invalid procurement payload:", result.error.message);
+		return DEFAULT_PROCUREMENT;
+	}
+	return result.data;
 }
 
 function mergeItc(
@@ -341,9 +325,6 @@ export function buildReportData(
 	const checkMap = new Map(riskChecks.map(c => [c.checkType, c]));
 
 	const procCheck = checkMap.get("PROCUREMENT");
-	const procurementParsed = procCheck?.payload
-		? safeJsonParse<Partial<RiskReviewData["procurementData"]>>(procCheck.payload, null)
-		: null;
 
 	const itcCheck = checkMap.get("ITC");
 	const itcParsed = itcCheck?.payload
@@ -384,7 +365,7 @@ export function buildReportData(
 			sanctions: buildSectionStatus(sancCheck),
 			fica: buildSectionStatus(ficaCheck),
 		},
-		procurementData: mergeProcurement(procurementParsed),
+		procurementData: mergeProcurement(procCheck?.payload ?? null),
 		itcData: mergeItc(itcParsed),
 		sanctionsData: mergeSanctions(sanctionsParsed),
 		ficaData: {

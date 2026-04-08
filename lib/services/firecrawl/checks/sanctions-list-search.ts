@@ -17,6 +17,9 @@ export interface FirecrawlSanctionsSearchInput {
 	entityName: string;
 	contactName?: string;
 	directors?: Array<{ name: string }>;
+	workflowId?: number;
+	applicantId?: number;
+	stage?: 2 | 3 | "async";
 }
 
 export interface CombinedSanctionsResult {
@@ -58,9 +61,36 @@ export async function runFirecrawlSanctionsSearch(
 	}
 
 	const [unResult, ofacResult, ficResult] = await Promise.allSettled([
-		searchUNSanctionsList(searchTerms),
-		searchOFACSanctionsList(searchTerms),
-		searchFICTFSSanctionsList(searchTerms),
+		searchUNSanctionsList(
+			searchTerms,
+			input.workflowId && input.applicantId
+				? {
+						workflowId: input.workflowId,
+						applicantId: input.applicantId,
+						stage: input.stage ?? 3,
+					}
+				: undefined
+		),
+		searchOFACSanctionsList(
+			searchTerms,
+			input.workflowId && input.applicantId
+				? {
+						workflowId: input.workflowId,
+						applicantId: input.applicantId,
+						stage: input.stage ?? 3,
+					}
+				: undefined
+		),
+		searchFICTFSSanctionsList(
+			searchTerms,
+			input.workflowId && input.applicantId
+				? {
+						workflowId: input.workflowId,
+						applicantId: input.applicantId,
+						stage: input.stage ?? 3,
+					}
+				: undefined
+		),
 	]);
 
 	const un =
