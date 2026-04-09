@@ -35,6 +35,7 @@ export default async function DashboardRootLayout({
 					read: notifications.read,
 					actionable: notifications.actionable,
 					createdAt: notifications.createdAt,
+					sourceEventType: notifications.sourceEventType,
 					clientName: applicants.companyName,
 				})
 				.from(notifications)
@@ -53,6 +54,7 @@ export default async function DashboardRootLayout({
 				timestamp: n.createdAt,
 				read: n.read,
 				actionable: n.actionable,
+				sourceEventType: n.sourceEventType,
 			}));
 		} catch (error) {
 			console.error("Failed to fetch notifications:", error);

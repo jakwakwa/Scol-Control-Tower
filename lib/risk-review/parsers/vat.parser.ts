@@ -12,6 +12,29 @@ const MACHINE_STATES = [
 	"manual_required",
 ] as const;
 
+const VAT_STATUS_VALUES: readonly VatStatus[] = [
+	"verified",
+	"not_verified",
+	"not_checked",
+	"service_down",
+	"invalid_input",
+	"timeout",
+	"manual_review",
+	"error",
+];
+
+/**
+ * Coerce persisted or API JSON into a known {@link VatStatus}; never throws.
+ */
+export function parseStoredVatStatus(raw: unknown): VatStatus {
+	if (typeof raw !== "string") return "not_checked";
+	if ((VAT_STATUS_VALUES as readonly string[]).includes(raw)) {
+		return raw as VatStatus;
+	}
+	console.warn(`[vat.parser] Unknown stored VAT status "${raw}" — using not_checked`);
+	return "not_checked";
+}
+
 const REVIEW_STATES = [
 	"pending",
 	"acknowledged",

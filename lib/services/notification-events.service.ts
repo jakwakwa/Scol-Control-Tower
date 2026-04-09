@@ -3,6 +3,7 @@ import { getDatabaseClient } from "@/app/utils";
 import type { NotificationSeverity } from "@/db/schema";
 import { notifications, workflowEvents } from "@/db/schema";
 import { broadcast } from "@/lib/notification-broadcaster";
+import { parseCreateWorkflowNotificationInput } from "@/lib/notifications/contract";
 import type { NotificationType } from "@/lib/notifications/types";
 
 export interface NotificationErrorDetails {
@@ -21,6 +22,8 @@ export interface CreateNotificationParams {
 	errorDetails?: NotificationErrorDetails;
 	severity?: NotificationSeverity;
 	groupKey?: string;
+	/** When set, dashboards route/classify by this workflow event instead of user-facing copy */
+	sourceEventType?: string | null;
 }
 
 export interface LogEventParams {
@@ -94,33 +97,45 @@ export async function createWorkflowNotification(
 		return;
 	}
 
-	const severity = params.severity ?? "medium";
+	const validated = parseCreateWorkflowNotificationInput(params);
+	if (!validated) {
+		return;
+	}
+
+	const severity = validated.severity ?? "medium";
 
 	if (severity === "low") {
 		console.info(
-			`[NotificationEvents] Low severity — skipping notification: ${params.title}`
+			`[NotificationEvents] Low severity — skipping notification: ${validated.title}`
 		);
 		return;
 	}
 
+	const messageBody = `${validated.title}: ${validated.message}`;
+	const sourceEventType = validated.sourceEventType ?? null;
+
 	try {
-		if (severity === "medium" && params.groupKey) {
+		if (severity === "medium" && validated.groupKey) {
 			const existing = await db
 				.select()
 				.from(notifications)
 				.where(
-					and(eq(notifications.groupKey, params.groupKey), eq(notifications.read, false))
+					and(
+						eq(notifications.groupKey, validated.groupKey),
+						eq(notifications.read, false)
+					)
 				)
 				.limit(1);
 
 			if (existing.length > 0) {
 				const current = existing[0];
-				const updatedMessage = `${current.message}\n• ${params.message}`;
+				const updatedMessage = `${current.message}\n• ${messageBody}`;
 				await db
 					.update(notifications)
 					.set({
 						message: updatedMessage,
 						createdAt: new Date(),
+						sourceEventType: current.sourceEventType ?? sourceEventType,
 					})
 					.where(eq(notifications.id, current.id));
 				broadcast({ type: "update", notificationId: current.id });
@@ -132,14 +147,15 @@ export async function createWorkflowNotification(
 			.insert(notifications)
 			.values([
 				{
-					workflowId: params.workflowId,
-					applicantId: params.applicantId,
-					type: params.type,
-					message: `${params.title}: ${params.message}`,
-					actionable: params.actionable ?? true,
+					workflowId: validated.workflowId,
+					applicantId: validated.applicantId,
+					type: validated.type,
+					message: messageBody,
+					actionable: validated.actionable ?? true,
 					read: false,
 					severity,
-					groupKey: params.groupKey,
+					groupKey: validated.groupKey,
+					sourceEventType,
 				},
 			])
 			.returning({ id: notifications.id });

@@ -3,9 +3,14 @@ import {
 	parseAiAnalysisSnapshot,
 	parseMachineState,
 	parseReviewState,
+	parseStoredVatStatus,
 	parseVatStatus,
 } from "@/lib/risk-review/parsers/vat.parser";
-import type { RiskReviewData, SectionStatus } from "@/lib/risk-review/types";
+import type {
+	DocumentAiProofingEntity,
+	RiskReviewData,
+	SectionStatus,
+} from "@/lib/risk-review/types";
 import type { FinancialRiskAgentResult } from "@/lib/services/agents/financial-risk.agent";
 import type { RiskCheckRow } from "@/lib/services/risk-check.service";
 
@@ -76,19 +81,25 @@ const DEFAULT_FICA: RiskReviewData["ficaData"] = {
 	},
 };
 
-function safeJsonParse<T>(raw: string | null, fallback: T): T {
-	if (!raw || typeof raw !== "string") return fallback;
+/**
+ * Parse JSON to a plain object for report merges. Arrays and primitives yield null.
+ */
+export function parseReportJsonObject(raw: string | null): Record<string, unknown> | null {
+	if (!raw || typeof raw !== "string") return null;
 	try {
-		const parsed = JSON.parse(raw) as T;
-		return typeof parsed === "object" && parsed !== null ? parsed : fallback;
+		const parsed: unknown = JSON.parse(raw);
+		if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+			return null;
+		}
+		return parsed as Record<string, unknown>;
 	} catch {
-		return fallback;
+		return null;
 	}
 }
 
 function mergeProcurement(raw: string | null): ProcurementData | null {
 	if (!raw) return DEFAULT_PROCUREMENT;
-	const parsed = safeJsonParse<Record<string, unknown>>(raw, null);
+	const parsed = parseReportJsonObject(raw);
 	if (!parsed) return DEFAULT_PROCUREMENT;
 	const result = ProcurementDataSchema.safeParse(parsed);
 	if (!result.success) {
@@ -98,76 +109,137 @@ function mergeProcurement(raw: string | null): ProcurementData | null {
 	return result.data;
 }
 
-function mergeItc(
-	parsed: Partial<RiskReviewData["itcData"]> | null
-): RiskReviewData["itcData"] {
+function mergeItcNumberOrString(
+	raw: unknown,
+	fallback: number | string
+): number | string {
+	if (typeof raw === "number" || typeof raw === "string") return raw;
+	return fallback;
+}
+
+function mergeItc(parsed: Record<string, unknown> | null): RiskReviewData["itcData"] {
 	if (!parsed) return DEFAULT_ITC;
 	return {
 		creditScore:
 			typeof parsed.creditScore === "number"
 				? parsed.creditScore
 				: DEFAULT_ITC.creditScore,
-		scoreBand: parsed.scoreBand ?? DEFAULT_ITC.scoreBand,
-		judgements: parsed.judgements ?? DEFAULT_ITC.judgements,
-		defaults: parsed.defaults ?? DEFAULT_ITC.defaults,
-		defaultDetails: parsed.defaultDetails ?? DEFAULT_ITC.defaultDetails,
-		tradeReferences: parsed.tradeReferences ?? DEFAULT_ITC.tradeReferences,
-		recentEnquiries: parsed.recentEnquiries ?? DEFAULT_ITC.recentEnquiries,
+		scoreBand:
+			typeof parsed.scoreBand === "string" ? parsed.scoreBand : DEFAULT_ITC.scoreBand,
+		judgements: mergeItcNumberOrString(parsed.judgements, DEFAULT_ITC.judgements),
+		defaults: mergeItcNumberOrString(parsed.defaults, DEFAULT_ITC.defaults),
+		defaultDetails:
+			typeof parsed.defaultDetails === "string"
+				? parsed.defaultDetails
+				: DEFAULT_ITC.defaultDetails,
+		tradeReferences: mergeItcNumberOrString(
+			parsed.tradeReferences,
+			DEFAULT_ITC.tradeReferences
+		),
+		recentEnquiries: mergeItcNumberOrString(
+			parsed.recentEnquiries,
+			DEFAULT_ITC.recentEnquiries
+		),
 	};
 }
 
-function mergeSanctions(
-	parsed: Partial<RiskReviewData["sanctionsData"]> | null
-): RiskReviewData["sanctionsData"] {
+function mergeSanctions(parsed: Record<string, unknown> | null): RiskReviewData["sanctionsData"] {
 	if (!parsed) return DEFAULT_SANCTIONS;
 	return {
-		sanctionsMatch: parsed.sanctionsMatch ?? DEFAULT_SANCTIONS.sanctionsMatch,
-		pepHits: parsed.pepHits ?? DEFAULT_SANCTIONS.pepHits,
-		adverseMedia: parsed.adverseMedia ?? DEFAULT_SANCTIONS.adverseMedia,
-		alerts: Array.isArray(parsed.alerts) ? parsed.alerts : DEFAULT_SANCTIONS.alerts,
+		sanctionsMatch:
+			typeof parsed.sanctionsMatch === "string"
+				? parsed.sanctionsMatch
+				: DEFAULT_SANCTIONS.sanctionsMatch,
+		pepHits: mergeItcNumberOrString(parsed.pepHits, DEFAULT_SANCTIONS.pepHits),
+		adverseMedia: mergeItcNumberOrString(
+			parsed.adverseMedia,
+			DEFAULT_SANCTIONS.adverseMedia
+		),
+		alerts: Array.isArray(parsed.alerts)
+			? (parsed.alerts as RiskReviewData["sanctionsData"]["alerts"])
+			: DEFAULT_SANCTIONS.alerts,
 	};
 }
 
-function mergeFica(
-	parsed: Partial<RiskReviewData["ficaData"]> | null
-): RiskReviewData["ficaData"] {
+function mergeFica(parsed: Record<string, unknown> | null): RiskReviewData["ficaData"] {
 	if (!parsed) return DEFAULT_FICA;
+	const residenceRaw = parsed.residence;
+	const residence =
+		residenceRaw &&
+		typeof residenceRaw === "object" &&
+		!Array.isArray(residenceRaw)
+			? (() => {
+					const r = residenceRaw as Record<string, unknown>;
+					return {
+						address:
+							typeof r.address === "string" ? r.address : DEFAULT_FICA.residence.address,
+						documentType:
+							typeof r.documentType === "string"
+								? r.documentType
+								: DEFAULT_FICA.residence.documentType,
+						ageInDays:
+							typeof r.ageInDays === "number" || typeof r.ageInDays === "string"
+								? r.ageInDays
+								: DEFAULT_FICA.residence.ageInDays,
+						status:
+							typeof r.status === "string" ? r.status : DEFAULT_FICA.residence.status,
+					};
+				})()
+			: DEFAULT_FICA.residence;
+
+	const bankingRaw = parsed.banking;
+	const banking =
+		bankingRaw && typeof bankingRaw === "object" && !Array.isArray(bankingRaw)
+			? (() => {
+					const b = bankingRaw as Record<string, unknown>;
+					return {
+						bankName:
+							typeof b.bankName === "string" ? b.bankName : DEFAULT_FICA.banking.bankName,
+						accountNumber:
+							typeof b.accountNumber === "string"
+								? b.accountNumber
+								: DEFAULT_FICA.banking.accountNumber,
+						avsStatus:
+							typeof b.avsStatus === "string"
+								? b.avsStatus
+								: DEFAULT_FICA.banking.avsStatus,
+						avsDetails:
+							typeof b.avsDetails === "string"
+								? b.avsDetails
+								: DEFAULT_FICA.banking.avsDetails,
+					};
+				})()
+			: DEFAULT_FICA.banking;
+
 	return {
 		identity: Array.isArray(parsed.identity) ? parsed.identity : DEFAULT_FICA.identity,
-		residence: parsed.residence
-			? {
-					address: parsed.residence.address ?? DEFAULT_FICA.residence.address,
-					documentType:
-						parsed.residence.documentType ?? DEFAULT_FICA.residence.documentType,
-					ageInDays: parsed.residence.ageInDays ?? DEFAULT_FICA.residence.ageInDays,
-					status: parsed.residence.status ?? DEFAULT_FICA.residence.status,
-				}
-			: DEFAULT_FICA.residence,
-		lastVerified: parsed.lastVerified ?? DEFAULT_FICA.lastVerified,
-		banking: parsed.banking
-			? {
-					bankName: parsed.banking.bankName ?? DEFAULT_FICA.banking.bankName,
-					accountNumber:
-						parsed.banking.accountNumber ?? DEFAULT_FICA.banking.accountNumber,
-					avsStatus: parsed.banking.avsStatus ?? DEFAULT_FICA.banking.avsStatus,
-					avsDetails: parsed.banking.avsDetails ?? DEFAULT_FICA.banking.avsDetails,
-				}
-			: DEFAULT_FICA.banking,
+		residence,
+		lastVerified:
+			typeof parsed.lastVerified === "string"
+				? parsed.lastVerified
+				: DEFAULT_FICA.lastVerified,
+		banking,
 		documentAiResult: Array.isArray(parsed.documentAiResult)
-			? parsed.documentAiResult
+			? (parsed.documentAiResult as RiskReviewData["ficaData"]["documentAiResult"])
 			: undefined,
-		vatVerification: parsed.vatVerification
-			? {
-					checked: parsed.vatVerification.checked ?? false,
-					status: parsed.vatVerification.status ?? "not_checked",
-					errorState: parsed.vatVerification.errorState,
-					vatNumber: parsed.vatVerification.vatNumber,
-					tradingName: parsed.vatVerification.tradingName,
-					office: parsed.vatVerification.office,
-					message: parsed.vatVerification.message,
-					checkedAt: parsed.vatVerification.checkedAt,
-				}
-			: DEFAULT_FICA.vatVerification,
+		vatVerification: (() => {
+			const vv = parsed.vatVerification;
+			if (!vv || typeof vv !== "object" || Array.isArray(vv)) {
+				return DEFAULT_FICA.vatVerification;
+			}
+			const v = vv as Record<string, unknown>;
+			return {
+				checked: typeof v.checked === "boolean" ? v.checked : false,
+				status: parseStoredVatStatus(v.status),
+				errorState:
+					v.errorState !== undefined ? parseStoredVatStatus(v.errorState) : undefined,
+				vatNumber: typeof v.vatNumber === "string" ? v.vatNumber : undefined,
+				tradingName: typeof v.tradingName === "string" ? v.tradingName : undefined,
+				office: typeof v.office === "string" ? v.office : undefined,
+				message: typeof v.message === "string" ? v.message : undefined,
+				checkedAt: typeof v.checkedAt === "string" ? v.checkedAt : undefined,
+			};
+		})(),
 	};
 }
 
@@ -220,12 +292,16 @@ function parseFinancialRiskRawOutput(
 	raw: string | null | undefined
 ): RiskReviewData["bankStatementAnalysis"] {
 	if (!raw?.trim()) return undefined;
-	const parsed = safeJsonParse<FinancialRiskAgentResult | null>(raw, null);
-	if (!parsed || typeof parsed !== "object" || !("available" in parsed)) {
+	const parsed = parseReportJsonObject(raw);
+	if (!parsed) {
 		return undefined;
 	}
-	if (parsed.available === true) {
-		return parsed;
+	if (!("available" in parsed)) {
+		return undefined;
+	}
+	const candidate = parsed as unknown as FinancialRiskAgentResult;
+	if (candidate.available === true) {
+		return candidate;
 	}
 	return undefined;
 }
@@ -255,10 +331,7 @@ function extractOverallSummary(
 		return fromColumns;
 	}
 
-	const parsed = safeJsonParse<Record<string, unknown> | null>(
-		assessment.aiAnalysis ?? null,
-		null
-	);
+	const parsed = parseReportJsonObject(assessment.aiAnalysis ?? null);
 	if (!parsed) return fallback;
 
 	const scores =
@@ -286,7 +359,7 @@ export function buildReportData(
 	riskChecks: RiskCheckRow[],
 	financialRiskRawOutput?: string | null,
 	assessment?: RiskAssessmentSnapshot | null,
-	documentAiResult?: Array<{ type: string; value: string }>
+	documentAiResult?: DocumentAiProofingEntity[]
 ): RiskReviewData {
 	const applicantId = applicant?.id ?? 0;
 	const transactionId = workflow?.id ? `workflow-${workflow.id}` : `risk-${applicantId}`;
@@ -299,19 +372,15 @@ export function buildReportData(
 	const procCheck = checkMap.get("PROCUREMENT");
 
 	const itcCheck = checkMap.get("ITC");
-	const itcParsed = itcCheck?.payload
-		? safeJsonParse<Partial<RiskReviewData["itcData"]>>(itcCheck.payload, null)
-		: null;
+	const itcParsed = itcCheck?.payload ? parseReportJsonObject(itcCheck.payload) : null;
 
 	const sancCheck = checkMap.get("SANCTIONS");
 	const sanctionsParsed = sancCheck?.payload
-		? safeJsonParse<Partial<RiskReviewData["sanctionsData"]>>(sancCheck.payload, null)
+		? parseReportJsonObject(sancCheck.payload)
 		: null;
 
 	const ficaCheck = checkMap.get("FICA");
-	const ficaParsed = ficaCheck?.payload
-		? safeJsonParse<Partial<RiskReviewData["ficaData"]>>(ficaCheck.payload, null)
-		: null;
+	const ficaParsed = ficaCheck?.payload ? parseReportJsonObject(ficaCheck.payload) : null;
 	const vatVerification = extractVatVerificationFromAiAnalysis(
 		assessment?.aiAnalysis ?? null
 	);

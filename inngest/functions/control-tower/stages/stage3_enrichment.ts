@@ -888,6 +888,7 @@ export async function executeStage3({
 				message: notificationMessage,
 				actionable: vatStatus !== "verified",
 				severity: vatStatus === "verified" ? "low" : "medium",
+				sourceEventType: "vat_verification_completed",
 			});
 
 			return { status: vatStatus };
