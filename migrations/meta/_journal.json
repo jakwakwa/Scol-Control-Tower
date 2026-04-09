@@ -8,13 +8,6 @@
       "when": 1775320192275,
       "tag": "0000_chubby_greymalkin",
       "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1775691947741,
-      "tag": "0001_chief_puma",
-      "breakpoints": true
     }
   ]
 }
