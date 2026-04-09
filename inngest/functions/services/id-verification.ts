@@ -28,10 +28,7 @@ export const autoVerifyIdentity = inngest.createFunction(
 					documentId: originalData.documentId,
 					status: "failed_ocr",
 					reason: "Transient OCR failures exhausted retry budget",
-					errorMessage:
-						typeof event.data.error === "string"
-							? event.data.error
-							: undefined,
+					errorMessage: event.data.error?.message ?? event.data.error?.error,
 				})
 			);
 		},
