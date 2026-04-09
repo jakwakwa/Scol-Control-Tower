@@ -53,6 +53,11 @@ describe("non-retriable document errors produce failed_unprocessable status", ()
             isNonRetriableIdentityError("3 INVALID_ARGUMENT: Unable to process document")
         ).toBe(true);
     });
+
+    test("generic INVALID_ARGUMENT without document content message is not non-retriable", () => {
+        // Configuration errors (bad processor name, project ID) should still retry
+        expect(isNonRetriableIdentityError("3 INVALID_ARGUMENT: Invalid processor name")).toBe(false);
+    });
 });
 
 describe("writeTerminalVerificationStatus idempotency", () => {
