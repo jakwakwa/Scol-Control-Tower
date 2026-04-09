@@ -1,36 +1,77 @@
 import { processIdentityVerification, writeTerminalVerificationStatus } from "@/app/actions/verify-id";
 import { inngest } from "@/inngest";
 import { isNonRetriableIdentityError } from "@/lib/risk-review/identity-verification-errors";
-import { recordVendorCheckAttempt } from "@/lib/services/telemetry/vendor-metrics";
+import {
+	createWorkflowNotification,
+	logWorkflowEvent,
+} from "@/lib/services/notification-events.service";
+import {
+	recordVendorCheckAttempt,
+	recordVendorCheckFailure,
+} from "@/lib/services/telemetry/vendor-metrics";
 
 /**
  * Automated Identity Verification
  *
  * Listens for individual document uploads. If the document is an identity
  * document, it triggers the Google Cloud Document AI Identity Proofing processor.
+ *
+ * Retry budget: 4 attempts. If all exhaust, onFailure records telemetry
+ * and creates an operator notification.
  */
 export const autoVerifyIdentity = inngest.createFunction(
 	{
 		id: "auto-verify-identity",
 		name: "Automated Identity Verification",
-		retries: 3,
-		onFailure: async ({ event, step }) => {
-			const originalData = event.data.event.data as {
-				documentId: number;
-				workflowId: number;
-				applicantId: number;
-				documentType: string;
-				uploadedAt: string;
-				category?: string;
-			};
-			await step.run("write-failed-ocr-status", () =>
-				writeTerminalVerificationStatus({
-					documentId: originalData.documentId,
-					status: "failed_ocr",
-					reason: "Transient OCR failures exhausted retry budget",
-					errorMessage: event.data.error?.message ?? event.data.error?.error,
-				})
+		retries: 4,
+		onFailure: async ({ event, error }) => {
+			const { workflowId, applicantId, documentId, documentType } =
+				event.data.event.data;
+			const errorMessage =
+				error instanceof Error ? error.message : String(error);
+
+			console.error(
+				"[ControlTower] Identity verification exhausted all retries:",
+				{
+					workflowId,
+					applicantId,
+					documentId,
+					documentType,
+					error: errorMessage,
+				}
 			);
+
+			recordVendorCheckFailure({
+				vendor: "document_ai_identity",
+				stage: "async",
+				workflowId,
+				applicantId,
+				durationMs: 0,
+				outcome: "persistent_failure",
+				error,
+			});
+
+			await logWorkflowEvent({
+				workflowId,
+				eventType: "vendor_check_failed",
+				payload: {
+					vendor: "document_ai_identity",
+					documentId,
+					documentType,
+					error: errorMessage,
+					context: "identity_verification_retries_exhausted",
+				},
+			});
+
+			await createWorkflowNotification({
+				workflowId,
+				applicantId,
+				type: "warning",
+				title: "Identity Verification Failed",
+				message: `Automated identity verification failed after all retry attempts for document ${documentId}. Manual identity verification required.`,
+				actionable: true,
+				severity: "high",
+			});
 		},
 	},
 	{ event: "document/uploaded" },
@@ -41,7 +82,11 @@ export const autoVerifyIdentity = inngest.createFunction(
 		const idTypes = ["ID_DOCUMENT", "PROPRIETOR_ID", "DIRECTOR_ID", "FICA_ID"];
 
 		if (!idTypes.includes(documentType)) {
-			return { skipped: true, reason: "Not an identity document type", documentType };
+			return {
+				skipped: true,
+				reason: "Not an identity document type",
+				documentType,
+			};
 		}
 
 		const result = await step.run("verify-identity-document", async () => {
@@ -50,12 +95,14 @@ export const autoVerifyIdentity = inngest.createFunction(
 				applicantId,
 				documentId
 			);
-			const hasError = "error" in verificationResult && Boolean(verificationResult.error);
+			const hasError =
+				"error" in verificationResult && Boolean(verificationResult.error);
 			const errorMessage =
 				hasError && verificationResult.error
 					? String(verificationResult.error)
 					: "Unknown identity verification error";
-			const isNonRetriableError = hasError && isNonRetriableIdentityError(errorMessage);
+			const isNonRetriableError =
+				hasError && isNonRetriableIdentityError(errorMessage);
 
 			recordVendorCheckAttempt({
 				vendor: "document_ai_identity",
@@ -102,7 +149,8 @@ export const autoVerifyIdentity = inngest.createFunction(
 			};
 		}
 
-		const entitiesFound = "data" in result ? result.data?.entities?.length || 0 : 0;
+		const entitiesFound =
+			"data" in result ? result.data?.entities?.length || 0 : 0;
 
 		return {
 			status: "completed",

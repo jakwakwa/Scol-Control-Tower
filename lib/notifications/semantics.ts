@@ -1,9 +1,15 @@
 /**
  * Single source of truth for notification classification and routing.
  *
- * Both dashboard-shell.tsx (navigation) and notifications-panel.tsx (badges/display)
- * import from this module. Adding a new term here updates both surfaces automatically.
+ * Prefer `sourceEventType` from persisted workflow events when present — routing
+ * does not depend on user-facing copy. Legacy rows without `sourceEventType`
+ * fall back to substring lists below.
  */
+
+export type NotificationSemanticInput = {
+	message: string;
+	sourceEventType?: string | null;
+};
 
 export const PROCUREMENT_MANUAL_TERMS = [
 	"manual procurement check required",
@@ -46,17 +52,31 @@ function matches(message: string, terms: ReadonlyArray<string>): boolean {
 	return terms.some(term => message.includes(term));
 }
 
+function categoryFromSourceEvent(event: string): NotificationCategory | null {
+	switch (event.trim()) {
+		case "vat_verification_completed":
+			return "vat_verification";
+		default:
+			return null;
+	}
+}
+
 /**
  * Classify a notification by category.
  *
- * Priority ordering (highest to lowest): procurement_manual → sanctions_manual →
- * vat_verification → pre_risk_review → quote_review → general.
- *
- * When a message matches multiple categories (e.g. both VAT and procurement terms),
- * procurement/sanctions wins — these carry higher compliance urgency.
+ * Priority ordering (highest to lowest): explicit source event → procurement_manual →
+ * sanctions_manual → vat_verification → pre_risk_review → quote_review → general.
  */
-export function classifyNotification(message: string): NotificationCategory {
-	const m = message.toLowerCase();
+export function classifyNotification(input: NotificationSemanticInput): NotificationCategory {
+	const evt = input.sourceEventType?.trim();
+	if (evt) {
+		const fromEvent = categoryFromSourceEvent(evt);
+		if (fromEvent !== null) {
+			return fromEvent;
+		}
+	}
+
+	const m = input.message.toLowerCase();
 
 	if (matches(m, PROCUREMENT_MANUAL_TERMS)) return "procurement_manual";
 	if (matches(m, SANCTIONS_MANUAL_TERMS)) return "sanctions_manual";
@@ -66,28 +86,27 @@ export function classifyNotification(message: string): NotificationCategory {
 	return "general";
 }
 
-export function isProcurementManualNotification(message: string): boolean {
-	return classifyNotification(message) === "procurement_manual";
+export function isProcurementManualNotification(input: NotificationSemanticInput): boolean {
+	return classifyNotification(input) === "procurement_manual";
 }
 
-export function isSanctionsManualNotification(message: string): boolean {
-	return classifyNotification(message) === "sanctions_manual";
+export function isSanctionsManualNotification(input: NotificationSemanticInput): boolean {
+	return classifyNotification(input) === "sanctions_manual";
 }
 
-export function isManualFallbackNotification(message: string): boolean {
-	const category = classifyNotification(message);
+export function isManualFallbackNotification(input: NotificationSemanticInput): boolean {
+	const category = classifyNotification(input);
 	return category === "procurement_manual" || category === "sanctions_manual";
 }
 
-export function isVatNotification(message: string): boolean {
-	return classifyNotification(message) === "vat_verification";
+export function isVatNotification(input: NotificationSemanticInput): boolean {
+	return classifyNotification(input) === "vat_verification";
 }
 
-export function getNotificationRoute(notification: {
-	message: string;
+export function getNotificationRoute(notification: NotificationSemanticInput & {
 	applicantId: number;
 }): string {
-	const category = classifyNotification(notification.message);
+	const category = classifyNotification(notification);
 
 	switch (category) {
 		case "procurement_manual":
@@ -103,8 +122,8 @@ export function getNotificationRoute(notification: {
 	}
 }
 
-export function formatNotificationMessage(message: string): string {
-	const category = classifyNotification(message);
+export function formatNotificationMessage(input: NotificationSemanticInput): string {
+	const category = classifyNotification(input);
 
 	if (category === "sanctions_manual") {
 		return "Automated sanctions checks failed. Risk Manager must complete a full manual sanctions screening and record the sanctions outcome.";
@@ -114,5 +133,5 @@ export function formatNotificationMessage(message: string): string {
 		return "Automated procurement checks failed. Risk Manager must complete a full manual procurement check and record a procurement decision.";
 	}
 
-	return message;
+	return input.message;
 }
