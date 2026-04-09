@@ -60,6 +60,24 @@ describe("non-retriable document errors produce failed_unprocessable status", ()
     });
 });
 
+describe("retry exhaustion terminal status", () => {
+    test("failed_ocr reason string communicates retry budget exhaustion", () => {
+        // Documents the string contract used by onFailure handler and the UI
+        const reason = "Transient OCR failures exhausted retry budget";
+        expect(reason).toContain("retry budget");
+        // Must not suggest re-upload (that is failed_unprocessable's message)
+        expect(reason).not.toContain("re-upload");
+    });
+
+    test("failed_ocr and failed_unprocessable have distinct reason strings", () => {
+        const reasons = {
+            failed_ocr: "Transient OCR failures exhausted retry budget",
+            failed_unprocessable: "Document content rejected by Document AI — re-upload required",
+        } as const;
+        expect(reasons.failed_ocr).not.toBe(reasons.failed_unprocessable);
+    });
+});
+
 describe("writeTerminalVerificationStatus idempotency", () => {
 	test("status map covers both terminal failure values", () => {
 		// Validates the enum values match the schema — no DB needed

@@ -10,7 +10,32 @@ import { recordVendorCheckAttempt } from "@/lib/services/telemetry/vendor-metric
  * document, it triggers the Google Cloud Document AI Identity Proofing processor.
  */
 export const autoVerifyIdentity = inngest.createFunction(
-	{ id: "auto-verify-identity", name: "Automated Identity Verification" },
+	{
+		id: "auto-verify-identity",
+		name: "Automated Identity Verification",
+		retries: 3,
+		onFailure: async ({ event, step }) => {
+			const originalData = event.data.event.data as {
+				documentId: number;
+				workflowId: number;
+				applicantId: number;
+				documentType: string;
+				uploadedAt: string;
+				category?: string;
+			};
+			await step.run("write-failed-ocr-status", () =>
+				writeTerminalVerificationStatus({
+					documentId: originalData.documentId,
+					status: "failed_ocr",
+					reason: "Transient OCR failures exhausted retry budget",
+					errorMessage:
+						typeof event.data.error === "string"
+							? event.data.error
+							: undefined,
+				})
+			);
+		},
+	},
 	{ event: "document/uploaded" },
 	async ({ event, step }) => {
 		const { workflowId, applicantId, documentId, documentType } = event.data;
