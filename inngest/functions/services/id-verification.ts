@@ -72,6 +72,13 @@ export const autoVerifyIdentity = inngest.createFunction(
 				actionable: true,
 				severity: "high",
 			});
+
+			await writeTerminalVerificationStatus({
+				documentId,
+				status: "failed_ocr",
+				reason: "Transient OCR failures exhausted retry budget",
+				errorMessage,
+			});
 		},
 	},
 	{ event: "document/uploaded" },
