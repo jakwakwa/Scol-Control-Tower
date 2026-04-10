@@ -15,15 +15,13 @@ export type IdentityStepOutcome =
 export function classifyIdentityStepOutcome(
 	verificationResult: IdentityVerificationProcessResult
 ): IdentityStepOutcome {
-	const hasError = "error" in verificationResult && Boolean(verificationResult.error);
-	const errorMessage = hasError
-		? String(verificationResult.error)
-		: "Unknown identity verification error";
+	const hasError = "error" in verificationResult;
 
 	if (!hasError) {
 		return { kind: "success", result: verificationResult };
 	}
 
+	const errorMessage = String(verificationResult.error);
 	if (isNonRetriableIdentityError(errorMessage)) {
 		return { kind: "terminal_unprocessable", errorMessage };
 	}
