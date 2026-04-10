@@ -1,6 +1,5 @@
-import { processIdentityVerification, writeTerminalVerificationStatus } from "@/app/actions/verify-id";
+import { processIdentityVerification } from "@/app/actions/verify-id";
 import { inngest } from "@/inngest";
-import { isNonRetriableIdentityError } from "@/lib/risk-review/identity-verification-errors";
 import {
 	AUTO_VERIFY_IDENTITY_INNGEST_RETRIES,
 	classifyIdentityStepOutcome,
@@ -80,35 +79,6 @@ export const autoVerifyIdentity = inngest.createFunction(
 				...payload,
 				error,
 			});
-
-			await logWorkflowEvent({
-				workflowId,
-				eventType: "vendor_check_failed",
-				payload: {
-					vendor: "document_ai_identity",
-					documentId,
-					documentType,
-					error: errorMessage,
-					context: "identity_verification_retries_exhausted",
-				},
-			});
-
-			await createWorkflowNotification({
-				workflowId,
-				applicantId,
-				type: "warning",
-				title: "Identity Verification Failed",
-				message: `Automated identity verification failed after all retry attempts for document ${documentId}. Manual identity verification required.`,
-				actionable: true,
-				severity: "high",
-			});
-
-			await writeTerminalVerificationStatus({
-				documentId,
-				status: "failed_ocr",
-				reason: "Transient OCR failures exhausted retry budget",
-				errorMessage,
-			});
 		},
 	},
 	{ event: "document/uploaded" },
@@ -156,21 +126,13 @@ export const autoVerifyIdentity = inngest.createFunction(
 				error: "error" in verificationResult ? verificationResult.error : undefined,
 			});
 
-			if (hasError) {
-				if (isNonRetriableError) {
-					await writeTerminalVerificationStatus({
-						documentId,
-						status: "failed_unprocessable",
-						reason: "Document content rejected by Document AI — re-upload required",
-						errorMessage,
-					});
-					return {
-						skipped: true,
-						reason: "manual_required_identity_document_constraints",
-						error: errorMessage,
-					};
-				}
-
+			if (outcome.kind === "terminal_unprocessable") {
+				await writeTerminalVerificationStatus({
+					documentId,
+					status: "failed_unprocessable",
+					reason: FAILED_UNPROCESSABLE_REASON,
+					errorMessage: outcome.errorMessage,
+				});
 				await logWorkflowEvent({
 					workflowId,
 					eventType: "vendor_check_failed",
@@ -184,7 +146,6 @@ export const autoVerifyIdentity = inngest.createFunction(
 				}).catch(err => {
 					console.error("[ControlTower] logWorkflowEvent failed:", err);
 				});
-
 				await createWorkflowNotification({
 					workflowId,
 					applicantId,
@@ -196,7 +157,6 @@ export const autoVerifyIdentity = inngest.createFunction(
 				}).catch(err => {
 					console.error("[ControlTower] createWorkflowNotification failed:", err);
 				});
-
 				return {
 					skipped: true,
 					reason: "manual_required_identity_document_constraints",
