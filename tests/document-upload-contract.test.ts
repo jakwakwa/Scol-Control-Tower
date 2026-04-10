@@ -35,47 +35,47 @@ describe("identity verification retry classification", () => {
 });
 
 describe("non-retriable document errors produce failed_unprocessable status", () => {
-    test("page limit error is classified as non-retriable (existing coverage)", () => {
-        expect(
-            isNonRetriableIdentityError(
-                "3 INVALID_ARGUMENT: Document pages exceed the limit: 2 got 11"
-            )
-        ).toBe(true);
-    });
+	test("page limit error is classified as non-retriable (existing coverage)", () => {
+		expect(
+			isNonRetriableIdentityError(
+				"3 INVALID_ARGUMENT: Document pages exceed the limit: 2 got 11"
+			)
+		).toBe(true);
+	});
 
-    test("UNSUPPORTED_FILE_TYPE error is classified as non-retriable", () => {
-        // Extend the pattern list to cover additional Document AI content errors
-        expect(isNonRetriableIdentityError("UNSUPPORTED_FILE_TYPE")).toBe(true);
-    });
+	test("UNSUPPORTED_FILE_TYPE error is classified as non-retriable", () => {
+		// Extend the pattern list to cover additional Document AI content errors
+		expect(isNonRetriableIdentityError("UNSUPPORTED_FILE_TYPE")).toBe(true);
+	});
 
-    test("INVALID_ARGUMENT content errors are classified as non-retriable", () => {
-        expect(
-            isNonRetriableIdentityError("3 INVALID_ARGUMENT: Unable to process document")
-        ).toBe(true);
-    });
+	test("INVALID_ARGUMENT content errors are classified as non-retriable", () => {
+		expect(
+			isNonRetriableIdentityError("3 INVALID_ARGUMENT: Unable to process document")
+		).toBe(true);
+	});
 
-    test("generic INVALID_ARGUMENT without document content message is not non-retriable", () => {
-        // Configuration errors (bad processor name, project ID) should still retry
-        expect(isNonRetriableIdentityError("3 INVALID_ARGUMENT: Invalid processor name")).toBe(false);
-    });
+	test("generic INVALID_ARGUMENT without document content message is not non-retriable", () => {
+		// Configuration errors (bad processor name, project ID) should still retry
+		expect(isNonRetriableIdentityError("3 INVALID_ARGUMENT: Invalid processor name")).toBe(false);
+	});
 });
 
 describe("retry exhaustion terminal status", () => {
-    test("failed_ocr reason string communicates retry budget exhaustion", () => {
-        // Documents the string contract used by onFailure handler and the UI
-        const reason = "Transient OCR failures exhausted retry budget";
-        expect(reason).toContain("retry budget");
-        // Must not suggest re-upload (that is failed_unprocessable's message)
-        expect(reason).not.toContain("re-upload");
-    });
+	test("failed_ocr reason string communicates retry budget exhaustion", () => {
+		// Documents the string contract used by onFailure handler and the UI
+		const reason = "Transient OCR failures exhausted retry budget";
+		expect(reason).toContain("retry budget");
+		// Must not suggest re-upload (that is failed_unprocessable's message)
+		expect(reason).not.toContain("re-upload");
+	});
 
-    test("failed_ocr and failed_unprocessable have distinct reason strings", () => {
-        const reasons = {
-            failed_ocr: "Transient OCR failures exhausted retry budget",
-            failed_unprocessable: "Document content rejected by Document AI — re-upload required",
-        } as const;
-        expect(reasons.failed_ocr).not.toBe(reasons.failed_unprocessable);
-    });
+	test("failed_ocr and failed_unprocessable have distinct reason strings", () => {
+		const reasons = {
+			failed_ocr: "Transient OCR failures exhausted retry budget",
+			failed_unprocessable: "Document content rejected by Document AI — re-upload required",
+		} as const;
+		expect(reasons.failed_ocr).not.toBe(reasons.failed_unprocessable);
+	});
 });
 
 describe("writeTerminalVerificationStatus idempotency", () => {
