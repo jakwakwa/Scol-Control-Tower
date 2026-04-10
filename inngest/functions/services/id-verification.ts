@@ -13,18 +13,70 @@ import {
 } from "@/lib/services/notification-events.service";
 import { recordVendorCheckAttempt } from "@/lib/services/telemetry/vendor-metrics";
 
+/** Same fields as `document/uploaded` in `inngest/events.ts`. */
+type DocumentUploadedPayload = {
+	workflowId: number;
+	applicantId: number;
+	documentId: number;
+	documentType: string;
+};
+
+/**
+ * `onFailure` receives `inngest/function.failed`: `event.data.event` is the original
+ * trigger (`{ name, data }`). Some runtimes may surface only the inner `data`; accept both.
+ */
+function documentUploadedPayloadFromFailureEvent(event: {
+	data: {
+		run_id?: string;
+		function_id?: string;
+		event?: unknown;
+	};
+}): DocumentUploadedPayload | null {
+	const trigger = event.data.event;
+	if (!trigger || typeof trigger !== "object") {
+		return null;
+	}
+
+	const asRecord = trigger as Record<string, unknown>;
+	const inner =
+		"data" in asRecord && asRecord.data !== null && typeof asRecord.data === "object"
+			? (asRecord.data as Record<string, unknown>)
+			: asRecord;
+
+	if (
+		typeof inner.workflowId === "number" &&
+		typeof inner.applicantId === "number" &&
+		typeof inner.documentId === "number" &&
+		typeof inner.documentType === "string"
+	) {
+		return {
+			workflowId: inner.workflowId,
+			applicantId: inner.applicantId,
+			documentId: inner.documentId,
+			documentType: inner.documentType,
+		};
+	}
+
+	return null;
+}
+
 export const autoVerifyIdentity = inngest.createFunction(
 	{
 		id: "auto-verify-identity",
 		name: "Automated Identity Verification",
 		retries: AUTO_VERIFY_IDENTITY_INNGEST_RETRIES,
 		onFailure: async ({ event, error }) => {
-			const payload = event.data.event.data;
+			const payload = documentUploadedPayloadFromFailureEvent(event);
+			if (!payload) {
+				console.error(
+					"[ControlTower] autoVerifyIdentity onFailure: missing document/uploaded payload (expected event.data.event.data or event.data.event as data)",
+					{ runId: event.data.run_id, functionId: event.data.function_id }
+				);
+				return;
+			}
+
 			await handleAutoVerifyIdentityRetryExhausted({
-				workflowId: payload.workflowId,
-				applicantId: payload.applicantId,
-				documentId: payload.documentId,
-				documentType: payload.documentType,
+				...payload,
 				error,
 			});
 		},

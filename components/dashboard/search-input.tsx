@@ -1,9 +1,11 @@
 "use client";
 
-import { RiSearchLine } from "@remixicon/react";
-import { useEffect, useState } from "react";
+import { RiCloseCircleLine, RiSearchLine } from "@remixicon/react";
+import { useEffect, useRef, useState } from "react";
 import { useDebounce } from "use-debounce";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 interface SearchInputProps {
 	value: string;
@@ -20,6 +22,7 @@ export function SearchInput({
 	className,
 	delay = 300,
 }: SearchInputProps) {
+	const inputRef = useRef<HTMLInputElement>(null);
 	const [text, setText] = useState(value);
 	const [query] = useDebounce(text, delay);
 
@@ -32,15 +35,33 @@ export function SearchInput({
 		setText(value);
 	}, [value]);
 
+	const handleClear = () => {
+		setText("");
+		inputRef.current?.focus();
+	};
+
 	return (
 		<div className={`relative flex-1 ${className || ""}`}>
-			<RiSearchLine className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+			<RiSearchLine className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 			<Input
+				ref={inputRef}
 				placeholder={placeholder}
-				className="pl-10"
+				className={cn("pl-10", text.length > 0 && "pr-12")}
 				value={text}
 				onChange={e => setText(e.target.value)}
 			/>
+			{text.length > 0 ? (
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon-sm"
+					aria-label="Clear search"
+					className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+					onMouseDown={e => e.preventDefault()}
+					onClick={handleClear}>
+					<RiCloseCircleLine className="size-4" />
+				</Button>
+			) : null}
 		</div>
 	);
 }
