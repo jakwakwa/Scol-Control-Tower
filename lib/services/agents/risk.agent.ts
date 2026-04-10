@@ -150,7 +150,6 @@ export async function analyzeFinancialRisk(
 			});
 			const rawText = response.text;
 			if (process.env.LOG_LEVEL === "debug" || process.env.DEBUG_FIX) {
-				console.log("[FIX:risk-agent] Raw AI response preview:", rawText?.slice(0, 500));
 			}
 			const parsed = JSON.parse(rawText);
 			if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {

@@ -1,6 +1,5 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
-import DottedGridHeightSync from "@/components/layout/dotted-grid-height-sync";
 
 import "./globals.css";
 

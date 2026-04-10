@@ -22,6 +22,9 @@ export type VatStatus =
 	| "manual_review"
 	| "error";
 
+/** Document AI Identity Proofing entity row (shared UI + verify-id action). */
+export type DocumentAiProofingEntity = { type: string; value: string };
+
 export interface SectionStatus {
 	machineState: "pending" | "in_progress" | "completed" | "failed" | "manual_required";
 	reviewState: "pending" | "acknowledged" | "approved" | "rejected" | "not_required";
@@ -86,7 +89,7 @@ export interface RiskReviewData {
 			avsStatus: string;
 			avsDetails: string;
 		};
-		documentAiResult?: Array<{ type: string; value: string }>;
+		documentAiResult?: DocumentAiProofingEntity[];
 		vatVerification?: {
 			checked: boolean;
 			/** Summary status for UX display — derived from all available evidence sources. */

@@ -11,6 +11,7 @@
 ## Examples
 
 ❌ **Wrong:**
+
 ```typescript
 const response = await client.models.generateContent({
   model: "gemini-2.5-flash",
@@ -23,6 +24,7 @@ const response = await client.models.generateContent({
 ```
 
 ✅ **Correct:**
+
 ```typescript
 const response = await client.models.generateContent({
   model: "gemini-2.5-flash",

@@ -11,6 +11,11 @@ import { getDatabaseClient } from "@/app/utils";
 import { DashboardLayout, DashboardSection, GlassCard } from "@/components/dashboard";
 import { Button } from "@/components/ui/button";
 import { applicants, notifications, workflows } from "@/db/schema";
+import {
+	formatNotificationMessage,
+	isManualFallbackNotification,
+	isVatNotification,
+} from "@/lib/notifications/semantics";
 
 interface NotificationRow {
 	id: number;
@@ -23,6 +28,7 @@ interface NotificationRow {
 	clientName: string | null;
 	severity: string | null;
 	groupKey: string | null;
+	sourceEventType: string | null;
 }
 
 async function markAsRead(formData: FormData) {
@@ -76,40 +82,6 @@ async function markAllAsRead() {
 	revalidatePath("/dashboard/notifications");
 }
 
-const MANUAL_FALLBACK_ALERT_TERMS = [
-	"manual procurement check required",
-	"procurement_check_failed",
-	"procurecheck failed",
-	"procurement check failed",
-	"manual sanctions check required",
-	"sanctions_check_failed",
-	"automated sanctions checks failed",
-];
-
-function isManualFallbackNotification(message: string): boolean {
-	const normalized = message.toLowerCase();
-	return MANUAL_FALLBACK_ALERT_TERMS.some(term => normalized.includes(term));
-}
-
-function isManualSanctionsNotification(message: string): boolean {
-	const normalized = message.toLowerCase();
-	return (
-		normalized.includes("manual sanctions check required") ||
-		normalized.includes("sanctions_check_failed") ||
-		normalized.includes("automated sanctions checks failed")
-	);
-}
-
-function formatNotificationMessage(message: string): string {
-	if (!isManualFallbackNotification(message)) {
-		return message;
-	}
-	if (isManualSanctionsNotification(message)) {
-		return "Automated sanctions checks failed. Complete a full manual sanctions check in Risk Review and record the sanctions decision.";
-	}
-	return "Automated procurement checks failed. Complete a full manual procurement check in Risk Review and record the procurement decision.";
-}
-
 export default async function NotificationsPage() {
 	const db = getDatabaseClient();
 	let allNotifications: NotificationRow[] = [];
@@ -128,6 +100,7 @@ export default async function NotificationsPage() {
 					clientName: applicants.companyName,
 					severity: notifications.severity,
 					groupKey: notifications.groupKey,
+					sourceEventType: notifications.sourceEventType,
 				})
 				.from(notifications)
 				.leftJoin(workflows, eq(notifications.workflowId, workflows.id))
@@ -176,6 +149,10 @@ export default async function NotificationsPage() {
 				) : (
 					<div className="space-y-3">
 						{allNotifications.map(notification => {
+							const semantic = {
+								message: notification.message,
+								sourceEventType: notification.sourceEventType,
+							};
 							const isHighSeverity =
 								notification.severity === "high" || notification.severity === "critical";
 							const isMediumGrouped =
@@ -217,9 +194,14 @@ export default async function NotificationsPage() {
 									<div>
 										<h4 className="font-medium flex items-center gap-2">
 											{notification.clientName || "Unknown Client"}
-											{isManualFallbackNotification(notification.message) && (
+											{isManualFallbackNotification(semantic) && (
 												<span className="text-[10px] uppercase tracking-wide text-red-300 border border-red-500/30 bg-red-500/10 rounded px-1.5 py-0.5">
 													Manual Check
+												</span>
+											)}
+											{isVatNotification(semantic) && (
+												<span className="text-[10px] uppercase tracking-wide text-teal-300 border border-teal-500/30 bg-teal-500/10 rounded px-1.5 py-0.5">
+													VAT Check
 												</span>
 											)}
 											{!notification.read && (
@@ -227,7 +209,7 @@ export default async function NotificationsPage() {
 											)}
 										</h4>
 										<p className="text-sm text-muted-foreground">
-											{formatNotificationMessage(notification.message)}
+											{formatNotificationMessage(semantic)}
 										</p>
 										<p className="text-xs text-muted-foreground/60 mt-1">
 											{notification.createdAt

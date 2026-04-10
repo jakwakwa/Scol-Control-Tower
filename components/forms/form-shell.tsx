@@ -1,6 +1,5 @@
 import type React from "react";
 import ExternalFormShell from "@/components/forms/external/external-form-shell";
-import styles from "@/components/forms/external/external-form-theme.module.css";
 
 interface FormShellProps {
 	title: string;

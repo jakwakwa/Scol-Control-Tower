@@ -39,6 +39,8 @@ export interface WorkflowNotification {
 	actionable?: boolean;
 	severity?: "low" | "medium" | "high" | "critical";
 	groupKey?: string;
+	/** Structured workflow event — preferred for routing over `message` copy */
+	sourceEventType?: string | null;
 }
 
 const notificationConfig: Record<
@@ -215,6 +217,10 @@ export function NotificationsPanel({
 						</div>
 					) : (
 						notifications?.map(notification => {
+							const semantic = {
+								message: notification?.message ?? "",
+								sourceEventType: notification?.sourceEventType,
+							};
 							const isHighSeverity =
 								notification?.severity === "high" ||
 								notification?.severity === "critical";
@@ -223,10 +229,9 @@ export function NotificationsPanel({
 							const config =
 								notificationConfig[notification?.type] ?? notificationConfig.info;
 							const Icon = config.icon;
-							const isManualProcurementAlert = isManualFallbackNotification(
-								notification?.message || ""
-							);
-							const isVatAlert = isVatNotification(notification?.message || "");
+							const isManualProcurementAlert =
+								isManualFallbackNotification(semantic);
+							const isVatAlert = isVatNotification(semantic);
 
 							return (
 								<div
@@ -287,7 +292,7 @@ export function NotificationsPanel({
 										</div>
 
 										<p className="text-[11.5px] text-muted-foreground/90 italic font-extralight mt-1.5 line-clamp-3">
-											{formatNotificationMessage(notification?.message || "")}
+											{formatNotificationMessage(semantic)}
 										</p>
 										<div className="flex items-center  absolute z-40 top-0 gap-2 right-0">
 											<button

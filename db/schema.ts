@@ -287,6 +287,8 @@ export const notifications = sqliteTable("notifications", {
 	actionable: integer("actionable", { mode: "boolean" }).default(false),
 	severity: text("severity").default("medium"),
 	groupKey: text("group_key"),
+	/** Workflow event type that produced this notification; used for routing without matching user-facing copy */
+	sourceEventType: text("source_event_type"),
 });
 
 export const workflowEvents = sqliteTable("workflow_events", {
@@ -754,7 +756,14 @@ export const documentUploads = sqliteTable("document_uploads", {
 	storageKey: text("storage_key").notNull(),
 	storageUrl: text("storage_url"),
 	verificationStatus: text("verification_status", {
-		enum: ["pending", "verified", "rejected", "expired"],
+		enum: [
+			"pending",
+			"verified",
+			"rejected",
+			"expired",
+			"failed_ocr",
+			"failed_unprocessable",
+		],
 	})
 		.notNull()
 		.default("pending"),

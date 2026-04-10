@@ -4,6 +4,11 @@ import { SANCTIONS_RECHECK_WINDOW_MS } from "@/lib/constants/workflow-timeouts";
 import { isSanctionsBlocked, type SanctionsCheckResult, performSanctionsCheck } from "@/lib/services/agents";
 import { sendInternalAlertEmail } from "@/lib/services/email.service";
 import { logWorkflowEvent, createWorkflowNotification } from "@/lib/services/notification-events.service";
+import {
+	buildSanctionsVendorAttemptMetric,
+	MANUAL_FALLBACK_SANCTIONS_DATA_SOURCE,
+} from "@/lib/services/telemetry/sanctions-vendor-telemetry";
+import { recordVendorCheckAttempt } from "@/lib/services/telemetry/vendor-metrics";
 import { getBaseUrl } from "@/lib/utils";
 import { eq, and, desc } from "drizzle-orm";
 import { inngest } from "../../client";
@@ -52,15 +57,40 @@ export async function runSanctionsForWorkflow(
 ): Promise<SanctionsExecutionResult> {
 	const allowReuse = options?.allowReuse ?? false;
 	const db = getDatabaseClient();
-	if (!db) throw new Error("Database connection failed");
+	if (!db) {
+		recordVendorCheckAttempt(
+			buildSanctionsVendorAttemptMetric({
+				kind: "infra_failure",
+				source,
+				workflowId,
+				applicantId,
+				durationMs: 0,
+				error: new Error("Database connection failed"),
+			})
+		);
+		throw new Error("Database connection failed");
+	}
 
 	const [applicant] = await db
 		.select()
 		.from(applicants)
 		.where(eq(applicants.id, applicantId));
-	if (!applicant) throw new Error(`Applicant ${applicantId} not found`);
+	if (!applicant) {
+		recordVendorCheckAttempt(
+			buildSanctionsVendorAttemptMetric({
+				kind: "infra_failure",
+				source,
+				workflowId,
+				applicantId,
+				durationMs: 0,
+				error: new Error(`Applicant ${applicantId} not found`),
+			})
+		);
+		throw new Error(`Applicant ${applicantId} not found`);
+	}
 
 	if (allowReuse) {
+		const reuseTelemetryStartedAt = Date.now();
 		const [latestSanctionsEvent] = await db
 			.select()
 			.from(workflowEvents)
@@ -121,6 +151,17 @@ export async function runSanctionsForWorkflow(
 					},
 				});
 
+				recordVendorCheckAttempt(
+					buildSanctionsVendorAttemptMetric({
+						kind: "reused",
+						source,
+						workflowId,
+						applicantId,
+						durationMs: Date.now() - reuseTelemetryStartedAt,
+						previousDataSource: reusableResult.metadata.dataSource,
+					})
+				);
+
 				return {
 					source,
 					reused: true,
@@ -137,6 +178,7 @@ export async function runSanctionsForWorkflow(
 	let checkedAt: string;
 	let isBlocked: boolean;
 
+	const sanctionsAttemptStartedAt = Date.now();
 	try {
 		sanctionsResult = await performSanctionsCheck({
 			applicantId,
@@ -149,7 +191,30 @@ export async function runSanctionsForWorkflow(
 		});
 		checkedAt = sanctionsResult.metadata.checkedAt || new Date().toISOString();
 		isBlocked = isSanctionsBlocked(sanctionsResult);
+
+		recordVendorCheckAttempt(
+			buildSanctionsVendorAttemptMetric({
+				kind: "automated",
+				source,
+				workflowId,
+				applicantId,
+				durationMs: Date.now() - sanctionsAttemptStartedAt,
+				result: sanctionsResult,
+			})
+		);
 	} catch (error) {
+		const attemptDurationMs = Date.now() - sanctionsAttemptStartedAt;
+		recordVendorCheckAttempt(
+			buildSanctionsVendorAttemptMetric({
+				kind: "manual_fallback",
+				source,
+				workflowId,
+				applicantId,
+				durationMs: attemptDurationMs,
+				error,
+			})
+		);
+
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		const workflowStage = source === "pre_risk" ? 2 : 3;
 		const manualReviewGuidance =
@@ -236,7 +301,7 @@ export async function runSanctionsForWorkflow(
 				checkId: `SCK-MANUAL-${workflowId}-${Date.now()}`,
 				checkedAt: fallbackCheckedAt,
 				expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-				dataSource: "Manual Fallback (OpenSanctions + Firecrawl failed)",
+				dataSource: MANUAL_FALLBACK_SANCTIONS_DATA_SOURCE,
 			},
 		};
 		checkedAt = fallbackCheckedAt;
@@ -260,8 +325,7 @@ export async function runSanctionsForWorkflow(
 			riskLevel: sanctionsResult.overall.riskLevel,
 			isBlocked,
 			manualFallback:
-				sanctionsResult.metadata.dataSource ===
-				"Manual Fallback (OpenSanctions + Firecrawl failed)",
+				sanctionsResult.metadata.dataSource === MANUAL_FALLBACK_SANCTIONS_DATA_SOURCE,
 			passed: sanctionsResult.overall.passed,
 			isPEP: sanctionsResult.pepScreening.isPEP,
 			requiresEDD: sanctionsResult.overall.requiresEDD,

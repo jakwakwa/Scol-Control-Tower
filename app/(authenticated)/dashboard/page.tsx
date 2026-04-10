@@ -16,6 +16,7 @@ import {
 } from "@/components/dashboard/pipeline-view";
 import { Button } from "@/components/ui/button";
 import { applicants, notifications, quotes, workflows } from "@/db/schema";
+import { isNotificationType } from "@/lib/notifications/types";
 
 export default async function DashboardPage() {
 	const db = getDatabaseClient();
@@ -97,6 +98,7 @@ export default async function DashboardPage() {
 					read: notifications.read,
 					actionable: notifications.actionable,
 					createdAt: notifications.createdAt,
+					sourceEventType: notifications.sourceEventType,
 					clientName: applicants.companyName,
 				})
 				.from(notifications)
@@ -109,11 +111,12 @@ export default async function DashboardPage() {
 				workflowId: n.workflowId || 0,
 				applicantId: n.applicantId || 0,
 				clientName: n.clientName || "Unknown",
-				type: (n.type as WorkflowNotification["type"]) || "awaiting",
+				type: isNotificationType(n.type) ? n.type : "info",
 				message: n.message,
 				timestamp: n.createdAt || new Date(),
 				read: n.read,
 				actionable: n.actionable,
+				sourceEventType: n.sourceEventType,
 			}));
 		} catch (error) {
 			console.error("Failed to fetch notifications:", error);

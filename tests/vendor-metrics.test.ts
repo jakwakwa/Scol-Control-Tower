@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
+	recordVendorCheckAttempt,
 	recordVendorCheckFailure,
 	recordVendorCheckSuccess,
 	setVendorTelemetryCaptureSenderForTests,
@@ -17,6 +18,8 @@ type CapturedVendorEvent = {
 		http_status: number | null;
 		duration_ms: number;
 		env: "production" | "preview" | "development";
+		sanctions_path?: string;
+		sanctions_source?: string;
 	};
 };
 
@@ -80,5 +83,38 @@ describe("vendor telemetry", () => {
 		expect(events[0]?.properties.outcome).toBe("persistent_failure");
 		expect(events[0]?.properties.failure_type).toBe("auth");
 		expect(events[0]?.properties.http_status).toBe(401);
+	});
+
+	it("includes optional sanctions_path and sanctions_source when provided", () => {
+		const events: CapturedVendorEvent[] = [];
+		setVendorTelemetryCaptureSenderForTests(event => {
+			events.push(event);
+		});
+
+		recordVendorCheckAttempt({
+			vendor: "opensanctions",
+			stage: 3,
+			workflowId: 1,
+			applicantId: 2,
+			outcome: "success",
+			durationMs: 99,
+			sanctionsPath: "fallback",
+			sanctionsSource: "itc_main",
+		});
+
+		expect(events.length).toBe(1);
+		expect(events[0]?.properties).toEqual({
+			vendor: "opensanctions",
+			stage: 3,
+			workflow_id: 1,
+			applicant_id: 2,
+			outcome: "success",
+			failure_type: null,
+			http_status: null,
+			duration_ms: 99,
+			env: "preview",
+			sanctions_path: "fallback",
+			sanctions_source: "itc_main",
+		});
 	});
 });

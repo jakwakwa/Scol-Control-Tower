@@ -2,7 +2,6 @@ import { getBaseUrl } from "@/app/utils";
 import { WORKFLOW_TIMEOUTS } from "@/lib/constants/workflow-timeouts";
 import { sendInternalAlertEmail } from "@/lib/services/email.service";
 import { createWorkflowNotification } from "@/lib/services/notification-events.service";
-import { terminateRun } from "@/lib/services/terminate-run.service";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 import { handleWaitWithReminders } from "../../handlers/reminder-handler";
 import type { StageDependencies, StageResult } from "../types";
