@@ -276,6 +276,154 @@ verify_has_content
 browser_flow_capture_workflows "workflows-after-stage1-3.png"
 
 echo ""
+echo "--- Identity Verification: Upload test ID document and verify pipeline ---"
+
+# Step 1: Get the workflow ID for this applicant from the API (authenticated fetch inside browser)
+WORKFLOW_ID=$(agent-browser eval --stdin <<EVALEOF
+(async () => {
+  const res = await fetch("/api/applicants/${APPLICANT_ID}");
+  if (!res.ok) return "";
+  const data = await res.json();
+  return data.workflow ? String(data.workflow.id) : "";
+})()
+EVALEOF
+)
+WORKFLOW_ID=$(echo "$WORKFLOW_ID" | tr -d '"' | xargs)
+
+if [ -z "$WORKFLOW_ID" ]; then
+	echo "ERROR: Could not retrieve workflow ID for applicant ${APPLICANT_ID}"
+	exit 1
+fi
+echo "--- Identity Verification: workflow ID=${WORKFLOW_ID} ---"
+
+# Step 2: Upload an ID_DOCUMENT via the authenticated onboarding upload API.
+# Use the browser canvas to generate a 900×900 random-noise PNG:
+#   - Size >> 30 KB  (passes MIN_IMAGE_BYTES quality check)
+#   - 900×900 px     (passes MIN_IMAGE_WIDTH/HEIGHT quality check)
+#   - Entropy >> 3.8 (random noise has max entropy ~8; passes MIN_ENTROPY check)
+# Document AI will reject this as non-real content → non-retriable or transient failure.
+UPLOAD_DOC_ID=$(agent-browser eval --stdin <<EVALEOF
+(async () => {
+  // Generate 900×900 random-noise PNG via canvas
+  const canvas = document.createElement("canvas");
+  canvas.width = 900;
+  canvas.height = 900;
+  const ctx = canvas.getContext("2d");
+  const imageData = ctx.createImageData(900, 900);
+  // Deterministic pseudo-noise (xorshift32) — fast, reproducible, high entropy
+  let seed = 0xdeadbeef;
+  for (let i = 0; i < imageData.data.length; i += 4) {
+    seed = (seed ^ (seed << 13)) >>> 0;
+    seed = (seed ^ (seed >>> 17)) >>> 0;
+    seed = (seed ^ (seed << 5)) >>> 0;
+    imageData.data[i]   = seed & 0xff;
+    imageData.data[i+1] = (seed >> 8) & 0xff;
+    imageData.data[i+2] = (seed >> 16) & 0xff;
+    imageData.data[i+3] = 255;
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+  if (!blob) { console.error("canvas.toBlob returned null"); return ""; }
+
+  const file = new File([blob], "test-id-browserflow.png", { type: "image/png" });
+
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("workflowId", "${WORKFLOW_ID}");
+  fd.append("category", "individual");
+  fd.append("documentType", "ID_DOCUMENT");
+
+  const res = await fetch("/api/onboarding/documents/upload", { method: "POST", body: fd });
+  const data = await res.json();
+  if (!res.ok || !data.document?.id) {
+    console.error("Upload failed:", JSON.stringify(data));
+    return "";
+  }
+  return String(data.document.id);
+})()
+EVALEOF
+)
+UPLOAD_DOC_ID=$(echo "$UPLOAD_DOC_ID" | tr -d '"' | xargs)
+
+if [ -z "$UPLOAD_DOC_ID" ]; then
+	echo "ERROR: Document upload failed — cannot test identity verification pipeline"
+	exit 1
+fi
+echo "--- Identity Verification: document ID=${UPLOAD_DOC_ID} uploaded, polling for status ---"
+
+# Step 3: Poll the onboarding documents API until verificationStatus leaves "pending".
+# With the non-retriable patterns for Document AI content errors, this resolves to
+# "failed_unprocessable" within ~10s (no retry cycle).
+# "api_error" is treated as retryable — may occur during a brief Next.js hot-reload.
+ID_VERIFY_STATUS="pending"
+CONSECUTIVE_API_ERRORS=0
+for attempt in $(seq 1 40); do
+	ID_VERIFY_STATUS=$(agent-browser eval --stdin <<EVALEOF
+(async () => {
+  const res = await fetch("/api/onboarding/documents/upload?workflowId=${WORKFLOW_ID}");
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return "api_error:" + res.status + ":" + text.substring(0, 80);
+  }
+  const data = await res.json();
+  const docs = data.documents || [];
+  const doc = docs.find(d => d.id === ${UPLOAD_DOC_ID});
+  return doc ? (doc.verificationStatus || "pending") : "not_found";
+})()
+EVALEOF
+	)
+	ID_VERIFY_STATUS=$(echo "$ID_VERIFY_STATUS" | tr -d '"' | xargs)
+
+	# api_error is retryable (brief server reload / transient); don't break the loop
+	if echo "$ID_VERIFY_STATUS" | grep -q "^api_error"; then
+		CONSECUTIVE_API_ERRORS=$((CONSECUTIVE_API_ERRORS + 1))
+		echo "--- Poll ${attempt}/40: api error (${CONSECUTIVE_API_ERRORS} consecutive) — ${ID_VERIFY_STATUS} ---"
+		if [ "$CONSECUTIVE_API_ERRORS" -ge 5 ]; then
+			echo "ERROR: 5 consecutive API errors — aborting poll"
+			ID_VERIFY_STATUS="api_error"
+			break
+		fi
+		sleep 3
+		continue
+	fi
+
+	CONSECUTIVE_API_ERRORS=0
+	echo "--- Poll ${attempt}/40: verificationStatus=${ID_VERIFY_STATUS} ---"
+
+	if [ "$ID_VERIFY_STATUS" != "pending" ]; then
+		break
+	fi
+	sleep 2
+done
+
+browser_flow_shot "${SCREENSHOT_DIR}/stage1-3-id-verification.png"
+
+# Step 4: Assert the terminal status is one of the expected values.
+# "failed_unprocessable" = non-retriable content error (expected for noise images after adding patterns).
+# "failed_ocr"           = transient failures exhausted retry budget (acceptable if Document AI
+#                          credentials are not configured in this environment).
+# "verified"             = Document AI accepted the document (rare with noise images).
+if [ "$ID_VERIFY_STATUS" = "failed_unprocessable" ]; then
+	echo "--- Identity Verification PASSED: status=failed_unprocessable (non-retriable content error, immediate — correct behavior) ---"
+elif [ "$ID_VERIFY_STATUS" = "failed_ocr" ]; then
+	echo "--- Identity Verification PASSED: status=failed_ocr (transient failures exhausted retry budget — acceptable if Document AI credentials are not configured) ---"
+elif [ "$ID_VERIFY_STATUS" = "verified" ]; then
+	echo "--- Identity Verification PASSED: status=verified (Document AI accepted document) ---"
+elif [ "$ID_VERIFY_STATUS" = "pending" ]; then
+	echo "ERROR: Identity verification still 'pending' after 80s — Inngest function may not have run (check Inngest dashboard at http://127.0.0.1:8288)"
+	exit 1
+elif echo "$ID_VERIFY_STATUS" | grep -q "^api_error"; then
+	echo "ERROR: Could not read verification status — API consistently unavailable: ${ID_VERIFY_STATUS}"
+	exit 1
+else
+	echo "ERROR: Unexpected identity verification status: ${ID_VERIFY_STATUS}"
+	exit 1
+fi
+
+echo ""
 echo "=== Stage 1-3 COMPLETE ==="
 echo "  APPLICANT_ID=${APPLICANT_ID} (saved to ${APPLICANT_ID_FILE})"
+echo "  WORKFLOW_ID=${WORKFLOW_ID}"
+echo "  ID_VERIFY_STATUS=${ID_VERIFY_STATUS}"
 echo "  Screenshots in ${SCREENSHOT_DIR}/"

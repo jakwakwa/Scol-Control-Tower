@@ -160,7 +160,6 @@ export async function validateDocument(
 		});
 		const rawText = response.text;
 		if (process.env.LOG_LEVEL === "debug" || process.env.DEBUG_FIX) {
-			console.log("[FIX:validation-agent] Raw AI response preview:", rawText?.slice(0, 500));
 		}
 		const parsed = JSON.parse(rawText);
 		if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {

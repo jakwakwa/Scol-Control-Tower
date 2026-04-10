@@ -1,0 +1,89 @@
+---
+title: "Inngest identity verification — terminal state before workflow logging"
+description: "Fixed stuck pending uploads by persisting failed_ocr / failed_unprocessable before best-effort logWorkflowEvent and notifications; moved terminal writes to lib/ to avoid Server Action exposure and Inngest auth conflicts."
+category: "integration-issues"
+problem_type: "integration-issue"
+component: "auto-verify-identity"
+symptoms:
+  [
+    "document_uploads.verification_status remained pending after verification exhausted retries",
+    "logWorkflowEvent or notification inserts threw (e.g. SQLITE_CONSTRAINT, schema drift) and blocked the terminal status write",
+    "risk of exposing terminal verification writes as client-callable Server Actions when colocated in app/actions with use server",
+  ]
+root_cause: "Ordering and call-site design: fallible workflow telemetry ran before mandatory DB commits; sensitive mutations were candidates for use server export."
+date: "2026-04-10"
+---
+
+# Inngest identity verification — terminal state before workflow logging
+
+## Problem
+
+The `autoVerifyIdentity` Inngest function handles `document/uploaded` for identity document types, calls Document AI via `processIdentityVerification`, and must persist **terminal** verification outcomes when:
+
+- **Transient** failures exhaust the retry budget → `failed_ocr`
+- **Non-retriable** Document AI content errors are detected → `failed_unprocessable`
+
+If **`await logWorkflowEvent(...)`** (or similar best-effort work) ran **before** the update to `document_uploads`, any thrown error from logging (FK violations on test data, missing columns, etc.) **stopped the handler** and left rows **`pending`** with no terminal state—matching production observations for specific document IDs.
+
+Separately, implementing **`writeTerminalVerificationStatus`** inside a **`"use server"`** file would expose it as a **public Server Action** unless every export authenticated. Background workers (**Inngest**) have **no Clerk session**, so adding `auth()` to a shared helper would **break** the worker path.
+
+## Related documentation
+
+- Prior work on **telemetry placement** inside `step.run`: [Inngest ID Verification Telemetry Cleanup](/issues/integration-issues/2026-03-30-inngest-id-verification-telemetry-cleanup) (different concern: duplicate metrics and step boundaries).
+- Institutional solution doc: `docs/solutions/integration-issues/inngest-identity-verification-terminal-state-before-logging-2026-04-10.md`
+
+## Solution
+
+### 1. Commit terminal state before best-effort logging
+
+In **`onFailure`** and in the **non-retriable** branch inside `step.run`:
+
+1. Record vendor failure telemetry as needed (`recordVendorCheckFailure` / `recordVendorCheckAttempt`).
+2. **`await writeTerminalVerificationStatus({ ... })`** — idempotent update on `document_uploads` (only from `pending` or same terminal status).
+3. Then call **`logWorkflowEvent`** and **`createWorkflowNotification`** with **`.catch(...)`** so failures are logged but do not block or mask the terminal write.
+
+```typescript
+await writeTerminalVerificationStatus({
+  documentId,
+  status: "failed_ocr",
+  reason: "Transient OCR failures exhausted retry budget",
+  errorMessage,
+});
+
+await logWorkflowEvent({ /* ... */ }).catch((err) => {
+  console.error("[ControlTower] logWorkflowEvent failed:", err);
+});
+
+await createWorkflowNotification({ /* ... */ }).catch((err) => {
+  console.error("[ControlTower] createWorkflowNotification failed:", err);
+});
+```
+
+### 2. Trusted server module instead of Server Actions
+
+Implement **`writeTerminalVerificationStatus`** in **`lib/services/identity-verification-terminal.ts`** (no `"use server"`). Inngest imports this module directly; it is not a client RPC.
+
+### 3. Schema and onboarding API
+
+- Extend Drizzle `document_uploads.verification_status` with **`failed_ocr`** and **`failed_unprocessable`** (SQLite text enum at the app layer).
+- Allow the same values in **`PUT /api/onboarding/documents/[id]`** where staff can set verification status.
+
+### 4. Project rule
+
+Cursor rule **`.cursor/rules/inngest-failure-handlers-and-server-actions.mdc`** encodes the same patterns for future edits.
+
+## Why this works
+
+- **Durable product state** (verification status on the upload row) is no longer ordered after **optional observability** that can fail independently.
+- **`.catch`** keeps notification/event failures from aborting the handler after the critical update.
+- **`lib/`** keeps worker mutations off the Server Actions surface and avoids impossible **`auth()`** requirements for Inngest.
+
+## Prevention
+
+- Code review: flag **`await logWorkflowEvent`** (or notifications) that run **before** mandatory persistence on failure paths.
+- Prefer **`lib/`** services for mutations invoked only from Inngest, API routes, or authenticated actions—not mixed into unauthenticated exports from **`app/actions`**.
+
+## Verification
+
+- `bun test tests/document-upload-contract.test.ts`
+- `bun run build`

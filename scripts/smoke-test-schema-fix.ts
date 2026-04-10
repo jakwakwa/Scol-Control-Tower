@@ -41,19 +41,14 @@ async function runTest(
     const durationMs = Date.now() - start;
     if (result.ok) {
       passed++;
-      console.log(`  ${PASS} ${name} (${durationMs}ms)`);
     } else {
       failed++;
-      console.log(`  ${FAIL} ${name} (${durationMs}ms)`);
-      console.log(`     ${result.detail}`);
     }
     results.push({ name, ok: result.ok, detail: result.detail, durationMs });
   } catch (err) {
     const durationMs = Date.now() - start;
     failed++;
     const msg = err instanceof Error ? err.message : String(err);
-    console.log(`  ${FAIL} ${name} (${durationMs}ms)`);
-    console.log(`     Error: ${msg}`);
     results.push({ name, ok: false, detail: msg, durationMs });
   }
 }
@@ -227,7 +222,7 @@ Total Credits: R 144,500.00
 // Test 4: ProcureCheck — Full workflow (auth → create vendor → poll → categories → Zod parse)
 // ─────────────────────────────────────────────
 async function testProcureCheckWorkflow() {
-  if (!process.env.PROCURECHECK_USERNAME || !process.env.PROCURECHECK_PASSWORD) {
+  if (!(process.env.PROCURECHECK_USERNAME && process.env.PROCURECHECK_PASSWORD)) {
     return {
       ok: false,
       detail: "PROCURECHECK_USERNAME / PROCURECHECK_PASSWORD not set — skipping",
@@ -333,10 +328,6 @@ async function testProcureCheckWorkflow() {
 // Main
 // ─────────────────────────────────────────────
 async function main() {
-  console.log(
-    `\n${BOLD}═══ Schema Fix Smoke Test ═══${RESET}`
-  );
-  console.log(`Testing z.toJSONSchema() structured output from Gemini API\n`);
 
   if (!process.env.GOOGLE_GENAI_KEY) {
     console.error(
@@ -344,26 +335,15 @@ async function main() {
     );
     process.exit(1);
   }
-  console.log(`${PASS} GOOGLE_GENAI_KEY found`);
-  console.log();
-
-  console.log(`${BOLD}Running tests...${RESET}`);
-  console.log();
 
   await runTest("ValidationAgent: structured output via z.toJSONSchema()", testValidationAgent);
   await runTest("RiskAgent: structured output via z.toJSONSchema()", testRiskAgent);
   await runTest("FICA AI: structured output via z.toJSONSchema()", testFicaAI);
   await runTest("ProcureCheck: full workflow (vendor create → poll → categories)", testProcureCheckWorkflow);
 
-  console.log();
-  console.log(`${BOLD}Results:${RESET} ${passed} passed, ${failed} failed`);
-  console.log();
-
   if (failed > 0) {
-    console.log(`${WARN} Some tests failed. The z.toJSONSchema() fix may need further investigation.`);
     process.exit(1);
   } else {
-    console.log(`${PASS} All structured output tests passed! The schema fix is confirmed working.`);
   }
 }
 

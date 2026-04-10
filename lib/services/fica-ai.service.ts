@@ -153,7 +153,6 @@ Be thorough but concise. Flag any concerning patterns immediately.`;
 	});
 	const rawText = response.text;
 	if (process.env.LOG_LEVEL === "debug" || process.env.DEBUG_FIX) {
-		console.log("[FIX:fica-ai] Raw bank statement AI response preview:", rawText?.slice(0, 500));
 	}
 	const parsedBank = JSON.parse(rawText);
 	if (typeof parsedBank !== "object" || parsedBank === null || Array.isArray(parsedBank)) {
@@ -242,7 +241,6 @@ ANALYSIS REQUIREMENTS:
 	});
 	const rawLetterText = response.text;
 	if (process.env.LOG_LEVEL === "debug" || process.env.DEBUG_FIX) {
-		console.log("[FIX:fica-ai] Raw accountant letter AI response preview:", rawLetterText?.slice(0, 500));
 	}
 	const parsedLetter = JSON.parse(rawLetterText);
 	if (typeof parsedLetter !== "object" || parsedLetter === null || Array.isArray(parsedLetter)) {

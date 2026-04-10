@@ -5,11 +5,23 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
 import { documents, documentUploads } from "@/db/schema";
 
+export type IdentityVerificationDocumentAiEntity = {
+	type?: string | null;
+	value?: string | null;
+};
+
+export type IdentityVerificationProcessResult =
+	| { data: { entities: IdentityVerificationDocumentAiEntity[] } }
+	| { error: string };
+
 export async function verifyIdentity(applicantId: number) {
 	return processIdentityVerification(applicantId);
 }
 
-export async function processIdentityVerification(applicantId: number, documentId?: number) {
+export async function processIdentityVerification(
+	applicantId: number,
+	documentId?: number
+): Promise<IdentityVerificationProcessResult> {
 	try {
 		if (!process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
 			return { error: "Google Cloud credentials not configured." };
@@ -78,7 +90,9 @@ export async function processIdentityVerification(applicantId: number, documentI
 			const docs = await db
 				.select()
 				.from(documents)
-				.where(and(eq(documents.applicantId, applicantId), inArray(documents.type, idTypes)))
+				.where(
+					and(eq(documents.applicantId, applicantId), inArray(documents.type, idTypes))
+				)
 				.orderBy(desc(documents.uploadedAt))
 				.limit(1);
 
@@ -118,7 +132,7 @@ export async function processIdentityVerification(applicantId: number, documentI
 		if (!doc) {
 			return { error: "No ID document found." };
 		}
-		if (!processorId || !projectId) {
+		if (!(processorId && projectId)) {
 			return { error: "Google Cloud Document AI is not fully configured." };
 		}
 
@@ -142,7 +156,7 @@ export async function processIdentityVerification(applicantId: number, documentI
 		}
 
 		// The ID Proofing parser returns proofing entities like 'fraud_signals_is_identity_document'
-		const entities = document.entities.map((e) => ({
+		const entities = document.entities.map(e => ({
 			type: e.type,
 			value: e.mentionText,
 		}));

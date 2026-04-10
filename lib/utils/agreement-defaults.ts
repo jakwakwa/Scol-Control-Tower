@@ -196,7 +196,7 @@ function applyContractOverrides(
 	ownerPairs.forEach(([nameKey, idKey], index) => {
 		const overrideName = contractOverrides[nameKey];
 		const overrideId = contractOverrides[idKey];
-		if (!overrideName && !overrideId) return;
+		if (!(overrideName || overrideId)) return;
 
 		const existing = owners[index] ?? {
 			name: "",

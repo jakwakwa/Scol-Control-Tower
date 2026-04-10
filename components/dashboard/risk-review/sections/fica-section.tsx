@@ -47,10 +47,15 @@ export function FicaSection({
 
 		try {
 			const res = await verifyIdentity(applicantId);
-			if (res.error) {
+			if ("error" in res) {
 				setVerifyError(res.error);
-			} else if (res.data) {
-				setVerifyResultState(res.data.entities);
+			} else {
+				setVerifyResultState(
+					res.data.entities.map((e) => ({
+						type: e.type ?? "",
+						value: e.value ?? "",
+					}))
+				);
 			}
 		} catch (e) {
 			setVerifyError(e instanceof Error ? e.message : "An error occurred");

@@ -1,0 +1,38 @@
+---
+description: Inngest onFailure ordering (state before best-effort logging); keep worker mutations out of "use server" exports
+globs: inngest/**/*.ts,app/actions/**/*.ts
+alwaysApply: false
+---
+
+# Inngest failure handlers and Server Actions
+
+## Mandatory state before best-effort logging
+
+In **`onFailure`** handlers and similar orchestration paths (e.g. after classifying a non-retriable error inside `step.run`), treat **`logWorkflowEvent`**, **`createWorkflowNotification`**, and other workflow/notification calls as **best-effort**.
+
+- **First** `await` the **durable / mandatory** updates (e.g. terminal DB status, idempotent writes the product depends on).
+- **Then** run notification/logging; chain with **`.catch(...)`** so a thrown error (FK violation, schema drift, transient DB) does not prevent the mandatory commit or surface as an unhandled failure after state is already correct.
+
+```typescript
+// ✅ GOOD — terminal write first; logging cannot block it
+await writeTerminalStatus(/* ... */);
+await logWorkflowEvent(/* ... */).catch((err) => {
+  console.error("[ControlTower] logWorkflowEvent failed:", err);
+});
+await createWorkflowNotification(/* ... */).catch((err) => {
+  console.error("[ControlTower] createWorkflowNotification failed:", err);
+});
+```
+
+```typescript
+// ❌ BAD — logging throws → terminal write never runs
+await logWorkflowEvent(/* ... */);
+await writeTerminalStatus(/* ... */);
+```
+
+## Sensitive mutations vs `"use server"`
+
+Files with **`"use server"`** expose **every export** as a client-invokable Server Action. Do **not** export sensitive internal mutations (e.g. workflow workers, Inngest callbacks, bypassing auth) from those modules unless **each** exported function performs authentication/authorization (see `server-auth-actions.mdc`).
+
+- **Prefer** implementing worker/orchestration mutations in **`lib/**` services** and importing them from Inngest functions, API routes, or thin Server Actions that authenticate.
+- Avoid adding **`auth()`** to shared helpers that **Inngest** must call — background jobs often have **no Clerk session**; splitting **trusted `lib/`** vs **authenticated actions** keeps both safe.

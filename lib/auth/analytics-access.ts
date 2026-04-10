@@ -1,4 +1,4 @@
-import { ADMIN_ROLE, PERMISSIONS, hasPermissionOrAdmin } from "@/lib/auth/permissions";
+import { PERMISSIONS, hasPermissionOrAdmin } from "@/lib/auth/permissions";
 
 /**
  * Who may call PostHog analytics API routes and open `/dashboard/analytics`.
