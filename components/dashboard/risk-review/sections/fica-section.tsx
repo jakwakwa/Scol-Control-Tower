@@ -14,10 +14,15 @@ import { RiskReviewBadge } from "@/components/dashboard/risk-review/risk-review-
 import { SectionStatusBanner } from "@/components/dashboard/risk-review/section-status-banner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import type { RiskReviewData, SectionStatus } from "@/lib/risk-review/types";
+import type {
+	DocumentAiProofingEntity,
+	RiskReviewData,
+	SectionStatus,
+} from "@/lib/risk-review/types";
 import {
 	formatVatStatus,
 	getVatBadgeVariant,
+	getVatStatusExplanation,
 } from "@/lib/risk-review/vat-status-display";
 import { cn } from "@/lib/utils";
 
@@ -30,9 +35,8 @@ export function FicaSection({
 	status?: SectionStatus;
 	applicantId?: number;
 }) {
-	type DocumentAiEntity = { type: string; value: string };
 	const [isVerifying, setIsVerifying] = useState(false);
-	const [verifyResultState, setVerifyResultState] = useState<DocumentAiEntity[] | null>(
+	const [verifyResultState, setVerifyResultState] = useState<DocumentAiProofingEntity[] | null>(
 		null
 	);
 	const [verifyError, setVerifyError] = useState<string | null>(null);
@@ -158,7 +162,7 @@ export function FicaSection({
 										{ label: "Suspicious Words", type: "fraud_signals_suspicious_words" },
 									].map(signal => {
 										const value =
-											verifyResult.find((e: DocumentAiEntity) => e.type === signal.type)
+											verifyResult.find((e: DocumentAiProofingEntity) => e.type === signal.type)
 												?.value || "N/A";
 										const isPass = value === "PASS" || value === "YES";
 										return (
@@ -303,6 +307,9 @@ export function FicaSection({
 								{formatVatStatus(data.vatVerification?.status ?? "not_checked")}
 							</RiskReviewBadge>
 						</div>
+						<p className="text-xs text-muted-foreground leading-relaxed">
+							{getVatStatusExplanation(data.vatVerification?.status ?? "not_checked")}
+						</p>
 						<div>
 							<p className="text-xs text-muted-foreground mb-1">VAT Number</p>
 							<p className="text-sm text-foreground font-medium">

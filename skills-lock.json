@@ -11,6 +11,11 @@
       "sourceType": "github",
       "computedHash": "f866cc5f748fa5fdea7dc7198ddcb7b0aeefd1c15ae05811632be227141a951c"
     },
+    "brainstorming": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "8df9b47092524833138b58682d03f2e153a242e550d1693657afdbee0cc9cdb0"
+    },
     "ce:compound": {
       "source": "everyinc/compound-engineering-plugin",
       "sourceType": "github",
@@ -21,6 +26,11 @@
       "sourceType": "github",
       "computedHash": "433b71e22d840af4995a17861f9467460979d61c27f4c5417ee657f85dc83186"
     },
+    "dispatching-parallel-agents": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "e21044ae7496fc285f1df9ff3fb518a3a20bea6f5216c1f59f4987e12c769a0a"
+    },
     "dogfood": {
       "source": "vercel-labs/agent-browser",
       "sourceType": "github",
@@ -30,6 +40,11 @@
       "source": "vercel-labs/vercel-plugin",
       "sourceType": "github",
       "computedHash": "8afaa26ba82573de93f099146caa2f568bb65fabe77ce2f24696762671a75100"
+    },
+    "executing-plans": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "2f709d1a2c7564f8ce6a9bb707e7f5451117ba80f8e8e2302662c29bc61246a6"
     },
     "investigation-mode": {
       "source": "vercel-labs/vercel-plugin",
@@ -51,15 +66,50 @@
       "sourceType": "github",
       "computedHash": "3d7246c8646f37167701c5ac97d1410094a01e5fdd696d2901b7ca90fe99fad8"
     },
+    "subagent-driven-development": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "a197f8e5fba5ea59013e1adbaa90dd42db35de8f074feca200c8038de584a83b"
+    },
     "swr": {
       "source": "vercel-labs/vercel-plugin",
       "sourceType": "github",
       "computedHash": "cf9dbfee2cf85488ea653a581518809c30a1c3ca8f83c57ea6632704457e1438"
     },
+    "systematic-debugging": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "72e9ab72627e4fd8ed26a582e82309a98ecdc4f6e1c99418430ac05682c9e91d"
+    },
+    "test-driven-development": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "126f1ebf6ccd414f42544f6e83d8cc5adb089e1108eaffb7c400701e37eecd9f"
+    },
     "turbopack": {
       "source": "vercel-labs/vercel-plugin",
       "sourceType": "github",
       "computedHash": "f5369c5efd09055273f89c9ab390dd83f752474ae6a282b0de8dd02e310f51a7"
+    },
+    "using-superpowers": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "e0eced9fbb205c212f420aded0c6f2bf5d5f059254679a8459b4fe72390160be"
+    },
+    "verification-before-completion": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "9b446f0c7fe1cfb560b1d34439523b1a76d5f177290007b2c053a1c749a4a8ba"
+    },
+    "writing-plans": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "bfaed11054ad8021c66860244e2d2e0d1eca483ae9f5fbfcb956e99c61f5c3d7"
+    },
+    "writing-skills": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "c0a92e629e39ea91b1f54da67a6aa92723008a8ef5b500c6de078f55485937c7"
     },
     "zod-validation-expert": {
       "source": "sickn33/antigravity-awesome-skills",

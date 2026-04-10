@@ -3,7 +3,10 @@ import {
 	REVIEW_STATE_CONFIG,
 } from "@/components/dashboard/risk-review/risk-review-config";
 import type { RiskReviewData } from "@/lib/risk-review/types";
-import { formatVatStatus } from "@/lib/risk-review/vat-status-display";
+import {
+	formatVatStatus,
+	getVatStatusExplanation,
+} from "@/lib/risk-review/vat-status-display";
 
 type SectionKey = "itc" | "sanctions" | "fica";
 
@@ -543,6 +546,9 @@ export function PrintableCreditComplianceReport({
 					<p className="text-sm">
 						<span className="font-bold">Status:</span>{" "}
 						{formatVatStatus(ficaData.vatVerification?.status ?? "not_checked")}
+					</p>
+					<p className="text-xs mt-1 text-gray-600">
+						{getVatStatusExplanation(ficaData.vatVerification?.status ?? "not_checked")}
 					</p>
 					<p className="text-sm">
 						<span className="font-bold">VAT Number:</span>{" "}

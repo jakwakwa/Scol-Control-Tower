@@ -36,7 +36,11 @@ export const autoVerifyIdentity = inngest.createFunction(
 		const idTypes = ["ID_DOCUMENT", "PROPRIETOR_ID", "DIRECTOR_ID", "FICA_ID"];
 
 		if (!idTypes.includes(documentType)) {
-			return { skipped: true, reason: "Not an identity document type", documentType };
+			return {
+				skipped: true,
+				reason: "Not an identity document type",
+				documentType,
+			};
 		}
 
 		const result = await step.run("verify-identity-document", async () => {
@@ -128,7 +132,8 @@ export const autoVerifyIdentity = inngest.createFunction(
 			};
 		}
 
-		const entitiesFound = "data" in result ? result.data?.entities?.length || 0 : 0;
+		const entitiesFound =
+			"data" in result ? result.data?.entities?.length || 0 : 0;
 
 		return {
 			status: "completed",
