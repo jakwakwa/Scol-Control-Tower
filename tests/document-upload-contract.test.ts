@@ -54,6 +54,21 @@ describe("non-retriable document errors produce failed_unprocessable status", ()
         ).toBe(true);
     });
 
+    test("INVALID_ARGUMENT with invalid image content is classified as non-retriable", () => {
+        // Discovered via manual verification: Document AI returns this for corrupt/undecodable images
+        expect(
+            isNonRetriableIdentityError("3 INVALID_ARGUMENT: Invalid image content")
+        ).toBe(true);
+    });
+
+    test("INVALID_ARGUMENT with no text detected is classified as non-retriable", () => {
+        // Discovered via browser-flow manual verification: Document AI returns this for valid images
+        // that contain no readable text (e.g. noise images, blank pages) — retrying won't change the result
+        expect(
+            isNonRetriableIdentityError("3 INVALID_ARGUMENT: No text detected in image.")
+        ).toBe(true);
+    });
+
     test("generic INVALID_ARGUMENT without document content message is not non-retriable", () => {
         // Configuration errors (bad processor name, project ID) should still retry
         expect(isNonRetriableIdentityError("3 INVALID_ARGUMENT: Invalid processor name")).toBe(false);
