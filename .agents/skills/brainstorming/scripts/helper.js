@@ -1,4 +1,4 @@
-(function() {
+(() => {
   const WS_URL = 'ws://' + window.location.host;
   let ws = null;
   let eventQueue = [];
@@ -64,7 +64,7 @@
   // Frame UI: selection tracking
   window.selectedChoice = null;
 
-  window.toggleSelect = function(el) {
+  window.toggleSelect = (el) => {
     const container = el.closest('.options') || el.closest('.cards');
     const multi = container && container.dataset.multiselect !== undefined;
     if (container && !multi) {

@@ -62,7 +62,14 @@ export async function PUT(
 			);
 		}
 
-		const validStatuses = ["pending", "verified", "rejected", "expired", "failed_ocr", "failed_unprocessable"];
+		const validStatuses = [
+			"pending",
+			"verified",
+			"rejected",
+			"expired",
+			"failed_ocr",
+			"failed_unprocessable",
+		];
 		if (!validStatuses.includes(verificationStatus)) {
 			return NextResponse.json(
 				{

@@ -756,7 +756,14 @@ export const documentUploads = sqliteTable("document_uploads", {
 	storageKey: text("storage_key").notNull(),
 	storageUrl: text("storage_url"),
 	verificationStatus: text("verification_status", {
-		enum: ["pending", "verified", "rejected", "expired", "failed_ocr", "failed_unprocessable"],
+		enum: [
+			"pending",
+			"verified",
+			"rejected",
+			"expired",
+			"failed_ocr",
+			"failed_unprocessable",
+		],
 	})
 		.notNull()
 		.default("pending"),

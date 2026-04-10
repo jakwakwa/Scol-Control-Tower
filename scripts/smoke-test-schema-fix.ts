@@ -23,13 +23,43 @@ process.env.DEBUG_FIX = "1";
 
 const PASS = "\x1b[32m✓\x1b[0m";
 const FAIL = "\x1b[31m✗\x1b[0m";
-const WARN = "\x1b[33m⚠\x1b[0m";
 const BOLD = "\x1b[1m";
 const RESET = "\x1b[0m";
 
 let passed = 0;
 let failed = 0;
 const results: { name: string; ok: boolean; detail: string; durationMs: number }[] = [];
+
+function printTestLine(entry: (typeof results)[number]) {
+  const label = entry.ok ? "PASS" : "FAIL";
+  const icon = entry.ok ? PASS : FAIL;
+  console.log(`${icon} ${label}  ${entry.name}  (${entry.durationMs}ms)`);
+  if (!entry.ok && entry.detail) {
+    console.log(`   ${entry.detail}`);
+  }
+}
+
+function printSummary() {
+  const totalMs = results.reduce((sum, r) => sum + r.durationMs, 0);
+  console.log("");
+  console.log(
+    `${BOLD}Summary${RESET}: ${passed} passed, ${failed} failed  (${totalMs}ms total)`
+  );
+}
+
+/** Second pass for automation / long logs — every failing case in one place before exit(1). */
+function printFailureRecap() {
+  const failures = results.filter((r) => !r.ok);
+  if (failures.length === 0) {
+    return;
+  }
+  console.log("");
+  console.log(`${BOLD}Failure details${RESET} (${failures.length}):`);
+  for (const f of failures) {
+    console.log(`  ${FAIL} ${f.name}  (${f.durationMs}ms)`);
+    console.log(`     ${f.detail}`);
+  }
+}
 
 async function runTest(
   name: string,
@@ -41,20 +71,19 @@ async function runTest(
     const durationMs = Date.now() - start;
     if (result.ok) {
       passed++;
-      console.log(`  ${PASS} ${name} (${durationMs}ms)`);
     } else {
       failed++;
-      console.log(`  ${FAIL} ${name} (${durationMs}ms)`);
-      console.log(`     ${result.detail}`);
     }
-    results.push({ name, ok: result.ok, detail: result.detail, durationMs });
+    const entry = { name, ok: result.ok, detail: result.detail, durationMs };
+    results.push(entry);
+    printTestLine(entry);
   } catch (err) {
     const durationMs = Date.now() - start;
     failed++;
     const msg = err instanceof Error ? err.message : String(err);
-    console.log(`  ${FAIL} ${name} (${durationMs}ms)`);
-    console.log(`     Error: ${msg}`);
-    results.push({ name, ok: false, detail: msg, durationMs });
+    const entry = { name, ok: false, detail: msg, durationMs };
+    results.push(entry);
+    printTestLine(entry);
   }
 }
 
@@ -227,7 +256,7 @@ Total Credits: R 144,500.00
 // Test 4: ProcureCheck — Full workflow (auth → create vendor → poll → categories → Zod parse)
 // ─────────────────────────────────────────────
 async function testProcureCheckWorkflow() {
-  if (!process.env.PROCURECHECK_USERNAME || !process.env.PROCURECHECK_PASSWORD) {
+  if (!(process.env.PROCURECHECK_USERNAME && process.env.PROCURECHECK_PASSWORD)) {
     return {
       ok: false,
       detail: "PROCURECHECK_USERNAME / PROCURECHECK_PASSWORD not set — skipping",
@@ -333,10 +362,6 @@ async function testProcureCheckWorkflow() {
 // Main
 // ─────────────────────────────────────────────
 async function main() {
-  console.log(
-    `\n${BOLD}═══ Schema Fix Smoke Test ═══${RESET}`
-  );
-  console.log(`Testing z.toJSONSchema() structured output from Gemini API\n`);
 
   if (!process.env.GOOGLE_GENAI_KEY) {
     console.error(
@@ -344,30 +369,26 @@ async function main() {
     );
     process.exit(1);
   }
-  console.log(`${PASS} GOOGLE_GENAI_KEY found`);
-  console.log();
 
-  console.log(`${BOLD}Running tests...${RESET}`);
-  console.log();
+  console.log(`${BOLD}Smoke tests (schema / structured output)${RESET}\n`);
 
   await runTest("ValidationAgent: structured output via z.toJSONSchema()", testValidationAgent);
   await runTest("RiskAgent: structured output via z.toJSONSchema()", testRiskAgent);
   await runTest("FICA AI: structured output via z.toJSONSchema()", testFicaAI);
   await runTest("ProcureCheck: full workflow (vendor create → poll → categories)", testProcureCheckWorkflow);
 
-  console.log();
-  console.log(`${BOLD}Results:${RESET} ${passed} passed, ${failed} failed`);
-  console.log();
-
+  printSummary();
   if (failed > 0) {
-    console.log(`${WARN} Some tests failed. The z.toJSONSchema() fix may need further investigation.`);
+    printFailureRecap();
     process.exit(1);
-  } else {
-    console.log(`${PASS} All structured output tests passed! The schema fix is confirmed working.`);
   }
 }
 
 main().catch((err) => {
-  console.error("Fatal:", err);
+  console.error(`${FAIL} Fatal (smoke tests aborted):`, err);
+  if (results.length > 0) {
+    printSummary();
+    printFailureRecap();
+  }
   process.exit(1);
 });

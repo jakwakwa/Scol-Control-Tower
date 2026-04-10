@@ -2,52 +2,82 @@ import { processIdentityVerification, writeTerminalVerificationStatus } from "@/
 import { inngest } from "@/inngest";
 import { isNonRetriableIdentityError } from "@/lib/risk-review/identity-verification-errors";
 import {
+	AUTO_VERIFY_IDENTITY_INNGEST_RETRIES,
+	classifyIdentityStepOutcome,
+	FAILED_UNPROCESSABLE_REASON,
+} from "@/lib/services/identity-verification-inngest-logic";
+import { handleAutoVerifyIdentityRetryExhausted } from "@/lib/services/identity-verification-on-failure";
+import { writeTerminalVerificationStatus } from "@/lib/services/identity-verification-terminal";
+import {
 	createWorkflowNotification,
 	logWorkflowEvent,
 } from "@/lib/services/notification-events.service";
-import {
-	recordVendorCheckAttempt,
-	recordVendorCheckFailure,
-} from "@/lib/services/telemetry/vendor-metrics";
+import { recordVendorCheckAttempt } from "@/lib/services/telemetry/vendor-metrics";
+
+/** Same fields as `document/uploaded` in `inngest/events.ts`. */
+type DocumentUploadedPayload = {
+	workflowId: number;
+	applicantId: number;
+	documentId: number;
+	documentType: string;
+};
 
 /**
- * Automated Identity Verification
- *
- * Listens for individual document uploads. If the document is an identity
- * document, it triggers the Google Cloud Document AI Identity Proofing processor.
- *
- * Retry budget: 4 attempts. If all exhaust, onFailure records telemetry
- * and creates an operator notification.
+ * `onFailure` receives `inngest/function.failed`: `event.data.event` is the original
+ * trigger (`{ name, data }`). Some runtimes may surface only the inner `data`; accept both.
  */
+function documentUploadedPayloadFromFailureEvent(event: {
+	data: {
+		run_id?: string;
+		function_id?: string;
+		event?: unknown;
+	};
+}): DocumentUploadedPayload | null {
+	const trigger = event.data.event;
+	if (!trigger || typeof trigger !== "object") {
+		return null;
+	}
+
+	const asRecord = trigger as Record<string, unknown>;
+	const inner =
+		"data" in asRecord && asRecord.data !== null && typeof asRecord.data === "object"
+			? (asRecord.data as Record<string, unknown>)
+			: asRecord;
+
+	if (
+		typeof inner.workflowId === "number" &&
+		typeof inner.applicantId === "number" &&
+		typeof inner.documentId === "number" &&
+		typeof inner.documentType === "string"
+	) {
+		return {
+			workflowId: inner.workflowId,
+			applicantId: inner.applicantId,
+			documentId: inner.documentId,
+			documentType: inner.documentType,
+		};
+	}
+
+	return null;
+}
+
 export const autoVerifyIdentity = inngest.createFunction(
 	{
 		id: "auto-verify-identity",
 		name: "Automated Identity Verification",
-		retries: 4,
+		retries: AUTO_VERIFY_IDENTITY_INNGEST_RETRIES,
 		onFailure: async ({ event, error }) => {
-			const { workflowId, applicantId, documentId, documentType } =
-				event.data.event.data;
-			const errorMessage =
-				error instanceof Error ? error.message : String(error);
+			const payload = documentUploadedPayloadFromFailureEvent(event);
+			if (!payload) {
+				console.error(
+					"[ControlTower] autoVerifyIdentity onFailure: missing document/uploaded payload (expected event.data.event.data or event.data.event as data)",
+					{ runId: event.data.run_id, functionId: event.data.function_id }
+				);
+				return;
+			}
 
-			console.error(
-				"[ControlTower] Identity verification exhausted all retries:",
-				{
-					workflowId,
-					applicantId,
-					documentId,
-					documentType,
-					error: errorMessage,
-				}
-			);
-
-			recordVendorCheckFailure({
-				vendor: "document_ai_identity",
-				stage: "async",
-				workflowId,
-				applicantId,
-				durationMs: 0,
-				outcome: "persistent_failure",
+			await handleAutoVerifyIdentityRetryExhausted({
+				...payload,
 				error,
 			});
 
@@ -85,7 +115,6 @@ export const autoVerifyIdentity = inngest.createFunction(
 	async ({ event, step }) => {
 		const { workflowId, applicantId, documentId, documentType } = event.data;
 
-		// Filter for identity document types
 		const idTypes = ["ID_DOCUMENT", "PROPRIETOR_ID", "DIRECTOR_ID", "FICA_ID"];
 
 		if (!idTypes.includes(documentType)) {
@@ -102,27 +131,29 @@ export const autoVerifyIdentity = inngest.createFunction(
 				applicantId,
 				documentId
 			);
-			const hasError =
-				"error" in verificationResult && Boolean(verificationResult.error);
-			const errorMessage =
-				hasError && verificationResult.error
-					? String(verificationResult.error)
-					: "Unknown identity verification error";
-			const isNonRetriableError =
-				hasError && isNonRetriableIdentityError(errorMessage);
+			const outcome = classifyIdentityStepOutcome(verificationResult);
+
+			let attemptOutcome: "success" | "persistent_failure" | "transient_failure";
+			switch (outcome.kind) {
+				case "success":
+					attemptOutcome = "success";
+					break;
+				case "terminal_unprocessable":
+					attemptOutcome = "persistent_failure";
+					break;
+				case "throw_for_inngest_retry":
+					attemptOutcome = "transient_failure";
+					break;
+			}
 
 			recordVendorCheckAttempt({
 				vendor: "document_ai_identity",
 				stage: "async",
 				workflowId,
 				applicantId,
-				outcome: hasError
-					? isNonRetriableError
-						? "persistent_failure"
-						: "transient_failure"
-					: "success",
+				outcome: attemptOutcome,
 				durationMs: Date.now() - verificationStart,
-				error: hasError ? verificationResult.error : undefined,
+				error: "error" in verificationResult ? verificationResult.error : undefined,
 			});
 
 			if (hasError) {
@@ -140,7 +171,41 @@ export const autoVerifyIdentity = inngest.createFunction(
 					};
 				}
 
-				throw new Error(`Identity verification failed: ${errorMessage}`);
+				await logWorkflowEvent({
+					workflowId,
+					eventType: "vendor_check_failed",
+					payload: {
+						vendor: "document_ai_identity",
+						context: "identity_verification_non_retriable",
+						documentId,
+						documentType,
+						error: outcome.errorMessage,
+					},
+				}).catch(err => {
+					console.error("[ControlTower] logWorkflowEvent failed:", err);
+				});
+
+				await createWorkflowNotification({
+					workflowId,
+					applicantId,
+					type: "warning",
+					title: "ID document could not be processed",
+					message:
+						"The uploaded identity document was rejected by automated verification. A new upload may be required.",
+					actionable: true,
+				}).catch(err => {
+					console.error("[ControlTower] createWorkflowNotification failed:", err);
+				});
+
+				return {
+					skipped: true,
+					reason: "manual_required_identity_document_constraints",
+					error: outcome.errorMessage,
+				};
+			}
+
+			if (outcome.kind === "throw_for_inngest_retry") {
+				throw new Error(`Identity verification failed: ${outcome.errorMessage}`);
 			}
 
 			return verificationResult;
