@@ -13,7 +13,17 @@ export async function GET(request: NextRequest) {
 
 	// Hoisted so both start() and cancel() can access them
 	let keepAliveInterval: ReturnType<typeof setInterval> | undefined;
+	let maxAgeTimeout: ReturnType<typeof setTimeout> | undefined;
 	let streamController: ReadableStreamDefaultController<Uint8Array> | undefined;
+
+	function cleanup(controller: ReadableStreamDefaultController<Uint8Array>) {
+		if (keepAliveInterval !== undefined) clearInterval(keepAliveInterval);
+		if (maxAgeTimeout !== undefined) clearTimeout(maxAgeTimeout);
+		removeController(controller);
+		try {
+			controller.close();
+		} catch (_) {}
+	}
 
 	const stream = new ReadableStream<Uint8Array>({
 		start(controller) {
@@ -26,26 +36,25 @@ export async function GET(request: NextRequest) {
 					controller.enqueue(encoder.encode(":\n\n"));
 				} catch (_e) {
 					// enqueue failed — the controller is dead; clean up fully
-					if (keepAliveInterval !== undefined) clearInterval(keepAliveInterval);
-					removeController(controller);
-					try {
-						controller.close();
-					} catch (_) {}
+					cleanup(controller);
 				}
 			}, 15000);
 
+			// Close the stream after 280s so Vercel's 300s function timeout is never hit.
+			// The browser's EventSource will reconnect automatically.
+			maxAgeTimeout = setTimeout(() => {
+				cleanup(controller);
+			}, 280_000);
+
 			// Cleanup when the request is aborted (client disconnects)
 			request.signal.addEventListener("abort", () => {
-				if (keepAliveInterval !== undefined) clearInterval(keepAliveInterval);
-				removeController(controller);
-				try {
-					controller.close();
-				} catch (_) {}
+				cleanup(controller);
 			});
 		},
 		cancel() {
 			// Called when the consumer cancels the stream; ensure full cleanup
 			if (keepAliveInterval !== undefined) clearInterval(keepAliveInterval);
+			if (maxAgeTimeout !== undefined) clearTimeout(maxAgeTimeout);
 			if (streamController) {
 				removeController(streamController);
 			}
