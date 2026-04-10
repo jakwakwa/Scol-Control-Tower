@@ -23,13 +23,43 @@ process.env.DEBUG_FIX = "1";
 
 const PASS = "\x1b[32m✓\x1b[0m";
 const FAIL = "\x1b[31m✗\x1b[0m";
-const WARN = "\x1b[33m⚠\x1b[0m";
 const BOLD = "\x1b[1m";
 const RESET = "\x1b[0m";
 
 let passed = 0;
 let failed = 0;
 const results: { name: string; ok: boolean; detail: string; durationMs: number }[] = [];
+
+function printTestLine(entry: (typeof results)[number]) {
+  const label = entry.ok ? "PASS" : "FAIL";
+  const icon = entry.ok ? PASS : FAIL;
+  console.log(`${icon} ${label}  ${entry.name}  (${entry.durationMs}ms)`);
+  if (!entry.ok && entry.detail) {
+    console.log(`   ${entry.detail}`);
+  }
+}
+
+function printSummary() {
+  const totalMs = results.reduce((sum, r) => sum + r.durationMs, 0);
+  console.log("");
+  console.log(
+    `${BOLD}Summary${RESET}: ${passed} passed, ${failed} failed  (${totalMs}ms total)`
+  );
+}
+
+/** Second pass for automation / long logs — every failing case in one place before exit(1). */
+function printFailureRecap() {
+  const failures = results.filter((r) => !r.ok);
+  if (failures.length === 0) {
+    return;
+  }
+  console.log("");
+  console.log(`${BOLD}Failure details${RESET} (${failures.length}):`);
+  for (const f of failures) {
+    console.log(`  ${FAIL} ${f.name}  (${f.durationMs}ms)`);
+    console.log(`     ${f.detail}`);
+  }
+}
 
 async function runTest(
   name: string,
@@ -44,12 +74,16 @@ async function runTest(
     } else {
       failed++;
     }
-    results.push({ name, ok: result.ok, detail: result.detail, durationMs });
+    const entry = { name, ok: result.ok, detail: result.detail, durationMs };
+    results.push(entry);
+    printTestLine(entry);
   } catch (err) {
     const durationMs = Date.now() - start;
     failed++;
     const msg = err instanceof Error ? err.message : String(err);
-    results.push({ name, ok: false, detail: msg, durationMs });
+    const entry = { name, ok: false, detail: msg, durationMs };
+    results.push(entry);
+    printTestLine(entry);
   }
 }
 
@@ -336,18 +370,25 @@ async function main() {
     process.exit(1);
   }
 
+  console.log(`${BOLD}Smoke tests (schema / structured output)${RESET}\n`);
+
   await runTest("ValidationAgent: structured output via z.toJSONSchema()", testValidationAgent);
   await runTest("RiskAgent: structured output via z.toJSONSchema()", testRiskAgent);
   await runTest("FICA AI: structured output via z.toJSONSchema()", testFicaAI);
   await runTest("ProcureCheck: full workflow (vendor create → poll → categories)", testProcureCheckWorkflow);
 
+  printSummary();
   if (failed > 0) {
+    printFailureRecap();
     process.exit(1);
-  } else {
   }
 }
 
 main().catch((err) => {
-  console.error("Fatal:", err);
+  console.error(`${FAIL} Fatal (smoke tests aborted):`, err);
+  if (results.length > 0) {
+    printSummary();
+    printFailureRecap();
+  }
   process.exit(1);
 });

@@ -22,11 +22,9 @@ export async function writeTerminalVerificationStatus(
 	const { documentId, status, reason, errorMessage } = params;
 	const db = getDatabaseClient();
 	if (!db) {
-		console.error(
-			"[FIX] writeTerminalVerificationStatus: no DB client — document stays pending",
-			{ documentId, status }
+		throw new Error(
+			`writeTerminalVerificationStatus: getDatabaseClient() returned no client; refusing to leave document ${documentId} pending without terminal write (status=${status})`
 		);
-		return;
 	}
 
 	const verificationNotes = [reason, errorMessage].filter(Boolean).join(" — ");
