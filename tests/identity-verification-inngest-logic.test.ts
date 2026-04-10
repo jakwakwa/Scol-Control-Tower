@@ -37,6 +37,14 @@ describe("classifyIdentityStepOutcome", () => {
 		}
 	});
 
+	test("error branch with empty message is not misclassified as success", () => {
+		const result = classifyIdentityStepOutcome({ error: "" });
+		expect(result.kind).not.toBe("success");
+		if (result.kind === "throw_for_inngest_retry") {
+			expect(result.errorMessage).toBe("Unknown identity verification error");
+		}
+	});
+
 	test("recovery: transient error then success classifies independently", () => {
 		const first = classifyIdentityStepOutcome({
 			error: "connect ETIMEDOUT 10.0.0.1:443",
