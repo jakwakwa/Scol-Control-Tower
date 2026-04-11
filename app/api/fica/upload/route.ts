@@ -9,13 +9,14 @@
  * Body: FormData with files and metadata
  */
 
+import { randomUUID } from "node:crypto";
 import { auth } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDatabaseClient } from "@/app/utils";
-import { documents, workflows } from "@/db/schema";
+import { documentUploads, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import { evaluateDocumentQuality } from "@/lib/services/document-quality.service";
 
@@ -42,6 +43,16 @@ const documentCategoryMap: Record<UploadedDocument["type"], string> = {
 	ACCOUNTANT_LETTER: "fica_business",
 	ID_DOCUMENT: "fica_individual",
 	PROOF_OF_ADDRESS: "fica_individual",
+};
+
+const uploadCategoryMap: Record<
+	UploadedDocument["type"],
+	"standard" | "individual" | "financial" | "professional" | "industry"
+> = {
+	BANK_STATEMENT: "financial",
+	ACCOUNTANT_LETTER: "professional",
+	ID_DOCUMENT: "individual",
+	PROOF_OF_ADDRESS: "individual",
 };
 
 export async function POST(request: NextRequest) {
@@ -101,27 +112,32 @@ export async function POST(request: NextRequest) {
 
 		for (const file of files) {
 			if (!allowedTypes.includes(file.type)) {
-				return NextResponse.json({ error: `Unsupported file type: ${file.type}` }, { status: 400 });
+				return NextResponse.json(
+					{ error: `Unsupported file type: ${file.type}` },
+					{ status: 400 }
+				);
 			}
 
-			const maxSize = (metadata.documentType === "ID_DOCUMENT" || metadata.documentType === "PROOF_OF_ADDRESS") 
-				? 5 * 1024 * 1024 
-				: 10 * 1024 * 1024;
-				
+			const maxSize =
+				metadata.documentType === "ID_DOCUMENT" ||
+				metadata.documentType === "PROOF_OF_ADDRESS"
+					? 5 * 1024 * 1024
+					: 10 * 1024 * 1024;
+
 			if (file.size > maxSize) {
-				return NextResponse.json({ error: `File size exceeds the limit of ${maxSize / (1024 * 1024)}MB for ${metadata.documentType}` }, { status: 400 });
+				return NextResponse.json(
+					{
+						error: `File size exceeds the limit of ${maxSize / (1024 * 1024)}MB for ${metadata.documentType}`,
+					},
+					{ status: 400 }
+				);
 			}
 
 			const arrayBuffer = await file.arrayBuffer();
 			const buffer = Buffer.from(arrayBuffer);
-			const quality = evaluateDocumentQuality(
-				file.name,
-				file.type,
-				buffer,
-				{
-					enforceRecency: metadata.documentType === "PROOF_OF_ADDRESS",
-				}
-			);
+			const quality = evaluateDocumentQuality(file.name, file.type, buffer, {
+				enforceRecency: metadata.documentType === "PROOF_OF_ADDRESS",
+			});
 			if (!quality.ok) {
 				continue;
 			}
@@ -139,21 +155,21 @@ export async function POST(request: NextRequest) {
 			uploadedDocuments.push(uploadedDocument);
 
 			const [inserted] = await db
-				.insert(documents)
+				.insert(documentUploads)
 				.values([
 					{
-						applicantId: metadata.applicantId,
-						type: metadata.documentType,
-						status: "uploaded",
-						category: documentCategoryMap[metadata.documentType],
-						source: "client",
+						workflowId: metadata.workflowId,
+						category: uploadCategoryMap[metadata.documentType],
+						documentType: metadata.documentType,
 						fileName: file.name,
+						fileSize: file.size,
 						fileContent: base64Content,
 						mimeType: file.type,
+						storageKey: `workflow-${metadata.workflowId}/fica/${metadata.documentType}/${randomUUID()}-${file.name}`,
 						storageUrl,
 						uploadedBy: userId || "client",
 						uploadedAt: new Date(),
-						notes:
+						verificationNotes:
 							quality.warnings.length > 0
 								? `[QUALITY_WARNING] ${quality.warnings.join("; ")}`
 								: undefined,
@@ -235,16 +251,16 @@ export async function GET(request: NextRequest) {
 
 	const docs = await db
 		.select({
-			id: documents.id,
-			type: documents.type,
-			fileName: documents.fileName,
-			status: documents.status,
-			mimeType: documents.mimeType,
-			uploadedAt: documents.uploadedAt,
-			storageUrl: documents.storageUrl,
+			id: documentUploads.id,
+			type: documentUploads.documentType,
+			fileName: documentUploads.fileName,
+			status: documentUploads.verificationStatus,
+			mimeType: documentUploads.mimeType,
+			uploadedAt: documentUploads.uploadedAt,
+			storageUrl: documentUploads.storageUrl,
 		})
-		.from(documents)
-		.where(eq(documents.applicantId, workflow.applicantId));
+		.from(documentUploads)
+		.where(eq(documentUploads.workflowId, parseInt(workflowId, 10)));
 
 	return NextResponse.json({
 		workflowId: parseInt(workflowId, 10),

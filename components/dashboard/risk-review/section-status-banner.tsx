@@ -1,14 +1,28 @@
-import { MACHINE_STATE_CONFIG, REVIEW_STATE_CONFIG } from "@/components/dashboard/risk-review/risk-review-config";
+import {
+	MACHINE_STATE_CONFIG,
+	REVIEW_STATE_CONFIG,
+} from "@/components/dashboard/risk-review/risk-review-config";
 import type { SectionStatus } from "@/lib/risk-review/types";
 
-export function SectionStatusBanner({ status, label }: { status?: SectionStatus; label: string }) {
-	if (!status || (status.machineState === "completed" && status.reviewState !== "pending")) {
+export function SectionStatusBanner({
+	status,
+	label,
+}: {
+	status?: SectionStatus;
+	label: string;
+}) {
+	if (
+		!status ||
+		(status.machineState === "completed" && status.reviewState !== "pending")
+	) {
 		return null;
 	}
 
 	const machineConfig = MACHINE_STATE_CONFIG[status.machineState];
-	const reviewConfig = REVIEW_STATE_CONFIG[status.reviewState];
-	const isTerminal = ["completed", "failed", "manual_required"].includes(status.machineState);
+	const _reviewConfig = REVIEW_STATE_CONFIG[status.reviewState];
+	const _isTerminal = ["completed", "failed", "manual_required"].includes(
+		status.machineState
+	);
 
 	return (
 		<div
@@ -21,9 +35,8 @@ export function SectionStatusBanner({ status, label }: { status?: SectionStatus;
 							? "bg-primary/5 border-primary/20"
 							: "bg-muted/30 border-border"
 			}`}>
-				
 			<span className="font-medium text-foreground">
-				{machineConfig.icon} {label} 
+				{machineConfig.icon} {label}
 			</span>
 			{/* {isTerminal && status.reviewState !== "not_required" && (
 				<span className="text-muted-foreground">| Review: {reviewConfig.label}</span>

@@ -11,7 +11,7 @@ import type { APIRequestContext } from "@playwright/test";
 import { expect, test } from "../../fixtures";
 
 const INNGEST_BASE = process.env.INNGEST_BASE_URL || "http://localhost:9288";
-const APP_BASE = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
+const _APP_BASE = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
 
 type WorkflowSnapshot = {
 	workflowId: number;
@@ -101,13 +101,10 @@ test.describe("Signed Quotation → quote/responded Signal Flow", () => {
 
 		// 2. Wait for Stage 2 awaiting facility application
 		await expect
-			.poll(
-				async () => {
-					const snap = await getSnapshot(request, applicantId);
-					return `${snap.stage}:${snap.status}`;
-				},
-				pollOpts
-			)
+			.poll(async () => {
+				const snap = await getSnapshot(request, applicantId);
+				return `${snap.stage}:${snap.status}`;
+			}, pollOpts)
 			.toBe("2:awaiting_human");
 
 		// 3. Submit facility application
@@ -125,13 +122,10 @@ test.describe("Signed Quotation → quote/responded Signal Flow", () => {
 
 		// 4. Wait for quote to be generated
 		await expect
-			.poll(
-				async () => {
-					const snap = await getSnapshot(request, applicantId);
-					return snap.quoteId;
-				},
-				pollOpts
-			)
+			.poll(async () => {
+				const snap = await getSnapshot(request, applicantId);
+				return snap.quoteId;
+			}, pollOpts)
 			.not.toBeNull();
 
 		const quoteId = (await getSnapshot(request, applicantId)).quoteId as number;
@@ -146,13 +140,10 @@ test.describe("Signed Quotation → quote/responded Signal Flow", () => {
 
 		// 6. Wait for Stage 2 awaiting quote signature
 		await expect
-			.poll(
-				async () => {
-					const snap = await getSnapshot(request, applicantId);
-					return snap.status;
-				},
-				pollOpts
-			)
+			.poll(async () => {
+				const snap = await getSnapshot(request, applicantId);
+				return snap.status;
+			}, pollOpts)
 			.toBe("awaiting_human");
 
 		// 7. Get the form token for signed quotation

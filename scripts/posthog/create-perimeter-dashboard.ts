@@ -74,7 +74,9 @@ interface InsightCreateResponse {
 }
 
 async function findDashboardByName(name: string): Promise<number | null> {
-	const list = await posthogProjectFetch<DashboardList>("/dashboards/?limit=500", { method: "GET" });
+	const list = await posthogProjectFetch<DashboardList>("/dashboards/?limit=500", {
+		method: "GET",
+	});
 	const hit = list.results?.find(d => d.name === name);
 	return hit?.id ?? null;
 }
@@ -92,8 +94,12 @@ async function createDashboard(name: string): Promise<number> {
 	return created.id;
 }
 
-async function getDashboardTilesMeta(dashboardId: number): Promise<{ tileCount: number; insightNames: Set<string> }> {
-	const d = await posthogProjectFetch<DashboardDetail>(`/dashboards/${dashboardId}/`, { method: "GET" });
+async function getDashboardTilesMeta(
+	dashboardId: number
+): Promise<{ tileCount: number; insightNames: Set<string> }> {
+	const d = await posthogProjectFetch<DashboardDetail>(`/dashboards/${dashboardId}/`, {
+		method: "GET",
+	});
 	const tiles = d.tiles ?? [];
 	const insightNames = new Set<string>();
 	for (const t of tiles) {
@@ -103,7 +109,9 @@ async function getDashboardTilesMeta(dashboardId: number): Promise<{ tileCount: 
 	return { tileCount: tiles.filter(t => t.insight?.id).length, insightNames };
 }
 
-async function createInsight(body: Record<string, unknown>): Promise<InsightCreateResponse> {
+async function createInsight(
+	body: Record<string, unknown>
+): Promise<InsightCreateResponse> {
 	return posthogProjectFetch<InsightCreateResponse>("/insights/", {
 		method: "POST",
 		body: JSON.stringify(body),
@@ -115,7 +123,7 @@ async function main(): Promise<void> {
 
 	const personalKey = process.env.POSTHOG_PERSONAL_API_KEY?.trim();
 	const projectToken = getPostHogProjectToken();
-	const projectId = getPostHogProjectId();
+	const _projectId = getPostHogProjectId();
 	const dashboardName =
 		process.env.POSTHOG_PERIMETER_DASHBOARD_NAME?.trim() || DASHBOARD_NAME_DEFAULT;
 	const forceInsights = process.env.POSTHOG_PERIMETER_FORCE_INSIGHTS === "1";
@@ -138,7 +146,8 @@ async function main(): Promise<void> {
 		dashboardId = await createDashboard(dashboardName);
 	}
 
-	const { tileCount: existingTiles, insightNames } = await getDashboardTilesMeta(dashboardId);
+	const { tileCount: existingTiles, insightNames } =
+		await getDashboardTilesMeta(dashboardId);
 	if (existingTiles >= 4 && !forceInsights) {
 		return;
 	}

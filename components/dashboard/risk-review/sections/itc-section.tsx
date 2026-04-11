@@ -2,7 +2,10 @@ import {
 	Activity,
 	AlertOctagon,
 	Banknote,
+	CircleAlert,
 	CreditCard,
+	FileSearch,
+	Loader2,
 	Scale,
 	ShieldAlert,
 	Sparkles,
@@ -283,10 +286,14 @@ export function ItcSection({
 	data,
 	status,
 	bankStatementAnalysis,
+	bankStatementAnalysisState,
+	bankStatementAnalysisWarning,
 }: {
 	data: RiskReviewData["itcData"];
 	status?: SectionStatus;
 	bankStatementAnalysis?: FinancialRiskAnalysisResult;
+	bankStatementAnalysisState: RiskReviewData["bankStatementAnalysisState"];
+	bankStatementAnalysisWarning?: string;
 }) {
 	return (
 		<div className="space-y-6 animate-in fade-in duration-500">
@@ -351,17 +358,78 @@ export function ItcSection({
 				</div>
 			</div>
 
-			{bankStatementAnalysis?.available === true && (
-				<div className="space-y-4 pt-2">
-					<div className="flex flex-wrap items-center gap-3 pt-4 border-t border-border">
-						<Sparkles className="w-4 h-4 text-primary shrink-0" />
-						<span className="text-sm font-medium text-foreground">
-							AI bank statement analysis
-						</span>
-						<span className="text-xs text-muted-foreground sm:ml-auto">
-							Ai Analysis · Complementary to bureau
-						</span>
-					</div>
+			<div className="space-y-4 pt-2">
+				<div className="flex flex-wrap items-center gap-3 pt-4 border-t border-border">
+					<Sparkles className="w-4 h-4 text-primary shrink-0" />
+					<span className="text-sm font-medium text-foreground">
+						AI bank statement analysis
+					</span>
+					<span className="text-xs text-muted-foreground sm:ml-auto">
+						Ai Analysis · Complementary to bureau
+					</span>
+				</div>
+
+				{bankStatementAnalysisWarning ? (
+					<Card className="p-3 border border-warning/40 bg-warning/10">
+						<div className="flex items-start gap-2">
+							<CircleAlert className="w-4 h-4 text-warning-foreground mt-0.5 shrink-0" />
+							<p className="text-xs text-warning-foreground">
+								{bankStatementAnalysisWarning}
+							</p>
+						</div>
+					</Card>
+				) : null}
+
+				{bankStatementAnalysisState === "in_progress" ? (
+					<Card className="p-5 border-l-4 border-l-primary/40 bg-card/40">
+						<div className="flex items-center gap-3">
+							<Loader2 className="w-4 h-4 animate-spin text-primary" />
+							<div>
+								<p className="text-sm font-medium text-foreground">
+									Analysis in progress
+								</p>
+								<p className="text-xs text-muted-foreground">
+									Bank statement analysis is running. This panel updates automatically.
+								</p>
+							</div>
+						</div>
+					</Card>
+				) : null}
+
+				{bankStatementAnalysisState === "unavailable" ? (
+					<Card className="p-5 border-l-4 border-l-warning bg-warning/5">
+						<div className="flex items-start gap-3">
+							<AlertOctagon className="w-4 h-4 text-warning-foreground mt-0.5" />
+							<div>
+								<p className="text-sm font-medium text-foreground">
+									Analysis unavailable - document unreadable or API timeout
+								</p>
+								<p className="text-xs text-muted-foreground">
+									The latest bank statement run did not complete successfully.
+								</p>
+							</div>
+						</div>
+					</Card>
+				) : null}
+
+				{bankStatementAnalysisState === "no_document" ? (
+					<Card className="p-5 border-l-4 border-l-muted-foreground/40 bg-card/40">
+						<div className="flex items-start gap-3">
+							<FileSearch className="w-4 h-4 text-muted-foreground mt-0.5" />
+							<div>
+								<p className="text-sm font-medium text-foreground">
+									No bank statement uploaded yet
+								</p>
+								<p className="text-xs text-muted-foreground">
+									Upload a bank statement to unlock AI statement analysis.
+								</p>
+							</div>
+						</div>
+					</Card>
+				) : null}
+
+				{bankStatementAnalysisState === "success" &&
+				bankStatementAnalysis?.available === true ? (
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 						<BankBalanceCard a={bankStatementAnalysis.bankAnalysis} />
 						<CashFlowCard c={bankStatementAnalysis.cashFlow} />
@@ -375,8 +443,8 @@ export function ItcSection({
 							/>
 						</div>
 					</div>
-				</div>
-			)}
+				) : null}
+			</div>
 		</div>
 	);
 }

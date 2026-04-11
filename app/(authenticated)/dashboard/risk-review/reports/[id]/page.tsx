@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import {
 	aiAnalysisLogs,
 	applicants,
-	documents,
 	documentUploads,
 	riskAssessments,
 	riskCheckResults,
@@ -65,7 +64,10 @@ export default async function RiskReviewReportPage({
 
 	const financialRiskRows = workflow
 		? await db
-				.select({ rawOutput: aiAnalysisLogs.rawOutput })
+				.select({
+					rawOutput: aiAnalysisLogs.rawOutput,
+					createdAt: aiAnalysisLogs.createdAt,
+				})
 				.from(aiAnalysisLogs)
 				.where(
 					and(
@@ -74,7 +76,6 @@ export default async function RiskReviewReportPage({
 					)
 				)
 				.orderBy(desc(aiAnalysisLogs.createdAt))
-				.limit(1)
 		: [];
 
 	const riskAssessmentRows = workflow
@@ -92,13 +93,9 @@ export default async function RiskReviewReportPage({
 
 	const idDocTypes = ["ID_DOCUMENT", "PROPRIETOR_ID", "DIRECTOR_ID", "FICA_ID"] as const;
 
-	const [verifiedDocRows, verifiedUploadRows] = await Promise.all([
-		db
-			.select({ processingResult: documents.processingResult })
-			.from(documents)
-			.where(and(eq(documents.applicantId, applicantId), inArray(documents.type, idDocTypes)))
-			.orderBy(desc(documents.verifiedAt))
-			.limit(1),
+	const BANK_STATEMENT_DOC_TYPES = ["BANK_STATEMENT", "BANK_STATEMENT_3_MONTH"] as const;
+
+	const [verifiedUploadRows, bankStatementEvidenceRows] = await Promise.all([
 		workflow
 			? db
 					.select({ metadata: documentUploads.metadata })
@@ -109,12 +106,26 @@ export default async function RiskReviewReportPage({
 							inArray(documentUploads.documentType, idDocTypes)
 						)
 					)
-					.orderBy(desc(documentUploads.verifiedAt))
+					.orderBy(desc(documentUploads.verifiedAt), desc(documentUploads.uploadedAt))
 					.limit(1)
 			: Promise.resolve([] as Array<{ metadata: string | null }>),
+		workflow
+			? db
+					.select({ id: documentUploads.id })
+					.from(documentUploads)
+					.where(
+						and(
+							eq(documentUploads.workflowId, workflow.id),
+							inArray(documentUploads.documentType, BANK_STATEMENT_DOC_TYPES)
+						)
+					)
+					.limit(1)
+			: Promise.resolve([] as Array<{ id: number }>),
 	]);
 
-	function extractDocAiResult(raw: string | null): Array<{ type: string; value: string }> | undefined {
+	function extractDocAiResult(
+		raw: string | null
+	): Array<{ type: string; value: string }> | undefined {
 		if (!raw) return undefined;
 		try {
 			const parsed = JSON.parse(raw) as Record<string, unknown>;
@@ -125,17 +136,18 @@ export default async function RiskReviewReportPage({
 		return undefined;
 	}
 
-	const documentAiResult =
-		extractDocAiResult(verifiedDocRows[0]?.processingResult ?? null) ??
-		extractDocAiResult(verifiedUploadRows[0]?.metadata ?? null);
+	const documentAiResult = extractDocAiResult(verifiedUploadRows[0]?.metadata ?? null);
 
 	const reportData = buildReportData(
 		applicant,
 		workflow,
 		riskChecks,
-		financialRiskRows[0]?.rawOutput,
+		financialRiskRows,
 		riskAssessmentRows[0],
-		documentAiResult
+		documentAiResult,
+		{
+			hasBankStatementEvidence: bankStatementEvidenceRows.length > 0,
+		}
 	);
 
 	return (

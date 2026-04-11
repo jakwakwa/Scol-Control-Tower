@@ -111,6 +111,23 @@ function sectionStatusLabel(
 	return MACHINE_STATE_CONFIG[status.machineState].label;
 }
 
+function bankAnalysisStateLabel(
+	state: RiskReviewData["bankStatementAnalysisState"]
+): string {
+	switch (state) {
+		case "success":
+			return "Success";
+		case "in_progress":
+			return "Analysis in progress";
+		case "unavailable":
+			return "Analysis unavailable";
+		case "no_document":
+			return "No bank statement uploaded";
+		default:
+			return "Pending";
+	}
+}
+
 function reviewStatusLabel(
 	status?: RiskReviewData["sectionStatuses"][keyof NonNullable<
 		RiskReviewData["sectionStatuses"]
@@ -342,10 +359,27 @@ export function PrintableCreditComplianceReport({
 					</tbody>
 				</table>
 
+				<h3 className="font-bold mt-4 mb-2">2.1 AI Bank Statement Analysis</h3>
+				<table className="w-full border-collapse border border-gray-300">
+					<tbody>
+						<tr>
+							<td className="p-2 font-bold bg-gray-100 w-1/3">Status</td>
+							<td className="p-2">
+								{bankAnalysisStateLabel(data.bankStatementAnalysisState)}
+								{data.bankStatementAnalysisWarning ? (
+									<span className="text-xs text-gray-600">
+										{" "}
+										- {data.bankStatementAnalysisWarning}
+									</span>
+								) : null}
+							</td>
+						</tr>
+					</tbody>
+				</table>
+
 				{bankStatementAnalysis?.available === true && (
 					<>
-						<h3 className="font-bold mt-4 mb-2">2.1 AI Bank Statement Analysis</h3>
-						<table className="w-full border-collapse border border-gray-300">
+						<table className="w-full border-collapse border border-gray-300 mt-2">
 							<tbody>
 								<tr className="border-b border-gray-300">
 									<td className="p-2 font-bold bg-gray-100 w-1/3">Bank</td>

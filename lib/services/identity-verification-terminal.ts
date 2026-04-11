@@ -30,7 +30,7 @@ export async function writeTerminalVerificationStatus(
 	const verificationNotes = [reason, errorMessage].filter(Boolean).join(" — ");
 
 	try {
-		const updated = await db
+		const _updated = await db
 			.update(documentUploads)
 			.set({
 				verificationStatus: status,
@@ -45,12 +45,6 @@ export async function writeTerminalVerificationStatus(
 				)
 			)
 			.returning({ id: documentUploads.id });
-
-		console.log("[FIX] writeTerminalVerificationStatus applied", {
-			documentId,
-			status,
-			rowsAffected: updated.length,
-		});
 	} catch (error) {
 		console.error("[FIX] writeTerminalVerificationStatus failed", {
 			documentId,

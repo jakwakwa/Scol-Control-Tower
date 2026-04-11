@@ -1,11 +1,12 @@
 import { auth } from "@clerk/nextjs/server";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
 import {
 	aiAnalysisLogs,
 	applicants,
+	documentUploads,
 	riskAssessments,
 	riskCheckResults,
 	workflows,
@@ -71,7 +72,10 @@ export async function GET(
 
 		const financialRiskRows = workflow
 			? await db
-					.select({ rawOutput: aiAnalysisLogs.rawOutput })
+					.select({
+						rawOutput: aiAnalysisLogs.rawOutput,
+						createdAt: aiAnalysisLogs.createdAt,
+					})
 					.from(aiAnalysisLogs)
 					.where(
 						and(
@@ -80,7 +84,6 @@ export async function GET(
 						)
 					)
 					.orderBy(desc(aiAnalysisLogs.createdAt))
-					.limit(1)
 			: [];
 		const riskAssessmentRows = workflow
 			? await db
@@ -95,12 +98,73 @@ export async function GET(
 					.limit(1)
 			: [];
 
+		const idDocTypes = [
+			"ID_DOCUMENT",
+			"PROPRIETOR_ID",
+			"DIRECTOR_ID",
+			"FICA_ID",
+		] as const;
+		const bankStatementDocTypes = ["BANK_STATEMENT", "BANK_STATEMENT_3_MONTH"] as const;
+
+		const [verifiedUploadRows, bankStatementEvidenceRows] = await Promise.all([
+			workflow
+				? db
+						.select({ metadata: documentUploads.metadata })
+						.from(documentUploads)
+						.where(
+							and(
+								eq(documentUploads.workflowId, workflow.id),
+								inArray(documentUploads.documentType, idDocTypes)
+							)
+						)
+						.orderBy(desc(documentUploads.verifiedAt), desc(documentUploads.uploadedAt))
+						.limit(1)
+				: Promise.resolve([] as Array<{ metadata: string | null }>),
+			workflow
+				? db
+						.select({ id: documentUploads.id })
+						.from(documentUploads)
+						.where(
+							and(
+								eq(documentUploads.workflowId, workflow.id),
+								inArray(documentUploads.documentType, bankStatementDocTypes)
+							)
+						)
+						.limit(1)
+				: Promise.resolve([] as Array<{ id: number }>),
+		]);
+
+		function extractDocAiResult(
+			raw: string | null
+		): Array<{ type: string; value: string }> | undefined {
+			if (!raw) return undefined;
+			try {
+				const parsed: unknown = JSON.parse(raw);
+				if (
+					typeof parsed === "object" &&
+					parsed !== null &&
+					"documentAiResult" in parsed &&
+					Array.isArray((parsed as { documentAiResult?: unknown }).documentAiResult)
+				) {
+					return (parsed as { documentAiResult: Array<{ type: string; value: string }> })
+						.documentAiResult;
+				}
+			} catch {}
+			return undefined;
+		}
+
+		const documentAiResult = extractDocAiResult(verifiedUploadRows[0]?.metadata ?? null);
+
 		const reportData = buildReportData(
 			applicant,
 			workflow,
 			riskChecks,
-			financialRiskRows[0]?.rawOutput,
-			riskAssessmentRows[0]
+			financialRiskRows,
+			riskAssessmentRows[0],
+			documentAiResult,
+			{
+				hasBankStatementEvidence: bankStatementEvidenceRows.length > 0,
+			}
 		);
 
 		return NextResponse.json(reportData);
