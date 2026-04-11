@@ -8,6 +8,20 @@
       "when": 1775320192275,
       "tag": "0000_chubby_greymalkin",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1775888655656,
+      "tag": "0001_early_wiccan",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1775889662682,
+      "tag": "0002_white_ser_duncan",
+      "breakpoints": true
     }
   ]
 }

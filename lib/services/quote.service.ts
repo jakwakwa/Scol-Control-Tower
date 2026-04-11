@@ -84,7 +84,7 @@ export async function generateQuote(
 		const detailsJson = JSON.stringify({
 			riskFactors: quoteDetails.riskFactors,
 			recommendation: quoteDetails.recommendation,
-			source: "gemini",
+			source: "Google Gemini",
 			generatedAt: new Date().toISOString(),
 		});
 
@@ -98,7 +98,7 @@ export async function generateQuote(
 				adjustedFeePercent: quoteDetails.adjustedFeePercent,
 				rationale: quoteDetails.rationale,
 				details: detailsJson,
-				generatedBy: "gemini",
+				generatedBy: "Google Gemini",
 				status: "draft",
 			})
 			.returning();
@@ -146,11 +146,10 @@ APPLICANT DETAILS:
 - Industry: ${applicantData.industry || "Not provided"}
 - Employee count: ${applicantData.employeeCount ?? "Not provided"}
 - Estimated transactions per month: ${applicantData.estimatedTransactionsPerMonth ?? "Not provided"}
-- ITC score: ${applicantData.itcScore ?? "Not provided"}
 - Mandate type: ${applicantData.mandateType ?? "Not provided"}
 
 OUTPUT REQUIREMENTS:
-- amount: integer in cents (ZAR)
+- amount: integer (ZAR)
 - baseFeePercent: basis points (e.g. 150 = 1.5%)
 - adjustedFeePercent: basis points (risk adjusted)
 - rationale: 3-6 sentences explaining pricing logic
@@ -159,8 +158,7 @@ OUTPUT REQUIREMENTS:
 
 RULES:
 - If estimated transactions per month is missing, the AI may use a reasonable default for pricing context.
-- Keep adjustedFeePercent within 50-500 bps.
-- Use ITC score to adjust risk and pricing.`;
+- Keep adjustedFeePercent within 50-500 bps.`;
 	if (!isAIConfigured()) {
 		throw new Error(
 			"[QuoteService] AI is not configured. Set GOOGLE_GENAI_KEY to enable quote generation."

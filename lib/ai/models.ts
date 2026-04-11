@@ -8,10 +8,8 @@
  * - anthropic/claude-sonnet-4: Complex analysis, risk scoring
  * - google/gemini-2.0-flash: Fast document parsing
  */
-import { GoogleGenAI } from "@posthog/ai";
 import { GoogleGenAI as GoogleGenAISdk } from "@google/genai";
 import { z } from "zod";
-import { getOptionalPostHogClient } from "@/lib/posthog-server";
 
 function requireGoogleGenAIKey(): string {
 	const apiKey = process.env.GOOGLE_GENAI_KEY;
@@ -38,14 +36,14 @@ function getGoogleGenAISdkClient(): GoogleGenAISdk {
  * - AI trust score calculation
  */
 export function getThinkingModel() {
-	return "gemini-2.5-flash";
+	return "gemini-3-flash-preview";
 }
 
 /**
  * High-stakes model for risk and document verification.
  */
 export function getHighStakesModel() {
-	return "gemini-2.5-pro";
+	return "gemini-3.1-pro-preview";
 }
 
 /**
@@ -54,7 +52,7 @@ export function getHighStakesModel() {
  * - Quick validation checks
  */
 export function getFastModel() {
-	return "gemini-2.5-flash-lite";
+	return "gemini-3-flash-preview";
 }
 
 /**
@@ -80,13 +78,11 @@ export function isAIConfigured(): boolean {
 
 /**
  * Create a Google GenAI client using project-standard env key.
- * Wrapped with @posthog/ai to auto-capture $ai_generation events
  * (model, latency, token usage) for all models.generateContent() calls.
  */
-export function getGenAIClient(): GoogleGenAI {
-	return new GoogleGenAI({
-		apiKey: requireGoogleGenAIKey(),
-		posthog: getOptionalPostHogClient() ?? undefined,
+export function getGenAIClient(): GoogleGenAISdk {
+	return new GoogleGenAISdk({
+		apiKey: requireGoogleGenAIKey()
 	});
 }
 
@@ -126,7 +122,7 @@ export async function runStructuredInteraction<TSchema extends z.ZodTypeAny>(
  */
 export const AI_CONFIG = {
 	/** Temperature for deterministic outputs */
-	ANALYSIS_TEMPERATURE: 0.1,
+	ANALYSIS_TEMPERATURE: 0.9,
 	/** Retry attempts for failed AI calls */
-	MAX_RETRIES: 3,
+	MAX_RETRIES: 1,
 } as const;

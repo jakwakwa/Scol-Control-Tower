@@ -523,10 +523,10 @@ export async function executeStage2({
 		if (quote?.details) {
 			try {
 				const parsed = JSON.parse(quote.details);
-				riskFactors = parsed.riskFactors ?? null;
-				generatedAt = parsed.generatedAt ?? null;
+				riskFactors = parsed.riskFactors ?? "Zero Risk Factors";
+				generatedAt = parsed.generatedAt ?? new Date().toISOString();
 			} catch {
-				// Ignore parse errors
+                console.error("[ControlTower] logWorkflowEvent failed: Could not parse Quote details");
 			}
 		}
 
@@ -546,18 +546,24 @@ export async function executeStage2({
 						baseFeePercent: quote.baseFeePercent,
 						adjustedFeePercent: quote.adjustedFeePercent,
 						rationale: quote.rationale,
-						riskFactors,
-						generatedAt,
-					}
-				: undefined,
+						riskFactors: riskFactors ?? "N/A",
+						generatedAt:generatedAt ?? new Date().toISOString(),
+					} : 
+                    {
+				        amount: 0,
+						baseFeePercent: 0,
+						adjustedFeePercent: 0,
+						rationale: "Gemini was unable to generate a Quote Assessment",
+						riskFactors: "N/A",
+						generatedAt: new Date().toISOString()
+                    }
 		});
 	});
 
 	await step.run("stage-2-awaiting-quote-approval", () =>
 		updateWorkflowStatus(workflowId, "awaiting_human", 2)
 	);
-
-	// Wait for manager approval (they can also request-update or adjust before approving)
+        
 	const quoteApproval = await step.waitForEvent("wait-quote-approval", {
 		event: "quote/approved",
 		timeout: WORKFLOW_TIMEOUTS.WORKFLOW,
