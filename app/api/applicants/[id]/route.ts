@@ -7,7 +7,6 @@ import {
 	applicantSubmissions,
 	applicants,
 	documentUploads,
-	documents,
 	internalForms,
 	internalSubmissions,
 	quotes,
@@ -116,24 +115,50 @@ export async function GET(
 			return NextResponse.json({ error: "Applicant not found" }, { status: 404 });
 		}
 
-		const [applicantDocuments, submissions, instances, riskAssessmentRows, workflowRows] =
-			await Promise.all([
-				db.select().from(documents).where(eq(documents.applicantId, id)),
-				db
-					.select()
-					.from(applicantSubmissions)
-					.where(eq(applicantSubmissions.applicantId, id)),
-				db
-					.select()
-					.from(applicantMagiclinkForms)
-					.where(eq(applicantMagiclinkForms.applicantId, id)),
-				db.select().from(riskAssessments).where(eq(riskAssessments.applicantId, id)),
-				db
-					.select()
-					.from(workflows)
-					.where(eq(workflows.applicantId, id))
-					.orderBy(desc(workflows.startedAt)),
-			]);
+		const [submissions, instances, riskAssessmentRows, workflowRows] = await Promise.all([
+			db
+				.select()
+				.from(applicantSubmissions)
+				.where(eq(applicantSubmissions.applicantId, id)),
+			db
+				.select()
+				.from(applicantMagiclinkForms)
+				.where(eq(applicantMagiclinkForms.applicantId, id)),
+			db.select().from(riskAssessments).where(eq(riskAssessments.applicantId, id)),
+			db
+				.select()
+				.from(workflows)
+				.where(eq(workflows.applicantId, id))
+				.orderBy(desc(workflows.startedAt)),
+		]);
+
+		const workflowIds = workflowRows.map(w => w.id);
+		const applicantDocuments =
+			workflowIds.length > 0
+				? await db
+						.select({
+							id: documentUploads.id,
+							applicantId: workflows.applicantId,
+							type: documentUploads.documentType,
+							status: documentUploads.verificationStatus,
+							category: documentUploads.category,
+							source: documentUploads.uploadedBy,
+							fileName: documentUploads.fileName,
+							fileContent: documentUploads.fileContent,
+							mimeType: documentUploads.mimeType,
+							storageUrl: documentUploads.storageUrl,
+							uploadedBy: documentUploads.uploadedBy,
+							uploadedAt: documentUploads.uploadedAt,
+							verifiedAt: documentUploads.verifiedAt,
+							processedAt: documentUploads.verifiedAt,
+							processingStatus: documentUploads.verificationStatus,
+							processingResult: documentUploads.metadata,
+							notes: documentUploads.verificationNotes,
+						})
+						.from(documentUploads)
+						.innerJoin(workflows, eq(documentUploads.workflowId, workflows.id))
+						.where(eq(workflows.applicantId, id))
+				: [];
 
 		// Fetch quote for the most recent workflow if exists
 		let quote = null;
@@ -205,31 +230,30 @@ export async function GET(
 			}
 
 			// ABSA contract flow state for Stage 5
-			const [absaFormRows, absaDocRows] =
-				await Promise.all([
-					db
-						.select()
-						.from(internalForms)
-						.where(
-							and(
-								eq(internalForms.workflowId, latestWorkflow.id),
-								eq(internalForms.formType, "absa_6995")
-							)
+			const [absaFormRows, absaDocRows] = await Promise.all([
+				db
+					.select()
+					.from(internalForms)
+					.where(
+						and(
+							eq(internalForms.workflowId, latestWorkflow.id),
+							eq(internalForms.formType, "absa_6995")
 						)
-						.limit(1),
-					db
-						.select({ id: documentUploads.id, fileName: documentUploads.fileName })
-						.from(documentUploads)
-						.where(
-							and(
-								eq(documentUploads.workflowId, latestWorkflow.id),
-								eq(documentUploads.documentType, "ABSA_6995_PDF")
-							)
-						),
-				]);
+					)
+					.limit(1),
+				db
+					.select({ id: documentUploads.id, fileName: documentUploads.fileName })
+					.from(documentUploads)
+					.where(
+						and(
+							eq(documentUploads.workflowId, latestWorkflow.id),
+							eq(documentUploads.documentType, "ABSA_6995_PDF")
+						)
+					),
+			]);
 
 			const absaForm = absaFormRows[0] ?? null;
-			let absaSubmission: (typeof internalSubmissions.$inferSelect) | null = null;
+			let absaSubmission: typeof internalSubmissions.$inferSelect | null = null;
 			if (absaForm) {
 				const [sub] = await db
 					.select()
@@ -255,9 +279,7 @@ export async function GET(
 			absaFormData = absaForm
 				? {
 						form: { id: absaForm.id, status: absaForm.status },
-						submission: absaSubmission
-							? { formData: absaSubmission.formData }
-							: null,
+						submission: absaSubmission ? { formData: absaSubmission.formData } : null,
 						applicantId: latestWorkflow.applicantId,
 					}
 				: null;

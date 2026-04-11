@@ -1,12 +1,12 @@
 import { eq } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
-import { applicants, documents } from "@/db/schema";
+import { applicants, documentUploads } from "@/db/schema";
+import { inngest } from "@/inngest/client";
 import {
 	getDocumentRequirements,
 	resolveBusinessType,
 } from "@/lib/services/document-requirements.service";
 import { DocumentTypeSchema } from "@/lib/types";
-import { inngest } from "@/inngest/client";
 
 /**
  * FICA Document Aggregator
@@ -23,15 +23,15 @@ export const documentAggregator = inngest.createFunction(
 	async ({ event, step }) => {
 		const { applicantId, workflowId } = event.data;
 
-		// 1. Fetch all documents for this applicant
+		// 1. Fetch all uploaded documents for this workflow
 		const applicantDocs = await step.run("fetch-all-documents", async () => {
 			const db = getDatabaseClient();
 			if (!db) throw new Error("Database connection failed");
 
 			return await db
 				.select()
-				.from(documents)
-				.where(eq(documents.applicantId, applicantId));
+				.from(documentUploads)
+				.where(eq(documentUploads.workflowId, workflowId));
 		});
 
 		// 1.5 Fetch the applicant details to determine requirements
@@ -69,7 +69,7 @@ export const documentAggregator = inngest.createFunction(
 		// 4. Filter documents to only those with complete required metadata
 		// (valid type, non-empty fileName, non-empty storageUrl, and uploadedAt)
 		const validDocs = applicantDocs.flatMap(d => {
-			const parsedType = DocumentTypeSchema.safeParse(d.type);
+			const parsedType = DocumentTypeSchema.safeParse(d.documentType);
 			if (!parsedType.success) return [];
 			if (!d.fileName || d.fileName.trim() === "") return [];
 			if (!d.storageUrl || d.storageUrl.trim() === "") return [];
@@ -77,7 +77,7 @@ export const documentAggregator = inngest.createFunction(
 
 			return [
 				{
-					rawType: d.type,
+					rawType: d.documentType,
 					parsedType: parsedType.data,
 					fileName: d.fileName,
 					storageUrl: d.storageUrl,

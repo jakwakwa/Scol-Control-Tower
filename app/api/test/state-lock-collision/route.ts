@@ -1,9 +1,9 @@
-import { and, desc, eq } from "drizzle-orm";
-import { NextResponse } from "next/server";
+import { and, desc, eq, like } from "drizzle-orm";
 import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDatabaseClient } from "@/app/utils";
-import { documents, workflowEvents } from "@/db/schema";
+import { documentUploads, workflowEvents } from "@/db/schema";
 import {
 	guardStateCollision,
 	handleStateCollision,
@@ -124,9 +124,14 @@ export async function GET(request: NextRequest) {
 		.orderBy(desc(workflowEvents.timestamp));
 
 	const staleDocs = await db
-		.select({ id: documents.id })
-		.from(documents)
-		.where(and(eq(documents.applicantId, applicantId), eq(documents.processingStatus, "stale")));
+		.select({ id: documentUploads.id })
+		.from(documentUploads)
+		.where(
+			and(
+				eq(documentUploads.workflowId, workflowId),
+				like(documentUploads.verificationNotes, "%[STALE]%")
+			)
+		);
 
 	return NextResponse.json({
 		workflowId,

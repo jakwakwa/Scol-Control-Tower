@@ -32,7 +32,6 @@ async function reset() {
 		await db.delete(schema.applicantSubmissions);
 		await db.delete(schema.applicantMagiclinkForms);
 		await db.delete(schema.workflows);
-		await db.delete(schema.documents);
 		await db.delete(schema.riskAssessments);
 		await db.delete(schema.activityLogs);
 		await db.delete(schema.applicants);

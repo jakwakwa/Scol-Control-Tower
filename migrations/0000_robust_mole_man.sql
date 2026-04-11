@@ -4,7 +4,7 @@ CREATE TABLE `activity_logs` (
 	`action` text NOT NULL,
 	`description` text NOT NULL,
 	`performed_by` text,
-	`created_at` integer DEFAULT '"2026-04-04T16:29:52.265Z"',
+	`created_at` integer DEFAULT '"2026-04-11T11:03:22.007Z"',
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -141,27 +141,6 @@ CREATE TABLE `document_uploads` (
 	FOREIGN KEY (`internal_form_id`) REFERENCES `internal_forms`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `documents` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`applicant_id` integer NOT NULL,
-	`type` text NOT NULL,
-	`status` text DEFAULT 'pending' NOT NULL,
-	`category` text,
-	`source` text,
-	`file_name` text,
-	`file_content` text,
-	`mime_type` text,
-	`storage_url` text,
-	`uploaded_by` text,
-	`uploaded_at` integer,
-	`verified_at` integer,
-	`processed_at` integer,
-	`processing_status` text,
-	`processing_result` text,
-	`notes` text,
-	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
-);
---> statement-breakpoint
 CREATE TABLE `internal_forms` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`workflow_id` integer NOT NULL,
@@ -201,6 +180,7 @@ CREATE TABLE `notifications` (
 	`actionable` integer DEFAULT false,
 	`severity` text DEFAULT 'medium',
 	`group_key` text,
+	`source_event_type` text,
 	FOREIGN KEY (`workflow_id`) REFERENCES `workflows`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
@@ -254,7 +234,7 @@ CREATE TABLE `risk_assessments` (
 	`reviewed_by` text,
 	`reviewed_at` integer,
 	`notes` text,
-	`created_at` integer DEFAULT '"2026-04-04T16:29:52.264Z"',
+	`created_at` integer DEFAULT '"2026-04-11T11:03:22.004Z"',
 	FOREIGN KEY (`applicant_id`) REFERENCES `applicants`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint

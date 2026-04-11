@@ -1,15 +1,14 @@
 import { auth } from "@clerk/nextjs/server";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { getDatabaseClient } from "@/app/utils";
-import { documents, documentUploads } from "@/db/schema";
+import { documentUploads, workflows } from "@/db/schema";
 
 /**
  * GET /api/documents/download
  *
- * Serves document file content stored as base64 in the database.
- * Supports both `documents` table (by applicantId + type + fileName)
- * and `documentUploads` table (by documentUploadId).
+ * Serves document file content stored as base64 in `document_uploads`.
+ * Supports lookup by documentUploadId/documentId, or legacy applicantId+type+fileName.
  */
 export async function GET(request: NextRequest) {
 	try {
@@ -34,27 +33,12 @@ export async function GET(request: NextRequest) {
 		let mimeType = "application/octet-stream";
 		let resolvedFileName = "document";
 
-		if (documentId) {
-			const [doc] = await db
-				.select()
-				.from(documents)
-				.where(eq(documents.id, parseInt(documentId, 10)));
-
-			if (!doc?.fileContent) {
-				return NextResponse.json(
-					{ error: "Document not found or has no content" },
-					{ status: 404 }
-				);
-			}
-
-			fileContent = doc.fileContent;
-			mimeType = doc.mimeType || "application/octet-stream";
-			resolvedFileName = doc.fileName || "document";
-		} else if (documentUploadId) {
+		const resolvedUploadId = documentUploadId ?? documentId;
+		if (resolvedUploadId) {
 			const [doc] = await db
 				.select()
 				.from(documentUploads)
-				.where(eq(documentUploads.id, parseInt(documentUploadId, 10)));
+				.where(eq(documentUploads.id, parseInt(resolvedUploadId, 10)));
 
 			if (!doc?.fileContent) {
 				return NextResponse.json(
@@ -69,30 +53,34 @@ export async function GET(request: NextRequest) {
 		} else if (applicantId && type && fileName) {
 			const [doc] = await db
 				.select()
-				.from(documents)
+				.from(documentUploads)
+				.leftJoin(workflows, eq(documentUploads.workflowId, workflows.id))
 				.where(
 					and(
-						eq(documents.applicantId, parseInt(applicantId, 10)),
-						eq(documents.type, type),
-						eq(documents.fileName, fileName)
+						eq(workflows.applicantId, parseInt(applicantId, 10)),
+						eq(documentUploads.documentType, type),
+						eq(documentUploads.fileName, fileName)
 					)
-				);
+				)
+				.orderBy(desc(documentUploads.uploadedAt))
+				.limit(1);
 
-			if (!doc?.fileContent) {
+			const upload = doc?.document_uploads;
+			if (!upload?.fileContent) {
 				return NextResponse.json(
 					{ error: "Document not found or has no content" },
 					{ status: 404 }
 				);
 			}
 
-			fileContent = doc.fileContent;
-			mimeType = doc.mimeType || "application/octet-stream";
-			resolvedFileName = doc.fileName || "document";
+			fileContent = upload.fileContent;
+			mimeType = upload.mimeType || "application/octet-stream";
+			resolvedFileName = upload.fileName || "document";
 		} else {
 			return NextResponse.json(
 				{
 					error:
-						"Provide documentId, documentUploadId, or (applicantId + type + fileName)",
+						"Provide documentUploadId/documentId, or (applicantId + type + fileName)",
 				},
 				{ status: 400 }
 			);
@@ -101,9 +89,8 @@ export async function GET(request: NextRequest) {
 		const buffer = Buffer.from(fileContent, "base64");
 
 		const safeFilename =
-			(resolvedFileName || "document")
-				.replace(/[\r\n"]/g, "_")
-				.slice(0, 255) || "document";
+			(resolvedFileName || "document").replace(/[\r\n"]/g, "_").slice(0, 255) ||
+			"document";
 
 		return new NextResponse(buffer, {
 			status: 200,
