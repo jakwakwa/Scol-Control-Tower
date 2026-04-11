@@ -209,6 +209,7 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 				<div className="flex items-center justify-end gap-2">
 					<DropdownMenu>
 						<DropdownMenuTrigger
+							aria-label="Open actions menu"
 							className={cn(
 								buttonVariants({ variant: "ghost", size: "icon" }),
 								"h-8 w-8 hover:bg-background"

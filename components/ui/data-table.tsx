@@ -157,6 +157,7 @@ export function DataTable<TData, TValue>({
 								variant="ghost"
 								size="icon"
 								className="h-8 w-8"
+								aria-label="Previous page"
 								onClick={handlePrevious}
 								disabled={!canGoPrevious}>
 								<RiArrowLeftSLine className="h-4 w-4" />
@@ -165,6 +166,7 @@ export function DataTable<TData, TValue>({
 								variant="ghost"
 								size="icon"
 								className="h-8 w-8"
+								aria-label="Next page"
 								onClick={handleNext}
 								disabled={!canGoNext}>
 								<RiArrowRightSLine className="h-4 w-4" />

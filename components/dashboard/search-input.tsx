@@ -37,6 +37,7 @@ export function SearchInput({
 
 	const handleClear = () => {
 		setText("");
+		onChange("");
 		inputRef.current?.focus();
 	};
 
