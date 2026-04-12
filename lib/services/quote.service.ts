@@ -149,7 +149,7 @@ APPLICANT DETAILS:
 - Mandate type: ${applicantData.mandateType ?? "Not provided"}
 
 OUTPUT REQUIREMENTS:
-- amount: integer (ZAR)
+- amount: integer cents (ZAR)
 - baseFeePercent: basis points (e.g. 150 = 1.5%)
 - adjustedFeePercent: basis points (risk adjusted)
 - rationale: 3-6 sentences explaining pricing logic
