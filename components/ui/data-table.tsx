@@ -158,7 +158,8 @@ export function DataTable<TData, TValue>({
 								size="icon"
 								className="h-8 w-8"
 								onClick={handlePrevious}
-								disabled={!canGoPrevious}>
+								disabled={!canGoPrevious}
+								aria-label="Previous page">
 								<RiArrowLeftSLine className="h-4 w-4" />
 							</Button>
 							<Button
@@ -166,7 +167,8 @@ export function DataTable<TData, TValue>({
 								size="icon"
 								className="h-8 w-8"
 								onClick={handleNext}
-								disabled={!canGoNext}>
+								disabled={!canGoNext}
+								aria-label="Next page">
 								<RiArrowRightSLine className="h-4 w-4" />
 							</Button>
 						</div>
