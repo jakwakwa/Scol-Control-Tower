@@ -12,7 +12,6 @@ export default function ExternalFormSection({
 	title,
 	note,
 	children,
-	bodyClassName,
 }: ExternalFormSectionProps) {
 	return (
 		<section className="bg-transparent rounded-t-xl  px-0">

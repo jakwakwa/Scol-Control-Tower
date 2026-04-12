@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import useSWR from "swr";
 import { generateRiskBriefing } from "@/actions/ai.actions";
 import { AiBriefingPanel } from "@/components/dashboard/risk-review/ai-briefing-panel";
 import { EntitySummaryCards } from "@/components/dashboard/risk-review/entity-summary-cards";
@@ -52,6 +53,28 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 	const [printMode, setPrintMode] = useState<PrintMode>(null);
 	// E2E: ?printMode= renders print DOM without window.print(); gated by NEXT_PUBLIC_E2E_ENABLED.
 	const [urlPrintMode, setUrlPrintMode] = useState<PrintMode>(null);
+	const { data: liveData } = useSWR<RiskReviewData>(
+		data?.applicantId ? `/api/risk-review/reports/${data.applicantId}` : null,
+		async (url: string) => {
+			const response = await fetch(url);
+			if (!response.ok) {
+				throw new Error("Failed to refresh risk report data");
+			}
+			return (await response.json()) as RiskReviewData;
+		},
+		{
+			fallbackData: data,
+			revalidateOnFocus: true,
+			refreshInterval: currentData => {
+				if (!currentData) return 5000;
+				const itcInProgress =
+					currentData.sectionStatuses?.itc.machineState === "in_progress";
+				const bankInProgress = currentData.bankStatementAnalysisState === "in_progress";
+				return itcInProgress || bankInProgress ? 5000 : 0;
+			},
+		}
+	);
+	const resolvedData = liveData ?? data;
 
 	useEffect(() => {
 		if (printMode === null) return;
@@ -76,7 +99,7 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 
 	const activePrintMode = printMode ?? urlPrintMode;
 
-	if (!data?.globalData) {
+	if (!resolvedData?.globalData) {
 		return (
 			<div className="p-8 text-center text-muted-foreground">Loading risk data...</div>
 		);
@@ -89,10 +112,12 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 		sanctionsData,
 		ficaData,
 		bankStatementAnalysis,
-	} = data;
+	} = resolvedData;
 
-	const creditComplianceState = getCreditComplianceExportState(data.sectionStatuses);
-	const procurementState = getProcurementExportState(data.sectionStatuses);
+	const creditComplianceState = getCreditComplianceExportState(
+		resolvedData.sectionStatuses
+	);
+	const procurementState = getProcurementExportState(resolvedData.sectionStatuses);
 
 	const creditComplianceHint = buildExportHint({
 		label: "Credit & Compliance",
@@ -170,27 +195,29 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 						{primaryTab === "procurement" && (
 							<ProcurementSection
 								data={procurementData}
-								status={data.sectionStatuses?.procurement}
+								status={resolvedData.sectionStatuses?.procurement}
 							/>
 						)}
 						{primaryTab === "itc" && (
 							<ItcSection
 								data={itcData}
-								status={data.sectionStatuses?.itc}
+								status={resolvedData.sectionStatuses?.itc}
 								bankStatementAnalysis={bankStatementAnalysis}
+								bankStatementAnalysisState={resolvedData.bankStatementAnalysisState}
+								bankStatementAnalysisWarning={resolvedData.bankStatementAnalysisWarning}
 							/>
 						)}
 						{primaryTab === "sanctions" && (
 							<SanctionsSection
 								data={sanctionsData}
-								status={data.sectionStatuses?.sanctions}
+								status={resolvedData.sectionStatuses?.sanctions}
 							/>
 						)}
 						{primaryTab === "fica" && (
 							<FicaSection
 								data={ficaData}
-								status={data.sectionStatuses?.fica}
-								applicantId={data.applicantId}
+								status={resolvedData.sectionStatuses?.fica}
+								applicantId={resolvedData.applicantId}
 							/>
 						)}
 					</div>
@@ -198,25 +225,27 @@ function RiskReviewDetail({ data }: { data: RiskReviewData }) {
 			</div>
 
 			{activePrintMode === "credit-compliance" && (
-				<PrintableCreditComplianceReport aiSummary={aiSummary} data={data} />
+				<PrintableCreditComplianceReport aiSummary={aiSummary} data={resolvedData} />
 			)}
-			{activePrintMode === "procurement" && <PrintableProcurementReport data={data} />}
+			{activePrintMode === "procurement" && (
+				<PrintableProcurementReport data={resolvedData} />
+			)}
 
 			<FinalAdjudicationDialog
 				open={adjudicationOpen}
 				onOpenChange={setAdjudicationOpen}
-				workflowId={data.workflowId}
-				applicantId={data.applicantId}
+				workflowId={resolvedData.workflowId}
+				applicantId={resolvedData.applicantId}
 				entityName={globalData.entity.name}
 			/>
 
 			<ProcurementAdjudicationDialog
 				open={procurementAdjudicationOpen}
 				onOpenChange={setProcurementAdjudicationOpen}
-				workflowId={data.workflowId}
-				applicantId={data.applicantId}
+				workflowId={resolvedData.workflowId}
+				applicantId={resolvedData.applicantId}
 				entityName={globalData.entity.name}
-				data={data}
+				data={resolvedData}
 			/>
 		</>
 	);

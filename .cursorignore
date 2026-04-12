@@ -1,9 +1,5 @@
-.gemini/**/*.md
-.agents/**/*.md
-.agent/**/*.md 
-.agents/skills/ce-compound
+
 # tests/browser-flow/screenshots/
-implementation_*.md
 *.claude
 .agents/skills
 

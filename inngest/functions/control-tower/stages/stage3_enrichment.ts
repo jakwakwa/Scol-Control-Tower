@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { getBaseUrl, getDatabaseClient } from "@/app/utils";
-import { applicants, documents, documentUploads } from "@/db/schema";
+import { applicants, documentUploads } from "@/db/schema";
 import { WORKFLOW_TIMEOUTS } from "@/lib/constants/workflow-timeouts";
+import { hasCompletionNotification } from "@/lib/procurecheck/notifications";
 import { parseVatStatus } from "@/lib/risk-review/parsers/vat.parser";
 import type { VatStatus } from "@/lib/risk-review/types";
 import {
@@ -20,7 +21,6 @@ import {
 	createWorkflowNotification,
 	logWorkflowEvent,
 } from "@/lib/services/notification-events.service";
-import { hasCompletionNotification } from "@/lib/procurecheck/notifications";
 import {
 	checkVendorReadiness,
 	fetchAllCategoryResults,
@@ -141,34 +141,27 @@ export async function executeStage3({
 			}
 
 			// Step 2: Resolve vendor (create new or find existing)
-			const rawVendorResult = await step.run(
-				"procurement-resolve-vendor",
-				async () => {
-					const db = getDatabaseClient();
-					if (!db)
-						throw new Error(
-							"Database client unavailable for procurement check"
-						);
+			const rawVendorResult = await step.run("procurement-resolve-vendor", async () => {
+				const db = getDatabaseClient();
+				if (!db) throw new Error("Database client unavailable for procurement check");
 
-					const rows = await db
-						.select()
-						.from(applicants)
-						.where(eq(applicants.id, applicantId));
-					const applicantData = rows[0];
-					if (!applicantData)
-						throw new Error(`Applicant ${applicantId} not found`);
+				const rows = await db
+					.select()
+					.from(applicants)
+					.where(eq(applicants.id, applicantId));
+				const applicantData = rows[0];
+				if (!applicantData) throw new Error(`Applicant ${applicantId} not found`);
 
-					return resolveVendorStep({
-						vendorName: applicantData.companyName,
-						registrationNumber: applicantData.registrationNumber ?? null,
-						entityType: applicantData.entityType ?? null,
-						idNumber: applicantData.idNumber ?? null,
-						vatNumber: applicantData.vatNumber ?? null,
-						applicantId,
-					});
-				}
-			);
-			
+				return resolveVendorStep({
+					vendorName: applicantData.companyName,
+					registrationNumber: applicantData.registrationNumber ?? null,
+					entityType: applicantData.entityType ?? null,
+					idNumber: applicantData.idNumber ?? null,
+					vatNumber: applicantData.vatNumber ?? null,
+					applicantId,
+				});
+			});
+
 			// Inngest's JsonifyObject serialization widens fields to optional; our
 			// resolveVendorStep always populates vendorId, so narrow it back here.
 			if (!rawVendorResult.vendorId) {
@@ -233,9 +226,7 @@ export async function executeStage3({
 						`procurement-notify-poll-${attempt}`,
 						async () => {
 							const ready = await checkVendorReadiness(vendorId!);
-							const notified = await hasCompletionNotification(
-								vendorId!
-							);
+							const notified = await hasCompletionNotification(vendorId!);
 							return { readiness: ready, hasNotification: notified };
 						}
 					);
@@ -288,18 +279,11 @@ export async function executeStage3({
 			const result = await step.run("procurement-fetch-results", async () => {
 				const db = getDatabaseClient();
 				const applicantRows = db
-					? await db
-							.select()
-							.from(applicants)
-							.where(eq(applicants.id, applicantId))
+					? await db.select().from(applicants).where(eq(applicants.id, applicantId))
 					: [];
 				const vendorName = applicantRows[0]?.companyName ?? "Unknown Vendor";
 				const finalSummary = await checkVendorReadiness(vendorId!);
-				return fetchAllCategoryResults(
-					vendorId!,
-					finalSummary.summaryItems,
-					vendorName
-				);
+				return fetchAllCategoryResults(vendorId!, finalSummary.summaryItems, vendorName);
 			});
 
 			await step.run("procurement-save-results", async () => {
@@ -333,11 +317,18 @@ export async function executeStage3({
 		} catch (error) {
 			await step.run("procurement-terminal-failure", async () => {
 				const errorMessage = error instanceof Error ? error.message : String(error);
-				console.error("[ControlTower] Procurement check fully exhausted or hit terminal error:", error);
-				
+				console.error(
+					"[ControlTower] Procurement check fully exhausted or hit terminal error:",
+					error
+				);
+
 				const lowerErr = errorMessage.toLowerCase();
-				const isAuth = lowerErr.includes("401") || lowerErr.includes("403") || lowerErr.includes("unauth") || lowerErr.includes("forbidden");
-				
+				const isAuth =
+					lowerErr.includes("401") ||
+					lowerErr.includes("403") ||
+					lowerErr.includes("unauth") ||
+					lowerErr.includes("forbidden");
+
 				recordVendorCheckFailure({
 					vendor: "procurecheck",
 					stage: 3,
@@ -359,22 +350,18 @@ export async function executeStage3({
 					},
 				});
 
-				await updateRiskCheckMachineState(
-					workflowId,
-					"PROCUREMENT",
-					"manual_required",
-					{
-						errorDetails: `ProcureCheck failed or exhausted retries: ${errorMessage}`,
-						externalCheckId: vendorId,
-					}
-				);
-				
+				await updateRiskCheckMachineState(workflowId, "PROCUREMENT", "manual_required", {
+					errorDetails: `ProcureCheck failed or exhausted retries: ${errorMessage}`,
+					externalCheckId: vendorId,
+				});
+
 				await createWorkflowNotification({
 					workflowId,
 					applicantId,
 					type: "warning",
 					title: "Procurement Check Needs Manual Review",
-					message: "ProcureCheck encountered a terminal failure or exhausted all retries. Workflow continues with manual procurement review.",
+					message:
+						"ProcureCheck encountered a terminal failure or exhausted all retries. Workflow continues with manual procurement review.",
 					actionable: false,
 				});
 			});
@@ -675,9 +662,6 @@ export async function executeStage3({
 			? await db.select().from(applicants).where(eq(applicants.id, applicantId))
 			: [];
 
-		const docsInDocumentsTable = db
-			? await db.select().from(documents).where(eq(documents.applicantId, applicantId))
-			: [];
 		const docsInUploadsTable = db
 			? await db
 					.select()
@@ -691,17 +675,6 @@ export async function executeStage3({
 			content: string;
 			contentType: "text" | "base64";
 		}> = [];
-
-		for (const doc of docsInDocumentsTable) {
-			if (doc.fileContent) {
-				aiDocuments.push({
-					id: String(doc.id),
-					type: doc.type,
-					content: doc.fileContent,
-					contentType: "base64",
-				});
-			}
-		}
 
 		for (const doc of docsInUploadsTable) {
 			if (doc.fileContent) {
@@ -726,8 +699,10 @@ export async function executeStage3({
 
 		const ficaValidationStart = Date.now();
 		try {
+			const referenceDate = new Date().toISOString().slice(0, 10);
 			const validationResult: BatchValidationResult = await validateDocumentsBatch({
 				documents: aiDocuments,
+				referenceDate,
 				applicantData: {
 					companyName: applicant?.companyName || "Unknown",
 					contactName: applicant?.contactName,

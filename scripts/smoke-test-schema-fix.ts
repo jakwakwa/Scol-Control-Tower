@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { resolve } from "node:path";
 /**
  * Smoke Test: Validation Agent + Risk Agent + FICA AI Schema Fix
  *
@@ -12,7 +13,6 @@
  *   - GOOGLE_GENAI_KEY in .env.test or .env.local
  */
 import { config } from "dotenv";
-import { resolve } from "node:path";
 
 // Load env
 config({ path: resolve(process.cwd(), ".env.local"), override: false });
@@ -23,82 +23,79 @@ process.env.DEBUG_FIX = "1";
 
 const PASS = "\x1b[32m✓\x1b[0m";
 const FAIL = "\x1b[31m✗\x1b[0m";
-const BOLD = "\x1b[1m";
-const RESET = "\x1b[0m";
+const _BOLD = "\x1b[1m";
+const _RESET = "\x1b[0m";
 
-let passed = 0;
+let _passed = 0;
 let failed = 0;
 const results: { name: string; ok: boolean; detail: string; durationMs: number }[] = [];
 
 function printTestLine(entry: (typeof results)[number]) {
-  const label = entry.ok ? "PASS" : "FAIL";
-  const icon = entry.ok ? PASS : FAIL;
-  console.log(`${icon} ${label}  ${entry.name}  (${entry.durationMs}ms)`);
-  if (!entry.ok && entry.detail) {
-    console.log(`   ${entry.detail}`);
-  }
+	const label = entry.ok ? "PASS" : "FAIL";
+	const icon = entry.ok ? PASS : FAIL;
+	const base = `${icon} ${label} ${entry.name} (${entry.durationMs}ms)`;
+	const detail = entry.detail ? ` — ${entry.detail}` : "";
+	if (entry.ok) {
+		console.info(base + detail);
+		return;
+	}
+	console.error(base + detail);
 }
 
 function printSummary() {
-  const totalMs = results.reduce((sum, r) => sum + r.durationMs, 0);
-  console.log("");
-  console.log(
-    `${BOLD}Summary${RESET}: ${passed} passed, ${failed} failed  (${totalMs}ms total)`
-  );
+	const totalMs = results.reduce((sum, r) => sum + r.durationMs, 0);
+	const icon = failed === 0 ? PASS : FAIL;
+	console.info(
+		`${icon} Summary: ${_BOLD}${_passed}/${results.length}${_RESET} passed, ${failed} failed — total ${totalMs}ms`
+	);
 }
 
 /** Second pass for automation / long logs — every failing case in one place before exit(1). */
 function printFailureRecap() {
-  const failures = results.filter((r) => !r.ok);
-  if (failures.length === 0) {
-    return;
-  }
-  console.log("");
-  console.log(`${BOLD}Failure details${RESET} (${failures.length}):`);
-  for (const f of failures) {
-    console.log(`  ${FAIL} ${f.name}  (${f.durationMs}ms)`);
-    console.log(`     ${f.detail}`);
-  }
+	const failures = results.filter(r => !r.ok);
+	if (failures.length === 0) {
+		return;
+	}
+	console.error(`${FAIL} Failure recap (${failures.length}):`);
+	for (const failure of failures) {
+		const detail = failure.detail ? ` — ${failure.detail}` : "";
+		console.error(`${FAIL} ${failure.name} (${failure.durationMs}ms)${detail}`);
+	}
 }
 
-async function runTest(
-  name: string,
-  fn: () => Promise<{ ok: boolean; detail: string }>
-) {
-  const start = Date.now();
-  try {
-    const result = await fn();
-    const durationMs = Date.now() - start;
-    if (result.ok) {
-      passed++;
-    } else {
-      failed++;
-    }
-    const entry = { name, ok: result.ok, detail: result.detail, durationMs };
-    results.push(entry);
-    printTestLine(entry);
-  } catch (err) {
-    const durationMs = Date.now() - start;
-    failed++;
-    const msg = err instanceof Error ? err.message : String(err);
-    const entry = { name, ok: false, detail: msg, durationMs };
-    results.push(entry);
-    printTestLine(entry);
-  }
+async function runTest(name: string, fn: () => Promise<{ ok: boolean; detail: string }>) {
+	const start = Date.now();
+	try {
+		const result = await fn();
+		const durationMs = Date.now() - start;
+		if (result.ok) {
+			_passed++;
+		} else {
+			failed++;
+		}
+		const entry = { name, ok: result.ok, detail: result.detail, durationMs };
+		results.push(entry);
+		printTestLine(entry);
+	} catch (err) {
+		const durationMs = Date.now() - start;
+		failed++;
+		const msg = err instanceof Error ? err.message : String(err);
+		const entry = { name, ok: false, detail: msg, durationMs };
+		results.push(entry);
+		printTestLine(entry);
+	}
 }
 
 // ─────────────────────────────────────────────
 // Test 1: ValidationAgent — z.toJSONSchema produces valid structured output
 // ─────────────────────────────────────────────
 async function testValidationAgent() {
-  const { validateDocument } = await import(
-    "../lib/services/agents/validation.agent"
-  );
+	const { validateDocument } = await import("../lib/services/agents/validation.agent");
 
-  // Minimal text-based "document" for validation
-  const result = await validateDocument({
-    documentType: "bank_statement",
-    documentContent: `
+	// Minimal text-based "document" for validation
+	const result = await validateDocument({
+		documentType: "bank_statement",
+		documentContent: `
 FIRST NATIONAL BANK
 BUSINESS ACCOUNT STATEMENT
 
@@ -121,48 +118,46 @@ Date         Description                 Debit        Credit       Balance
 Total Debits:  R 63,150.00
 Total Credits: R 144,500.00
     `.trim(),
-    contentType: "text",
-    applicantData: {
-      companyName: "StratCol Test (Pty) Ltd",
-      contactName: "Jan van der Merwe",
-      registrationNumber: "2020/123456/07",
-    },
-    ficaComparisonContext: {
-      companyName: "StratCol Test (Pty) Ltd",
-      accountNumber: "62847391056",
-      bankName: "FNB",
-      branchCode: "250655",
-    },
-    workflowId: 99999, // Dummy workflow ID (not persisted)
-  });
+		contentType: "text",
+		applicantData: {
+			companyName: "StratCol Test (Pty) Ltd",
+			contactName: "Jan van der Merwe",
+			registrationNumber: "2020/123456/07",
+		},
+		ficaComparisonContext: {
+			companyName: "StratCol Test (Pty) Ltd",
+			accountNumber: "62847391056",
+			bankName: "FNB",
+			branchCode: "250655",
+		},
+		workflowId: 99999, // Dummy workflow ID (not persisted)
+	});
 
-  // Validate the response shape
-  const hasRequired =
-    typeof result.isAuthentic === "boolean" &&
-    typeof result.overallScore === "number" &&
-    typeof result.overallValid === "boolean" &&
-    typeof result.recommendation === "string" &&
-    typeof result.reasoning === "string" &&
-    result.dataSource === "Gemini AI";
+	// Validate the response shape
+	const hasRequired =
+		typeof result.isAuthentic === "boolean" &&
+		typeof result.overallScore === "number" &&
+		typeof result.overallValid === "boolean" &&
+		typeof result.recommendation === "string" &&
+		typeof result.reasoning === "string" &&
+		result.dataSource === "Gemini AI";
 
-  return {
-    ok: hasRequired,
-    detail: hasRequired
-      ? `score=${result.overallScore}, rec=${result.recommendation}, authentic=${result.isAuthentic}`
-      : `Missing fields. Got keys: ${Object.keys(result).join(", ")}`,
-  };
+	return {
+		ok: hasRequired,
+		detail: hasRequired
+			? `score=${result.overallScore}, rec=${result.recommendation}, authentic=${result.isAuthentic}`
+			: `Missing fields. Got keys: ${Object.keys(result).join(", ")}`,
+	};
 }
 
 // ─────────────────────────────────────────────
 // Test 2: RiskAgent — z.toJSONSchema produces valid structured output
 // ─────────────────────────────────────────────
 async function testRiskAgent() {
-  const { analyzeFinancialRisk } = await import(
-    "../lib/services/agents/risk.agent"
-  );
+	const { analyzeFinancialRisk } = await import("../lib/services/agents/risk.agent");
 
-  const result = await analyzeFinancialRisk({
-    bankStatementText: `
+	const result = await analyzeFinancialRisk({
+		bankStatementText: `
 FNB Business Statement - StratCol Test Pty Ltd
 Period: 01/03/2026 - 31/03/2026
 Opening: R125,450 | Closing: R206,800
@@ -171,41 +166,39 @@ Total Credits: R144,500 | Total Debits: R63,150
 Dishonoured: 0
 Income: Regular monthly client payments
     `.trim(),
-    applicantId: 99999,
-    workflowId: 99999,
-    requestedAmount: 50000000, // R500k in cents
-    applicantData: {
-      companyName: "StratCol Test (Pty) Ltd",
-      industry: "Financial Services",
-      employeeCount: 15,
-      yearsInBusiness: 6,
-    },
-  });
+		applicantId: 99999,
+		workflowId: 99999,
+		requestedAmount: 50000000, // R500k in cents
+		applicantData: {
+			companyName: "StratCol Test (Pty) Ltd",
+			industry: "Financial Services",
+			employeeCount: 15,
+			yearsInBusiness: 6,
+		},
+	});
 
-  const hasRequired =
-    typeof result.overall?.score === "number" &&
-    typeof result.overall?.recommendation === "string" &&
-    typeof result.overall?.reasoning === "string" &&
-    typeof result.dataSource === "string";
+	const hasRequired =
+		typeof result.overall?.score === "number" &&
+		typeof result.overall?.recommendation === "string" &&
+		typeof result.overall?.reasoning === "string" &&
+		typeof result.dataSource === "string";
 
-  return {
-    ok: hasRequired,
-    detail: hasRequired
-      ? `score=${result.overall.score}, rec=${result.overall.recommendation}, src=${result.dataSource}`
-      : `Missing fields. Got keys: ${Object.keys(result).join(", ")}`,
-  };
+	return {
+		ok: hasRequired,
+		detail: hasRequired
+			? `score=${result.overall.score}, rec=${result.overall.recommendation}, src=${result.dataSource}`
+			: `Missing fields. Got keys: ${Object.keys(result).join(", ")}`,
+	};
 }
 
 // ─────────────────────────────────────────────
 // Test 3: FICA AI — z.toJSONSchema produces valid structured output
 // ─────────────────────────────────────────────
 async function testFicaAI() {
-  const { analyzeBankStatement } = await import(
-    "../lib/services/fica-ai.service"
-  );
+	const { analyzeBankStatement } = await import("../lib/services/fica-ai.service");
 
-  const result = await analyzeBankStatement({
-    content: `
+	const result = await analyzeBankStatement({
+		content: `
 FIRST NATIONAL BANK
 BUSINESS ACCOUNT STATEMENT
 
@@ -225,170 +218,173 @@ Date         Description                 Debit        Credit       Balance
 Total Debits:  R 57,000.00
 Total Credits: R 144,500.00
     `.trim(),
-    contentType: "text",
-    facilityApplication: {
-      companyName: "StratCol Test (Pty) Ltd",
-      bankingDetails: {
-        accountNumber: "62847391056",
-        bankName: "FNB",
-        branchCode: "250655",
-        accountType: "CURRENT",
-        accountHolderName: "StratCol Test (Pty) Ltd"
-      },
-    },
-    workflowId: 0
-  });
+		contentType: "text",
+		facilityApplication: {
+			companyName: "StratCol Test (Pty) Ltd",
+			bankingDetails: {
+				accountNumber: "62847391056",
+				bankName: "FNB",
+				branchCode: "250655",
+				accountType: "CURRENT",
+				accountHolderName: "StratCol Test (Pty) Ltd",
+			},
+		},
+		workflowId: 0,
+	});
 
-  const hasRequired =
-    typeof result.accountHolderName === "string" &&
-    typeof result.cashFlowScore === "number" &&
-    typeof result.incomeRegularity === "string";
+	const hasRequired =
+		typeof result.accountHolderName === "string" &&
+		typeof result.cashFlowScore === "number" &&
+		typeof result.incomeRegularity === "string";
 
-  return {
-    ok: hasRequired,
-    detail: hasRequired
-      ? `holder=${result.accountHolderName}, cashFlow=${result.cashFlowScore}, income=${result.incomeRegularity}`
-      : `Missing fields. Got keys: ${Object.keys(result).join(", ")}`,
-  };
+	return {
+		ok: hasRequired,
+		detail: hasRequired
+			? `holder=${result.accountHolderName}, cashFlow=${result.cashFlowScore}, income=${result.incomeRegularity}`
+			: `Missing fields. Got keys: ${Object.keys(result).join(", ")}`,
+	};
 }
 
 // ─────────────────────────────────────────────
 // Test 4: ProcureCheck — Full workflow (auth → create vendor → poll → categories → Zod parse)
 // ─────────────────────────────────────────────
 async function testProcureCheckWorkflow() {
-  if (!(process.env.PROCURECHECK_USERNAME && process.env.PROCURECHECK_PASSWORD)) {
-    return {
-      ok: false,
-      detail: "PROCURECHECK_USERNAME / PROCURECHECK_PASSWORD not set — skipping",
-    };
-  }
+	if (!(process.env.PROCURECHECK_USERNAME && process.env.PROCURECHECK_PASSWORD)) {
+		return {
+			ok: false,
+			detail: "PROCURECHECK_USERNAME / PROCURECHECK_PASSWORD not set — skipping",
+		};
+	}
 
-  // Seed a test applicant into the test DB
-  const { config: loadEnv } = await import("dotenv");
-  const { resolve } = await import("node:path");
-  loadEnv({ path: resolve(process.cwd(), ".env.local"), override: false });
-  loadEnv({ path: resolve(process.cwd(), ".env.test"), override: false });
+	// Seed a test applicant into the test DB
+	const { config: loadEnv } = await import("dotenv");
+	const { resolve } = await import("node:path");
+	loadEnv({ path: resolve(process.cwd(), ".env.local"), override: false });
+	loadEnv({ path: resolve(process.cwd(), ".env.test"), override: false });
 
-  // Force test DB
-  process.env.E2E_USE_TEST_DB = "1";
+	// Force test DB
+	process.env.E2E_USE_TEST_DB = "1";
 
-  const { createClient } = await import("@libsql/client");
-  const { drizzle } = await import("drizzle-orm/libsql");
-  const { applicants } = await import("../db/schema");
+	const { createClient } = await import("@libsql/client");
+	const { drizzle } = await import("drizzle-orm/libsql");
+	const { applicants } = await import("../db/schema");
 
-  const dbUrl = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
-  const authToken = process.env.TEST_TURSO_GROUP_AUTH_TOKEN || process.env.TURSO_GROUP_AUTH_TOKEN;
+	const dbUrl = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+	const authToken =
+		process.env.TEST_TURSO_GROUP_AUTH_TOKEN || process.env.TURSO_GROUP_AUTH_TOKEN;
 
-  if (!dbUrl) {
-    return { ok: false, detail: "TEST_DATABASE_URL not configured" };
-  }
+	if (!dbUrl) {
+		return { ok: false, detail: "TEST_DATABASE_URL not configured" };
+	}
 
-  const client = createClient({ url: dbUrl, authToken });
-  const db = drizzle(client);
+	const client = createClient({ url: dbUrl, authToken });
+	const db = drizzle(client);
 
-  // Insert test applicant with a known CIPC registration number
-  const [testApplicant] = await db
-    .insert(applicants)
-    .values({
-      companyName: `SmokeTest ProcureCheck Co ${Date.now()}`,
-      contactName: "Smoke Test Runner",
-      email: `smoke-pc-${Date.now()}@test.stratcol.co.za`,
-      phone: "+27821234567",
-      entityType: "company",
-      registrationNumber: "2015/012345/07", // Valid CIPC format
-      status: "qualified",
-    })
-    .returning({ id: applicants.id });
+	// Insert test applicant with a known CIPC registration number
+	const [testApplicant] = await db
+		.insert(applicants)
+		.values({
+			companyName: `SmokeTest ProcureCheck Co ${Date.now()}`,
+			contactName: "Smoke Test Runner",
+			email: `smoke-pc-${Date.now()}@test.stratcol.co.za`,
+			phone: "+27821234567",
+			entityType: "company",
+			registrationNumber: "2015/012345/07", // Valid CIPC format
+			status: "qualified",
+		})
+		.returning({ id: applicants.id });
 
-  if (!testApplicant) {
-    client.close();
-    return { ok: false, detail: "Failed to seed test applicant" };
-  }
+	if (!testApplicant) {
+		client.close();
+		return { ok: false, detail: "Failed to seed test applicant" };
+	}
 
-  try {
-    const { executeProcurementCheck } = await import(
-      "../lib/services/procurecheck.service"
-    );
+	try {
+		const { executeProcurementCheck } = await import(
+			"../lib/services/procurecheck.service"
+		);
 
-    const result = await executeProcurementCheck(testApplicant.id, 99999);
+		const result = await executeProcurementCheck(testApplicant.id, 99999);
 
-    const isValid =
-      typeof result.vendorId === "string" &&
-      result.vendorId.length > 0 &&
-      typeof result.payload === "object" &&
-      typeof result.payload.provider === "string" &&
-      Array.isArray(result.payload.categories) &&
-      result.payload.categories.length > 0 &&
-      typeof result.rawPayload === "object";
+		const isValid =
+			typeof result.vendorId === "string" &&
+			result.vendorId.length > 0 &&
+			typeof result.payload === "object" &&
+			typeof result.payload.provider === "string" &&
+			Array.isArray(result.payload.categories) &&
+			result.payload.categories.length > 0 &&
+			typeof result.rawPayload === "object";
 
-    return {
-      ok: isValid,
-      detail: isValid
-        ? `vendorId=${result.vendorId}, categories=${result.payload.categories.length}, provider=${result.payload.provider}`
-        : `Unexpected shape. Keys: ${Object.keys(result).join(", ")}`,
-    };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+		return {
+			ok: isValid,
+			detail: isValid
+				? `vendorId=${result.vendorId}, categories=${result.payload.categories.length}, provider=${result.payload.provider}`
+				: `Unexpected shape. Keys: ${Object.keys(result).join(", ")}`,
+		};
+	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err);
 
-    // ProcureCheck API may reject the test registration number via CIPC validation.
-    // That's expected — the key proof is that we didn't crash with an unhandled
-    // Zod "expected object, received string" error (the bug we're fixing).
-    const isExpectedApiRejection =
-      /Registration number does not exist/i.test(msg) ||
-      /ProcureCheck.*failed/i.test(msg) ||
-      /vendor create failed/i.test(msg) ||
-      /JSON Parse error/i.test(msg) ||
-      /Unable to parse/i.test(msg);
+		// ProcureCheck API may reject the test registration number via CIPC validation.
+		// That's expected — the key proof is that we didn't crash with an unhandled
+		// Zod "expected object, received string" error (the bug we're fixing).
+		const isExpectedApiRejection =
+			/Registration number does not exist/i.test(msg) ||
+			/ProcureCheck.*failed/i.test(msg) ||
+			/vendor create failed/i.test(msg) ||
+			/JSON Parse error/i.test(msg) ||
+			/Unable to parse/i.test(msg);
 
-    if (isExpectedApiRejection) {
-      return {
-        ok: true,
-        detail: `API rejected test data (expected): ${msg.slice(0, 120)}. ` +
-          `Key: error was caught cleanly — no unhandled Zod root-type mismatch.`,
-      };
-    }
+		if (isExpectedApiRejection) {
+			return {
+				ok: true,
+				detail:
+					`API rejected test data (expected): ${msg.slice(0, 120)}. ` +
+					`Key: error was caught cleanly — no unhandled Zod root-type mismatch.`,
+			};
+		}
 
-    // Unexpected error — this is a real failure
-    return { ok: false, detail: `Unexpected error: ${msg}` };
-  } finally {
-    // Clean up test applicant
-    const { eq } = await import("drizzle-orm");
-    await db.delete(applicants).where(eq(applicants.id, testApplicant.id));
-    client.close();
-  }
+		// Unexpected error — this is a real failure
+		return { ok: false, detail: `Unexpected error: ${msg}` };
+	} finally {
+		// Clean up test applicant
+		const { eq } = await import("drizzle-orm");
+		await db.delete(applicants).where(eq(applicants.id, testApplicant.id));
+		client.close();
+	}
 }
 
 // ─────────────────────────────────────────────
 // Main
 // ─────────────────────────────────────────────
 async function main() {
+	if (!process.env.GOOGLE_GENAI_KEY) {
+		console.error(`${FAIL} GOOGLE_GENAI_KEY not found. Cannot run AI smoke tests.`);
+		process.exit(1);
+	}
 
-  if (!process.env.GOOGLE_GENAI_KEY) {
-    console.error(
-      `${FAIL} GOOGLE_GENAI_KEY not found. Cannot run AI smoke tests.`
-    );
-    process.exit(1);
-  }
+	await runTest(
+		"ValidationAgent: structured output via z.toJSONSchema()",
+		testValidationAgent
+	);
+	await runTest("RiskAgent: structured output via z.toJSONSchema()", testRiskAgent);
+	await runTest("FICA AI: structured output via z.toJSONSchema()", testFicaAI);
+	await runTest(
+		"ProcureCheck: full workflow (vendor create → poll → categories)",
+		testProcureCheckWorkflow
+	);
 
-  console.log(`${BOLD}Smoke tests (schema / structured output)${RESET}\n`);
-
-  await runTest("ValidationAgent: structured output via z.toJSONSchema()", testValidationAgent);
-  await runTest("RiskAgent: structured output via z.toJSONSchema()", testRiskAgent);
-  await runTest("FICA AI: structured output via z.toJSONSchema()", testFicaAI);
-  await runTest("ProcureCheck: full workflow (vendor create → poll → categories)", testProcureCheckWorkflow);
-
-  printSummary();
-  if (failed > 0) {
-    printFailureRecap();
-    process.exit(1);
-  }
+	printSummary();
+	if (failed > 0) {
+		printFailureRecap();
+		process.exit(1);
+	}
 }
 
-main().catch((err) => {
-  console.error(`${FAIL} Fatal (smoke tests aborted):`, err);
-  if (results.length > 0) {
-    printSummary();
-    printFailureRecap();
-  }
-  process.exit(1);
+main().catch(err => {
+	console.error(`${FAIL} Fatal (smoke tests aborted):`, err);
+	if (results.length > 0) {
+		printSummary();
+		printFailureRecap();
+	}
+	process.exit(1);
 });

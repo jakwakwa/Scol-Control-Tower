@@ -77,31 +77,6 @@ export const applicants = sqliteTable("applicants", {
 });
 
 /**
- * Documents table - Dedicated document tracking
- */
-export const documents = sqliteTable("documents", {
-	id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
-	applicantId: integer("applicant_id")
-		.notNull()
-		.references(() => applicants.id),
-	type: text("type").notNull(),
-	status: text("status").notNull().default("pending"),
-	category: text("category"),
-	source: text("source"),
-	fileName: text("file_name"),
-	fileContent: text("file_content"),
-	mimeType: text("mime_type"),
-	storageUrl: text("storage_url"),
-	uploadedBy: text("uploaded_by"),
-	uploadedAt: integer("uploaded_at", { mode: "timestamp" }),
-	verifiedAt: integer("verified_at", { mode: "timestamp" }),
-	processedAt: integer("processed_at", { mode: "timestamp" }),
-	processingStatus: text("processing_status"),
-	processingResult: text("processing_result"),
-	notes: text("notes"),
-});
-
-/**
  * Risk Assessments table - Application risk Profiles
  */
 export const riskAssessments = sqliteTable("risk_assessments", {
@@ -503,7 +478,6 @@ export const reApplicantAttempts = sqliteTable("re_applicant_attempts", {
 
 export const applicantsRelations = relations(applicants, ({ many, one }) => ({
 	workflows: many(workflows),
-	documents: many(documents),
 	applicantMagiclinkForms: many(applicantMagiclinkForms),
 	applicantSubmissions: many(applicantSubmissions),
 	riskAssessment: one(riskAssessments, {
@@ -540,13 +514,6 @@ export const quotes = sqliteTable("quotes", {
 		.notNull()
 		.$defaultFn(() => new Date()),
 });
-
-export const documentsRelations = relations(documents, ({ one }) => ({
-	applicant: one(applicants, {
-		fields: [documents.applicantId],
-		references: [applicants.id],
-	}),
-}));
 
 export const workflowsRelations = relations(workflows, ({ one, many }) => ({
 	applicant: one(applicants, {

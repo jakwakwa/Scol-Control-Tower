@@ -8,10 +8,10 @@ import {
 } from "@/lib/risk-review/parsers/vat.parser";
 import type {
 	DocumentAiProofingEntity,
+	FicaValidationSupplementalPayload,
 	RiskReviewData,
 	SectionStatus,
 } from "@/lib/risk-review/types";
-import type { FinancialRiskAgentResult } from "@/lib/services/agents/financial-risk.agent";
 import type { RiskCheckRow } from "@/lib/services/risk-check.service";
 
 type ApplicantRow = {
@@ -33,6 +33,11 @@ type RiskAssessmentSnapshot = {
 	overallScore?: number | null;
 	overallStatus?: string | null;
 	aiAnalysis?: string | null;
+};
+
+type FinancialRiskLogRow = {
+	rawOutput: string | null;
+	createdAt?: Date | null;
 };
 
 const DEFAULT_SECTION_STATUS: SectionStatus = {
@@ -75,6 +80,7 @@ const DEFAULT_FICA: RiskReviewData["ficaData"] = {
 		avsDetails: "—",
 	},
 	documentAiResult: undefined,
+	supplementalValidation: undefined,
 	vatVerification: {
 		checked: false,
 		status: "not_checked",
@@ -95,6 +101,165 @@ export function parseReportJsonObject(raw: string | null): Record<string, unknow
 	} catch {
 		return null;
 	}
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asString(value: unknown): string | undefined {
+	return typeof value === "string" ? value : undefined;
+}
+
+function asNumber(value: unknown): number | undefined {
+	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function asBoolean(value: unknown): boolean | undefined {
+	return typeof value === "boolean" ? value : undefined;
+}
+
+function asStringArray(value: unknown): string[] {
+	if (!Array.isArray(value)) return [];
+	return value.filter((item): item is string => typeof item === "string");
+}
+
+function parseFicaSupplementalSummary(
+	value: unknown
+): FicaValidationSupplementalPayload["summary"] | null {
+	if (!isRecord(value)) return null;
+	const totalDocuments = asNumber(value.totalDocuments);
+	const passed = asNumber(value.passed);
+	const requiresReview = asNumber(value.requiresReview);
+	const failed = asNumber(value.failed);
+	const recommendation = asString(value.overallRecommendation);
+
+	if (
+		totalDocuments === undefined ||
+		passed === undefined ||
+		requiresReview === undefined ||
+		failed === undefined ||
+		(recommendation !== "PROCEED" &&
+			recommendation !== "REVIEW_REQUIRED" &&
+			recommendation !== "STOP")
+	) {
+		return null;
+	}
+
+	return {
+		totalDocuments,
+		passed,
+		requiresReview,
+		failed,
+		overallRecommendation: recommendation,
+	};
+}
+
+function parseFicaSupplementalResult(
+	value: unknown
+): FicaValidationSupplementalPayload["results"][number] | null {
+	if (!isRecord(value)) return null;
+	const documentId = asString(value.documentId);
+	const documentType = asString(value.documentType);
+	if (documentId === undefined || documentType === undefined) return null;
+
+	const validation = value.validation;
+	if (!isRecord(validation)) return null;
+
+	const recommendation = asString(validation.recommendation);
+	if (
+		recommendation !== "ACCEPT" &&
+		recommendation !== "REVIEW" &&
+		recommendation !== "REJECT" &&
+		recommendation !== "REQUEST_NEW_DOCUMENT"
+	) {
+		return null;
+	}
+
+	const isAuthentic = asBoolean(validation.isAuthentic);
+	const authenticityScore = asNumber(validation.authenticityScore);
+	const dateValid = asBoolean(validation.dateValid);
+	const overallValid = asBoolean(validation.overallValid);
+	const overallScore = asNumber(validation.overallScore);
+	const reasoning = asString(validation.reasoning);
+	if (
+		isAuthentic === undefined ||
+		authenticityScore === undefined ||
+		dateValid === undefined ||
+		overallValid === undefined ||
+		overallScore === undefined ||
+		!reasoning
+	) {
+		return null;
+	}
+
+	const ficaComparisonRaw = validation.ficaComparison;
+	let ficaComparison: FicaValidationSupplementalPayload["results"][number]["validation"]["ficaComparison"];
+	if (isRecord(ficaComparisonRaw) && isRecord(ficaComparisonRaw.summary)) {
+		const summaryRaw = ficaComparisonRaw.summary;
+		const overallStatus = asString(summaryRaw.overallStatus);
+		const mismatchCount = asNumber(summaryRaw.mismatchCount);
+		const criticalMismatchCount = asNumber(summaryRaw.criticalMismatchCount);
+		const validStatus =
+			overallStatus === "MATCHED" ||
+			overallStatus === "PARTIAL_MATCH" ||
+			overallStatus === "MISMATCHED" ||
+			overallStatus === "INSUFFICIENT_DATA";
+
+		if (
+			validStatus &&
+			mismatchCount !== undefined &&
+			criticalMismatchCount !== undefined
+		) {
+			ficaComparison = {
+				summary: {
+					overallStatus,
+					mismatchCount,
+					criticalMismatchCount,
+					keyDiscrepancies: asStringArray(summaryRaw.keyDiscrepancies),
+				},
+			};
+		}
+	}
+
+	return {
+		documentId,
+		documentType,
+		validation: {
+			isAuthentic,
+			authenticityScore,
+			authenticityFlags: asStringArray(validation.authenticityFlags),
+			dateValid,
+			dateIssues: asStringArray(validation.dateIssues),
+			overallValid,
+			overallScore,
+			recommendation,
+			reasoning,
+			ficaComparison,
+		},
+	};
+}
+
+function parseFicaSupplementalPayload(
+	rawPayload: string | null | undefined
+): FicaValidationSupplementalPayload | undefined {
+	const parsed = parseReportJsonObject(rawPayload ?? null);
+	if (!parsed) return undefined;
+
+	const summary = parseFicaSupplementalSummary(parsed.summary);
+	if (!summary) return undefined;
+
+	const results = Array.isArray(parsed.results)
+		? parsed.results
+				.map(item => parseFicaSupplementalResult(item))
+				.filter(
+					(
+						item
+					): item is FicaValidationSupplementalPayload["results"][number] => item !== null
+				)
+		: [];
+
+	return { summary, results };
 }
 
 function mergeProcurement(raw: string | null): ProcurementData | null {
@@ -290,20 +455,147 @@ function buildSectionStatus(check: RiskCheckRow | undefined): SectionStatus {
 
 function parseFinancialRiskRawOutput(
 	raw: string | null | undefined
-): RiskReviewData["bankStatementAnalysis"] {
-	if (!raw?.trim()) return undefined;
+): { result?: RiskReviewData["bankStatementAnalysis"]; unavailableReason?: string } {
+	if (!raw?.trim()) return {};
 	const parsed = parseReportJsonObject(raw);
-	if (!parsed) {
-		return undefined;
+	if (!parsed || typeof parsed.available !== "boolean") {
+		return {};
 	}
-	if (!("available" in parsed)) {
-		return undefined;
+	if (parsed.available === false) {
+		return {
+			unavailableReason:
+				typeof parsed.reason === "string" ? parsed.reason : "Analysis unavailable",
+		};
 	}
-	const candidate = parsed as unknown as FinancialRiskAgentResult;
-	if (candidate.available === true) {
-		return candidate;
+
+	const bankAnalysis = parsed.bankAnalysis;
+	const cashFlow = parsed.cashFlow;
+	const stability = parsed.stability;
+	const creditRisk = parsed.creditRisk;
+	const overall = parsed.overall;
+	const isCompleteAnalysis = [bankAnalysis, cashFlow, stability, creditRisk, overall].every(
+		value => isRecord(value)
+	);
+	if (!isCompleteAnalysis) {
+		return {};
 	}
-	return undefined;
+	const bankAnalysisRecord = bankAnalysis as Record<string, unknown>;
+	const cashFlowRecord = cashFlow as Record<string, unknown>;
+	const stabilityRecord = stability as Record<string, unknown>;
+	const creditRiskRecord = creditRisk as Record<string, unknown>;
+	const overallRecord = overall as Record<string, unknown>;
+
+	const riskCategory = asString(creditRiskRecord.riskCategory);
+	if (
+		riskCategory !== "LOW" &&
+		riskCategory !== "MEDIUM" &&
+		riskCategory !== "HIGH" &&
+		riskCategory !== "VERY_HIGH"
+	) {
+		return {};
+	}
+
+	const parsedResult: RiskReviewData["bankStatementAnalysis"] = {
+		available: true,
+		bankAnalysis: {
+			accountType: asString(bankAnalysisRecord.accountType) ?? "Unknown",
+			bankName: asString(bankAnalysisRecord.bankName) ?? "Unknown",
+			averageBalance: asNumber(bankAnalysisRecord.averageBalance) ?? 0,
+			minimumBalance: asNumber(bankAnalysisRecord.minimumBalance) ?? 0,
+			maximumBalance: asNumber(bankAnalysisRecord.maximumBalance) ?? 0,
+			volatilityScore: asNumber(bankAnalysisRecord.volatilityScore) ?? 0,
+		},
+		cashFlow: {
+			totalCredits: asNumber(cashFlowRecord.totalCredits) ?? 0,
+			totalDebits: asNumber(cashFlowRecord.totalDebits) ?? 0,
+			netCashFlow: asNumber(cashFlowRecord.netCashFlow) ?? 0,
+			regularIncomeDetected: asBoolean(cashFlowRecord.regularIncomeDetected) ?? false,
+			consistencyScore: asNumber(cashFlowRecord.consistencyScore) ?? 0,
+		},
+		stability: {
+			overallScore: asNumber(stabilityRecord.overallScore) ?? 0,
+			debtIndicators: asStringArray(stabilityRecord.debtIndicators),
+			gamblingIndicators: asStringArray(stabilityRecord.gamblingIndicators),
+			loanRepayments: asNumber(stabilityRecord.loanRepayments) ?? 0,
+			hasBounced: asBoolean(stabilityRecord.hasBounced) ?? false,
+			bouncedCount: asNumber(stabilityRecord.bouncedCount) ?? 0,
+			bouncedAmount: asNumber(stabilityRecord.bouncedAmount) ?? 0,
+		},
+		creditRisk: {
+			riskCategory,
+			riskScore: asNumber(creditRiskRecord.riskScore) ?? 0,
+			affordabilityRatio: asNumber(creditRiskRecord.affordabilityRatio) ?? 0,
+			redFlags: asStringArray(creditRiskRecord.redFlags),
+			positiveIndicators: asStringArray(creditRiskRecord.positiveIndicators),
+		},
+		overall: {
+			score: asNumber(overallRecord.score) ?? 0,
+		},
+	};
+	return { result: parsedResult };
+}
+
+function resolveBankStatementAnalysisState(args: {
+	financialRiskRows: FinancialRiskLogRow[];
+	itcStatus: SectionStatus;
+	hasBankStatementEvidence: boolean;
+}): Pick<
+	RiskReviewData,
+	"bankStatementAnalysis" | "bankStatementAnalysisState" | "bankStatementAnalysisWarning"
+> {
+	const latestRow = args.financialRiskRows[0];
+	const latestParsed = parseFinancialRiskRawOutput(latestRow?.rawOutput);
+
+	const latestSuccess = args.financialRiskRows
+		.map(row => parseFinancialRiskRawOutput(row.rawOutput).result)
+		.find((result): result is NonNullable<RiskReviewData["bankStatementAnalysis"]> =>
+			Boolean(result)
+		);
+
+	if (latestSuccess) {
+		const hasLatestFailure = Boolean(latestParsed.unavailableReason);
+		return {
+			bankStatementAnalysis: latestSuccess,
+			bankStatementAnalysisState: "success",
+			bankStatementAnalysisWarning: hasLatestFailure
+				? `Latest bank statement run is unavailable (${latestParsed.unavailableReason}). Showing the most recent successful analysis.`
+				: undefined,
+		};
+	}
+
+	if (args.itcStatus.machineState === "in_progress") {
+		return {
+			bankStatementAnalysis: undefined,
+			bankStatementAnalysisState: "in_progress",
+			bankStatementAnalysisWarning: undefined,
+		};
+	}
+
+	if (args.financialRiskRows.length === 0 && !args.hasBankStatementEvidence) {
+		return {
+			bankStatementAnalysis: undefined,
+			bankStatementAnalysisState: "no_document",
+			bankStatementAnalysisWarning: undefined,
+		};
+	}
+
+	const isUnavailableByStatus =
+		args.itcStatus.machineState === "failed" ||
+		args.itcStatus.machineState === "manual_required";
+	const unavailableReason = latestParsed.unavailableReason;
+	if (unavailableReason || isUnavailableByStatus) {
+		return {
+			bankStatementAnalysis: undefined,
+			bankStatementAnalysisState: "unavailable",
+			bankStatementAnalysisWarning: unavailableReason,
+		};
+	}
+
+	return {
+		bankStatementAnalysis: undefined,
+		bankStatementAnalysisState: args.hasBankStatementEvidence ? "in_progress" : "no_document",
+		bankStatementAnalysisWarning: undefined,
+	};
 }
 
 function extractOverallSummary(
@@ -357,10 +649,20 @@ export function buildReportData(
 	applicant: ApplicantRow | null,
 	workflow: WorkflowRow | null,
 	riskChecks: RiskCheckRow[],
-	financialRiskRawOutput?: string | null,
+	financialRiskRowsOrRaw: FinancialRiskLogRow[] | string | null = [],
 	assessment?: RiskAssessmentSnapshot | null,
-	documentAiResult?: DocumentAiProofingEntity[]
+	documentAiResult?: DocumentAiProofingEntity[],
+	options?: {
+		hasBankStatementEvidence?: boolean;
+	}
 ): RiskReviewData {
+	const financialRiskRows =
+		typeof financialRiskRowsOrRaw === "string"
+			? [{ rawOutput: financialRiskRowsOrRaw, createdAt: null }]
+			: financialRiskRowsOrRaw === null
+				? []
+			: financialRiskRowsOrRaw;
+
 	const applicantId = applicant?.id ?? 0;
 	const transactionId = workflow?.id ? `workflow-${workflow.id}` : `risk-${applicantId}`;
 	const generatedAt = workflow?.startedAt
@@ -372,6 +674,7 @@ export function buildReportData(
 	const procCheck = checkMap.get("PROCUREMENT");
 
 	const itcCheck = checkMap.get("ITC");
+	const itcStatus = buildSectionStatus(itcCheck);
 	const itcParsed = itcCheck?.payload ? parseReportJsonObject(itcCheck.payload) : null;
 
 	const sancCheck = checkMap.get("SANCTIONS");
@@ -381,12 +684,19 @@ export function buildReportData(
 
 	const ficaCheck = checkMap.get("FICA");
 	const ficaParsed = ficaCheck?.payload ? parseReportJsonObject(ficaCheck.payload) : null;
+	const ficaSupplementalValidation = parseFicaSupplementalPayload(ficaCheck?.rawPayload);
 	const vatVerification = extractVatVerificationFromAiAnalysis(
 		assessment?.aiAnalysis ?? null
 	);
 	const mergedFica = mergeFica(ficaParsed);
 	const mergedProcurement = mergeProcurement(procCheck?.payload ?? null);
 	const overallSummary = extractOverallSummary(assessment);
+	const hasBankStatementEvidence = options?.hasBankStatementEvidence ?? false;
+	const bankStatementState = resolveBankStatementAnalysisState({
+		financialRiskRows,
+		itcStatus,
+		hasBankStatementEvidence,
+	});
 
 	return {
 		workflowId: workflow?.id ?? 0,
@@ -406,7 +716,7 @@ export function buildReportData(
 		},
 		sectionStatuses: {
 			procurement: buildSectionStatus(procCheck),
-			itc: buildSectionStatus(itcCheck),
+			itc: itcStatus,
 			sanctions: buildSectionStatus(sancCheck),
 			fica: buildSectionStatus(ficaCheck),
 		},
@@ -416,9 +726,12 @@ export function buildReportData(
 		ficaData: {
 			...mergedFica,
 			documentAiResult: mergedFica.documentAiResult ?? documentAiResult,
+			supplementalValidation: ficaSupplementalValidation,
 			vatVerification,
 		},
-		bankStatementAnalysis: parseFinancialRiskRawOutput(financialRiskRawOutput),
+		bankStatementAnalysis: bankStatementState.bankStatementAnalysis,
+		bankStatementAnalysisState: bankStatementState.bankStatementAnalysisState,
+		bankStatementAnalysisWarning: bankStatementState.bankStatementAnalysisWarning,
 		externalScreeningUi: { industryRegulator: false, socialReputation: false },
 	};
 }

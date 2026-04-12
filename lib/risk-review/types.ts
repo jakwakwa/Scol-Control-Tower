@@ -25,6 +25,51 @@ export type VatStatus =
 /** Document AI Identity Proofing entity row (shared UI + verify-id action). */
 export type DocumentAiProofingEntity = { type: string; value: string };
 
+export type BankStatementAnalysisState =
+	| "in_progress"
+	| "unavailable"
+	| "no_document"
+	| "success";
+
+export interface FicaValidationSupplementalSummary {
+	totalDocuments: number;
+	passed: number;
+	requiresReview: number;
+	failed: number;
+	overallRecommendation: "PROCEED" | "REVIEW_REQUIRED" | "STOP";
+}
+
+export interface FicaValidationSupplementalComparisonSummary {
+	overallStatus: "MATCHED" | "PARTIAL_MATCH" | "MISMATCHED" | "INSUFFICIENT_DATA";
+	mismatchCount: number;
+	criticalMismatchCount: number;
+	keyDiscrepancies: string[];
+}
+
+export interface FicaValidationSupplementalResult {
+	documentId: string;
+	documentType: string;
+	validation: {
+		isAuthentic: boolean;
+		authenticityScore: number;
+		authenticityFlags: string[];
+		dateValid: boolean;
+		dateIssues: string[];
+		overallValid: boolean;
+		overallScore: number;
+		recommendation: "ACCEPT" | "REVIEW" | "REJECT" | "REQUEST_NEW_DOCUMENT";
+		reasoning: string;
+		ficaComparison?: {
+			summary: FicaValidationSupplementalComparisonSummary;
+		};
+	};
+}
+
+export interface FicaValidationSupplementalPayload {
+	summary: FicaValidationSupplementalSummary;
+	results: FicaValidationSupplementalResult[];
+}
+
 export interface SectionStatus {
 	machineState: "pending" | "in_progress" | "completed" | "failed" | "manual_required";
 	reviewState: "pending" | "acknowledged" | "approved" | "rejected" | "not_required";
@@ -68,6 +113,8 @@ export interface RiskReviewData {
 	};
 	/** AI bank statement analysis (Gemini); complementary to XDS / ITC bureau data */
 	bankStatementAnalysis?: FinancialRiskAnalysisResult;
+	bankStatementAnalysisState: BankStatementAnalysisState;
+	bankStatementAnalysisWarning?: string;
 	sanctionsData: {
 		sanctionsMatch: string;
 		pepHits: number | string;
@@ -90,6 +137,7 @@ export interface RiskReviewData {
 			avsDetails: string;
 		};
 		documentAiResult?: DocumentAiProofingEntity[];
+		supplementalValidation?: FicaValidationSupplementalPayload;
 		vatVerification?: {
 			checked: boolean;
 			/** Summary status for UX display — derived from all available evidence sources. */

@@ -96,6 +96,7 @@ export interface ValidationInput {
 	documentType: string;
 	documentContent: string; // Base64 or text content
 	contentType: "text" | "base64";
+	referenceDate?: string; // YYYY-MM-DD
 	applicantData?: {
 		companyName?: string;
 		contactName?: string;
@@ -167,7 +168,11 @@ export async function validateDocument(
 			throw new Error(`[ValidationAgent] AI returned ${typeof parsed} instead of expected object`);
 		}
 		const analysis = ValidationResultSchema.parse(parsed);
-		return { ...analysis, dataSource: "Gemini AI" };
+		const reconciledDateValidation = reconcileDateValidationAgainstReference(
+			analysis,
+			input.referenceDate
+		);
+		return { ...reconciledDateValidation, dataSource: "Gemini AI" };
 	} catch (error) {
 		console.error("[ValidationAgent] AI generation failed:", error);
 		return {
@@ -207,7 +212,13 @@ export async function validateDocument(
  * Build the AI prompt for document validation
  */
 function buildValidationPrompt(input: ValidationInput): string {
-	const { documentType, documentContent, applicantData, ficaComparisonContext } = input;
+	const {
+		documentType,
+		documentContent,
+		applicantData,
+		ficaComparisonContext,
+		referenceDate,
+	} = input;
 	const documentContentForPrompt =
 		input.contentType === "base64"
 			? "[PDF provided as inline document data. Analyze the attached document.]"
@@ -267,11 +278,14 @@ VALIDATION REQUIREMENTS:
    - Verify all required fields are present and readable
 
 3. DATE VALIDATION:
-   - Extract the document date
-   - For bank statements: must be within last 3 months
-   - For proof of address: must be within last 3 months
-   - For ID documents: check expiry date if applicable
-   - For registration certificates: note if renewal is needed
+   - REFERENCE DATE (sole temporal source): ${referenceDate ?? "not provided"}
+   - Extract date values exactly as written in the document, then normalize to YYYY-MM-DD when possible.
+   - Do NOT use your internal clock, current date knowledge, or assumptions about "today."
+   - Do NOT independently infer whether a date is recent/old/future unless it is compared to REFERENCE DATE.
+   - If REFERENCE DATE is missing or invalid, still extract dates but avoid relative-time judgments and explain uncertainty.
+   - When comparing dates, use only document evidence + REFERENCE DATE.
+   - For bank statements and proof of address, flag if older than 3 months relative to REFERENCE DATE.
+   - For dateIssues, report concrete evidence (for example: "Document date 2025-01-04 is in the future vs reference 2024-12-31").
 
 4. CROSS-REFERENCE:
    - Compare names, addresses, and account numbers against applicant data
@@ -324,6 +338,7 @@ export interface BatchValidationInput {
 	}>;
 	applicantData?: ValidationInput["applicantData"];
 	ficaComparisonContext?: ValidationInput["ficaComparisonContext"];
+	referenceDate?: ValidationInput["referenceDate"];
 	workflowId: number;
 }
 
@@ -356,6 +371,7 @@ export async function validateDocumentsBatch(
 				documentType: doc.type,
 				documentContent: doc.content,
 				contentType: doc.contentType,
+				referenceDate: input.referenceDate,
 				applicantData: input.applicantData,
 				ficaComparisonContext: input.ficaComparisonContext,
 				workflowId: input.workflowId,
@@ -392,4 +408,56 @@ export async function validateDocumentsBatch(
 			overallRecommendation,
 		},
 	};
+}
+
+function reconcileDateValidationAgainstReference(
+	analysis: z.infer<typeof ValidationResultSchema>,
+	referenceDate?: string
+): z.infer<typeof ValidationResultSchema> {
+	if (referenceDate == null) {
+		return analysis;
+	}
+	const documentDate = analysis.documentDate;
+	if (documentDate == null) {
+		return analysis;
+	}
+
+	const reference = parseIsoDate(referenceDate);
+	const extracted = parseIsoDate(documentDate);
+	if (reference == null || extracted == null) {
+		return analysis;
+	}
+
+	const isActuallyFuture = extracted.getTime() > reference.getTime();
+	if (isActuallyFuture) {
+		return analysis;
+	}
+
+	const hallucinatedFutureIssue = analysis.dateIssues.some(issue =>
+		/(future|ahead of reference|after reference)/i.test(issue)
+	);
+	if (!hallucinatedFutureIssue) {
+		return analysis;
+	}
+
+	const normalizedIssues = analysis.dateIssues.filter(
+		issue => !/(future|ahead of reference|after reference)/i.test(issue)
+	);
+
+	return {
+		...analysis,
+		dateIssues: normalizedIssues,
+		dateValid: normalizedIssues.length === 0,
+	};
+}
+
+function parseIsoDate(value: string): Date | null {
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+		return null;
+	}
+	const parsed = new Date(`${value}T00:00:00.000Z`);
+	if (Number.isNaN(parsed.getTime())) {
+		return null;
+	}
+	return parsed;
 }

@@ -27,7 +27,7 @@ const response = await client.models.generateContent({
 
 ```typescript
 const response = await client.models.generateContent({
-  model: "gemini-2.5-flash",
+  model: "gemini-3-flash-preview",
   config: {
     responseMimeType: "application/json",
     responseJsonSchema: z.toJSONSchema(MyZodSchema),  // CORRECT: standard JSON Schema

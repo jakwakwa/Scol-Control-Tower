@@ -6,11 +6,11 @@
  * Never throws: callers (e.g. Inngest) always proceed.
  */
 
-import { and, desc, eq, inArray } from "drizzle-orm";
 import { MediaResolution, ThinkingLevel } from "@google/genai";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { getDatabaseClient } from "@/app/utils";
-import { aiAnalysisLogs, documents } from "@/db/schema";
+import { aiAnalysisLogs, documentUploads } from "@/db/schema";
 import { getGenAIClient, isAIConfigured } from "@/lib/ai/models";
 
 export const FINANCIAL_RISK_AGENT_NAME = "financial-risk-agent" as const;
@@ -104,17 +104,14 @@ async function insertLog(
 		workflowId: input.workflowId,
 		agentName: FINANCIAL_RISK_AGENT_NAME,
 		promptVersionId: `stage-${input.stage}-v1`,
-		confidenceScore:
-			result.available === true ? Math.round(result.overall.score) : 0,
+		confidenceScore: result.available === true ? Math.round(result.overall.score) : 0,
 		narrative,
 		rawOutput: JSON.stringify(result),
 		createdAt: new Date(),
 	});
 }
 
-async function resolveBankStatementContent(
-	input: FinancialRiskAgentInput
-): Promise<{
+async function resolveBankStatementContent(input: FinancialRiskAgentInput): Promise<{
 	base64?: string;
 	text?: string;
 	mimeType: string;
@@ -134,17 +131,17 @@ async function resolveBankStatementContent(
 
 	const rows = await db
 		.select({
-			fileContent: documents.fileContent,
-			mimeType: documents.mimeType,
+			fileContent: documentUploads.fileContent,
+			mimeType: documentUploads.mimeType,
 		})
-		.from(documents)
+		.from(documentUploads)
 		.where(
 			and(
-				eq(documents.applicantId, input.applicantId),
-				inArray(documents.type, [...BANK_DOCUMENT_TYPES])
+				eq(documentUploads.workflowId, input.workflowId),
+				inArray(documentUploads.documentType, [...BANK_DOCUMENT_TYPES])
 			)
 		)
-		.orderBy(desc(documents.uploadedAt))
+		.orderBy(desc(documentUploads.uploadedAt))
 		.limit(1);
 
 	const row = rows[0];
@@ -219,7 +216,9 @@ async function runGeminiAnalysis(params: {
  * Loads bank statement (DB or overrides), runs Gemini analysis, persists to `ai_analysis_logs`.
  * Does not throw — failures are logged and stored as `{ available: false, reason }`.
  */
-export async function runFinancialRiskAgent(input: FinancialRiskAgentInput): Promise<void> {
+export async function runFinancialRiskAgent(
+	input: FinancialRiskAgentInput
+): Promise<void> {
 	try {
 		if (!isAIConfigured()) {
 			await insertLog(input, {
@@ -242,8 +241,7 @@ export async function runFinancialRiskAgent(input: FinancialRiskAgentInput): Pro
 		await insertLog(input, result);
 	} catch (error) {
 		console.error("[FinancialRiskAgent] run failed:", error);
-		const message =
-			error instanceof Error ? error.message : String(error);
+		const message = error instanceof Error ? error.message : String(error);
 		try {
 			await insertLog(input, {
 				available: false,

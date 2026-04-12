@@ -1,8 +1,10 @@
+import { randomUUID } from "node:crypto";
+import { desc, eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDatabaseClient } from "@/app/utils";
-import { documents } from "@/db/schema";
+import { documentUploads, workflows } from "@/db/schema";
 import { inngest } from "@/inngest/client";
 import { evaluateDocumentQuality } from "@/lib/services/document-quality.service";
 import {
@@ -16,6 +18,51 @@ const UploadSchema = z.object({
 	documentType: DocumentTypeSchema,
 	category: DocumentCategorySchema.optional(),
 });
+
+type UploadCategory =
+	| "standard"
+	| "individual"
+	| "financial"
+	| "professional"
+	| "industry";
+
+function mapLegacyCategoryToUploadCategory(
+	documentType: z.infer<typeof DocumentTypeSchema>,
+	legacyCategory?: z.infer<typeof DocumentCategorySchema>
+): UploadCategory {
+	const normalized = legacyCategory?.toLowerCase() ?? "";
+	if (normalized.includes("industry") || normalized === "industry_specific") {
+		return "industry";
+	}
+	if (
+		normalized.includes("financial") ||
+		documentType === "BANK_STATEMENT" ||
+		documentType === "BANK_STATEMENT_3_MONTH" ||
+		documentType === "FINANCIAL_STATEMENTS"
+	) {
+		return "financial";
+	}
+	if (
+		normalized.includes("individual") ||
+		normalized.includes("identity") ||
+		normalized.includes("address") ||
+		documentType === "ID_DOCUMENT" ||
+		documentType === "PROOF_OF_ADDRESS" ||
+		documentType === "PROOF_OF_RESIDENCE" ||
+		documentType === "PROPRIETOR_ID" ||
+		documentType === "PROPRIETOR_RESIDENCE"
+	) {
+		return "individual";
+	}
+	if (
+		documentType === "ACCOUNTANT_LETTER" ||
+		documentType === "ACCOUNTING_OFFICER_LETTER" ||
+		documentType === "THIRD_PARTY_CONFIRMATION_LETTER"
+	) {
+		return "professional";
+	}
+	return "standard";
+}
 
 export async function POST(request: NextRequest) {
 	try {
@@ -97,6 +144,27 @@ export async function POST(request: NextRequest) {
 		const uploadedDocuments = [];
 		const rejected: { name: string; reason: string }[] = [];
 
+		const resolvedWorkflowId =
+			formInstance.workflowId ??
+			(
+				await db
+					.select({ id: workflows.id })
+					.from(workflows)
+					.where(eq(workflows.applicantId, formInstance.applicantId))
+					.orderBy(desc(workflows.id))
+					.limit(1)
+			)[0]?.id;
+
+		if (!resolvedWorkflowId) {
+			return NextResponse.json(
+				{
+					error:
+						"No workflow found for this applicant. Cannot store upload in document_uploads.",
+				},
+				{ status: 400 }
+			);
+		}
+
 		for (const file of files) {
 			if (!allowedTypes.includes(file.type)) {
 				rejected.push({ name: file.name, reason: "File type not allowed" });
@@ -124,21 +192,24 @@ export async function POST(request: NextRequest) {
 			const storageUrl = `/api/documents/download?applicantId=${formInstance.applicantId}&type=${validation.data.documentType}&fileName=${encodeURIComponent(file.name)}`;
 
 			const [inserted] = await db
-				.insert(documents)
+				.insert(documentUploads)
 				.values([
 					{
-						applicantId: formInstance.applicantId,
-						type: validation.data.documentType,
-						category: validation.data.category,
-						source: "client",
-						status: "uploaded",
+						workflowId: resolvedWorkflowId,
+						category: mapLegacyCategoryToUploadCategory(
+							validation.data.documentType,
+							validation.data.category
+						),
+						documentType: validation.data.documentType,
 						fileName: file.name,
+						fileSize: file.size,
 						fileContent: base64Content,
 						mimeType: file.type,
+						storageKey: `workflow-${resolvedWorkflowId}/documents/${validation.data.documentType}/${randomUUID()}-${file.name}`,
 						storageUrl,
 						uploadedBy: "client",
 						uploadedAt: new Date(),
-						notes:
+						verificationNotes:
 							quality.warnings.length > 0
 								? `[QUALITY_WARNING] ${quality.warnings.join("; ")}`
 								: undefined,
@@ -147,21 +218,29 @@ export async function POST(request: NextRequest) {
 				.returning();
 
 			if (inserted) {
-				uploadedDocuments.push(inserted);
+				uploadedDocuments.push({
+					id: inserted.id,
+					applicantId: formInstance.applicantId,
+					type: inserted.documentType,
+					status: "uploaded",
+					category: validation.data.category ?? null,
+					fileName: inserted.fileName,
+					mimeType: inserted.mimeType,
+					storageUrl: inserted.storageUrl,
+					uploadedAt: inserted.uploadedAt,
+				});
 
-				if (formInstance.workflowId) {
-					await inngest.send({
-						name: "document/uploaded",
-						data: {
-							workflowId: formInstance.workflowId,
-							applicantId: formInstance.applicantId,
-							documentId: inserted.id,
-							documentType: validation.data.documentType,
-							category: validation.data.category,
-							uploadedAt: new Date().toISOString(),
-						},
-					});
-				}
+				await inngest.send({
+					name: "document/uploaded",
+					data: {
+						workflowId: resolvedWorkflowId,
+						applicantId: formInstance.applicantId,
+						documentId: inserted.id,
+						documentType: validation.data.documentType,
+						category: validation.data.category,
+						uploadedAt: new Date().toISOString(),
+					},
+				});
 			}
 		}
 

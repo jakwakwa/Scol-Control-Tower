@@ -1,12 +1,6 @@
 import { and, desc, eq, inArray, like, sql } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
-import {
-	aiAnalysisLogs,
-	documentUploads,
-	documents,
-	quotes,
-	workflowEvents,
-} from "@/db/schema";
+import { aiAnalysisLogs, documentUploads, quotes, workflowEvents } from "@/db/schema";
 import { FINANCIAL_RISK_AGENT_NAME } from "@/lib/services/agents/financial-risk.agent";
 
 export interface AgentStats {
@@ -164,7 +158,7 @@ export async function getFinancialRiskAgentStats(): Promise<AgentStats> {
 /**
  * Automated ID verification (Document AI), aligned with `processIdentityVerification` / Inngest `autoVerifyIdentity`.
  *
- * - **callbackCount**: verified ID rows written by Document AI (`documents` + `document_uploads`).
+ * - **callbackCount**: verified ID rows written by Document AI (`document_uploads`).
  * - **errorCount**: Inngest failures are not persisted in SQLite today; remains 0 unless instrumented elsewhere.
  */
 export async function getIdentityVerificationAgentStats(): Promise<AgentStats> {
@@ -173,30 +167,14 @@ export async function getIdentityVerificationAgentStats(): Promise<AgentStats> {
 
 	const idTypes = [...IDENTITY_DOCUMENT_TYPES_FOR_STATS];
 
-	const docWhere = and(
-		inArray(documents.type, idTypes),
-		eq(documents.processingStatus, "verified"),
-		like(documents.processingResult, "%documentAiResult%")
-	);
-
 	const uploadWhere = and(
 		inArray(documentUploads.documentType, idTypes),
 		eq(documentUploads.verificationStatus, "verified"),
 		eq(documentUploads.verifiedBy, "Document AI")
 	);
 
-	const [docCount, uploadCount, lastDoc, lastUpload] = await Promise.all([
-		db.select({ count: sql<number>`count(*)` }).from(documents).where(docWhere),
-		db
-			.select({ count: sql<number>`count(*)` })
-			.from(documentUploads)
-			.where(uploadWhere),
-		db
-			.select({ verifiedAt: documents.verifiedAt })
-			.from(documents)
-			.where(docWhere)
-			.orderBy(desc(documents.verifiedAt))
-			.limit(1),
+	const [uploadCount, lastUpload] = await Promise.all([
+		db.select({ count: sql<number>`count(*)` }).from(documentUploads).where(uploadWhere),
 		db
 			.select({ verifiedAt: documentUploads.verifiedAt })
 			.from(documentUploads)
@@ -205,14 +183,9 @@ export async function getIdentityVerificationAgentStats(): Promise<AgentStats> {
 			.limit(1),
 	]);
 
-	const times: number[] = [];
-	if (lastDoc[0]?.verifiedAt) times.push(lastDoc[0].verifiedAt.getTime());
-	if (lastUpload[0]?.verifiedAt) times.push(lastUpload[0].verifiedAt.getTime());
-
 	return {
-		callbackCount: docCount[0].count + uploadCount[0].count,
+		callbackCount: uploadCount[0].count,
 		errorCount: 0,
-		lastCallbackAt:
-			times.length > 0 ? new Date(Math.max(...times)) : undefined,
+		lastCallbackAt: lastUpload[0]?.verifiedAt ?? undefined,
 	};
 }

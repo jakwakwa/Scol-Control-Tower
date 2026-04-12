@@ -194,7 +194,7 @@ export function NotificationsPanel({
 				align="end"
 				className=" border-amber-200/10 border bg-zinc-950/50 backdrop-blur-sm mx-0 px-0 my-0 overflow-hidden">
 				{/* Header */}
-				<div className="flex items-center justify-between border-b border-secondary/10 px-4 h-12 bg-black/40 m-0 w-full">
+				<div className="flex items-center justify-between border-b border-secondary/10 px-4 h-12 my-0 bg-black/20 m-0 w-full">
 					<h3 className="text-xs font-light">Notifications</h3>
 					{unreadCount > 0 && (
 						<Button
@@ -229,28 +229,28 @@ export function NotificationsPanel({
 							const config =
 								notificationConfig[notification?.type] ?? notificationConfig.info;
 							const Icon = config.icon;
-							const isManualProcurementAlert =
-								isManualFallbackNotification(semantic);
+							const isManualProcurementAlert = isManualFallbackNotification(semantic);
 							const isVatAlert = isVatNotification(semantic);
 
 							return (
 								<div
 									key={notification?.id}
 									className={cn(
-										"group relative flex gap-0 x-4 py-0 mb-0  items-center justify-between  h-[130px] min-h-[130px] transition-colors",
+										"group relative flex gap-0 x-4 py-0 mb-0  items-center justify-between  h-[130px] min-h-[130px] transition-colors rounded-3xl",
 										!notification?.read && "bg-secondary/0",
 										isHighSeverity && "bg-destructive text-destructive-foreground",
 										isMediumGrouped && "bg-warning/20 border-4 border-l-warning"
 									)}>
 									{/* Main Action Button */}
-									<button
+									<Button
 										type="button"
-										className="absolute bg-zinc-950/60 -inset-1 z-20 m-0 w-full border hover:bg-cyan-400/5 transition-all  ease-in-out border-amber-300/15 rounded-xl left-0 p-0 focus:outline-1"
+										variant="ghost"
+										className="absolute bg-zinc-950/60 -inset-1 z-20 m-0 w-full border hover:bg-cyan-400/5 transition-all  ease-in-out border-amber-300/15 rounded-4xl left-0 p-0 focus:outline-1"
 										onClick={() => onNotificationClick?.(notification)}>
-										<span className="sr-only mt-4">
+										<span className="sr-only">
 											View notification from {notification?.clientName}
 										</span>
-									</button>
+									</Button>
 
 									{!notification?.read && (
 										<span className="absolute  h-1.5 w-1.5  top-7.5 z-30 shrink-0 left-4.5 rounded-full shadow-md shadow-teal-400 bg-zinc-800 outline-teal-500 outline-2" />
@@ -294,17 +294,18 @@ export function NotificationsPanel({
 										<p className="text-[11.5px] text-muted-foreground/90 italic font-extralight mt-1.5 line-clamp-3">
 											{formatNotificationMessage(semantic)}
 										</p>
-										<div className="flex items-center  absolute z-40 top-0 gap-2 right-0">
-											<button
+										<div className="flex items-center  absolute z-40 top-2	 gap-0 right-0">
+											<Button
 												type="button"
+												size="xs"
 												onClick={e => {
 													e.stopPropagation();
 													onDelete?.(notification);
 												}}
-												className="text-pink-400/70 bg-transparent hover:text-red-900 transition-colors text-xs border-red-700/50 cursor-pointer  absolute -right-6 pointer-events-auto p-2">
-												<RiCloseLine className="h-2.5 p-0	border-0 outline-0  w-2.5 " />
+												className="text-red-100/50 bg-transparent hover:text-red-900 p-px transition-colors text-xs border-red-200/10 h-5 cursor-pointer  absolute -right-6 pointer-events-auto">
+												<RiCloseLine className="h-1 p-0	border-0 outline-0  w-2.5 " />
 												<span className="sr-only">Dismiss</span>
-											</button>
+											</Button>
 										</div>
 										<div className="flex items-center justify-between mt-2 relative">
 											<span className="text-[10px] text-amber-200/80 flex items-center gap-1">

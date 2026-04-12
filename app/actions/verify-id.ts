@@ -3,7 +3,7 @@
 import { DocumentProcessorServiceClient } from "@google-cloud/documentai";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
-import { documents, documentUploads } from "@/db/schema";
+import { documentUploads, workflows } from "@/db/schema";
 
 export type IdentityVerificationDocumentAiEntity = {
 	type?: string | null;
@@ -80,71 +80,54 @@ export async function processIdentityVerification(
 			return { error: "Database not available." };
 		}
 
-		// Try to find the document
 		const idTypes = ["ID_DOCUMENT", "PROPRIETOR_ID", "DIRECTOR_ID", "FICA_ID"];
-		let doc = null;
-		let foundIn: "documents" | "documentUploads" = "documents";
+		let doc: {
+			id: number;
+			fileContent: string;
+			mimeType: string;
+		} | null = null;
 
 		if (documentId) {
-			// 1. Check 'documents' table first with specific ID
-			const docs = await db
-				.select()
-				.from(documents)
-				.where(and(eq(documents.id, documentId), eq(documents.applicantId, applicantId)))
+			const uploads = await db
+				.select({
+					id: documentUploads.id,
+					fileContent: documentUploads.fileContent,
+					mimeType: documentUploads.mimeType,
+				})
+				.from(documentUploads)
+				.innerJoin(workflows, eq(documentUploads.workflowId, workflows.id))
+				.where(
+					and(eq(documentUploads.id, documentId), eq(workflows.applicantId, applicantId))
+				)
 				.limit(1);
 
-			if (docs.length > 0 && docs[0].fileContent) {
+			if (uploads.length > 0 && uploads[0].fileContent) {
 				doc = {
-					id: docs[0].id,
-					fileContent: docs[0].fileContent,
-					mimeType: docs[0].mimeType || "application/pdf",
+					id: uploads[0].id,
+					fileContent: uploads[0].fileContent,
+					mimeType: uploads[0].mimeType || "application/pdf",
 				};
-			}
-
-			// 2. Fallback to 'documentUploads' if not found
-			if (!doc) {
-				const uploads = await db
-					.select()
-					.from(documentUploads)
-					.where(eq(documentUploads.id, documentId))
-					.limit(1);
-
-				if (uploads.length > 0 && uploads[0].fileContent) {
-					foundIn = "documentUploads";
-					doc = {
-						id: uploads[0].id,
-						workflowId: uploads[0].workflowId,
-						fileContent: uploads[0].fileContent,
-						mimeType: uploads[0].mimeType || "application/pdf",
-					};
-				}
 			}
 		} else {
-			// Search for latest if no specific ID provided
-			const docs = await db
-				.select()
-				.from(documents)
-				.where(
-					and(eq(documents.applicantId, applicantId), inArray(documents.type, idTypes))
-				)
-				.orderBy(desc(documents.uploadedAt))
+			const latestWorkflow = await db
+				.select({ id: workflows.id })
+				.from(workflows)
+				.where(eq(workflows.applicantId, applicantId))
+				.orderBy(desc(workflows.startedAt))
 				.limit(1);
 
-			if (docs.length > 0 && docs[0].fileContent) {
-				doc = {
-					id: docs[0].id,
-					fileContent: docs[0].fileContent,
-					mimeType: docs[0].mimeType || "application/pdf",
-				};
-			}
-
-			if (!doc) {
+			const workflowId = latestWorkflow[0]?.id;
+			if (workflowId) {
 				const uploads = await db
-					.select()
+					.select({
+						id: documentUploads.id,
+						fileContent: documentUploads.fileContent,
+						mimeType: documentUploads.mimeType,
+					})
 					.from(documentUploads)
 					.where(
 						and(
-							eq(documentUploads.workflowId, applicantId),
+							eq(documentUploads.workflowId, workflowId),
 							inArray(documentUploads.documentType, idTypes)
 						)
 					)
@@ -152,10 +135,8 @@ export async function processIdentityVerification(
 					.limit(1);
 
 				if (uploads.length > 0 && uploads[0].fileContent) {
-					foundIn = "documentUploads";
 					doc = {
 						id: uploads[0].id,
-						workflowId: uploads[0].workflowId,
 						fileContent: uploads[0].fileContent,
 						mimeType: uploads[0].mimeType || "application/pdf",
 					};
@@ -196,26 +177,15 @@ export async function processIdentityVerification(
 		}));
 
 		// Persist the results
-		if (foundIn === "documentUploads") {
-			await db
-				.update(documentUploads)
-				.set({
-					verificationStatus: "verified",
-					metadata: JSON.stringify({ documentAiResult: entities }),
-					verifiedAt: new Date(),
-					verifiedBy: "Document AI",
-				})
-				.where(eq(documentUploads.id, doc.id));
-		} else if (foundIn === "documents") {
-			await db
-				.update(documents)
-				.set({
-					processingStatus: "verified",
-					processingResult: JSON.stringify({ documentAiResult: entities }),
-					verifiedAt: new Date(),
-				})
-				.where(eq(documents.id, doc.id));
-		}
+		await db
+			.update(documentUploads)
+			.set({
+				verificationStatus: "verified",
+				metadata: JSON.stringify({ documentAiResult: entities }),
+				verifiedAt: new Date(),
+				verifiedBy: "Document AI",
+			})
+			.where(eq(documentUploads.id, doc.id));
 
 		return { data: { entities } };
 	} catch (error) {

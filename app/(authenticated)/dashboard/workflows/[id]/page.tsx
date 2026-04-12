@@ -205,7 +205,9 @@ export default async function WorkflowDetailsPage({
 								</CardTitle>
 								<CardDescription>
 									Created {formatDistanceToNow(latestQuote.createdAt)} ago by{" "}
-									{latestQuote.generatedBy}
+									{latestQuote.generatedBy === "gemini"
+										? "Google Gemini"
+										: latestQuote.generatedBy}
 								</CardDescription>
 							</CardHeader>
 							<CardContent>

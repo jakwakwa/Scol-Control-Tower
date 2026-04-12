@@ -26,6 +26,32 @@ import {
 } from "@/lib/risk-review/vat-status-display";
 import { cn } from "@/lib/utils";
 
+const SUPPLEMENTAL_DOC_LABELS: Record<string, string> = {
+	BANK_STATEMENT_3_MONTH: "Bank Statement (3 Months)",
+	PROPRIETOR_ID: "Proprietor ID",
+	PROPRIETOR_RESIDENCE: "Proprietor Residence",
+};
+
+function recommendationVariant(
+	recommendation:
+		| "ACCEPT"
+		| "REVIEW"
+		| "REJECT"
+		| "REQUEST_NEW_DOCUMENT"
+): "success" | "warning" | "danger" {
+	switch (recommendation) {
+		case "ACCEPT":
+			return "success";
+		case "REVIEW":
+			return "warning";
+		case "REJECT":
+		case "REQUEST_NEW_DOCUMENT":
+			return "danger";
+		default:
+			return "warning";
+	}
+}
+
 export function FicaSection({
 	data,
 	status,
@@ -43,6 +69,20 @@ export function FicaSection({
 
 	const verifyResult = verifyResultState || data.documentAiResult;
 	const isAlreadyVerified = !!data.documentAiResult;
+	const supplementalResults = data.supplementalValidation?.results ?? [];
+	const supplementalDocCards = Object.entries(SUPPLEMENTAL_DOC_LABELS)
+		.map(([documentType, label]) => ({
+			label,
+			result: supplementalResults.find(item => item.documentType === documentType),
+		}))
+		.filter(
+			(
+				item
+			): item is {
+				label: string;
+				result: NonNullable<typeof item.result>;
+			} => Boolean(item.result)
+		);
 
 	const handleVerifyId = async () => {
 		if (!applicantId) return;
@@ -213,6 +253,100 @@ export function FicaSection({
 									})}
 								</div>
 							)}
+
+							{supplementalDocCards.length > 0 ? (
+								<div className="mt-8">
+									<div className="flex items-center gap-2 mb-3">
+										<FileCheck className="w-4 h-4 text-primary" />
+										<h6 className="font-semibold text-sm text-foreground">
+											Document Validation
+										</h6>
+									</div>
+									<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+										{supplementalDocCards.map(({ label, result }) => (
+											<Card
+												key={`${result.documentId}-${result.documentType}`}
+												className="p-4 bg-muted/10 border border-border/60">
+												<div className="flex items-start justify-between gap-3 mb-3">
+													<div>
+														<p className="font-medium text-sm text-foreground">{label}</p>
+														<p className="text-xs text-muted-foreground">
+															Score {result.validation.overallScore}
+														</p>
+													</div>
+													<RiskReviewBadge
+														variant={recommendationVariant(
+															result.validation.recommendation
+														)}>
+														{result.validation.recommendation.replaceAll("_", " ")}
+													</RiskReviewBadge>
+												</div>
+
+												<div className="space-y-2 text-xs">
+													<div className="flex items-center justify-between">
+														<span className="text-muted-foreground">Authenticity</span>
+														<RiskReviewBadge
+															variant={
+																result.validation.isAuthentic ? "success" : "danger"
+															}>
+															{result.validation.isAuthentic ? "Authentic" : "Flagged"}
+														</RiskReviewBadge>
+													</div>
+													<p className="text-muted-foreground">
+														Flags:{" "}
+														{result.validation.authenticityFlags.length > 0
+															? result.validation.authenticityFlags.join(", ")
+															: "None"}
+													</p>
+													<p className="text-muted-foreground">
+														Date checks:{" "}
+														{result.validation.dateIssues.length > 0
+															? result.validation.dateIssues.join(", ")
+															: result.validation.dateValid
+																? "No issues"
+																: "Date verification failed"}
+													</p>
+													{result.validation.ficaComparison ? (
+														<div className="p-2 rounded-md bg-muted/40 border border-border/50">
+															<p className="text-foreground font-medium">
+																FICA comparison:{" "}
+																{result.validation.ficaComparison.summary.overallStatus.replaceAll(
+																	"_",
+																	" "
+																)}
+															</p>
+															<p className="text-muted-foreground">
+																Mismatches:{" "}
+																{
+																	result.validation.ficaComparison.summary.mismatchCount
+																}
+																{" · "}
+																Critical:{" "}
+																{
+																	result.validation.ficaComparison.summary
+																		.criticalMismatchCount
+																}
+															</p>
+															{result.validation.ficaComparison.summary.keyDiscrepancies
+																.length > 0 ? (
+																<p className="text-muted-foreground mt-1">
+																	{
+																		result.validation.ficaComparison.summary
+																			.keyDiscrepancies[0]
+																	}
+																</p>
+															) : null}
+														</div>
+													) : null}
+													<p className="text-muted-foreground leading-relaxed">
+														{result.validation.reasoning}
+													</p>
+												</div>
+											</Card>
+										))}
+									</div>
+								</div>
+							) : null}
 						</div>
 					)}
 				</Card>

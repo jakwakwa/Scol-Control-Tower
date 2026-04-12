@@ -55,10 +55,6 @@ export const DocumentUploadedSchema = z.object({
 
 export type DocumentUploaded = z.infer<typeof DocumentUploadedSchema>;
 
-// ============================================
-// waitForEvent Result Schemas (17 events)
-// ============================================
-
 export const FormFacilitySubmittedSchema = z.object({
 	workflowId: z.number().int().positive(),
 	applicantId: z.number().int().positive(),
@@ -267,11 +263,7 @@ export const ApprovalAccountManagerReceivedSchema = z.object({
 export type ApprovalAccountManagerReceived = z.infer<
 	typeof ApprovalAccountManagerReceivedSchema
 >;
-
-// ============================================
-// JSON.parse Payload Schemas
-// ============================================
-
+    
 export const StoredSanctionsPayloadSchema = z.object({
 	source: z.enum(["pre_risk", "itc_main"]).optional(),
 	reused: z.boolean().optional(),

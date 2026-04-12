@@ -12,7 +12,7 @@
 
 import { eq, sql } from "drizzle-orm";
 import { getDatabaseClient } from "@/app/utils";
-import { documents, workflows } from "@/db/schema";
+import { documentUploads, workflows } from "@/db/schema";
 import { type LogEventParams, logWorkflowEvent } from "./notification-events.service";
 
 // ============================================
@@ -166,7 +166,7 @@ export async function guardStateCollision(
  * don't accidentally validate corrupted/partial data from the failed process.
  *
  * Steps:
- * 1. Mark related documents with processingStatus = "stale"
+ * 1. Mark related uploads with stale verification notes
  * 2. Log the stale data event for audit trail
  */
 export async function markStaleData(
@@ -180,22 +180,25 @@ export async function markStaleData(
 
 	if (db) {
 		try {
-			// Find and mark any documents with incomplete/partial processing status
-			// from the failed automation attempt
+			// Find and mark workflow uploads as stale for this failed automation attempt.
 			const partialDocs = await db
-				.select({ id: documents.id })
-				.from(documents)
-				.where(eq(documents.applicantId, workflowId));
+				.select({
+					id: documentUploads.id,
+					verificationNotes: documentUploads.verificationNotes,
+				})
+				.from(documentUploads)
+				.where(eq(documentUploads.workflowId, workflowId));
 
-			// Mark documents that have incomplete processing as stale
+			// Persist stale audit note on affected uploads
 			for (const doc of partialDocs) {
 				await db
-					.update(documents)
+					.update(documentUploads)
 					.set({
-						processingStatus: "stale",
-						notes: `[STALE] Marked stale on ${markedStaleAt}. Source: ${source}. Reason: ${reason}`,
+						verificationNotes:
+							`${doc.verificationNotes ? `${doc.verificationNotes} | ` : ""}` +
+							`[STALE] Marked stale on ${markedStaleAt}. Source: ${source}. Reason: ${reason}`,
 					})
-					.where(eq(documents.id, doc.id));
+					.where(eq(documentUploads.id, doc.id));
 				purgedDocumentIds.push(doc.id);
 			}
 		} catch (error) {

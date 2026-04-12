@@ -1,11 +1,11 @@
 import { getBaseUrl } from "@/app/utils";
+import { guardKillSwitch } from "@/inngest/utils/guards";
 import { WORKFLOW_TIMEOUTS } from "@/lib/constants/workflow-timeouts";
 import { sendInternalAlertEmail } from "@/lib/services/email.service";
 import { createWorkflowNotification } from "@/lib/services/notification-events.service";
 import { updateWorkflowStatus } from "@/lib/services/workflow.service";
 import { handleWaitWithReminders } from "../../handlers/reminder-handler";
 import type { StageDependencies, StageResult } from "../types";
-import { guardKillSwitch } from "@/inngest/utils/guards";
 
 export async function executeStage5({
 	step,
@@ -48,7 +48,7 @@ export async function executeStage5({
 	);
 
 	// Wait for Account Manager to review/edit the contract draft (AM-only reminders)
-	const contractReviewed = await handleWaitWithReminders({
+	const _contractReviewed = await handleWaitWithReminders({
 		step,
 		workflowId,
 		applicantId,
@@ -83,7 +83,7 @@ export async function executeStage5({
 	);
 
 	// Wait for ABSA 6995 form completion (AM-only reminders)
-	const absaCompleted = await handleWaitWithReminders({
+	const _absaCompleted = await handleWaitWithReminders({
 		step,
 		workflowId,
 		applicantId,

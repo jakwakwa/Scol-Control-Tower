@@ -2,8 +2,7 @@ import "./envConfig";
 
 import { defineConfig } from "drizzle-kit";
 
-// For migration generation, we only need the schema
-// For push/migrate, we need the full credentials
+
 const hasCredentials =
 	process.env.TURSO_DATABASE_NAME &&
 	process.env.TURSO_ORG &&
