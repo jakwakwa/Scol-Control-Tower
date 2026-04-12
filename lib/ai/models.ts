@@ -82,7 +82,7 @@ export function isAIConfigured(): boolean {
  */
 export function getGenAIClient(): GoogleGenAISdk {
 	return new GoogleGenAISdk({
-		apiKey: requireGoogleGenAIKey()
+		apiKey: requireGoogleGenAIKey(),
 	});
 }
 
@@ -117,12 +117,7 @@ export async function runStructuredInteraction<TSchema extends z.ZodTypeAny>(
 	return options.schema.parse(JSON.parse(textOutput.text));
 }
 
-/**
- * AI configuration constants
- */
 export const AI_CONFIG = {
-	/** Temperature for deterministic outputs */
-	ANALYSIS_TEMPERATURE: 0.9,
-	/** Retry attempts for failed AI calls */
-	MAX_RETRIES: 1,
+	ANALYSIS_TEMPERATURE: 0.1,
+	MAX_RETRIES: 3,
 } as const;
