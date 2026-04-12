@@ -110,11 +110,11 @@ export function ApplicantForm({
 			contactName: `${isTestMode ? "Jacob Kotzee" : "John Test"}`,
 			idNumber: `${isTestMode ? "8503195187088" : ""}`,
 			email: `${isTestMode ? "jkotzee@icloud.com" : "john.test@testcompany.co.za"}`,
-			phone: `${isTestMode ? "" : "+27 82 123 4567"}`,
+			phone: `${isTestMode ? "+27 82 123 4567" : "+27 82 123 4567"}`,
 			entityType: isTestMode ? "proprietor" : "company",
 			productType: "standard",
 			industry: `${isTestMode ? "Information Technology" : "Financial Services"}`,
-			mandateType: `${isTestMode ? "Debit Order" : "debit_order"}`,
+			mandateType: `${isTestMode ? "debit_order" : "debit_order"}`,
 			employeeCount: `${isTestMode ? "1" : "5"}`,
 			estimatedTransactionsPerMonth: `${isTestMode ? "20" : "1500"}`,
 			notes: "test applicant input - auto-generated for credit check testing",
@@ -490,7 +490,8 @@ export function ApplicantForm({
 				) : null}
 				<Button
 					type="button"
-					variant="ghost"
+					variant="outline"
+					size="lg"
 					onClick={() => router.back()}
 					disabled={isLoading}>
 					Cancel
@@ -499,7 +500,7 @@ export function ApplicantForm({
 					type="submit"
 					disabled={isLoading}
 					size="lg"
-					className="gap-2 bg-linear-to-r from-cyan-900 to-180% to-cyan-800 hover:from-secondary hover:to-secondary">
+					className="gap-2 bg-linear-to-r from-[#0e565a] to-180% to-[#0c2432] hover:from-secondary hover:to-secondary text-zinc-100">
 					{isLoading && <RiLoader4Line className="h-4 w-4 animate-spin" />}
 					{isEditing ? "Save Changes" : "Create Applicant"}
 				</Button>

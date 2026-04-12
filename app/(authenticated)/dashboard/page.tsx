@@ -3,7 +3,7 @@ import {
 	RiFileTextLine,
 	RiShieldCheckLine,
 	RiTimeLine,
-	RiUser2Fill,
+	RiUserAddLine,
 } from "@remixicon/react";
 import { count, desc, eq } from "drizzle-orm";
 import Link from "next/link";
@@ -129,16 +129,13 @@ export default async function DashboardPage() {
 			title="Onboarding Pipeline"
 			description="Track and manage client applications through the onboarding process"
 			actions={
-				<div className="flex items-center mr-4">
-					<Button
-						variant="secondary"
-						asChild
-						className="gap-2 mx-0 focus-visible:mx-0  focus-visible:h-fit max-w-fit">
-						<Link href="/dashboard/applicants/new">
-							<RiUser2Fill className="h-4 w-4" />
-							New Applicant
-						</Link>
-					</Button>
+				<div className="flex items-center">
+					<Link href="/dashboard/applicants/new">
+						<Button variant="outline" className="gap-2 " size="lg">
+							<RiUserAddLine />
+							Onboard Applicant
+						</Button>
+					</Link>
 				</div>
 			}
 			notifications={workflowNotifications}>

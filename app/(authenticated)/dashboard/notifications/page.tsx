@@ -141,13 +141,13 @@ export default async function NotificationsPage() {
 			<DashboardSection title="All Notifications">
 				{allNotifications.length === 0 ? (
 					<GlassCard>
-						<div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+						<div className="grid grid-cols-3 items-center justify-center py-12 text-muted-foreground">
 							<RiCheckDoubleLine className="h-12 w-12 mb-4 opacity-30" />
 							<p>No notifications</p>
 						</div>
 					</GlassCard>
 				) : (
-					<div className="space-y-3">
+					<div className="space-y-3 fex flex-col max-w-lg mx-auto gap-4">
 						{allNotifications.map(notification => {
 							const semantic = {
 								message: notification.message,
@@ -159,87 +159,87 @@ export default async function NotificationsPage() {
 								notification.severity === "medium" && notification.groupKey;
 
 							return (
-							<GlassCard
-								key={notification.id}
-								className={`flex items-start justify-between gap-4 ${
-									isHighSeverity
-										? "bg-destructive text-destructive-foreground border-l-4 border-l-destructive"
-										: isMediumGrouped
-											? "bg-warning/20 border-l-4 border-l-warning"
-											: !notification.read
-												? "border-l-4 border-l-warning"
-												: ""
-								}`}>
-								<div className="flex items-start gap-4">
-									<div
-										className={`p-2 rounded-lg ${
-											isHighSeverity
-												? "bg-destructive/30 text-destructive-foreground"
-												: notification.type === "error"
-													? "bg-red-500/10 text-red-400"
-													: notification.type === "warning"
-														? "bg-warning/50 text-warning-foreground"
-														: notification.type === "success"
-															? "bg-green-500/10 text-green-400"
-															: "bg-blue-500/10 text-blue-400"
-										}`}>
-										{notification.type === "error" ? (
-											<RiAlertLine className="h-5 w-5" />
-										) : notification.type === "warning" ? (
-											<RiTimeLine className="h-5 w-5" />
-										) : (
-											<RiCheckLine className="h-5 w-5" />
-										)}
+								<GlassCard
+									key={notification.id}
+									className={`flex flex-row items-start justify-center px-6 py-8 h-full gap-4 w-full ${
+										isHighSeverity
+											? "bg-destructive text-destructive-foreground border-l-4 border-l-destructive"
+											: isMediumGrouped
+												? "bg-warning/20 border-l-4 border-l-warning"
+												: !notification.read
+													? "border-l-4 border-l-warning"
+													: ""
+									}`}>
+									<div className="flex items-start gap-4 w-full h-full">
+										<div
+											className={`p-2 rounded-lg ${
+												isHighSeverity
+													? "bg-destructive/30 text-destructive-foreground"
+													: notification.type === "error"
+														? "bg-red-500/10 text-red-400"
+														: notification.type === "warning"
+															? "bg-warning/50 text-warning-foreground"
+															: notification.type === "success"
+																? "bg-green-500/10 text-green-400"
+																: "bg-blue-500/10 text-blue-400"
+											}`}>
+											{notification.type === "error" ? (
+												<RiAlertLine className="h-5 w-5" />
+											) : notification.type === "warning" ? (
+												<RiTimeLine className="h-5 w-5" />
+											) : (
+												<RiCheckLine className="h-5 w-5" />
+											)}
+										</div>
+										<div>
+											<h4 className="font-medium flex items-center gap-4">
+												{notification.clientName || "Unknown Client"}
+												{isManualFallbackNotification(semantic) && (
+													<span className="text-[10px] uppercase tracking-wide text-red-300 border border-red-500/30 bg-red-500/10 rounded px-1.5 py-0.5">
+														Manual Check
+													</span>
+												)}
+												{isVatNotification(semantic) && (
+													<span className="text-[10px] uppercase tracking-wide text-teal-300 border border-teal-500/30 bg-teal-500/10 rounded px-1.5 py-0.5">
+														VAT Check
+													</span>
+												)}
+												{!notification.read && (
+													<span className="ml-2 inline-block w-2 h-2 rounded-full bg-blue-400" />
+												)}
+											</h4>
+											<p className="text-sm text-muted-foreground">
+												{formatNotificationMessage(semantic)}
+											</p>
+											<p className="text-xs text-muted-foreground/60 mt-1">
+												{notification.createdAt
+													? new Date(notification.createdAt).toLocaleString()
+													: "Unknown time"}
+											</p>
+										</div>
 									</div>
-									<div>
-										<h4 className="font-medium flex items-center gap-2">
-											{notification.clientName || "Unknown Client"}
-											{isManualFallbackNotification(semantic) && (
-												<span className="text-[10px] uppercase tracking-wide text-red-300 border border-red-500/30 bg-red-500/10 rounded px-1.5 py-0.5">
-													Manual Check
-												</span>
-											)}
-											{isVatNotification(semantic) && (
-												<span className="text-[10px] uppercase tracking-wide text-teal-300 border border-teal-500/30 bg-teal-500/10 rounded px-1.5 py-0.5">
-													VAT Check
-												</span>
-											)}
-											{!notification.read && (
-												<span className="ml-2 inline-block w-2 h-2 rounded-full bg-blue-400" />
-											)}
-										</h4>
-										<p className="text-sm text-muted-foreground">
-											{formatNotificationMessage(semantic)}
-										</p>
-										<p className="text-xs text-muted-foreground/60 mt-1">
-											{notification.createdAt
-												? new Date(notification.createdAt).toLocaleString()
-												: "Unknown time"}
-										</p>
-									</div>
-								</div>
 
-								<div className="flex items-center gap-2">
-									{!notification.read && (
-										<form action={markAsRead}>
+									<div className=" px-1 h-full right-0 flex items-center w-[30px]">
+										{!notification.read && (
+											<form action={markAsRead}>
+												<input type="hidden" name="id" value={notification.id} />
+												<Button variant="ghost" size="sm" className="gap-1">
+													<RiCheckLine className="h-4 w-4" />
+													Mark Read
+												</Button>
+											</form>
+										)}
+										<form action={deleteNotification} className=" ">
 											<input type="hidden" name="id" value={notification.id} />
-											<Button variant="ghost" size="sm" className="gap-1">
-												<RiCheckLine className="h-4 w-4" />
-												Mark Read
+											<Button
+												variant="ghost"
+												size="sm"
+												className="gap-1 text-red-400 hover:text-red-300 hover:bg-red-500/10">
+												<RiDeleteBinLine className="h-4 w-4" />
 											</Button>
 										</form>
-									)}
-									<form action={deleteNotification}>
-										<input type="hidden" name="id" value={notification.id} />
-										<Button
-											variant="ghost"
-											size="sm"
-											className="gap-1 text-red-400 hover:text-red-300 hover:bg-red-500/10">
-											<RiDeleteBinLine className="h-4 w-4" />
-										</Button>
-									</form>
-								</div>
-							</GlassCard>
+									</div>
+								</GlassCard>
 							);
 						})}
 					</div>

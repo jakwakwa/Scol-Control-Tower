@@ -3,12 +3,14 @@
 import { UserButton, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import posthog from "posthog-js";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDashboardStore } from "@/lib/dashboard-store";
 import { getNotificationRoute } from "@/lib/notifications/semantics";
 import { cn } from "@/lib/utils";
 import { NotificationsPanel, type WorkflowNotification } from "./notifications-panel";
 import { Sidebar } from "./sidebar";
+
+const SSE_REFRESH_DEBOUNCE_MS = 500;
 
 interface DashboardShellProps {
 	children: React.ReactNode;
@@ -22,6 +24,11 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 	const { user } = useUser();
 
 	const { title, description, actions } = useDashboardStore();
+
+	const sseRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+		undefined
+	);
+	const sseErrorCountRef = useRef(0);
 
 	useEffect(() => {
 		setIsMounted(true);
@@ -37,27 +44,47 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 	}, [user?.id, user?.fullName, user?.primaryEmailAddress?.emailAddress]);
 
 	// Real-time updates via SSE
-
 	useEffect(() => {
 		const eventSource = new EventSource("/api/notifications/stream");
+
+		const scheduleRefresh = () => {
+			clearTimeout(sseRefreshTimeoutRef.current);
+			sseRefreshTimeoutRef.current = setTimeout(() => {
+				sseRefreshTimeoutRef.current = undefined;
+				router.refresh();
+			}, SSE_REFRESH_DEBOUNCE_MS);
+		};
+
+		eventSource.onopen = () => {
+			sseErrorCountRef.current = 0;
+		};
 
 		eventSource.onmessage = event => {
 			try {
 				const data = JSON.parse(event.data);
 				if (data && (data.type === "notification" || data.type === "update")) {
-					router.refresh();
+					scheduleRefresh();
 				}
 			} catch (e) {
 				console.error("Failed to parse notification event", e);
 			}
 		};
 
-		eventSource.onerror = error => {
-			console.error("EventSource failed", error);
-			// EventSource automatically reconnects
+		eventSource.onerror = () => {
+			if (eventSource.readyState !== EventSource.OPEN) {
+				return;
+			}
+			sseErrorCountRef.current += 1;
+			if (sseErrorCountRef.current >= 3) {
+				console.warn(
+					"[notifications-sse] repeated errors while open; check network or /api/notifications/stream"
+				);
+			}
 		};
 
 		return () => {
+			clearTimeout(sseRefreshTimeoutRef.current);
+			sseRefreshTimeoutRef.current = undefined;
 			eventSource.close();
 		};
 	}, [router]);
@@ -65,7 +92,7 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 	return (
 		<>
 			{/* BACKGROUNDs */}
-			<div className="print:hidden print:bg-white fixed w-full -z-20 top-0 min-h-full size-230 h-screen bg-radial-[at_-30%_-40%] from-10% from-[var(--gold-700)]/80 via-65% via-zinc-800/90	 to-zinc-900/90 to-110%" />
+			<div className="print:hidden print:bg-white fixed w-full -z-20 top-0 min-h-full size-230 h-screen bg-radial-[at_-50%_-40%] from-10% from-[var(--gold-700)]/80 via-50% via-zinc-800	 to-zinc-900 to-90%" />
 
 			<div className="print:hidden">
 				<Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
