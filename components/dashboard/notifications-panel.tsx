@@ -242,7 +242,7 @@ export function NotificationsPanel({
 										isMediumGrouped && "bg-warning/20 border-4 border-l-warning"
 									)}>
 									{/* Main Action Button */}
-									<button
+									<Button
 										type="button"
 										variant="ghost"
 										className="absolute bg-zinc-950/60 -inset-1 z-20 m-0 w-full border hover:bg-cyan-400/5 transition-all  ease-in-out border-amber-300/15 rounded-4xl left-0 p-0 focus:outline-1"
@@ -250,7 +250,7 @@ export function NotificationsPanel({
 										<span className="sr-only">
 											View notification from {notification?.clientName}
 										</span>
-									</button>
+									</Button>
 
 									{!notification?.read && (
 										<span className="absolute  h-1.5 w-1.5  top-7.5 z-30 shrink-0 left-4.5 rounded-full shadow-md shadow-teal-400 bg-zinc-800 outline-teal-500 outline-2" />
@@ -302,7 +302,7 @@ export function NotificationsPanel({
 													e.stopPropagation();
 													onDelete?.(notification);
 												}}
-												className="text-red-100/50 bg-transparent hover:text-red-900 p-[1px] transition-colors text-xs border-red-200/10 h-5 cursor-pointer  absolute -right-6 pointer-events-auto">
+												className="text-red-100/50 bg-transparent hover:text-red-900 p-px transition-colors text-xs border-red-200/10 h-5 cursor-pointer  absolute -right-6 pointer-events-auto">
 												<RiCloseLine className="h-1 p-0	border-0 outline-0  w-2.5 " />
 												<span className="sr-only">Dismiss</span>
 											</Button>
