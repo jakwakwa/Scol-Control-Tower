@@ -345,6 +345,7 @@ export const columns: ColumnDef<WorkflowRow>[] = [
 				<div className="flex items-center gap-1">
 					<DropdownMenu>
 						<DropdownMenuTrigger
+							aria-label="More actions"
 							className={cn(
 								buttonVariants({ variant: "ghost", size: "icon" }),
 								"h-8 w-8 hover:bg-background/50"

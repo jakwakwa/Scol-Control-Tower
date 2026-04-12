@@ -79,7 +79,9 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 		header: ({ column }) => (
 			<Button
 				variant="ghost"
+				size="xs"
 				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+				Company Name
 				{column.getIsSorted() === "asc" ? (
 					<RiArrowUpSLine className="ml-2 h-4 w-4" />
 				) : column.getIsSorted() === "desc" ? (
@@ -209,6 +211,7 @@ export const columns: ColumnDef<ApplicantRow>[] = [
 				<div className="flex items-center justify-end gap-2">
 					<DropdownMenu>
 						<DropdownMenuTrigger
+							aria-label="More actions"
 							className={cn(
 								buttonVariants({ variant: "ghost", size: "icon" }),
 								"h-8 w-8 hover:bg-background"
