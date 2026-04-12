@@ -76,6 +76,7 @@ export default async function RiskReviewReportPage({
 					)
 				)
 				.orderBy(desc(aiAnalysisLogs.createdAt))
+				.limit(10)
 		: [];
 
 	const riskAssessmentRows = workflow
