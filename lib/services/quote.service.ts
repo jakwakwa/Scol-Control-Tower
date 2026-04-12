@@ -98,7 +98,7 @@ export async function generateQuote(
 				adjustedFeePercent: quoteDetails.adjustedFeePercent,
 				rationale: quoteDetails.rationale,
 				details: detailsJson,
-				generatedBy: "Google Gemini",
+				generatedBy: "gemini",
 				status: "draft",
 			})
 			.returning();
