@@ -31,14 +31,23 @@ let failed = 0;
 const results: { name: string; ok: boolean; detail: string; durationMs: number }[] = [];
 
 function printTestLine(entry: (typeof results)[number]) {
-	const _label = entry.ok ? "PASS" : "FAIL";
-	const _icon = entry.ok ? PASS : FAIL;
-	if (!entry.ok && entry.detail) {
+	const label = entry.ok ? "PASS" : "FAIL";
+	const icon = entry.ok ? PASS : FAIL;
+	const base = `${icon} ${label} ${entry.name} (${entry.durationMs}ms)`;
+	const detail = entry.detail ? ` — ${entry.detail}` : "";
+	if (entry.ok) {
+		console.info(base + detail);
+		return;
 	}
+	console.error(base + detail);
 }
 
 function printSummary() {
-	const _totalMs = results.reduce((sum, r) => sum + r.durationMs, 0);
+	const totalMs = results.reduce((sum, r) => sum + r.durationMs, 0);
+	const icon = failed === 0 ? PASS : FAIL;
+	console.info(
+		`${icon} Summary: ${_BOLD}${_passed}/${results.length}${_RESET} passed, ${failed} failed — total ${totalMs}ms`
+	);
 }
 
 /** Second pass for automation / long logs — every failing case in one place before exit(1). */
@@ -47,7 +56,10 @@ function printFailureRecap() {
 	if (failures.length === 0) {
 		return;
 	}
-	for (const _f of failures) {
+	console.error(`${FAIL} Failure recap (${failures.length}):`);
+	for (const failure of failures) {
+		const detail = failure.detail ? ` — ${failure.detail}` : "";
+		console.error(`${FAIL} ${failure.name} (${failure.durationMs}ms)${detail}`);
 	}
 }
 

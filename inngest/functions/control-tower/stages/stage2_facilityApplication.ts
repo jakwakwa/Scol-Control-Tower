@@ -525,8 +525,8 @@ export async function executeStage2({
 				const parsed = JSON.parse(quote.details);
 				riskFactors = parsed.riskFactors ?? "Zero Risk Factors";
 				generatedAt = parsed.generatedAt ?? new Date().toISOString();
-			} catch {
-                console.error("[ControlTower] logWorkflowEvent failed: Could not parse Quote details");
+			} catch (error) {
+				console.error("[ControlTower] Failed to parse quote details:", error);
 			}
 		}
 
