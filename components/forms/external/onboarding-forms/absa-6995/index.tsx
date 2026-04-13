@@ -1337,7 +1337,7 @@ export function Absa6995Form({
 
 										<div
 											className={cn(
-												"bg-zinc-900/10 rounded-xl border-zinc-200/50  flex items-center justify-between  gap-3 p-3 border-[2px] shadow-md shadow-black/50",
+												"bg-zinc-900/10 rounded-xl border-zinc-200/50  flex items-center justify-between  gap-3 p-3 border-[2px] shadow-md shadow-black/20",
 												errors.sectionC?.declarations?.informationTrueAndCorrect
 													? "border-destructive bg-destructive/5"
 													: "border-border"
@@ -1364,7 +1364,7 @@ export function Absa6995Form({
 
 										<div
 											className={cn(
-												"bg-zinc-900/10 rounded-xl border-zinc-200/50  flex items-center justify-between  gap-3 p-3 border-[2px] shadow-md shadow-black/50",
+												"bg-zinc-900/10 rounded-xl border-zinc-200/50  flex items-center justify-between  gap-3 p-3 border-[2px] shadow-md shadow-black/20",
 												errors.sectionC?.declarations?.misrepresentationAcknowledgement
 													? "border-destructive bg-destructive/5"
 													: "border-border"
@@ -1393,7 +1393,7 @@ export function Absa6995Form({
 
 										<div
 											className={cn(
-												"bg-zinc-900/10 rounded-xl border-zinc-200/50  flex items-center justify-between  gap-3 p-3 border-[2px] shadow-md shadow-black/50",
+												"bg-zinc-900/10 rounded-xl border-zinc-200/50  flex items-center justify-between  gap-3 p-3 border-[2px] shadow-md shadow-black/20",
 												errors.sectionC?.declarations?.debitingConsentAcknowledgement
 													? "border-destructive bg-destructive/5"
 													: "border-border"
@@ -1422,7 +1422,7 @@ export function Absa6995Form({
 
 										<div
 											className={cn(
-												"bg-zinc-900/10 rounded-xl border-zinc-200/50  flex items-center justify-between  gap-3 p-3 border-[2px] shadow-md shadow-black/50",
+												"bg-zinc-900/10 rounded-xl border-zinc-200/50  flex items-center justify-between  gap-3 p-3 border-[2px] shadow-md shadow-black/20",
 												errors.sectionC?.declarations?.personalInfoProcessingConsent
 													? "border-destructive bg-destructive/5"
 													: "border-border"
@@ -1452,7 +1452,7 @@ export function Absa6995Form({
 
 										<div
 											className={cn(
-												"bg-zinc-900/10 rounded-xl border-zinc-200/50  flex items-center justify-between  gap-3 p-3 border-[2px] shadow-md shadow-black/50",
+												"bg-zinc-900/10 rounded-xl border-zinc-200/50  flex items-center justify-between  gap-3 p-3 border-[2px] shadow-md shadow-black/20",
 												errors.sectionC?.declarations?.infoSharingUnderstanding
 													? "border-destructive bg-destructive/5"
 													: "border-border"
@@ -1478,7 +1478,7 @@ export function Absa6995Form({
 											</Label>
 										</div>
 
-										<div className="bg-zinc-900/10 rounded-xl border-zinc-200/50  flex items-center justify-between  gap-3 p-3 border-[2px] shadow-md shadow-black/50">
+										<div className="bg-zinc-900/10 rounded-xl border-zinc-200/50  flex items-center justify-between  gap-3 p-3 border-[2px] shadow-md shadow-black/20">
 											<Checkbox
 												id="tpppConsentWarranty"
 												checked={watch("sectionC.declarations.tpppConsentWarranty")}
