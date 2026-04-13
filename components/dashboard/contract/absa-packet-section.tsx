@@ -148,7 +148,7 @@ export function AbsaPacketSection({
 	};
 
 	return (
-		<GlassCard className="space-y-6 bg-olive-800">
+		<GlassCard className="space-y-6 bg-[#252c32]">
 			<div>
 				<p className="text-base uppercase text-secondary-foreground font-medium">
 					{absaPacketContent.label}
