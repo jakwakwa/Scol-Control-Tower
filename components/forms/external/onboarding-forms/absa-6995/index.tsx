@@ -570,7 +570,7 @@ export function Absa6995Form({
 									</div>
 
 									{/* Contact Details */}
-									<div className="bg-zinc-900/15 rounded-xl border-zinc-300/10 px-4  space-y-4 pt-4 border-t border-[1.5px]">
+									<div className="bg-zinc-900/15 rounded-xl border-zinc-300/10 px-4  space-y-4 py-4 border-t border-[1.5px]">
 										<h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
 											Physical Operating Address
 										</h4>
@@ -611,7 +611,7 @@ export function Absa6995Form({
 										</div>
 									</div>
 
-									<div className="bg-zinc-900/15 rounded-xl border-zinc-300/10 px-4  space-y-4 pt-4 border-t border-[1.5px]">
+									<div className="bg-zinc-900/15 rounded-xl border-zinc-300/10 px-4  space-y-4 py-4 border-t border-[1.5px]">
 										<h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
 											CIPC Registered Address
 										</h4>
@@ -656,7 +656,7 @@ export function Absa6995Form({
 										</div>
 									</div>
 
-									<div className="bg-zinc-900/15 rounded-xl border-zinc-300/10 px-4  space-y-4 pt-4 border-t border-[1.5px]">
+									<div className="bg-zinc-900/15 rounded-xl border-zinc-300/10 px-4  space-y-4 py-4 border-t border-[1.5px]">
 										<h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
 											Contact Information
 										</h4>
@@ -773,7 +773,7 @@ export function Absa6995Form({
 									</div>
 
 									{/* Collection History */}
-									<div className="bg-zinc-900/15 rounded-xl border-zinc-300/10 px-4  space-y-4 pt-4 border-t border-[1.5px]">
+									<div className="bg-zinc-900/15 rounded-xl border-zinc-300/10 px-4  space-y-4 py-4 border-t border-[1.5px]">
 										<h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
 											Collection History
 										</h4>
@@ -919,7 +919,7 @@ export function Absa6995Form({
 									</div>
 
 									{/* References */}
-									<div className="bg-zinc-900/15 rounded-xl border-zinc-300/10 px-4  space-y-4 pt-4 border-t border-[1.5px]">
+									<div className="bg-zinc-900/15 rounded-xl border-zinc-300/10 px-4  space-y-4 py-4 border-t border-[1.5px]">
 										<h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
 											References (5 Absa-banked clients you debited in the past)
 										</h4>
@@ -960,7 +960,7 @@ export function Absa6995Form({
 									</div>
 
 									{/* Ratios & Business Metrics */}
-									<div className="bg-zinc-900/15 rounded-xl border-zinc-300/10 px-4  space-y-4 pt-4 border-t border-[1.5px]">
+									<div className="bg-zinc-900/15 rounded-xl border-zinc-300/10 px-4  space-y-4 py-4 border-t border-[1.5px]">
 										<h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
 											Ratios & Business Metrics
 										</h4>
@@ -1337,7 +1337,7 @@ export function Absa6995Form({
 
 										<div
 											className={cn(
-												"bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-start gap-3 p-3 rounded-lg border",
+												"bg-zinc-900/10 rounded-xl border-zinc-200/30  flex items-start gap-3 p-3 border-[1.5px] shadow-md shadow-black/20",
 												errors.sectionC?.declarations?.informationTrueAndCorrect
 													? "border-destructive bg-destructive/5"
 													: "border-border"
@@ -1364,7 +1364,7 @@ export function Absa6995Form({
 
 										<div
 											className={cn(
-												"bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-start gap-3 p-3 rounded-lg border",
+												"bg-zinc-900/10 rounded-xl border-zinc-200/30  flex items-start gap-3 p-3 border-[1.5px] shadow-md shadow-black/20",
 												errors.sectionC?.declarations?.misrepresentationAcknowledgement
 													? "border-destructive bg-destructive/5"
 													: "border-border"
@@ -1393,7 +1393,7 @@ export function Absa6995Form({
 
 										<div
 											className={cn(
-												"bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-start gap-3 p-3 rounded-lg border",
+												"bg-zinc-900/10 rounded-xl border-zinc-200/30  flex items-start gap-3 p-3 border-[1.5px] shadow-md shadow-black/20",
 												errors.sectionC?.declarations?.debitingConsentAcknowledgement
 													? "border-destructive bg-destructive/5"
 													: "border-border"
@@ -1422,7 +1422,7 @@ export function Absa6995Form({
 
 										<div
 											className={cn(
-												"bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-start gap-3 p-3 rounded-lg border",
+												"bg-zinc-900/10 rounded-xl border-zinc-200/30  flex items-start gap-3 p-3 border-[1.5px] shadow-md shadow-black/20",
 												errors.sectionC?.declarations?.personalInfoProcessingConsent
 													? "border-destructive bg-destructive/5"
 													: "border-border"
@@ -1452,7 +1452,7 @@ export function Absa6995Form({
 
 										<div
 											className={cn(
-												"bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-start gap-3 p-3 rounded-lg border",
+												"bg-zinc-900/10 rounded-xl border-zinc-200/30  flex items-start gap-3 p-3 border-[1.5px] shadow-md shadow-black/20",
 												errors.sectionC?.declarations?.infoSharingUnderstanding
 													? "border-destructive bg-destructive/5"
 													: "border-border"
@@ -1478,7 +1478,7 @@ export function Absa6995Form({
 											</Label>
 										</div>
 
-										<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-start gap-3 p-3 rounded-lg border border-border">
+										<div className="bg-zinc-900/10 rounded-xl border-zinc-200/30  flex items-start gap-3 p-3 border-[1.5px] shadow-md shadow-black/20">
 											<Checkbox
 												id="tpppConsentWarranty"
 												checked={watch("sectionC.declarations.tpppConsentWarranty")}
