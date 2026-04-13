@@ -91,8 +91,8 @@ export function DashboardShell({ children, notifications = [] }: DashboardShellP
 
 	return (
 		<>
-			{/* BACKGROUNDs */}
-			<div className="print:hidden print:bg-white fixed w-full -z-20 top-0 min-h-full size-230 h-screen bg-radial-[at_-50%_-40%] from-10% from-[var(--gold-700)]/80 via-50% via-zinc-800	 to-zinc-900 to-90%" />
+			{/* BACKGROUNDS */}
+			<div className="print:hidden print:bg-white fixed w-full -z-20 top-0 min-h-full size-230 h-screen bg-radial-[at_-10%_-80%] from-20% from-[var(--gold-700)] via-50% via-stone-700	 to-zinc-900 to-110%" />
 
 			<div className="print:hidden">
 				<Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
