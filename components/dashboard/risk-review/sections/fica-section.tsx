@@ -24,7 +24,33 @@ import {
 	getVatBadgeVariant,
 	getVatStatusExplanation,
 } from "@/lib/risk-review/vat-status-display";
-import { cn } from "@/lib/utils";
+import { cn, formatEnumLabel } from "@/lib/utils";
+
+const SUPPLEMENTAL_DOC_LABELS: Record<string, string> = {
+	BANK_STATEMENT_3_MONTH: "Bank Statement (3 Months)",
+	PROPRIETOR_ID: "Proprietor ID",
+	PROPRIETOR_RESIDENCE: "Proprietor Residence",
+};
+
+function recommendationVariant(
+	recommendation:
+		| "ACCEPT"
+		| "REVIEW"
+		| "REJECT"
+		| "REQUEST_NEW_DOCUMENT"
+): "success" | "warning" | "danger" {
+	switch (recommendation) {
+		case "ACCEPT":
+			return "success";
+		case "REVIEW":
+			return "warning";
+		case "REJECT":
+		case "REQUEST_NEW_DOCUMENT":
+			return "danger";
+		default:
+			return "warning";
+	}
+}
 
 const SUPPLEMENTAL_DOC_LABELS: Record<string, string> = {
 	BANK_STATEMENT_3_MONTH: "Bank Statement (3 Months)",
@@ -278,7 +304,7 @@ export function FicaSection({
 														variant={recommendationVariant(
 															result.validation.recommendation
 														)}>
-														{result.validation.recommendation.replaceAll("_", " ")}
+														{formatEnumLabel(result.validation.recommendation)}
 													</RiskReviewBadge>
 												</div>
 
@@ -310,10 +336,7 @@ export function FicaSection({
 														<div className="p-2 rounded-md bg-muted/40 border border-border/50">
 															<p className="text-foreground font-medium">
 																FICA comparison:{" "}
-																{result.validation.ficaComparison.summary.overallStatus.replaceAll(
-																	"_",
-																	" "
-																)}
+																{formatEnumLabel(result.validation.ficaComparison.summary.overallStatus)}
 															</p>
 															<p className="text-muted-foreground">
 																Mismatches:{" "}
