@@ -24,7 +24,7 @@ import {
 	getVatBadgeVariant,
 	getVatStatusExplanation,
 } from "@/lib/risk-review/vat-status-display";
-import { cn } from "@/lib/utils";
+import { cn, formatEnumLabel } from "@/lib/utils";
 
 const SUPPLEMENTAL_DOC_LABELS: Record<string, string> = {
 	BANK_STATEMENT_3_MONTH: "Bank Statement (3 Months)",
@@ -278,10 +278,7 @@ export function FicaSection({
 														variant={recommendationVariant(
 															result.validation.recommendation
 														)}>
-														{result.validation.recommendation
-														.toLowerCase()
-														.replace(/_/g, " ")
-														.replace(/\b\w/g, c => c.toUpperCase())}
+														{formatEnumLabel(result.validation.recommendation)}
 													</RiskReviewBadge>
 												</div>
 
@@ -313,10 +310,7 @@ export function FicaSection({
 														<div className="p-2 rounded-md bg-muted/40 border border-border/50">
 															<p className="text-foreground font-medium">
 																FICA comparison:{" "}
-																{result.validation.ficaComparison.summary.overallStatus
-																	.toLowerCase()
-																	.replace(/_/g, " ")
-																	.replace(/\b\w/g, c => c.toUpperCase())}
+																{formatEnumLabel(result.validation.ficaComparison.summary.overallStatus)}
 															</p>
 															<p className="text-muted-foreground">
 																Mismatches:{" "}

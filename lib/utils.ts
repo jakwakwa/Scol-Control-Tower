@@ -5,6 +5,17 @@ export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
 }
 
+/**
+ * Converts an internal enum/constant value (e.g. "MANUAL_REVIEW", "manual_review")
+ * to a human-readable title-case label (e.g. "Manual Review").
+ */
+export function formatEnumLabel(value: string): string {
+	return value
+		.toLowerCase()
+		.replace(/_/g, " ")
+		.replace(/\b\w/g, c => c.toUpperCase());
+}
+
 export function getBaseUrl() {
 	if (typeof window !== "undefined") {
 		return window.location.origin;
