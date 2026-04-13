@@ -14,35 +14,34 @@
  * - Step 6: Declarations & Signatures
  */
 
-import * as React from "react";
-import { useForm, FormProvider, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FormWizard, FormStep, readPersistedWizardStep } from "../form-wizard";
-import { SignatureCanvas } from "../signature-canvas";
+import {
+	RiAddLine,
+	RiBankLine,
+	RiBuildingLine,
+	RiDeleteBinLine,
+	RiFileListLine,
+	RiShieldCheckLine,
+	RiUserLine,
+} from "@remixicon/react";
+import * as React from "react";
+import { FormProvider, useFieldArray, useForm } from "react-hook-form";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-	RiBuildingLine,
-	RiUserLine,
-	RiBankLine,
-	RiShieldCheckLine,
-	RiFileListLine,
-	RiAddLine,
-	RiDeleteBinLine,
-} from "@remixicon/react";
-
-import {
-	absa6995Schema,
 	ABSA_6995_STEP_TITLES,
+	type Absa6995FormData,
 	ApplicationType,
-	SalesDistribution,
+	absa6995Schema,
 	ExitReason,
 	getAbsa6995DefaultValues,
-	type Absa6995FormData,
+	SalesDistribution,
 } from "@/lib/validations/onboarding";
+import { FormStep, FormWizard, readPersistedWizardStep } from "../form-wizard";
+import { SignatureCanvas } from "../signature-canvas";
 
 // ============================================
 // Types
@@ -513,7 +512,7 @@ export function Absa6995Form({
 									</div>
 
 									{/* Directors */}
-									<div className="space-y-4">
+									<div className="bg-card space-y-4">
 										<div className="flex items-center justify-between">
 											<h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
 												Directors (Minimum 3 required)
@@ -571,7 +570,7 @@ export function Absa6995Form({
 									</div>
 
 									{/* Contact Details */}
-									<div className="space-y-4 pt-4 border-t border-border">
+									<div className="bg-card space-y-4 pt-4 border-t border-border">
 										<h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
 											Physical Operating Address
 										</h4>
@@ -612,7 +611,7 @@ export function Absa6995Form({
 										</div>
 									</div>
 
-									<div className="space-y-4 pt-4 border-t border-border">
+									<div className="bg-card space-y-4 pt-4 border-t border-border">
 										<h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
 											CIPC Registered Address
 										</h4>
@@ -657,7 +656,7 @@ export function Absa6995Form({
 										</div>
 									</div>
 
-									<div className="space-y-4 pt-4 border-t border-border">
+									<div className="bg-card space-y-4 pt-4 border-t border-border">
 										<h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
 											Contact Information
 										</h4>
@@ -700,7 +699,7 @@ export function Absa6995Form({
 
 							{/* Step 3: Banking & Collection History */}
 							<FormStep isActive={logicalStepIndex === 2}>
-								<div className="space-y-6">
+								<div className="bg-card space-y-6">
 									<div className="flex items-center gap-2 mb-4">
 										<RiBankLine className="h-5 w-5 text-muted-foreground" />
 										<h3 className="text-lg font-semibold">
@@ -709,7 +708,7 @@ export function Absa6995Form({
 									</div>
 
 									{/* Banking Details */}
-									<div className="space-y-4">
+									<div className="bg-card space-y-4">
 										<h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
 											Banking Details
 										</h4>
@@ -754,7 +753,7 @@ export function Absa6995Form({
 									</div>
 
 									{/* Sales Distribution */}
-									<div className="space-y-3 pt-4 border-t border-border">
+									<div className="bg-card space-y-3 pt-4 border-t border-border">
 										<FormField label="Sales Distribution">
 											<p className="text-xs text-muted-foreground mb-2">
 												Select all that apply
@@ -774,7 +773,7 @@ export function Absa6995Form({
 									</div>
 
 									{/* Collection History */}
-									<div className="space-y-4 pt-4 border-t border-border">
+									<div className="bg-card space-y-4 pt-4 border-t border-border">
 										<h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
 											Collection History
 										</h4>
@@ -855,7 +854,7 @@ export function Absa6995Form({
 									</div>
 
 									{/* Previous History */}
-									<div className="space-y-4">
+									<div className="bg-card space-y-4">
 										<h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
 											Previous History
 										</h4>
@@ -888,7 +887,7 @@ export function Absa6995Form({
 										</div>
 
 										{hasBeenExited && (
-											<div className="pl-8 space-y-3">
+											<div className="bg-card pl-8 space-y-3">
 												<FormField label="Reason for Exit">
 													<CheckboxGroup
 														options={EXIT_REASON_OPTIONS}
@@ -920,7 +919,7 @@ export function Absa6995Form({
 									</div>
 
 									{/* References */}
-									<div className="space-y-4 pt-4 border-t border-border">
+									<div className="bg-card space-y-4 pt-4 border-t border-border">
 										<h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
 											References (5 Absa-banked clients you debited in the past)
 										</h4>
@@ -961,7 +960,7 @@ export function Absa6995Form({
 									</div>
 
 									{/* Ratios & Business Metrics */}
-									<div className="space-y-4 pt-4 border-t border-border">
+									<div className="bg-card space-y-4 pt-4 border-t border-border">
 										<h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
 											Ratios & Business Metrics
 										</h4>
@@ -1024,7 +1023,7 @@ export function Absa6995Form({
 										</div>
 
 										{/* Sponsorship */}
-										<div className="flex items-center gap-3 p-3 rounded-lg border border-border">
+										<div className="bg-card flex items-center gap-3 p-3 rounded-lg border border-border">
 											<Checkbox
 												id="isPresentlySponsored"
 												checked={isPresentlySponsored}
@@ -1076,7 +1075,7 @@ export function Absa6995Form({
 										)}
 
 										{/* Yes/No Questions */}
-										<div className="space-y-3">
+										<div className="bg-black/20 space-y-3">
 											{[
 												{
 													id: "hasLitigationPending",
@@ -1479,7 +1478,7 @@ export function Absa6995Form({
 											</Label>
 										</div>
 
-										<div className="flex items-start gap-3 p-3 rounded-lg border border-border">
+										<div className="bg-card flex items-start gap-3 p-3 rounded-lg border border-border">
 											<Checkbox
 												id="tpppConsentWarranty"
 												checked={watch("sectionC.declarations.tpppConsentWarranty")}
@@ -1500,7 +1499,7 @@ export function Absa6995Form({
 											</Label>
 										</div>
 
-										<div className="flex items-start gap-3 p-3 rounded-lg border border-border">
+										<div className="bg-card flex items-start gap-3 p-3 rounded-lg border border-border">
 											<Checkbox
 												id="ultimateCreditorInfoWarranty"
 												checked={watch(
