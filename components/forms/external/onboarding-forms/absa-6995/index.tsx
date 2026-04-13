@@ -1236,7 +1236,7 @@ export function Absa6995Form({
 													Proof of business address
 												</Label>
 											</div>
-											<div className="flex items-center gap-3 p-3 rounded-lg border border-border">
+											<div className="bg-card flex items-center gap-3 p-3 rounded-lg border border-border">
 												<Checkbox
 													id="bankStatements"
 													checked={watch("sectionC.documentChecklist.bankStatements")}
@@ -1254,7 +1254,7 @@ export function Absa6995Form({
 													3 months bank statements
 												</Label>
 											</div>
-											<div className="flex items-center gap-3 p-3 rounded-lg border border-border">
+											<div className="bg-card flex items-center gap-3 p-3 rounded-lg border border-border">
 												<Checkbox
 													id="cipcDocuments"
 													checked={watch("sectionC.documentChecklist.cipcDocuments")}
@@ -1270,7 +1270,7 @@ export function Absa6995Form({
 													Latest CIPC and registration documents
 												</Label>
 											</div>
-											<div className="flex items-center gap-3 p-3 rounded-lg border border-border">
+											<div className="bg-card flex items-center gap-3 p-3 rounded-lg border border-border">
 												<Checkbox
 													id="regulatedIndustryCertificates"
 													checked={watch(
@@ -1290,7 +1290,7 @@ export function Absa6995Form({
 													Certified copies for regulated industries (NCR, FSCA, etc.)
 												</Label>
 											</div>
-											<div className="flex items-center gap-3 p-3 rounded-lg border border-border">
+											<div className="bg-card flex items-center gap-3 p-3 rounded-lg border border-border">
 												<Checkbox
 													id="clientMandates"
 													checked={watch("sectionC.documentChecklist.clientMandates")}
@@ -1308,7 +1308,7 @@ export function Absa6995Form({
 													Five mandates of existing clients
 												</Label>
 											</div>
-											<div className="flex items-center gap-3 p-3 rounded-lg border border-border">
+											<div className="bg-card flex items-center gap-3 p-3 rounded-lg border border-border">
 												<Checkbox
 													id="marketingMaterial"
 													checked={watch("sectionC.documentChecklist.marketingMaterial")}
@@ -1337,7 +1337,7 @@ export function Absa6995Form({
 
 										<div
 											className={cn(
-												"flex items-start gap-3 p-3 rounded-lg border",
+												"bg-card flex items-start gap-3 p-3 rounded-lg border",
 												errors.sectionC?.declarations?.informationTrueAndCorrect
 													? "border-destructive bg-destructive/5"
 													: "border-border"
@@ -1364,7 +1364,7 @@ export function Absa6995Form({
 
 										<div
 											className={cn(
-												"flex items-start gap-3 p-3 rounded-lg border",
+												"bg-card flex items-start gap-3 p-3 rounded-lg border",
 												errors.sectionC?.declarations?.misrepresentationAcknowledgement
 													? "border-destructive bg-destructive/5"
 													: "border-border"
@@ -1393,7 +1393,7 @@ export function Absa6995Form({
 
 										<div
 											className={cn(
-												"flex items-start gap-3 p-3 rounded-lg border",
+												"bg-card flex items-start gap-3 p-3 rounded-lg border",
 												errors.sectionC?.declarations?.debitingConsentAcknowledgement
 													? "border-destructive bg-destructive/5"
 													: "border-border"
@@ -1422,7 +1422,7 @@ export function Absa6995Form({
 
 										<div
 											className={cn(
-												"flex items-start gap-3 p-3 rounded-lg border",
+												"bg-card flex items-start gap-3 p-3 rounded-lg border",
 												errors.sectionC?.declarations?.personalInfoProcessingConsent
 													? "border-destructive bg-destructive/5"
 													: "border-border"
@@ -1452,7 +1452,7 @@ export function Absa6995Form({
 
 										<div
 											className={cn(
-												"flex items-start gap-3 p-3 rounded-lg border",
+												"bg-card flex items-start gap-3 p-3 rounded-lg border",
 												errors.sectionC?.declarations?.infoSharingUnderstanding
 													? "border-destructive bg-destructive/5"
 													: "border-border"
