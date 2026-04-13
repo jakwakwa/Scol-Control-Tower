@@ -1200,7 +1200,7 @@ export function Absa6995Form({
 										</p>
 
 										<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-											<div className="flex items-center gap-3 p-3 rounded-lg border border-border">
+											<div className="bg-zinc-900/5 rounded-xl border-zinc-300/20 flex items-center gap-3 p-3 rounded-lg border border-border">
 												<Checkbox
 													id="directorsIds"
 													checked={watch("sectionC.documentChecklist.directorsIds")}
@@ -1216,7 +1216,7 @@ export function Absa6995Form({
 													Copy of directors' IDs
 												</Label>
 											</div>
-											<div className="flex items-center gap-3 p-3 rounded-lg border border-border">
+											<div className="bg-zinc-900/5 rounded-xl border-zinc-300/20 flex items-center gap-3 p-3 rounded-lg border border-border">
 												<Checkbox
 													id="proofOfBusinessAddress"
 													checked={watch(
