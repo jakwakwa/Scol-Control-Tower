@@ -37,7 +37,14 @@ export function SearchInput({
 
 	const handleClear = () => {
 		setText("");
+		onChange("");
 		inputRef.current?.focus();
+	};
+
+	const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+		if (e.key === "Escape" && text.length > 0) {
+			handleClear();
+		}
 	};
 
 	return (
@@ -49,6 +56,7 @@ export function SearchInput({
 				className={cn("pl-10", text.length > 0 && "pr-12")}
 				value={text}
 				onChange={e => setText(e.target.value)}
+				onKeyDown={handleKeyDown}
 			/>
 			{text.length > 0 ? (
 				<Button
