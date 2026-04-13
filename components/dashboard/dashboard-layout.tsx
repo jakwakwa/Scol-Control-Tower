@@ -67,9 +67,7 @@ export function GlassCard({
 				hover
 					? "transition-all duration-300 hover:bg-card hover:border-secondary/10 hover:shadow-2xl hover:-translate-y-1"
 					: "glass-card"
-			} ${className || ""}`}
-			// style={{ borderRadius: "40px !important" }}
-		>
+			} ${className || ""}`}>
 			{children}
 		</div>
 	);
