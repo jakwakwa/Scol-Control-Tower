@@ -1,11 +1,11 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "StratCol Control Tower Docs",
+  "name": "Control Tower Docs",
   "colors": {
-    "primary": "#af8300",
-    "light": "#dfa714",
-    "dark": "#012f3a"
+    "primary": "#e2b428",
+    "light": "#bb890a",
+    "dark": "#005b72"
   },
   "navigation": {
     "dropdowns": [
@@ -14,6 +14,7 @@
         "groups": [
           {
             "group": "User guides",
+            "expanded": true,
             "pages": [
               "user-guides/overview",
               "user-guides/applicants",
@@ -28,7 +29,6 @@
               "user-guides/onboarding-forms",
               "user-guides/quotations",
               "user-guides/agents",
-              "user-guides/identity-verification",
               "user-guides/notifications",
               "user-guides/e2e-testing"
             ]
@@ -64,8 +64,6 @@
           {
             "group": "Issues",
             "pages": [
-              "issues/integration-issues/2026-04-07-procurecheck-v7-refactor-durable-stage4-gate",
-              "issues/integration-issues/2026-04-10-inngest-identity-verification-terminal-state-before-logging",
               "issues/integration-issues/2026-03-30-inngest-id-verification-telemetry-cleanup",
               "issues/database-issues/2026-03-27-remove-legacy-agents-xt-callbacks-dead-callback-plumbing",
               "issues/database-issues/2026-03-27-drizzle-migration-squash-and-combined-db-reset",
@@ -94,8 +92,7 @@
               "api-reference/endpoint/applicants",
               "api-reference/endpoint/documents",
               "api-reference/endpoint/quotes",
-              "api-reference/endpoint/workflows",
-              "api-reference/endpoint/identity-verification"
+              "api-reference/endpoint/workflows"
             ]
           },
           {
@@ -143,8 +140,8 @@
   },
   "background": {
     "color": {
-      "light": "#e4dddb",
-      "dark": "#171012"
+      "light": "#fdf9f8",
+      "dark": "#231703"
     },
     "decoration": "grid"
   },
@@ -152,20 +149,19 @@
     "default": "dark"
   },
   "fonts": {
-    "family": "Inter",
-    "weight": 400,
+    "family": "Poppins",
+    "weight": 500,
+    "format": "woff",
     "heading": {
-      "family": "Merriweather",
-      "weight": 600
+      "family": "Lexend"
     },
     "body": {
-      "family": "Merriweather",
-      "weight": 400
+      "family": "Roboto"
     }
   },
   "banner": {
     "content": "V.0.5.2.alpha",
-    "dismissible": true
+    "dismissible": false
   },
   "api": {
     "playground": {
@@ -177,15 +173,15 @@
     "drilldown": true
   },
   "icons": {
-    "library": "lucide"
+    "library": "fontawesome"
   },
   "thumbnails": {
     "appearance": "dark"
   },
   "styling": {
-    "eyebrows": "section",
+    "eyebrows": "breadcrumbs",
     "codeblocks": "dark",
-    "latex": true
+    "latex": false
   },
   "search": {
     "prompt": "Ask what you need..."
