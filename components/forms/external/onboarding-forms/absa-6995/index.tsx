@@ -887,7 +887,7 @@ export function Absa6995Form({
 										</div>
 
 										{hasBeenExited && (
-											<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  pl-8 space-y-3">
+											<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-start gap-3 p-3 rounded-lg border border-border shadow-md shadow-black/20">
 												<FormField label="Reason for Exit">
 													<CheckboxGroup
 														options={EXIT_REASON_OPTIONS}
@@ -1023,7 +1023,7 @@ export function Absa6995Form({
 										</div>
 
 										{/* Sponsorship */}
-										<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-center gap-3 p-3 rounded-lg border border-border">
+										<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-start gap-3 p-3 rounded-lg border border-border shadow-md shadow-black/20">
 											<Checkbox
 												id="isPresentlySponsored"
 												checked={isPresentlySponsored}
@@ -1107,7 +1107,7 @@ export function Absa6995Form({
 											].map(item => (
 												<div
 													key={item.id}
-													className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-4 space-y-3 over flex items-center gap-3 border">
+													className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-start gap-3 p-3 rounded-lg border border-border shadow-md shadow-black/20">
 													<Checkbox
 														id={item.id}
 														checked={watch(item.field)}
@@ -1200,7 +1200,7 @@ export function Absa6995Form({
 										</p>
 
 										<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-											<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-center gap-3 p-3 rounded-lg border border-border">
+											<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-start gap-3 p-3 rounded-lg border border-border shadow-md shadow-black/20">
 												<Checkbox
 													id="directorsIds"
 													checked={watch("sectionC.documentChecklist.directorsIds")}
@@ -1216,7 +1216,7 @@ export function Absa6995Form({
 													Copy of directors' IDs
 												</Label>
 											</div>
-											<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-center gap-3 p-3 rounded-lg border border-border">
+											<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-start gap-3 p-3 rounded-lg border border-border shadow-md shadow-black/20">
 												<Checkbox
 													id="proofOfBusinessAddress"
 													checked={watch(
@@ -1236,7 +1236,7 @@ export function Absa6995Form({
 													Proof of business address
 												</Label>
 											</div>
-											<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-center gap-3 p-3 rounded-lg border border-border">
+											<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-start gap-3 p-3 rounded-lg border border-border shadow-md shadow-black/20">
 												<Checkbox
 													id="bankStatements"
 													checked={watch("sectionC.documentChecklist.bankStatements")}
@@ -1254,7 +1254,7 @@ export function Absa6995Form({
 													3 months bank statements
 												</Label>
 											</div>
-											<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-center gap-3 p-3 rounded-lg border border-border">
+											<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-start gap-3 p-3 rounded-lg border border-border shadow-md shadow-black/20">
 												<Checkbox
 													id="cipcDocuments"
 													checked={watch("sectionC.documentChecklist.cipcDocuments")}
@@ -1270,7 +1270,7 @@ export function Absa6995Form({
 													Latest CIPC and registration documents
 												</Label>
 											</div>
-											<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-center gap-3 p-3 rounded-lg border border-border">
+											<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-start gap-3 p-3 rounded-lg border border-border shadow-md shadow-black/20">
 												<Checkbox
 													id="regulatedIndustryCertificates"
 													checked={watch(
@@ -1290,7 +1290,7 @@ export function Absa6995Form({
 													Certified copies for regulated industries (NCR, FSCA, etc.)
 												</Label>
 											</div>
-											<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-center gap-3 p-3 rounded-lg border border-border">
+											<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-start gap-3 p-3 rounded-lg border border-border shadow-md shadow-black/20">
 												<Checkbox
 													id="clientMandates"
 													checked={watch("sectionC.documentChecklist.clientMandates")}
@@ -1308,7 +1308,7 @@ export function Absa6995Form({
 													Five mandates of existing clients
 												</Label>
 											</div>
-											<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-center gap-3 p-3 rounded-lg border border-border">
+											<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-start gap-3 p-3 rounded-lg border border-border shadow-md shadow-black/20">
 												<Checkbox
 													id="marketingMaterial"
 													checked={watch("sectionC.documentChecklist.marketingMaterial")}
@@ -1478,7 +1478,7 @@ export function Absa6995Form({
 											</Label>
 										</div>
 
-										<div className="bg-zinc-900/10 rounded-xl border-zinc-100/50  flex items-center justify-start  gap-3 p-3 border-[2px] shadow-md shadow-black/20">
+										<div className="bg-zinc-900/10 rounded-xl border-zinc-300/10 p-1  flex items-start gap-3 p-3 rounded-lg border border-border shadow-md shadow-black/20">
 											<Checkbox
 												id="tpppConsentWarranty"
 												checked={watch("sectionC.declarations.tpppConsentWarranty")}
