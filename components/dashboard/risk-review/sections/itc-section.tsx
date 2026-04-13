@@ -19,6 +19,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import type { RiskReviewData, SectionStatus } from "@/lib/risk-review/types";
 import type { FinancialRiskAnalysisResult } from "@/lib/services/agents/financial-risk.agent";
+import { formatEnumLabel } from "@/lib/utils";
 
 function formatZARFromCents(cents: number): string {
 	return new Intl.NumberFormat("en-ZA", {
@@ -217,7 +218,7 @@ function CreditRiskCard({
 					<RiskReviewBadge
 						variant={riskCategoryVariant(cr.riskCategory)}
 						className="mt-3">
-						{cr.riskCategory.replace("_", " ")}
+						{formatEnumLabel(cr.riskCategory)}
 					</RiskReviewBadge>
 					<p className="text-xs text-muted-foreground mt-2 text-center">
 						Overall assessment:{" "}

@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
+import { formatEnumLabel } from "@/lib/utils";
 
 // --- Types ---
 
@@ -68,13 +69,11 @@ function getCheckBadge(status: string): { variant: BadgeVariant; label: string }
 		case "confirmed_hit":
 			return { variant: "destructive", label: formatLabel(normalized) };
 		default:
-			return { variant: "outline", label: status || "Unknown" };
+			return { variant: "outline", label: formatLabel(status) || "Unknown" };
 	}
 }
 
-function formatLabel(status: string): string {
-	return status.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-}
+const formatLabel = formatEnumLabel;
 
 function CheckStatusBadge({ status }: { status: string }) {
 	const { variant, label } = getCheckBadge(status);
