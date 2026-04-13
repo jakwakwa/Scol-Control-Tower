@@ -217,7 +217,10 @@ function CreditRiskCard({
 					<RiskReviewBadge
 						variant={riskCategoryVariant(cr.riskCategory)}
 						className="mt-3">
-						{cr.riskCategory.replace("_", " ")}
+						{cr.riskCategory
+							.toLowerCase()
+							.replace(/_/g, " ")
+							.replace(/\b\w/g, c => c.toUpperCase())}
 					</RiskReviewBadge>
 					<p className="text-xs text-muted-foreground mt-2 text-center">
 						Overall assessment:{" "}
