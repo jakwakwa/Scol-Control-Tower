@@ -52,6 +52,32 @@ function recommendationVariant(
 	}
 }
 
+const SUPPLEMENTAL_DOC_LABELS: Record<string, string> = {
+	BANK_STATEMENT_3_MONTH: "Bank Statement (3 Months)",
+	PROPRIETOR_ID: "Proprietor ID",
+	PROPRIETOR_RESIDENCE: "Proprietor Residence",
+};
+
+function recommendationVariant(
+	recommendation:
+		| "ACCEPT"
+		| "REVIEW"
+		| "REJECT"
+		| "REQUEST_NEW_DOCUMENT"
+): "success" | "warning" | "danger" {
+	switch (recommendation) {
+		case "ACCEPT":
+			return "success";
+		case "REVIEW":
+			return "warning";
+		case "REJECT":
+		case "REQUEST_NEW_DOCUMENT":
+			return "danger";
+		default:
+			return "warning";
+	}
+}
+
 export function FicaSection({
 	data,
 	status,
